@@ -1,0 +1,128 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+import { describe, expect, test } from 'vitest'
+
+import {
+  buildStudioVideoRequest,
+  selectStudioVideoModels,
+} from './model-profiles'
+
+function videoModel(id: string) {
+  const model = selectStudioVideoModels([id])[0]
+  if (!model) throw new Error(`missing test model ${id}`)
+  return model
+}
+
+describe('Studio video models', () => {
+  test('uses the signed-in account model IDs without inventing a video model', () => {
+    expect(
+      selectStudioVideoModels([
+        'text-model',
+        'doubao-seedance-2-0-260128',
+        'doubao-seedance-2-0-fast-260128',
+        'MiniMax-H3',
+      ]).map((model) => [model.id, model.family, model.resolutions])
+    ).toEqual([
+      [
+        'doubao-seedance-2-0-260128',
+        'seedance-2',
+        ['480p', '720p', '1080p', '4k'],
+      ],
+      ['doubao-seedance-2-0-fast-260128', 'seedance-2', ['480p', '720p']],
+      ['MiniMax-H3', 'minimax-h3', ['768P', '2K']],
+    ])
+  })
+
+  test('keeps a deployment alias from the model list unchanged', () => {
+    const model = videoModel('sd2')
+    expect(model?.id).toBe('sd2')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'camera pushes in',
+        seconds: 5,
+        resolution: '720p',
+        ratio: '16:9',
+      }).model
+    ).toBe('sd2')
+  })
+
+  test('builds the Seedance 2.0 request with its resolution and optional source image', () => {
+    const model = videoModel('doubao-seedance-2-0-260128')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'camera pushes in',
+        seconds: 10,
+        resolution: '1080p',
+        ratio: '9:16',
+        imageUrl: 'https://cdn.example/frame.png',
+      })
+    ).toEqual({
+      model: 'doubao-seedance-2-0-260128',
+      prompt: 'camera pushes in',
+      seconds: 10,
+      metadata: { resolution: '1080p', ratio: '9:16' },
+      images: ['https://cdn.example/frame.png'],
+    })
+  })
+
+  test('builds the MiniMax H3 request using its own resolution values', () => {
+    const model = videoModel('MiniMax-H3')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'a quiet forest',
+        seconds: 4,
+        resolution: '2K',
+        ratio: '16:9',
+      })
+    ).toEqual({
+      model: 'MiniMax-H3',
+      prompt: 'a quiet forest',
+      seconds: 4,
+      duration: 4,
+      metadata: { resolution: '2K', ratio: '16:9' },
+    })
+  })
+
+  test('rejects settings outside the selected model contract', () => {
+    const model = videoModel('MiniMax-H3')
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'a quiet forest',
+        seconds: 16,
+        resolution: '2K',
+        ratio: '16:9',
+      })
+    ).toThrow('duration')
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'a quiet forest',
+        seconds: 5,
+        resolution: '1080p',
+        ratio: '16:9',
+      })
+    ).toThrow('resolution')
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'a quiet forest',
+        seconds: 5,
+        resolution: '768P',
+        ratio: '16:9',
+        imageUrl: 'blob:https://new.thqllm.com/local',
+      })
+    ).toThrow('public image URL')
+  })
+})

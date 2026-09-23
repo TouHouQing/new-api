@@ -16,37 +16,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import {
-  Background,
-  ReactFlow,
-  type Edge,
-  type Node,
-  type ReactFlowProps,
-} from '@xyflow/react'
-import type { ReactNode } from 'react'
+import { createFileRoute, redirect } from '@tanstack/react-router'
 
-import '@xyflow/react/dist/style.css'
-import { Controls } from './controls'
+import { Main } from '@/components/layout'
+import { Studio } from '@/features/studio'
+import { isSidebarModuleEnabled } from '@/lib/nav-modules'
 
-type CanvasProps<N extends Node, E extends Edge> = ReactFlowProps<N, E> & {
-  children?: ReactNode
+export const Route = createFileRoute('/_authenticated/studio/')({
+  beforeLoad: () => {
+    if (!isSidebarModuleEnabled('chat', 'studio')) {
+      throw redirect({ to: '/dashboard' })
+    }
+  },
+  component: StudioPage,
+})
+
+function StudioPage() {
+  return (
+    <Main className='p-0'>
+      <Studio />
+    </Main>
+  )
 }
-
-export const Canvas = <N extends Node = Node, E extends Edge = Edge>({
-  children,
-  ...props
-}: CanvasProps<N, E>) => (
-  <ReactFlow<N, E>
-    deleteKeyCode={['Backspace', 'Delete']}
-    fitView
-    panOnDrag={false}
-    panOnScroll
-    selectionOnDrag
-    zoomOnDoubleClick={false}
-    {...props}
-  >
-    <Background bgColor='var(--sidebar)' />
-    <Controls />
-    {children}
-  </ReactFlow>
-)

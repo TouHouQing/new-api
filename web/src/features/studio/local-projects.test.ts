@@ -1,0 +1,163 @@
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+*/
+import { beforeEach, describe, expect, test } from 'vitest'
+
+import {
+  loadStudioProjects,
+  parseStudioProjectImport,
+  saveStudioProjects,
+  serializeStudioProjectExport,
+  studioProjectsKey,
+} from './local-projects'
+
+beforeEach(() => localStorage.clear())
+
+describe('browser-local Studio projects', () => {
+  test('isolates saved projects by New API user ID', () => {
+    const project = {
+      id: 'project-one',
+      title: 'Film ideas',
+      nodes: [],
+      edges: [],
+      createdAt: '2026-09-23T00:00:00.000Z',
+      updatedAt: '2026-09-23T00:00:00.000Z',
+    }
+    saveStudioProjects(localStorage, 12, [project])
+
+    expect(loadStudioProjects(localStorage, 12)).toEqual([project])
+    expect(loadStudioProjects(localStorage, 13)).toEqual([])
+    expect(studioProjectsKey(12)).not.toBe(studioProjectsKey(13))
+  })
+
+  test('treats malformed or outdated documents as empty', () => {
+    localStorage.setItem(studioProjectsKey(12), 'broken json')
+    expect(loadStudioProjects(localStorage, 12)).toEqual([])
+
+    localStorage.setItem(
+      studioProjectsKey(12),
+      JSON.stringify({ version: 0, projects: [{ id: 'old' }] })
+    )
+    expect(loadStudioProjects(localStorage, 12)).toEqual([])
+  })
+
+  test('rejects missing users so account data cannot enter a shared key', () => {
+    expect(() => studioProjectsKey(0)).toThrow('user ID')
+    expect(() => loadStudioProjects(localStorage, -1)).toThrow('user ID')
+  })
+
+  test('surfaces storage quota failures to the workspace', () => {
+    const storage: Pick<Storage, 'getItem' | 'setItem'> = {
+      getItem: () => null,
+      setItem: () => {
+        throw new DOMException('full', 'QuotaExceededError')
+      },
+    }
+    expect(() => saveStudioProjects(storage, 12, [])).toThrow('full')
+  })
+
+  test('rejects project imports with embedded credentials or malformed nodes', () => {
+    expect(() =>
+      parseStudioProjectImport(
+        JSON.stringify({
+          id: 'x',
+          title: 'Bad',
+          nodes: [],
+          edges: [],
+          createdAt: 'now',
+          updatedAt: 'now',
+          apiKey: 'secret',
+        })
+      )
+    ).toThrow('project')
+    expect(() =>
+      parseStudioProjectImport(
+        JSON.stringify({
+          id: 'x',
+          title: 'Bad',
+          nodes: [
+            {
+              id: 'n',
+              type: 'studio',
+              position: { x: 0, y: 0 },
+              data: { kind: 'html', title: 'X', prompt: '' },
+            },
+          ],
+          edges: [],
+          createdAt: 'now',
+          updatedAt: 'now',
+        })
+      )
+    ).toThrow('project')
+  })
+
+  test('keeps artifact access URLs out of local video state and exported files', () => {
+    const project = {
+      id: 'p',
+      title: 'Film',
+      createdAt: 'now',
+      updatedAt: 'now',
+      edges: [],
+      nodes: [
+        {
+          id: 'v',
+          type: 'studio' as const,
+          position: { x: 0, y: 0 },
+          data: {
+            kind: 'video' as const,
+            title: 'Shot',
+            prompt: 'Rain',
+            taskId: 'task',
+            outputUrl: 'https://cdn.example/video?access=secret',
+          },
+        },
+      ],
+    }
+    saveStudioProjects(localStorage, 12, [project])
+    expect(localStorage.getItem(studioProjectsKey(12))).not.toContain(
+      'access=secret'
+    )
+    const exported = serializeStudioProjectExport(project)
+    expect(exported).not.toContain('access=secret')
+    expect(
+      parseStudioProjectImport(exported).nodes[0].data.outputUrl
+    ).toBeUndefined()
+  })
+
+  test('does not treat imported media IDs as files in this browser', () => {
+    const raw = JSON.stringify({
+      id: 'p',
+      title: 'Film',
+      createdAt: 'now',
+      updatedAt: 'now',
+      edges: [],
+      nodes: [
+        {
+          id: 'i',
+          type: 'studio',
+          position: { x: 0, y: 0 },
+          data: {
+            kind: 'image',
+            title: 'Frame',
+            prompt: 'Rain',
+            mediaId: 'from-other-browser',
+          },
+        },
+      ],
+    })
+    expect(parseStudioProjectImport(raw).nodes[0].data.mediaId).toBeUndefined()
+  })
+})

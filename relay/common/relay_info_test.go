@@ -195,6 +195,23 @@ func TestGenRelayInfoKeepsOriginAndLeavesBillingUnset(t *testing.T) {
 	assert.Equal(t, model, info.GetBillingModelName())
 }
 
+func TestGenRelayInfoSessionFundedStudioKeepsCanonicalPath(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+	ctx.Request = httptest.NewRequest("POST", "/v1/videos", nil)
+	ctx.Set("studio_session_relay", true)
+	ctx.Set("id", 42)
+	ctx.Set("user_group", "default")
+	ctx.Set("using_group", "default")
+
+	info, err := GenRelayInfo(ctx, types.RelayFormatTask, nil, nil)
+	require.NoError(t, err)
+	assert.True(t, info.IsPlayground)
+	assert.Equal(t, "/v1/videos", info.RequestURLPath)
+	assert.Equal(t, 42, info.UserId)
+	assert.Zero(t, info.TokenId)
+}
+
 func TestInitChannelMetaRestoresRequestReasoningEffortForRetry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
