@@ -8,9 +8,11 @@ import (
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
+	"github.com/QuantumNous/new-api/controller"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/stretchr/testify/assert"
@@ -89,6 +91,7 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	require.NoError(t, err)
 
 	engine := gin.New()
+	engine.GET("/groups", middleware.UserAuth(), controller.GetUserGroups)
 	engine.POST("/studio-auth", middleware.UserAuth(), studioSessionAuth(), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
 			"user_id":     c.GetInt("id"),
@@ -111,6 +114,55 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	assert.Equal(t, "default", body["using_group"])
 	assert.Equal(t, true, body["funded"])
 	assert.EqualValues(t, 0, body["token_id"])
+
+	allowedGroup := httptest.NewRequest(http.MethodPost, "/studio-auth", nil)
+	allowedGroup.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	allowedGroup.Header.Set("X-Studio-Group", "vip")
+	allowedRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(allowedRecorder, allowedGroup)
+	require.Equal(t, http.StatusOK, allowedRecorder.Code, allowedRecorder.Body.String())
+	var allowedBody map[string]any
+	require.NoError(t, common.Unmarshal(allowedRecorder.Body.Bytes(), &allowedBody))
+	assert.Equal(t, "vip", allowedBody["using_group"])
+
+	groupsRequest := httptest.NewRequest(http.MethodGet, "/groups", nil)
+	groupsRequest.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	groupsRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(groupsRecorder, groupsRequest)
+	require.Equal(t, http.StatusOK, groupsRecorder.Code, groupsRecorder.Body.String())
+	var groupsPayload struct {
+		Data map[string]any `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(groupsRecorder.Body.Bytes(), &groupsPayload))
+	for name := range groupsPayload.Data {
+		if name == "auto" {
+			continue
+		}
+		groupRequest := httptest.NewRequest(http.MethodPost, "/studio-auth", nil)
+		groupRequest.Header.Set("Authorization", "Bearer "+session.AccessToken)
+		groupRequest.Header.Set("X-Studio-Group", name)
+		groupRecorder := httptest.NewRecorder()
+		engine.ServeHTTP(groupRecorder, groupRequest)
+		assert.Equal(t, http.StatusOK, groupRecorder.Code, "listed group %q should be accepted: %s", name, groupRecorder.Body.String())
+	}
+	specialGroups := ratio_setting.GetGroupRatioSetting().GroupSpecialUsableGroup
+	previousSpecialGroups := specialGroups.ReadAll()
+	t.Cleanup(func() {
+		specialGroups.Clear()
+		specialGroups.AddAll(previousSpecialGroups)
+	})
+	specialGroups.Set("default", map[string]string{"-:vip": "removed for this account group"})
+	restrictedGroups := httptest.NewRecorder()
+	engine.ServeHTTP(restrictedGroups, groupsRequest)
+	require.Equal(t, http.StatusOK, restrictedGroups.Code, restrictedGroups.Body.String())
+	var restrictedPayload struct {
+		Data map[string]any `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(restrictedGroups.Body.Bytes(), &restrictedPayload))
+	assert.NotContains(t, restrictedPayload.Data, "vip", "the group picker must not show a group the Studio relay rejects")
+	restrictedVideo := httptest.NewRecorder()
+	engine.ServeHTTP(restrictedVideo, allowedGroup)
+	assert.Equal(t, http.StatusForbidden, restrictedVideo.Code)
 
 	patRequest := httptest.NewRequest(http.MethodPost, "/studio-auth", nil)
 	patRequest.Header.Set("Authorization", "Bearer "+pat)
