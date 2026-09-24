@@ -90,10 +90,16 @@ import { StudioProviderSettings } from './provider-settings'
 import { StudioAttempts } from './studio-attempts'
 import { StudioInspector } from './studio-inspector'
 import { StudioNode } from './studio-node'
+import { StudioStoryboard } from './studio-storyboard'
 import {
   addStudioNode,
+  addStudioShot,
   createStudioProject,
+  ensureStudioFinalVideo,
   invalidateStudioBranch,
+  moveStudioShot,
+  pruneStudioShots,
+  removeStudioShot,
   studioBranchNodeIds,
   updateStudioNode,
 } from './workspace'
@@ -169,11 +175,14 @@ export function Studio() {
   const [attemptsOpen, setAttemptsOpen] = useState(false)
   const [settingsKind, setSettingsKind] = useState<StudioProviderKind>('text')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
+  const [view, setView] = useState<'canvas' | 'storyboard'>('canvas')
+  const [batchBusy, setBatchBusy] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
   const [previews, setPreviews] = useState<Record<string, string>>({})
-  const [deleteTarget, setDeleteTarget] = useState<'node' | 'project' | null>(
-    null
-  )
+  const [deleteTarget, setDeleteTarget] = useState<
+    'node' | 'project' | 'shot' | null
+  >(null)
+  const [selectedShotId, setSelectedShotId] = useState<string | null>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const ownedUrls = useRef<string[]>([])
   const activeUserId = useRef(userId)
@@ -266,6 +275,7 @@ export function Studio() {
       ready: true,
     })
     setSelectedNodeId(null)
+    setView(projects[0].shots?.length ? 'storyboard' : 'canvas')
     setVideoGroups([])
     setVideoModelsByGroup({})
     setProviderConfigs({})
@@ -543,6 +553,19 @@ export function Studio() {
         )
         editNode(source.id, nodeId, patch)
       }
+      const invalidateDependents = (nodeId: string) => {
+        const targets = source.edges
+          .filter((edge) => edge.source === nodeId)
+          .map((edge) => edge.target)
+        if (!targets.length) return
+        for (const targetId of targets) discardBranchMedia(source, targetId)
+        editProject(source.id, (project) =>
+          targets.reduce(
+            (current, targetId) => invalidateStudioBranch(current, targetId),
+            project
+          )
+        )
+      }
       try {
         update(target.id, { status: 'submitting', error: undefined })
         const ordered = planStudioExecution(
@@ -565,7 +588,8 @@ export function Studio() {
           if (node.data.kind === 'text') {
             if (!node.data.model) {
               if (!input.prompt.trim()) {
-                throw new Error(t('studio.prompt.required'))
+                if (selected) throw new Error(t('studio.prompt.required'))
+                continue
               }
               update(node.id, {
                 outputText: input.prompt,
@@ -581,25 +605,32 @@ export function Studio() {
             ) {
               continue
             }
-            if (
-              !providerConfigs.text?.hasKey ||
-              !providerModels.text?.includes(node.data.model)
-            ) {
+            const textConfig = providerConfigs.text?.hasKey
+              ? providerConfigs.text
+              : (await fetchStudioProviderConfigs()).text
+            if (!textConfig?.hasKey) throw new Error(t('studio.model.empty'))
+            const textModels =
+              providerModels.text || (await fetchStudioProviderModels('text'))
+            if (!textModels.includes(node.data.model)) {
               throw new Error(t('studio.model.empty'))
             }
+            if (activeUserId.current !== userId) return
             update(node.id, { status: 'submitting', error: undefined })
             const outputText = await generateStudioText(
               node.data.model,
               input.prompt
             )
+            if (activeUserId.current !== userId) return
             update(node.id, { outputText, status: 'completed' })
+            if (selected) invalidateDependents(node.id)
             continue
           }
 
           if (node.data.kind === 'image') {
             if (!node.data.model) {
               if (!node.data.mediaId) {
-                throw new Error(t('studio.image.uploadRequired'))
+                if (selected) throw new Error(t('studio.image.uploadRequired'))
+                continue
               }
               update(node.id, { status: 'completed', error: undefined })
               continue
@@ -611,17 +642,22 @@ export function Studio() {
             ) {
               continue
             }
-            if (
-              !providerConfigs.image?.hasKey ||
-              !providerModels.image?.includes(node.data.model)
-            ) {
+            const imageConfig = providerConfigs.image?.hasKey
+              ? providerConfigs.image
+              : (await fetchStudioProviderConfigs()).image
+            if (!imageConfig?.hasKey) throw new Error(t('studio.model.empty'))
+            const imageModels =
+              providerModels.image || (await fetchStudioProviderModels('image'))
+            if (!imageModels.includes(node.data.model)) {
               throw new Error(t('studio.model.empty'))
             }
+            if (activeUserId.current !== userId) return
             update(node.id, { status: 'submitting', error: undefined })
             const image = await generateStudioImage(
               node.data.model,
               input.prompt
             )
+            if (activeUserId.current !== userId) return
             if (node.data.mediaId) discardNodeMedia(source.id, node)
             let mediaId: string | undefined
             try {
@@ -643,6 +679,7 @@ export function Studio() {
               mediaId,
               status: 'completed',
             })
+            if (selected) invalidateDependents(node.id)
             if (!image.url.startsWith('https://')) {
               workingNodes = workingNodes.map((item) =>
                 item.id === node.id
@@ -695,15 +732,20 @@ export function Studio() {
             continue
           }
           if (!node.data.model) throw new Error(t('studio.model.empty'))
+          const availableGroups = videoGroups.length
+            ? videoGroups
+            : await fetchStudioGroups()
           const group = resolveVideoGroup(
             node.data.group,
             userGroup,
-            videoGroups
+            availableGroups
           )
           if (!group) throw new Error(t('studio.video.group.select'))
-          if (!videoModelsByGroup[group]?.includes(node.data.model)) {
+          const availableModels = await fetchStudioModels(group)
+          if (!availableModels.includes(node.data.model)) {
             throw new Error(t('studio.model.empty'))
           }
+          if (activeUserId.current !== userId) return
           const family =
             node.data.videoFamily ||
             inferStudioVideoFamily(node.data.model) ||
@@ -717,6 +759,13 @@ export function Studio() {
           const videos: string[] = []
           for (const parent of incoming) {
             if (parent.data.kind === 'image') {
+              if (
+                !parent.data.model &&
+                !parent.data.mediaId &&
+                !parent.data.outputUrl
+              ) {
+                continue
+              }
               if (
                 parent.data.outputUrl?.startsWith('https://') ||
                 parent.data.outputUrl?.startsWith('data:image/')
@@ -746,13 +795,16 @@ export function Studio() {
             ratio: node.data.ratio ?? '16:9',
             metadata: parseStudioVideoMetadata(node.data.metadataJson || ''),
           })
+          if (activeUserId.current !== userId) return
           update(node.id, {
             status: 'submitting',
             error: undefined,
             progress: undefined,
           })
           const taskId = await createStudioVideo(request, group)
+          if (activeUserId.current !== userId) return
           update(node.id, { taskId, status: 'queued', progress: 0 })
+          if (selected) invalidateDependents(node.id)
           if (!selected) {
             const deadline = Date.now() + 20 * 60_000
             while (Date.now() < deadline) {
@@ -800,11 +852,12 @@ export function Studio() {
       userId,
       workspace.ownerId,
       editNode,
+      editProject,
       saveMedia,
       discardNodeMedia,
+      discardBranchMedia,
       mediaStore,
       videoGroups,
-      videoModelsByGroup,
       providerConfigs,
       providerModels,
       userGroup,
@@ -880,6 +933,55 @@ export function Studio() {
     const nodeId = newId()
     editProject(project.id, (current) => addStudioNode(current, kind, nodeId))
     setSelectedNodeId(nodeId)
+  }
+
+  const addShot = () => {
+    if (!project) return
+    const shotId = newId()
+    const ids = { text: newId(), image: newId(), video: newId() }
+    editProject(project.id, (current) =>
+      addStudioShot(
+        current,
+        shotId,
+        ids,
+        `${t('studio.shot.defaultName')} ${(current.shots?.length || 0) + 1}`
+      )
+    )
+    setSelectedNodeId(ids.video)
+    setView('storyboard')
+  }
+
+  const createFinalVideo = () => {
+    if (!project) return
+    const nodeId = newId()
+    editProject(project.id, (current) =>
+      ensureStudioFinalVideo(current, nodeId, t('studio.shot.finalTitle'))
+    )
+    setSelectedNodeId(nodeId)
+    setView('storyboard')
+  }
+
+  const generateAllShots = async () => {
+    if (!project || batchBusy) return
+    setBatchBusy(true)
+    try {
+      for (const shot of project.shots || []) {
+        if (activeUserId.current !== userId) return
+        const video = project.nodes.find((node) => node.id === shot.videoNodeId)
+        if (
+          !video?.data.model ||
+          video.data.status === 'completed' ||
+          video.data.status === 'submitting' ||
+          video.data.status === 'queued' ||
+          video.data.status === 'processing'
+        ) {
+          continue
+        }
+        await generate(video, project)
+      }
+    } finally {
+      setBatchBusy(false)
+    }
   }
 
   const addProject = () => {
@@ -967,6 +1069,11 @@ export function Studio() {
             if (!value) return
             setWorkspace((current) => ({ ...current, activeId: value }))
             setSelectedNodeId(null)
+            setView(
+              projects.find((item) => item.id === value)?.shots?.length
+                ? 'storyboard'
+                : 'canvas'
+            )
           }}
           items={projects.map((item) => ({
             value: item.id,
@@ -1058,6 +1165,25 @@ export function Studio() {
         </div>
       )}
       <div className='flex flex-wrap gap-2 border-b px-4 py-2'>
+        <Button
+          variant={view === 'storyboard' ? 'secondary' : 'outline'}
+          size='sm'
+          onClick={() => setView('storyboard')}
+        >
+          {t('studio.view.storyboard')}
+        </Button>
+        <Button
+          variant={view === 'canvas' ? 'secondary' : 'outline'}
+          size='sm'
+          onClick={() => setView('canvas')}
+        >
+          {t('studio.view.canvas')}
+        </Button>
+        {view === 'canvas' && (
+          <Button variant='outline' size='sm' onClick={addShot}>
+            {t('studio.shot.add')}
+          </Button>
+        )}
         <Button variant='secondary' size='sm' onClick={() => addNode('text')}>
           <Type />
           {t('studio.add.text')}
@@ -1086,115 +1212,154 @@ export function Studio() {
       <div className='grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]'>
         <section
           className='relative h-[420px] overflow-hidden lg:h-auto lg:min-h-[400px]'
-          aria-label={t('studio.canvas')}
+          aria-label={
+            view === 'canvas' ? t('studio.canvas') : t('studio.view.storyboard')
+          }
         >
-          <Canvas
-            nodes={canvasNodes}
-            edges={project.edges}
-            nodeTypes={nodeTypes}
-            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-            onPaneClick={() => setSelectedNodeId(null)}
-            onNodesChange={(changes: NodeChange<StudioCanvasNode>[]) => {
-              const removedIds = new Set(
-                changes
-                  .filter((change) => change.type === 'remove')
-                  .map((change) => change.id)
-              )
-              const affectedTargets = project.edges
-                .filter(
-                  (edge) =>
-                    removedIds.has(edge.source) && !removedIds.has(edge.target)
-                )
-                .map((edge) => edge.target)
-              for (const change of changes) {
-                if (change.type === 'remove') {
-                  const removed = project.nodes.find(
-                    (node) => node.id === change.id
+          {view === 'canvas' ? (
+            <>
+              <Canvas
+                nodes={canvasNodes}
+                edges={project.edges}
+                nodeTypes={nodeTypes}
+                onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+                onPaneClick={() => setSelectedNodeId(null)}
+                onNodesChange={(changes: NodeChange<StudioCanvasNode>[]) => {
+                  const removedIds = new Set(
+                    changes
+                      .filter((change) => change.type === 'remove')
+                      .map((change) => change.id)
                   )
-                  if (removed) discardNodeMedia(project.id, removed)
-                }
-              }
-              for (const targetId of affectedTargets) {
-                discardBranchMedia(project, targetId)
-              }
-              editProject(project.id, (current) => {
-                let next = {
-                  ...current,
-                  nodes: applyNodeChanges(changes, current.nodes),
-                  edges: current.edges.filter(
-                    (edge) =>
-                      !removedIds.has(edge.source) &&
-                      !removedIds.has(edge.target)
-                  ),
-                  updatedAt: new Date().toISOString(),
-                }
-                for (const targetId of affectedTargets) {
-                  next = invalidateStudioBranch(next, targetId)
-                }
-                return next
-              })
-            }}
-            onEdgesChange={(changes: EdgeChange[]) => {
-              const targets = project.edges
-                .filter((edge) =>
-                  changes.some(
-                    (change) =>
-                      change.type === 'remove' && change.id === edge.id
-                  )
-                )
-                .map((edge) => edge.target)
-              for (const targetId of targets) {
-                discardBranchMedia(project, targetId)
-              }
-              editProject(project.id, (current) => {
-                let next = {
-                  ...current,
-                  edges: applyEdgeChanges(changes, current.edges),
-                  updatedAt: new Date().toISOString(),
-                }
-                for (const targetId of targets) {
-                  next = invalidateStudioBranch(next, targetId)
-                }
-                return next
-              })
-            }}
-            onConnect={(connection: Connection) => {
-              const sourceId = connection.source
-              const targetId = connection.target
-              if (!sourceId || !targetId) return
-              if (
-                !isValidStudioConnection(
-                  project.nodes,
-                  project.edges,
-                  sourceId,
-                  targetId
-                )
-              ) {
-                return
-              }
-              discardBranchMedia(project, targetId)
-              editProject(project.id, (current) =>
-                isValidStudioConnection(
-                  current.nodes,
-                  current.edges,
-                  sourceId,
-                  targetId
-                )
-                  ? invalidateStudioBranch(
-                      {
-                        ...current,
-                        edges: addEdge(connection, current.edges),
-                      },
+                  const affectedTargets = project.edges
+                    .filter(
+                      (edge) =>
+                        removedIds.has(edge.source) &&
+                        !removedIds.has(edge.target)
+                    )
+                    .map((edge) => edge.target)
+                  for (const change of changes) {
+                    if (change.type === 'remove') {
+                      const removed = project.nodes.find(
+                        (node) => node.id === change.id
+                      )
+                      if (removed) discardNodeMedia(project.id, removed)
+                    }
+                  }
+                  for (const targetId of affectedTargets) {
+                    discardBranchMedia(project, targetId)
+                  }
+                  editProject(project.id, (current) => {
+                    let next = {
+                      ...current,
+                      nodes: applyNodeChanges(changes, current.nodes),
+                      edges: current.edges.filter(
+                        (edge) =>
+                          !removedIds.has(edge.source) &&
+                          !removedIds.has(edge.target)
+                      ),
+                      updatedAt: new Date().toISOString(),
+                    }
+                    for (const targetId of affectedTargets) {
+                      next = invalidateStudioBranch(next, targetId)
+                    }
+                    return pruneStudioShots(next)
+                  })
+                }}
+                onEdgesChange={(changes: EdgeChange[]) => {
+                  const targets = project.edges
+                    .filter((edge) =>
+                      changes.some(
+                        (change) =>
+                          change.type === 'remove' && change.id === edge.id
+                      )
+                    )
+                    .map((edge) => edge.target)
+                  for (const targetId of targets) {
+                    discardBranchMedia(project, targetId)
+                  }
+                  editProject(project.id, (current) => {
+                    let next = {
+                      ...current,
+                      edges: applyEdgeChanges(changes, current.edges),
+                      updatedAt: new Date().toISOString(),
+                    }
+                    for (const targetId of targets) {
+                      next = invalidateStudioBranch(next, targetId)
+                    }
+                    return next
+                  })
+                }}
+                onConnect={(connection: Connection) => {
+                  const sourceId = connection.source
+                  const targetId = connection.target
+                  if (!sourceId || !targetId) return
+                  if (
+                    !isValidStudioConnection(
+                      project.nodes,
+                      project.edges,
+                      sourceId,
                       targetId
                     )
-                  : current
-              )
-            }}
-          />
-          {project.nodes.length === 0 && (
-            <div className='text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-center text-sm'>
-              <p>{t('studio.canvas.empty')}</p>
-            </div>
+                  ) {
+                    return
+                  }
+                  discardBranchMedia(project, targetId)
+                  editProject(project.id, (current) =>
+                    isValidStudioConnection(
+                      current.nodes,
+                      current.edges,
+                      sourceId,
+                      targetId
+                    )
+                      ? invalidateStudioBranch(
+                          {
+                            ...current,
+                            edges: addEdge(connection, current.edges),
+                          },
+                          targetId
+                        )
+                      : current
+                  )
+                }}
+              />
+              {project.nodes.length === 0 && (
+                <div className='text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-center text-sm'>
+                  <p>{t('studio.canvas.empty')}</p>
+                </div>
+              )}
+            </>
+          ) : (
+            <StudioStoryboard
+              project={project}
+              previews={previews}
+              batchBusy={batchBusy}
+              onAddShot={addShot}
+              onSelectNode={setSelectedNodeId}
+              onGenerateVideo={(nodeId) => {
+                const node = project.nodes.find((item) => item.id === nodeId)
+                if (node) void generate(node, project)
+              }}
+              onGenerateAll={() => void generateAllShots()}
+              onCreateFinalVideo={createFinalVideo}
+              onMoveShot={(shotId, direction) =>
+                editProject(project.id, (current) =>
+                  moveStudioShot(current, shotId, direction)
+                )
+              }
+              onRenameShot={(shotId, title) =>
+                editProject(project.id, (current) => ({
+                  ...current,
+                  shots: current.shots?.map((shot) =>
+                    shot.id === shotId ? { ...shot, title } : shot
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }))
+              }
+              onDeleteShot={(shotId) => {
+                setSelectedShotId(shotId)
+                setDeleteTarget('shot')
+              }}
+            />
           )}
         </section>
         <aside className='min-h-[560px] border-t lg:min-h-0 lg:border-t-0 lg:border-l'>
@@ -1276,27 +1441,55 @@ export function Studio() {
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {
-          if (!open) setDeleteTarget(null)
+          if (!open) {
+            setDeleteTarget(null)
+            setSelectedShotId(null)
+          }
         }}
         title={t('studio.delete.title')}
-        desc={t('studio.delete.description')}
+        desc={
+          deleteTarget === 'shot'
+            ? t('studio.shot.deleteDescription')
+            : t('studio.delete.description')
+        }
         confirmText={t('studio.delete.confirm')}
         destructive
         handleConfirm={() => {
+          if (deleteTarget === 'shot' && selectedShotId) {
+            const shot = project.shots?.find(
+              (item) => item.id === selectedShotId
+            )
+            if (shot) {
+              for (const id of [
+                shot.textNodeId,
+                shot.imageNodeId,
+                shot.videoNodeId,
+              ]) {
+                const node = project.nodes.find((item) => item.id === id)
+                if (node) discardNodeMedia(project.id, node)
+              }
+              editProject(project.id, (current) =>
+                removeStudioShot(current, selectedShotId)
+              )
+              setSelectedNodeId(null)
+            }
+          }
           if (deleteTarget === 'node' && selectedNode) {
             discardNodeMedia(project.id, selectedNode)
-            editProject(project.id, (current) => ({
-              ...current,
-              nodes: current.nodes.filter(
-                (node) => node.id !== selectedNode.id
-              ),
-              edges: current.edges.filter(
-                (edge) =>
-                  edge.source !== selectedNode.id &&
-                  edge.target !== selectedNode.id
-              ),
-              updatedAt: new Date().toISOString(),
-            }))
+            editProject(project.id, (current) =>
+              pruneStudioShots({
+                ...current,
+                nodes: current.nodes.filter(
+                  (node) => node.id !== selectedNode.id
+                ),
+                edges: current.edges.filter(
+                  (edge) =>
+                    edge.source !== selectedNode.id &&
+                    edge.target !== selectedNode.id
+                ),
+                updatedAt: new Date().toISOString(),
+              })
+            )
             setSelectedNodeId(null)
           }
           if (deleteTarget === 'project') {
@@ -1313,6 +1506,7 @@ export function Studio() {
             setSelectedNodeId(null)
           }
           setDeleteTarget(null)
+          setSelectedShotId(null)
         }}
       />
       <StudioProviderSettings

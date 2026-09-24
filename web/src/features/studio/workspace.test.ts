@@ -20,12 +20,159 @@ import { describe, expect, test } from 'vitest'
 
 import {
   addStudioNode,
+  addStudioShot,
   createStudioProject,
   invalidateStudioBranch,
+  ensureStudioFinalVideo,
+  moveStudioShot,
+  pruneStudioShots,
+  removeStudioShot,
   updateStudioNode,
 } from './workspace'
 
 describe('Studio project editing', () => {
+  test('connects ordered shot videos to a final New API video node', () => {
+    let project = createStudioProject('Drama', 'p1')
+    project = addStudioShot(
+      project,
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = addStudioShot(
+      project,
+      'shot-2',
+      { text: 't2', image: 'i2', video: 'v2' },
+      'Arrival'
+    )
+    project = ensureStudioFinalVideo(project, 'final-video')
+    expect(project.finalVideoNodeId).toBe('final-video')
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'final-video')
+        .map((edge) => edge.source)
+    ).toEqual(['v1', 'v2'])
+    project = moveStudioShot(project, 'shot-2', 'up')
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'final-video')
+        .map((edge) => edge.source)
+    ).toEqual(['v2', 'v1'])
+    project = removeStudioShot(project, 'shot-2')
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'final-video')
+        .map((edge) => edge.source)
+    ).toEqual(['v1'])
+    project = addStudioShot(
+      project,
+      'shot-3',
+      { text: 't3', image: 'i3', video: 'v3' },
+      'Close'
+    )
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'final-video')
+        .map((edge) => edge.source)
+    ).toEqual(['v1', 'v3'])
+    expect(ensureStudioFinalVideo(project, 'another-id')).toBe(project)
+  })
+  test('creates ordered shots backed by the existing text image video graph', () => {
+    let project = createStudioProject('Drama', 'p1')
+    project = addStudioShot(
+      project,
+      'shot-1',
+      {
+        text: 'text-1',
+        image: 'image-1',
+        video: 'video-1',
+      },
+      'Opening'
+    )
+    project = addStudioShot(
+      project,
+      'shot-2',
+      {
+        text: 'text-2',
+        image: 'image-2',
+        video: 'video-2',
+      },
+      'Arrival'
+    )
+    expect(project.shots?.map((shot) => shot.title)).toEqual([
+      'Opening',
+      'Arrival',
+    ])
+    expect(project.nodes.map((node) => node.data.kind)).toEqual([
+      'text',
+      'image',
+      'video',
+      'text',
+      'image',
+      'video',
+    ])
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'video-1')
+        .map((edge) => edge.source)
+    ).toEqual(['text-1', 'image-1'])
+    const moved = moveStudioShot(project, 'shot-2', 'up')
+    expect(moved.shots?.map((shot) => shot.id)).toEqual(['shot-2', 'shot-1'])
+    expect(moved.edges).toEqual(project.edges)
+  })
+
+  test('removes a storyboard entry when one of its graph nodes is deleted', () => {
+    const project = addStudioShot(
+      createStudioProject('Drama', 'p1'),
+      'shot-1',
+      {
+        text: 'text-1',
+        image: 'image-1',
+        video: 'video-1',
+      },
+      'Opening'
+    )
+    const withoutImage = {
+      ...project,
+      nodes: project.nodes.filter((node) => node.id !== 'image-1'),
+    }
+    expect(pruneStudioShots(withoutImage).shots).toEqual([])
+  })
+
+  test('deletes a shot and its generated graph without affecting other shots', () => {
+    let project = addStudioShot(
+      createStudioProject('Drama', 'p1'),
+      'shot-1',
+      {
+        text: 'text-1',
+        image: 'image-1',
+        video: 'video-1',
+      },
+      'Opening'
+    )
+    project = addStudioShot(
+      project,
+      'shot-2',
+      {
+        text: 'text-2',
+        image: 'image-2',
+        video: 'video-2',
+      },
+      'Arrival'
+    )
+    const deleted = removeStudioShot(project, 'shot-1')
+    expect(deleted.shots?.map((shot) => shot.id)).toEqual(['shot-2'])
+    expect(deleted.nodes.map((node) => node.id)).toEqual([
+      'text-2',
+      'image-2',
+      'video-2',
+    ])
+    expect(
+      deleted.edges.every(
+        (edge) => edge.source.endsWith('-2') && edge.target.endsWith('-2')
+      )
+    ).toBe(true)
+  })
   test('creates a project and adds typed nodes with distinct positions', () => {
     const project = createStudioProject('Film one', 'p1')
     const first = addStudioNode(project, 'text', 'n1')

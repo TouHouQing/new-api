@@ -84,6 +84,19 @@ const projectSchema = z.strictObject({
   title: z.string().max(200),
   nodes: z.array(nodeSchema).max(500),
   edges: z.array(edgeSchema).max(1000),
+  finalVideoNodeId: z.string().min(1).max(128).optional(),
+  shots: z
+    .array(
+      z.strictObject({
+        id: z.string().min(1).max(100),
+        title: z.string().max(200),
+        textNodeId: z.string().min(1).max(128),
+        imageNodeId: z.string().min(1).max(128),
+        videoNodeId: z.string().min(1).max(128),
+      })
+    )
+    .max(166)
+    .optional(),
   createdAt: z.string().max(40),
   updatedAt: z.string().max(40),
 })
@@ -97,8 +110,18 @@ export type StudioProject = {
   title: string
   nodes: StudioCanvasNode[]
   edges: StudioCanvasEdge[]
+  shots?: StudioShot[]
+  finalVideoNodeId?: string
   createdAt: string
   updatedAt: string
+}
+
+export type StudioShot = {
+  id: string
+  title: string
+  textNodeId: string
+  imageNodeId: string
+  videoNodeId: string
 }
 
 function normalizeStudioProject(project: StudioProject): StudioProject {

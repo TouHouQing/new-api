@@ -23,10 +23,41 @@ import {
   serializeStudioProjectExport,
   studioProjectsKey,
 } from './local-projects'
+import {
+  addStudioShot,
+  createStudioProject,
+  ensureStudioFinalVideo,
+} from './workspace'
 
 beforeEach(() => localStorage.clear())
 
 describe('browser-local Studio projects', () => {
+  test('keeps storyboard and final video links across reload and project export', () => {
+    let project = addStudioShot(
+      createStudioProject('Drama', 'p1'),
+      'shot-1',
+      {
+        text: 't1',
+        image: 'i1',
+        video: 'v1',
+      },
+      'Opening'
+    )
+    project = ensureStudioFinalVideo(project, 'final')
+    saveStudioProjects(localStorage, 12, [project])
+    expect(loadStudioProjects(localStorage, 12)[0].finalVideoNodeId).toBe(
+      'final'
+    )
+    expect(
+      loadStudioProjects(localStorage, 12)[0].edges.some(
+        (edge) => edge.source === 'v1' && edge.target === 'final'
+      )
+    ).toBe(true)
+    expect(
+      parseStudioProjectImport(serializeStudioProjectExport(project))
+        .finalVideoNodeId
+    ).toBe('final')
+  })
   test('keeps a generic video format and editable metadata across reload and export', () => {
     const project = {
       id: 'p-custom',

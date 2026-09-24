@@ -36,7 +36,9 @@ import { Studio } from './index'
 import { saveStudioProjects, studioProjectsKey } from './local-projects'
 import {
   addStudioNode,
+  addStudioShot,
   createStudioProject,
+  ensureStudioFinalVideo,
   updateStudioNode,
 } from './workspace'
 
@@ -110,6 +112,257 @@ afterEach(() => {
 })
 
 describe('Studio account isolation', () => {
+  test('clears an old final video when a source shot is regenerated', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-new')
+    let project = addStudioShot(
+      createStudioProject('Drama', 'p1'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = ensureStudioFinalVideo(project, 'final')
+    project = updateStudioNode(project, 'v1', {
+      model: '会员套餐甲',
+      prompt: 'New view',
+    })
+    project = updateStudioNode(project, 'final', {
+      model: '会员套餐甲',
+      prompt: 'Join',
+    })
+    project = updateStudioNode(project, 'final', {
+      status: 'completed',
+      taskId: 'old-final',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.generateVideo' })
+    )
+    await waitFor(() => expect(createStudioVideo).toHaveBeenCalledOnce())
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      const finalNode = saved.projects?.[0]?.nodes?.find(
+        (node: StudioCanvasNode) => node.id === 'final'
+      )
+      expect(finalNode?.data.status).toBe('idle')
+      expect(finalNode?.data.taskId).toBeUndefined()
+    })
+  })
+  test('submits completed storyboard videos to the final model in shot order', async () => {
+    vi.mocked(getStudioVideoContentUrl).mockImplementation(
+      async (taskId) => `https://cdn.example/${taskId}.mp4`
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-final')
+    let project = createStudioProject('Drama', 'p-drama')
+    project = addStudioShot(
+      project,
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = addStudioShot(
+      project,
+      'shot-2',
+      { text: 't2', image: 'i2', video: 'v2' },
+      'Arrival'
+    )
+    project = ensureStudioFinalVideo(project, 'final')
+    project = updateStudioNode(project, 'v1', {
+      taskId: 'task-1',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'v2', {
+      taskId: 'task-2',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'final', {
+      model: '会员套餐甲',
+      prompt: 'Connect the scenes',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.generateFinal' })
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            content: [
+              {
+                type: 'video_url',
+                video_url: { url: 'https://cdn.example/task-1.mp4' },
+              },
+              {
+                type: 'video_url',
+                video_url: { url: 'https://cdn.example/task-2.mp4' },
+              },
+            ],
+          }),
+        }),
+        'default'
+      )
+    )
+  })
+  test('generates a storyboard video from manual text without requiring an image', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-text-only')
+    let project = addStudioShot(
+      createStudioProject('Text scene', 'p-text'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Text scene'
+    )
+    project = updateStudioNode(project, 't1', { prompt: 'A quiet village' })
+    project = updateStudioNode(project, 'v1', { model: '会员套餐甲' })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.generateVideo' })
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'A quiet village' }),
+        'default'
+      )
+    )
+    expect(generateStudioImage).not.toHaveBeenCalled()
+  })
+
+  test('generates a storyboard video from an uploaded image without requiring text', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-image-only')
+    storedMedia.set('12:upload-1', new Blob(['image'], { type: 'image/png' }))
+    let project = addStudioShot(
+      createStudioProject('Image scene', 'p-image'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Image scene'
+    )
+    project = updateStudioNode(project, 'i1', {
+      mediaId: 'upload-1',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'v1', {
+      model: '会员套餐甲',
+      prompt: 'Slow camera pan',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.generateVideo' })
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: 'Slow camera pan',
+          images: [expect.stringMatching(/^data:image\/png;base64,/)],
+        }),
+        'default'
+      )
+    )
+    expect(generateStudioText).not.toHaveBeenCalled()
+  })
+  test('adds a final video connected to storyboard shots', async () => {
+    let project = createStudioProject('Drama', 'p-drama')
+    project = addStudioShot(
+      project,
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.createFinal' })
+    )
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      const finalId = saved.projects?.[0]?.finalVideoNodeId
+      expect(finalId).toBeTruthy()
+      expect(
+        saved.projects[0].edges.some(
+          (edge: { source: string; target: string }) =>
+            edge.source === 'v1' && edge.target === finalId
+        )
+      ).toBe(true)
+    })
+    expect(
+      screen.getByRole('button', { name: 'studio.shot.editFinal' })
+    ).toBeTruthy()
+  })
+  test('submits missing storyboard videos in shot order', async () => {
+    vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
+      image: {
+        kind: 'image',
+        baseUrl: 'https://image.example/v1',
+        hasKey: true,
+      },
+    })
+    vi.mocked(fetchStudioProviderModels).mockResolvedValue(['image-model'])
+    vi.mocked(generateStudioImage).mockResolvedValue({
+      url: 'https://cdn.example/frame.png',
+    })
+    vi.mocked(createStudioVideo)
+      .mockResolvedValueOnce('task-1')
+      .mockResolvedValueOnce('task-2')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(['image'], { type: 'image/png' }),
+      })
+    )
+    let project = createStudioProject('Drama', 'p-drama')
+    project = addStudioShot(
+      project,
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = addStudioShot(
+      project,
+      'shot-2',
+      { text: 't2', image: 'i2', video: 'v2' },
+      'Arrival'
+    )
+    project = updateStudioNode(project, 't1', { prompt: 'Scene one' })
+    project = updateStudioNode(project, 't2', { prompt: 'Scene two' })
+    project = updateStudioNode(project, 'i1', { model: 'image-model' })
+    project = updateStudioNode(project, 'i2', { model: 'image-model' })
+    project = updateStudioNode(project, 'v1', {
+      model: '会员套餐甲',
+      prompt: 'camera moves',
+    })
+    project = updateStudioNode(project, 'v2', {
+      model: '会员套餐甲',
+      prompt: 'camera follows',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.generateAll' })
+    )
+    await waitFor(() => expect(createStudioVideo).toHaveBeenCalledTimes(2))
+    expect(generateStudioImage).toHaveBeenCalledTimes(2)
+  })
+  test('creates a storyboard shot within the current New API project', async () => {
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.add' })
+    )
+    expect(await screen.findByText('studio.shot.title')).toBeTruthy()
+    expect(
+      screen.getByRole('button', { name: 'studio.shot.editImage' })
+    ).toBeTruthy()
+    await waitFor(() =>
+      expect(localStorage.getItem(studioProjectsKey(12))).toContain(
+        'textNodeId'
+      )
+    )
+  })
   test('opens the account submission history from the workbench', async () => {
     vi.mocked(fetchStudioAttempts).mockResolvedValue([
       {
