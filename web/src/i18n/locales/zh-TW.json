@@ -6828,6 +6828,7 @@
     "studio.delete.title": "刪除所選內容？",
     "studio.delete.description": "所選節點或專案將從目前瀏覽器移除。",
     "studio.delete.confirm": "刪除",
-    "studio.media.retry": "重試儲存素材"
+    "studio.media.retry": "重試儲存素材",
+    "studio.project.saveFailed": "無法在目前瀏覽器儲存專案，畫布變更尚未儲存"
   }
 }

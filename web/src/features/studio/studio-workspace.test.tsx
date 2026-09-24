@@ -17,11 +17,18 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
-import { beforeEach, describe, expect, test, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
 
+import { getStudioVideoTask } from './api'
 import { Studio } from './index'
+import { saveStudioProjects } from './local-projects'
+import {
+  addStudioNode,
+  createStudioProject,
+  updateStudioNode,
+} from './workspace'
 
 vi.mock('@/components/ai-elements/canvas', () => ({
   Canvas: ({ nodes }: { nodes: Array<{ data: { title: string } }> }) => (
@@ -47,6 +54,7 @@ vi.mock('./media-store', () => ({
 }))
 
 beforeEach(() => {
+  vi.clearAllMocks()
   localStorage.clear()
   useAuthStore.setState((state) => ({
     auth: {
@@ -56,7 +64,49 @@ beforeEach(() => {
   }))
 })
 
+afterEach(() => vi.restoreAllMocks())
+
 describe('Studio account isolation', () => {
+  test('polls a processing video on the schedule instead of every render', async () => {
+    const base = addStudioNode(
+      createStudioProject('Film', 'project-1'),
+      'video',
+      'video-1'
+    )
+    saveStudioProjects(localStorage, 12, [
+      updateStudioNode(base, 'video-1', {
+        taskId: 'task-1',
+        status: 'processing',
+      }),
+    ])
+    vi.mocked(getStudioVideoTask).mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 10))
+      return { status: 'processing', progress: 5 }
+    })
+    const view = render(<Studio />)
+    await waitFor(() => expect(getStudioVideoTask).toHaveBeenCalled())
+    await new Promise((resolve) => setTimeout(resolve, 140))
+    const calls = vi.mocked(getStudioVideoTask).mock.calls.length
+    view.unmount()
+    expect(calls).toBeLessThanOrEqual(2)
+  })
+
+  test('explains that the project is unsaved when browser storage is full', async () => {
+    const original = Storage.prototype.setItem
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(
+      function (this: Storage, key, value) {
+        if (key.startsWith('newapi:studio:projects')) {
+          throw new DOMException('Quota exceeded', 'QuotaExceededError')
+        }
+        return original.call(this, key, value)
+      }
+    )
+    render(<Studio />)
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'studio.project.saveFailed'
+    )
+  })
+
   test('keeps the first account canvas when another account signs in', async () => {
     render(<Studio />)
     fireEvent.click(

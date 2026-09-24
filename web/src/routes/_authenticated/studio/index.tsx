@@ -33,7 +33,7 @@ export const Route = createFileRoute('/_authenticated/studio/')({
 
 function StudioPage() {
   return (
-    <Main className='p-0'>
+    <Main className='overflow-y-auto p-0 lg:overflow-hidden'>
       <Studio />
     </Main>
   )

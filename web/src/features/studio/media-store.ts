@@ -31,7 +31,7 @@ export function createStudioMediaStore(factory: IDBFactory, name: string) {
 
   function open(): Promise<IDBDatabase> {
     if (databasePromise) return databasePromise
-    databasePromise = new Promise((resolve, reject) => {
+    databasePromise = new Promise<IDBDatabase>((resolve, reject) => {
       const request = factory.open(name, 1)
       request.addEventListener('upgradeneeded', () => {
         request.result.createObjectStore('media', { keyPath: 'key' })
@@ -45,6 +45,9 @@ export function createStudioMediaStore(factory: IDBFactory, name: string) {
           reject(request.error ?? new Error('media storage is unavailable')),
         { once: true }
       )
+    }).catch((error: unknown) => {
+      databasePromise = null
+      throw error
     })
     return databasePromise
   }

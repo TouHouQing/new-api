@@ -68,14 +68,14 @@ export function StudioInspector(props: Props) {
     props.node.data.status === 'processing'
 
   return (
-    <Card className='h-full min-h-0 rounded-none border-0 ring-0'>
+    <Card className='min-h-[560px] rounded-none border-0 ring-0 lg:h-full lg:min-h-0'>
       <CardHeader className='border-b'>
         <CardTitle>{t('studio.inspector.title')}</CardTitle>
         <p className='text-muted-foreground text-xs'>
           {t('studio.inspector.description')}
         </p>
       </CardHeader>
-      <CardContent className='flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto pb-4'>
+      <CardContent className='flex flex-1 flex-col gap-4 pb-4 lg:min-h-0 lg:overflow-y-auto'>
         <Field>
           <FieldLabel htmlFor='studio-node-title'>
             {t('studio.node.title')}

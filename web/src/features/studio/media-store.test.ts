@@ -55,4 +55,25 @@ describe('browser-local Studio media', () => {
     await expect(store.put(0, 'shot', blob('A'))).rejects.toThrow('user ID')
     await expect(store.get(12, '../shot')).rejects.toThrow('media ID')
   })
+
+  test('retries opening browser media storage after a temporary failure', async () => {
+    const underlying = new IDBFactory()
+    let attempts = 0
+    const factory = {
+      open(name: string, version: number) {
+        attempts += 1
+        if (attempts === 1) throw new Error('temporary storage failure')
+        return underlying.open(name, version)
+      },
+    } as IDBFactory
+    const store = createStudioMediaStore(
+      factory,
+      'studio-media-open-retry-test'
+    )
+    await expect(store.put(12, 'shot', blob('A'))).rejects.toThrow(
+      'temporary storage failure'
+    )
+    await expect(store.put(12, 'shot', blob('A'))).resolves.toBeUndefined()
+    expect(attempts).toBe(2)
+  })
 })

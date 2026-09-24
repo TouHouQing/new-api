@@ -6828,6 +6828,7 @@
     "studio.delete.title": "Удалить элемент?",
     "studio.delete.description": "Выбранный элемент будет удалён из этого браузера.",
     "studio.delete.confirm": "Удалить",
-    "studio.media.retry": "Повторить сохранение медиа"
+    "studio.media.retry": "Повторить сохранение медиа",
+    "studio.project.saveFailed": "Не удалось сохранить проект в этом браузере"
   }
 }

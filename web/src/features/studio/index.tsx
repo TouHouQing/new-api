@@ -146,6 +146,28 @@ export function Studio() {
     [project?.id, project?.nodes]
   )
   const loadedMediaIds = useRef(new Set<string>())
+  const pendingVideos = useMemo(
+    () =>
+      projects.flatMap((item) =>
+        item.nodes
+          .filter(
+            (node) =>
+              node.data.kind === 'video' &&
+              node.data.taskId &&
+              (node.data.status === 'queued' ||
+                node.data.status === 'processing')
+          )
+          .map((node) => ({ projectId: item.id, node }))
+      ),
+    [projects]
+  )
+  const pendingVideoKey = JSON.stringify(
+    pendingVideos
+      .map((entry) => [entry.projectId, entry.node.id, entry.node.data.taskId])
+      .sort()
+  )
+  const pendingVideosRef = useRef(pendingVideos)
+  pendingVideosRef.current = pendingVideos
 
   useEffect(() => {
     if (!userId) return
@@ -190,7 +212,7 @@ export function Studio() {
     try {
       saveStudioProjects(localStorage, userId, workspace.projects)
     } catch (error) {
-      setMessage(`${t('studio.storage.failed')}: ${errorMessage(error)}`)
+      setMessage(`${t('studio.project.saveFailed')}: ${errorMessage(error)}`)
     }
   }, [visible, userId, workspace.projects, t])
 
@@ -388,58 +410,56 @@ export function Studio() {
   )
 
   useEffect(() => {
-    if (!visible) return
-    const pending = projects.flatMap((item) =>
-      item.nodes
-        .filter(
-          (node) =>
-            node.data.kind === 'video' &&
-            node.data.taskId &&
-            (node.data.status === 'queued' || node.data.status === 'processing')
-        )
-        .map((node) => ({ projectId: item.id, node }))
-    )
-    if (!pending.length) return
+    if (!visible || pendingVideoKey === '[]') return
     let cancelled = false
+    let polling = false
     const poll = async () => {
-      for (const entry of pending) {
-        try {
-          const taskId = entry.node.data.taskId
-          if (!taskId) continue
-          const task = await getStudioVideoTask(taskId)
+      if (polling) return
+      polling = true
+      try {
+        for (const entry of pendingVideosRef.current) {
           if (cancelled) return
-          if (task.status === 'completed') {
-            const outputUrl = await getStudioVideoContentUrl(taskId)
-            let mediaId: string | undefined
-            let storageError: string | undefined
-            try {
-              mediaId = await saveMedia(
-                userId,
-                entry.projectId,
-                entry.node.id,
-                outputUrl
-              )
-            } catch (error) {
-              storageError = `${t('studio.storage.failed')}: ${errorMessage(error)}`
-            }
-            if (!cancelled) {
+          try {
+            const taskId = entry.node.data.taskId
+            if (!taskId) continue
+            const task = await getStudioVideoTask(taskId)
+            if (cancelled) return
+            if (task.status === 'completed') {
+              const outputUrl = await getStudioVideoContentUrl(taskId)
+              if (cancelled) return
+              let mediaId: string | undefined
+              let storageError: string | undefined
+              try {
+                mediaId = await saveMedia(
+                  userId,
+                  entry.projectId,
+                  entry.node.id,
+                  outputUrl
+                )
+              } catch (error) {
+                storageError = `${t('studio.storage.failed')}: ${errorMessage(error)}`
+              }
+              if (!cancelled) {
+                editNode(entry.projectId, entry.node.id, {
+                  status: 'completed',
+                  progress: 100,
+                  mediaId,
+                  error: storageError,
+                })
+              }
+            } else {
               editNode(entry.projectId, entry.node.id, {
-                status: 'completed',
-                progress: 100,
-                mediaId,
-                error: storageError,
+                status: task.status,
+                progress: task.progress,
+                error: task.error,
               })
             }
-          } else {
-            editNode(entry.projectId, entry.node.id, {
-              status: task.status,
-              progress: task.progress,
-              error: task.error,
-            })
+          } catch (error) {
+            if (!cancelled) setMessage(errorMessage(error))
           }
-        } catch (error) {
-          if (!cancelled) setMessage(errorMessage(error))
         }
+      } finally {
+        polling = false
       }
     }
     void poll()
@@ -450,7 +470,7 @@ export function Studio() {
       cancelled = true
       window.clearInterval(timer)
     }
-  }, [visible, projects, userId, editNode, saveMedia, t])
+  }, [visible, pendingVideoKey, userId, editNode, saveMedia, t])
 
   const addNode = (kind: StudioCanvasNodeData['kind']) => {
     if (!project) return
@@ -528,7 +548,7 @@ export function Studio() {
   }
 
   return (
-    <div className='bg-background flex h-full min-h-[640px] flex-col overflow-hidden'>
+    <div className='bg-background flex min-h-full flex-none flex-col lg:h-full lg:min-h-[640px] lg:flex-1 lg:overflow-hidden'>
       <header className='flex flex-wrap items-center gap-2 border-b px-4 py-3'>
         <div className='mr-auto min-w-40'>
           <h1 className='text-lg font-semibold tracking-tight'>
@@ -642,9 +662,9 @@ export function Studio() {
           }
         />
       </div>
-      <div className='grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_360px]'>
+      <div className='grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]'>
         <section
-          className='relative min-h-[400px] overflow-hidden'
+          className='relative h-[420px] overflow-hidden lg:h-auto lg:min-h-[400px]'
           aria-label={t('studio.canvas')}
         >
           <Canvas
@@ -697,7 +717,7 @@ export function Studio() {
             </div>
           )}
         </section>
-        <aside className='min-h-0 border-t lg:border-t-0 lg:border-l'>
+        <aside className='min-h-[560px] border-t lg:min-h-0 lg:border-t-0 lg:border-l'>
           {selectedNode ? (
             <StudioInspector
               node={selectedNode}

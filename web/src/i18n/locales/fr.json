@@ -6828,6 +6828,7 @@
     "studio.delete.title": "Supprimer cet élément ?",
     "studio.delete.description": "L’élément sélectionné sera supprimé de ce navigateur.",
     "studio.delete.confirm": "Supprimer",
-    "studio.media.retry": "Réessayer l’enregistrement"
+    "studio.media.retry": "Réessayer l’enregistrement",
+    "studio.project.saveFailed": "Impossible d’enregistrer ce projet dans ce navigateur"
   }
 }

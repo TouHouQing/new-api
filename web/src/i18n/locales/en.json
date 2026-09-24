@@ -6828,6 +6828,7 @@
     "studio.delete.title": "Delete this item?",
     "studio.delete.description": "This removes the selected node or project from this browser.",
     "studio.delete.confirm": "Delete",
-    "studio.media.retry": "Retry media save"
+    "studio.media.retry": "Retry media save",
+    "studio.project.saveFailed": "Could not save this project in this browser"
   }
 }

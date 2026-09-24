@@ -6828,6 +6828,7 @@
     "studio.delete.title": "削除しますか？",
     "studio.delete.description": "選択した項目をこのブラウザーから削除します。",
     "studio.delete.confirm": "削除",
-    "studio.media.retry": "メディア保存を再試行"
+    "studio.media.retry": "メディア保存を再試行",
+    "studio.project.saveFailed": "このブラウザーにプロジェクトを保存できません。変更は未保存です"
   }
 }

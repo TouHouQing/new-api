@@ -6828,6 +6828,7 @@
     "studio.delete.title": "Xóa mục này?",
     "studio.delete.description": "Mục đã chọn sẽ bị xóa khỏi trình duyệt này.",
     "studio.delete.confirm": "Xóa",
-    "studio.media.retry": "Thử lưu lại tệp"
+    "studio.media.retry": "Thử lưu lại tệp",
+    "studio.project.saveFailed": "Không thể lưu dự án trong trình duyệt này"
   }
 }
