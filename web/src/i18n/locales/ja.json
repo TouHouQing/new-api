@@ -6792,6 +6792,7 @@
     "studio.video.family": "動画モデルの種類",
     "studio.video.family.select": "動画モデルの種類を選択",
     "studio.video.family.seedance": "Seedance 2.0",
+    "studio.video.family.seedance25": "Seedance 2.5",
     "studio.video.family.minimax": "MiniMax H3",
     "studio.provider.settings": "テキスト・画像サービス",
     "studio.provider.description": "サービスごとに OpenAI 互換 API の URL とキーを設定します。キーはサーバーで暗号化され、別の端末でも利用できます。",

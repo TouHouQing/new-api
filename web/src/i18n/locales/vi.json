@@ -6792,6 +6792,7 @@
     "studio.video.family": "Loại mô hình video",
     "studio.video.family.select": "Chọn loại mô hình video",
     "studio.video.family.seedance": "Seedance 2.0",
+    "studio.video.family.seedance25": "Seedance 2.5",
     "studio.video.family.minimax": "MiniMax H3",
     "studio.provider.settings": "Dịch vụ văn bản và hình ảnh",
     "studio.provider.description": "Cấu hình URL API tương thích OpenAI và khóa cho từng dịch vụ. Khóa được mã hóa trên máy chủ và dùng được trên các thiết bị.",

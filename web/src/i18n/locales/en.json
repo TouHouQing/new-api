@@ -6792,6 +6792,7 @@
     "studio.video.family": "Video model type",
     "studio.video.family.select": "Select a video model type",
     "studio.video.family.seedance": "Seedance 2.0",
+    "studio.video.family.seedance25": "Seedance 2.5",
     "studio.video.family.minimax": "MiniMax H3",
     "studio.provider.settings": "Text and image services",
     "studio.provider.description": "Set an OpenAI-compatible API URL and key for each service. Keys are encrypted on the server and available across devices.",

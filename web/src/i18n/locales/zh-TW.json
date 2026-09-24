@@ -6792,6 +6792,7 @@
     "studio.video.family": "影片模型類型",
     "studio.video.family.select": "選擇影片模型類型",
     "studio.video.family.seedance": "Seedance 2.0",
+    "studio.video.family.seedance25": "Seedance 2.5",
     "studio.video.family.minimax": "MiniMax H3",
     "studio.provider.settings": "文字與圖片服務",
     "studio.provider.description": "分別為文字和圖片設定相容 OpenAI 的 API 網址與金鑰。金鑰會在伺服器加密保存，可跨裝置使用。",

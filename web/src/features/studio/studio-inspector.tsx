@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -60,15 +61,36 @@ export function StudioInspector(props: Props) {
   const { t } = useTranslation()
   const isVideo = props.node.data.kind === 'video'
   const choices = props.models
-  const family =
-    props.node.data.videoFamily ||
-    (props.node.data.model
-      ? inferStudioVideoFamily(props.node.data.model)
-      : undefined)
+  const inferredFamily = props.node.data.model
+    ? inferStudioVideoFamily(props.node.data.model)
+    : undefined
+  const family = inferredFamily || props.node.data.videoFamily
   const model =
     isVideo && props.node.data.model && family
       ? buildStudioVideoModel(props.node.data.model, family)
       : undefined
+  const [durationDraft, setDurationDraft] = useState(
+    String(props.node.data.seconds ?? model?.defaultSeconds ?? 5)
+  )
+  useEffect(() => {
+    setDurationDraft(
+      String(props.node.data.seconds ?? model?.defaultSeconds ?? 5)
+    )
+  }, [
+    props.node.id,
+    props.node.data.model,
+    props.node.data.seconds,
+    model?.family,
+    model?.defaultSeconds,
+  ])
+  const durationNumber = Number(durationDraft)
+  const durationValid = Boolean(
+    model &&
+    durationDraft.trim() !== '' &&
+    Number.isInteger(durationNumber) &&
+    durationNumber >= model.minSeconds &&
+    durationNumber <= model.maxSeconds
+  )
   const busy =
     props.node.data.status === 'submitting' ||
     props.node.data.status === 'queued' ||
@@ -146,7 +168,7 @@ export function StudioInspector(props: Props) {
                 model: value || undefined,
                 videoFamily: nextFamily,
                 resolution: next?.resolutions[0],
-                seconds: 5,
+                seconds: next?.defaultSeconds ?? 5,
                 ratio: '16:9',
               })
             }}
@@ -197,13 +219,17 @@ export function StudioInspector(props: Props) {
                   props.onChange({
                     videoFamily: selected,
                     resolution: profile.resolutions[0],
-                    seconds: 5,
+                    seconds: profile.defaultSeconds,
                   })
                 }}
                 items={[
                   {
                     value: 'seedance-2',
                     label: t('studio.video.family.seedance'),
+                  },
+                  {
+                    value: 'seedance-2.5',
+                    label: t('studio.video.family.seedance25'),
                   },
                   {
                     value: 'minimax-h3',
@@ -221,6 +247,9 @@ export function StudioInspector(props: Props) {
                   <SelectGroup>
                     <SelectItem value='seedance-2'>
                       {t('studio.video.family.seedance')}
+                    </SelectItem>
+                    <SelectItem value='seedance-2.5'>
+                      {t('studio.video.family.seedance25')}
                     </SelectItem>
                     <SelectItem value='minimax-h3'>
                       {t('studio.video.family.minimax')}
@@ -252,10 +281,34 @@ export function StudioInspector(props: Props) {
                 min={model.minSeconds}
                 max={model.maxSeconds}
                 step={1}
-                value={props.node.data.seconds ?? 5}
-                onChange={(event) =>
-                  props.onChange({ seconds: Number(event.target.value) })
-                }
+                value={durationDraft}
+                aria-invalid={!durationValid}
+                onChange={(event) => {
+                  const draft = event.target.value
+                  setDurationDraft(draft)
+                  const seconds = Number(draft)
+                  if (
+                    draft.trim() !== '' &&
+                    Number.isInteger(seconds) &&
+                    seconds >= model.minSeconds &&
+                    seconds <= model.maxSeconds
+                  ) {
+                    props.onChange({ seconds })
+                  }
+                }}
+                onBlur={() => {
+                  if (durationValid) return
+                  const stored = props.node.data.seconds
+                  const fallback =
+                    typeof stored === 'number' &&
+                    Number.isInteger(stored) &&
+                    stored >= model.minSeconds &&
+                    stored <= model.maxSeconds
+                      ? stored
+                      : model.defaultSeconds
+                  setDurationDraft(String(fallback))
+                  if (stored !== fallback) props.onChange({ seconds: fallback })
+                }}
               />
               <p className='text-muted-foreground text-xs'>
                 {model.minSeconds}–{model.maxSeconds} {t('studio.seconds')}
@@ -310,7 +363,7 @@ export function StudioInspector(props: Props) {
               !props.node.data.model ||
               !choices.includes(props.node.data.model) ||
               !props.node.data.prompt.trim() ||
-              (isVideo && (!props.videoGroup || !family))
+              (isVideo && (!props.videoGroup || !family || !durationValid))
             }
             onClick={props.onGenerate}
           >

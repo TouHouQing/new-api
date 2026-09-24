@@ -6792,6 +6792,7 @@
     "studio.video.family": "Тип видеомодели",
     "studio.video.family.select": "Выберите тип видеомодели",
     "studio.video.family.seedance": "Seedance 2.0",
+    "studio.video.family.seedance25": "Seedance 2.5",
     "studio.video.family.minimax": "MiniMax H3",
     "studio.provider.settings": "Сервисы текста и изображений",
     "studio.provider.description": "Укажите URL API, совместимого с OpenAI, и ключ для каждого сервиса. Ключи шифруются на сервере и доступны на других устройствах.",

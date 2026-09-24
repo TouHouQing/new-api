@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { z } from 'zod'
 
 import type { StudioCanvasEdge, StudioCanvasNode } from './canvas-flow'
+import { buildStudioVideoModel, inferStudioVideoFamily } from './model-profiles'
 
 const nodeDataSchema = z.strictObject({
   kind: z.enum(['text', 'image', 'video']),
@@ -24,7 +25,7 @@ const nodeDataSchema = z.strictObject({
   prompt: z.string().max(30000),
   model: z.string().max(200).optional(),
   group: z.string().max(100).optional(),
-  videoFamily: z.enum(['seedance-2', 'minimax-h3']).optional(),
+  videoFamily: z.enum(['seedance-2', 'seedance-2.5', 'minimax-h3']).optional(),
   status: z
     .enum(['idle', 'submitting', 'queued', 'processing', 'completed', 'failed'])
     .optional(),
@@ -34,7 +35,8 @@ const nodeDataSchema = z.strictObject({
   taskId: z.string().max(191).optional(),
   error: z.string().max(2000).optional(),
   progress: z.number().min(0).max(100).optional(),
-  seconds: z.number().int().min(4).max(15).optional(),
+  // Accept legacy invalid drafts so one bad duration does not erase a canvas.
+  seconds: z.number().nullable().optional(),
   resolution: z.string().max(20).optional(),
   ratio: z.string().max(20).optional(),
 })
@@ -81,20 +83,37 @@ export type StudioProject = {
   updatedAt: string
 }
 
-function withoutCapabilityUrls(project: StudioProject): StudioProject {
+function normalizeStudioProject(project: StudioProject): StudioProject {
   return {
     ...project,
     nodes: project.nodes.map((node) => {
       if (node.data.kind !== 'video') return node
       const data = { ...node.data }
       delete data.outputUrl
+      const inferredFamily = data.model
+        ? inferStudioVideoFamily(data.model)
+        : undefined
+      if (inferredFamily) data.videoFamily = inferredFamily
+      const model =
+        data.model && data.videoFamily
+          ? buildStudioVideoModel(data.model, data.videoFamily)
+          : undefined
+      const seconds = data.seconds
+      if (
+        typeof seconds !== 'number' ||
+        !Number.isInteger(seconds) ||
+        seconds < (model?.minSeconds ?? 4) ||
+        seconds > (model?.maxSeconds ?? 30)
+      ) {
+        data.seconds = model?.defaultSeconds ?? 5
+      }
       return { ...node, data }
     }),
   }
 }
 
 export function serializeStudioProjectExport(project: StudioProject): string {
-  const safe = withoutCapabilityUrls(project)
+  const safe = normalizeStudioProject(project)
   return JSON.stringify(
     {
       ...safe,
@@ -113,7 +132,7 @@ export function serializeStudioProjectExport(project: StudioProject): string {
 export function parseStudioProjectImport(raw: string): StudioProject {
   if (raw.length > 2_000_000) throw new Error('project file is too large')
   try {
-    const project = withoutCapabilityUrls(
+    const project = normalizeStudioProject(
       projectSchema.parse(JSON.parse(raw)) as StudioProject
     )
     return {
@@ -145,7 +164,7 @@ export function loadStudioProjects(
   try {
     const stored = storedProjectsSchema.safeParse(JSON.parse(raw))
     return stored.success
-      ? (stored.data.projects as StudioProject[]).map(withoutCapabilityUrls)
+      ? (stored.data.projects as StudioProject[]).map(normalizeStudioProject)
       : []
   } catch {
     return []
@@ -161,7 +180,7 @@ export function saveStudioProjects(
     studioProjectsKey(userId),
     JSON.stringify({
       version: 1,
-      projects: projects.map(withoutCapabilityUrls),
+      projects: projects.map(normalizeStudioProject),
     })
   )
 }

@@ -522,13 +522,13 @@ export function Studio() {
             throw new Error(t('studio.model.empty'))
           }
           const family =
-            node.data.videoFamily || inferStudioVideoFamily(node.data.model)
+            inferStudioVideoFamily(node.data.model) || node.data.videoFamily
           if (!family) throw new Error(t('studio.video.family.select'))
           const model = buildStudioVideoModel(node.data.model, family)
           const request = buildStudioVideoRequest(model, {
             prompt,
             imageUrl,
-            seconds: node.data.seconds ?? 5,
+            seconds: node.data.seconds ?? model.defaultSeconds,
             resolution: node.data.resolution ?? model.resolutions[0],
             ratio: node.data.ratio ?? '16:9',
           })

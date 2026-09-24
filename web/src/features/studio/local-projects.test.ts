@@ -54,6 +54,48 @@ describe('browser-local Studio projects', () => {
     expect(loadStudioProjects(localStorage, 12)).toEqual([])
   })
 
+  test('preserves thirty-second alias projects and repairs invalid legacy durations', () => {
+    const node = (id: string, seconds: number | null) => ({
+      id,
+      type: 'studio',
+      position: { x: 0, y: 0 },
+      data: {
+        kind: 'video',
+        title: id,
+        prompt: 'a forest',
+        model: '特价-sd2.5三十秒',
+        videoFamily: 'seedance-2',
+        seconds,
+      },
+    })
+    localStorage.setItem(
+      studioProjectsKey(12),
+      JSON.stringify({
+        version: 1,
+        projects: [
+          {
+            id: 'p',
+            title: 'Thirty seconds',
+            createdAt: 'now',
+            updatedAt: 'now',
+            edges: [],
+            nodes: [node('valid', 30), node('empty', 0), node('null', null)],
+          },
+        ],
+      })
+    )
+    const loaded = loadStudioProjects(localStorage, 12)
+    expect(loaded).toHaveLength(1)
+    expect(loaded[0].nodes.map((item) => item.data.seconds)).toEqual([
+      30, 30, 30,
+    ])
+    expect(loaded[0].nodes.map((item) => item.data.videoFamily)).toEqual([
+      'seedance-2.5',
+      'seedance-2.5',
+      'seedance-2.5',
+    ])
+  })
+
   test('rejects missing users so account data cannot enter a shared key', () => {
     expect(() => studioProjectsKey(0)).toThrow('user ID')
     expect(() => loadStudioProjects(localStorage, -1)).toThrow('user ID')

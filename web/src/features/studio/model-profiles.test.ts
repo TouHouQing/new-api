@@ -19,6 +19,7 @@ import { describe, expect, test } from 'vitest'
 import {
   buildStudioVideoModel,
   buildStudioVideoRequest,
+  inferStudioVideoFamily,
   selectStudioVideoModels,
 } from './model-profiles'
 
@@ -29,6 +30,31 @@ function videoModel(id: string) {
 }
 
 describe('Studio video models', () => {
+  test('recognizes the site Seedance 2.5 thirty-second alias', () => {
+    const id = '特价-sd2.5三十秒'
+    expect(inferStudioVideoFamily(id)).toBe('seedance-2.5')
+    const model = buildStudioVideoModel(id, 'seedance-2.5')
+    expect(model.maxSeconds).toBe(30)
+    expect(model.defaultSeconds).toBe(30)
+    expect(model.resolutions).toEqual(['480p', '720p', '1080p'])
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'a forest at sunrise',
+        seconds: 30,
+        resolution: '720p',
+        ratio: '16:9',
+      }).seconds
+    ).toBe(30)
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'a forest at sunrise',
+        seconds: 31,
+        resolution: '720p',
+        ratio: '16:9',
+      })
+    ).toThrow('duration')
+  })
+
   test('uses a selected family for an arbitrary site model alias', () => {
     const model = buildStudioVideoModel('my-site-sd2-alias', 'seedance-2')
     expect(model.id).toBe('my-site-sd2-alias')

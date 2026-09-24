@@ -21,9 +21,10 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
 
-import { getStudioVideoTask } from './api'
+import { createStudioVideo, getStudioVideoTask } from './api'
+import type { StudioCanvasNode } from './canvas-flow'
 import { Studio } from './index'
-import { saveStudioProjects } from './local-projects'
+import { saveStudioProjects, studioProjectsKey } from './local-projects'
 import {
   addStudioNode,
   createStudioProject,
@@ -31,15 +32,25 @@ import {
 } from './workspace'
 
 vi.mock('@/components/ai-elements/canvas', () => ({
-  Canvas: ({ nodes }: { nodes: Array<{ data: { title: string } }> }) => (
+  Canvas: ({
+    nodes,
+    onNodeClick,
+  }: {
+    nodes: StudioCanvasNode[]
+    onNodeClick?: (event: unknown, node: StudioCanvasNode) => void
+  }) => (
     <div data-testid='canvas-nodes'>
-      {nodes.map((node) => node.data.title).join(',')}
+      {nodes.map((node) => (
+          <button type='button' key={node.id} onClick={() => onNodeClick?.({}, node)}>
+          {node.data.title}
+        </button>
+      ))}
     </div>
   ),
 }))
 vi.mock('./api', () => ({
   fetchStudioGroups: async () => [{ id: 'default', description: 'Default' }],
-  fetchStudioModels: async () => ['MiniMax-H3'],
+  fetchStudioModels: async () => ['MiniMax-H3', '特价-sd2.5三十秒'],
   fetchStudioProviderConfigs: async () => ({}),
   fetchStudioProviderModels: vi.fn(),
   saveStudioProviderConfig: vi.fn(),
@@ -72,6 +83,51 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks())
 
 describe('Studio account isolation', () => {
+  test('submits the saved thirty-second alias without the old 15-second cap', async () => {
+    const base = addStudioNode(
+      createStudioProject('Thirty seconds', 'project-30'),
+      'video',
+      'video-30'
+    )
+    const project = updateStudioNode(base, 'video-30', {
+      title: 'Thirty-second shot',
+      model: '特价-sd2.5三十秒',
+      videoFamily: 'seedance-2',
+      seconds: 30,
+      resolution: '720p',
+      prompt: 'a forest at sunrise',
+    })
+    localStorage.setItem(
+      studioProjectsKey(12),
+      JSON.stringify({ version: 1, projects: [project] })
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-30')
+    vi.mocked(getStudioVideoTask).mockResolvedValue({
+      status: 'queued',
+      progress: 0,
+    })
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Thirty-second shot' })
+    )
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole('button', {
+            name: 'studio.generate',
+          }) as HTMLButtonElement
+        ).disabled
+      ).toBe(false)
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'studio.generate' }))
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({ model: '特价-sd2.5三十秒', seconds: 30 }),
+        'default'
+      )
+    )
+  })
+
   test('polls a processing video on the schedule instead of every render', async () => {
     const base = addStudioNode(
       createStudioProject('Film', 'project-1'),

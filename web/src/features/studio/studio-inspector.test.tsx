@@ -75,6 +75,78 @@ describe('Studio model controls', () => {
     expect(screen.queryByText('2K')).toBeNull()
   })
 
+  test('uses the thirty-second range for an existing Seedance 2.5 alias node', async () => {
+    const node = video('特价-sd2.5三十秒')
+    node.data.videoFamily = 'seedance-2'
+    node.data.seconds = 30
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <StudioInspector
+        node={node}
+        models={['特价-sd2.5三十秒']}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={onChange}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    const duration = screen.getByLabelText(
+      'studio.duration'
+    ) as HTMLInputElement
+    expect(duration.max).toBe('30')
+    expect(duration.value).toBe('30')
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'studio.generate',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
+    await user.clear(duration)
+    expect(onChange).not.toHaveBeenCalledWith({ seconds: 0 })
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'studio.generate',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
+  })
+
+  test('selecting the thirty-second alias defaults its duration to thirty', async () => {
+    const node = video('')
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <StudioInspector
+        node={node}
+        models={['特价-sd2.5三十秒']}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={onChange}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    await user.click(screen.getByRole('combobox', { name: 'studio.model' }))
+    await user.click(
+      await screen.findByRole('option', { name: '特价-sd2.5三十秒' })
+    )
+    expect(onChange).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: '特价-sd2.5三十秒',
+        videoFamily: 'seedance-2.5',
+        seconds: 30,
+      })
+    )
+  })
+
   test('offers a retry when a completed video was not saved locally', () => {
     const node = video('MiniMax-H3')
     node.data.status = 'completed'

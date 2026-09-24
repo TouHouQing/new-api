@@ -14,7 +14,7 @@ Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-export type StudioVideoFamily = 'seedance-2' | 'minimax-h3'
+export type StudioVideoFamily = 'seedance-2' | 'seedance-2.5' | 'minimax-h3'
 
 export type StudioVideoModel = {
   id: string
@@ -22,6 +22,7 @@ export type StudioVideoModel = {
   resolutions: string[]
   minSeconds: number
   maxSeconds: number
+  defaultSeconds: number
 }
 
 export type StudioVideoInput = {
@@ -43,6 +44,7 @@ export type StudioVideoRequest = {
 
 const FULL_SEEDANCE_RESOLUTIONS = ['480p', '720p', '1080p', '4k']
 const LITE_SEEDANCE_RESOLUTIONS = ['480p', '720p']
+const SEEDANCE_25_RESOLUTIONS = ['480p', '720p', '1080p']
 const H3_RESOLUTIONS = ['768P', '2K']
 const RATIOS = new Set([
   '21:9',
@@ -66,6 +68,17 @@ export function buildStudioVideoModel(
       resolutions: H3_RESOLUTIONS,
       minSeconds: 4,
       maxSeconds: 15,
+      defaultSeconds: 5,
+    }
+  }
+  if (family === 'seedance-2.5') {
+    return {
+      id,
+      family,
+      resolutions: SEEDANCE_25_RESOLUTIONS,
+      minSeconds: 4,
+      maxSeconds: 30,
+      defaultSeconds: /(?:三十|30)\s*(?:秒|s\b)/i.test(id) ? 30 : 5,
     }
   }
   const lite = normalized.includes('-fast-') || normalized.includes('-mini-')
@@ -75,6 +88,7 @@ export function buildStudioVideoModel(
     resolutions: lite ? LITE_SEEDANCE_RESOLUTIONS : FULL_SEEDANCE_RESOLUTIONS,
     minSeconds: 4,
     maxSeconds: 15,
+    defaultSeconds: 5,
   }
 }
 
@@ -82,6 +96,13 @@ export function inferStudioVideoFamily(
   id: string
 ): StudioVideoFamily | undefined {
   const normalized = id.toLowerCase()
+  if (
+    normalized.includes('sd2.5') ||
+    /^doubao-seedance-2[-_.]5(?:-|$)/.test(normalized) ||
+    /^seedance-2[._-]5(?:-|$)/.test(normalized)
+  ) {
+    return 'seedance-2.5'
+  }
   if (normalized === 'minimax-h3' || normalized === 'minimaxh3') {
     return 'minimax-h3'
   }
