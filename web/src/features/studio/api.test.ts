@@ -22,6 +22,7 @@ import {
   buildStudioImageRequest,
   createStudioVideo,
   parseStudioGroups,
+  parseStudioAttempts,
   parseStudioImageResponse,
   parseStudioProviderConfigs,
   parseStudioProviderModels,
@@ -31,6 +32,38 @@ import {
 } from './api'
 
 describe('Studio relay responses', () => {
+  test('parses submission attempts without exposing unexpected response fields', () => {
+    expect(
+      parseStudioAttempts({
+        success: true,
+        data: [
+          {
+            id: 'attempt-1',
+            model: '轮换渠道-会员视频',
+            group: '特价sd',
+            stage: 'rejected_after_channel',
+            http_status: 400,
+            error_code: 'upstream_rejected',
+            channel_id: 73,
+            created_at: '2026-09-25T00:00:00Z',
+            api_key: 'sk-private',
+          },
+        ],
+      })
+    ).toEqual([
+      {
+        id: 'attempt-1',
+        model: '轮换渠道-会员视频',
+        group: '特价sd',
+        stage: 'rejected_after_channel',
+        httpStatus: 400,
+        errorCode: 'upstream_rejected',
+        channelId: 73,
+        taskId: '',
+        createdAt: '2026-09-25T00:00:00Z',
+      },
+    ])
+  })
   test('sends Unicode group IDs as URL parameters instead of HTTP headers', async () => {
     const post = vi
       .spyOn(api, 'post')
@@ -46,6 +79,32 @@ describe('Studio relay responses', () => {
       expect(post).toHaveBeenCalledWith('/pg/studio/videos', request, {
         params: { studio_group: '特价sd' },
       })
+    } finally {
+      post.mockRestore()
+    }
+  })
+  test('includes the submission ID when the video relay rejects before a task exists', async () => {
+    const post = vi.spyOn(api, 'post').mockRejectedValue({
+      message: 'duration unsupported',
+      response: { headers: { 'x-studio-attempt-id': 'attempt-123' } },
+    })
+    try {
+      const submission = createStudioVideo(
+        {
+          model: 'rotating-alias',
+          prompt: 'scene',
+          seconds: '30',
+          metadata: {},
+        },
+        'default'
+      )
+      await expect(submission).rejects.toThrow('duration unsupported')
+      expect(post).toHaveBeenCalledTimes(1)
+      const lastError: unknown = await submission.catch(
+        (error: unknown) => error
+      )
+      expect(lastError).toBeInstanceOf(Error)
+      expect((lastError as Error).message).toContain('attempt-123')
     } finally {
       post.mockRestore()
     }

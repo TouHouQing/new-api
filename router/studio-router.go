@@ -27,6 +27,7 @@ func SetStudioRouter(router *gin.Engine) {
 		middleware.DisableCache(),
 	)
 	providerAPI.GET("/providers", controller.ListStudioProviderConfigs)
+	providerAPI.GET("/attempts", controller.ListStudioAttempts)
 	providerAPI.PUT("/providers/:kind", middleware.CriticalRateLimit(), controller.PutStudioProvider)
 	providerAPI.DELETE("/providers/:kind", middleware.CriticalRateLimit(), controller.DeleteStudioProvider)
 	providerAPI.GET("/providers/:kind/models", middleware.UserCriticalRateLimit("studio-provider"), controller.StudioProviderModels)
@@ -37,6 +38,7 @@ func SetStudioRouter(router *gin.Engine) {
 		middleware.RouteTag("relay"),
 		middleware.SystemPerformanceCheck(),
 		middleware.UserAuth(),
+		middleware.StudioAttemptAudit(),
 		studioSessionAuth(),
 	)
 	studio.POST(

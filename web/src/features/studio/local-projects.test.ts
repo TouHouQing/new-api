@@ -27,6 +27,71 @@ import {
 beforeEach(() => localStorage.clear())
 
 describe('browser-local Studio projects', () => {
+  test('keeps a generic video format and editable metadata across reload and export', () => {
+    const project = {
+      id: 'p-custom',
+      title: 'Custom video',
+      createdAt: 'now',
+      updatedAt: 'now',
+      edges: [],
+      nodes: [
+        {
+          id: 'video',
+          type: 'studio' as const,
+          position: { x: 0, y: 0 },
+          data: {
+            kind: 'video' as const,
+            title: 'Shot',
+            prompt: 'Sunrise',
+            model: '轮换渠道-会员视频',
+            videoFamily: 'generic' as const,
+            seconds: 30,
+            resolution: 'custom-provider-resolution-1536',
+            ratio: '2:3',
+            metadataJson: '{"aigc_watermark":false}',
+          },
+        },
+      ],
+    }
+    saveStudioProjects(localStorage, 12, [project])
+    expect(
+      loadStudioProjects(localStorage, 12)[0].nodes[0].data.resolution
+    ).toBe('custom-provider-resolution-1536')
+    expect(
+      loadStudioProjects(localStorage, 12)[0].nodes[0].data.metadataJson
+    ).toBe('{"aigc_watermark":false}')
+    expect(
+      parseStudioProjectImport(serializeStudioProjectExport(project)).nodes[0]
+        .data.videoFamily
+    ).toBe('generic')
+  })
+
+  test('rejects an imported project that embeds an API key in video metadata', () => {
+    expect(() =>
+      parseStudioProjectImport(
+        JSON.stringify({
+          id: 'p',
+          title: 'Unsafe',
+          createdAt: 'now',
+          updatedAt: 'now',
+          edges: [],
+          nodes: [
+            {
+              id: 'v',
+              type: 'studio',
+              position: { x: 0, y: 0 },
+              data: {
+                kind: 'video',
+                title: 'Shot',
+                prompt: 'forest',
+                metadataJson: '{"api_key":"sk-private"}',
+              },
+            },
+          ],
+        })
+      )
+    ).toThrow('project')
+  })
   test('isolates saved projects by New API user ID', () => {
     const project = {
       id: 'project-one',

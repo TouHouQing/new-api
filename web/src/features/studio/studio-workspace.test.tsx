@@ -24,6 +24,7 @@ import { useAuthStore } from '@/stores/auth-store'
 import {
   createStudioVideo,
   fetchStudioProviderConfigs,
+  fetchStudioAttempts,
   fetchStudioProviderModels,
   generateStudioImage,
   generateStudioText,
@@ -67,6 +68,7 @@ vi.mock('./api', () => ({
   ],
   fetchStudioModels: async () => ['MiniMax-H3', '会员套餐甲'],
   fetchStudioProviderConfigs: vi.fn(async () => ({})),
+  fetchStudioAttempts: vi.fn(async () => []),
   fetchStudioProviderModels: vi.fn(),
   saveStudioProviderConfig: vi.fn(),
   deleteStudioProviderConfig: vi.fn(),
@@ -108,6 +110,66 @@ afterEach(() => {
 })
 
 describe('Studio account isolation', () => {
+  test('opens the account submission history from the workbench', async () => {
+    vi.mocked(fetchStudioAttempts).mockResolvedValue([
+      {
+        id: 'attempt-1',
+        group: 'default',
+        model: '会员套餐甲',
+        stage: 'rejected_after_channel',
+        httpStatus: 400,
+        errorCode: 'upstream_rejected',
+        channelId: 7,
+        taskId: '',
+        createdAt: '2026-09-25T00:00:00Z',
+      },
+    ])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.attempt.title' })
+    )
+    expect(await screen.findByText('upstream_rejected')).toBeTruthy()
+  })
+  test('submits an unknown alias with editable parameters and metadata', async () => {
+    let project = addStudioNode(
+      createStudioProject('Custom', 'p-custom'),
+      'video',
+      'v-custom'
+    )
+    project = updateStudioNode(project, 'v-custom', {
+      model: '会员套餐甲',
+      prompt: 'a cinematic city',
+      seconds: 30,
+      resolution: 'custom-1536',
+      ratio: '2:3',
+      metadataJson: '{"aigc_watermark":false}',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    vi.mocked(createStudioVideo).mockResolvedValue('task-custom')
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    const button = await screen.findByRole('button', {
+      name: 'studio.generate',
+    })
+    await waitFor(() =>
+      expect((button as HTMLButtonElement).disabled).toBe(false)
+    )
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          model: '会员套餐甲',
+          seconds: '30',
+          metadata: expect.objectContaining({
+            resolution: 'custom-1536',
+            ratio: '2:3',
+            aigc_watermark: false,
+          }),
+        }),
+        'default'
+      )
+    )
+  })
   test('regenerates an image after its upstream manual text changes', async () => {
     vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
       image: {

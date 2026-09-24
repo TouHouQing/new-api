@@ -42,6 +42,9 @@ func TestStudioRoutesRequireDashboardAuthentication(t *testing.T) {
 	providerList := httptest.NewRecorder()
 	engine.ServeHTTP(providerList, httptest.NewRequest(http.MethodGet, "/api/studio/providers", nil))
 	assert.Equal(t, http.StatusUnauthorized, providerList.Code)
+	attemptList := httptest.NewRecorder()
+	engine.ServeHTTP(attemptList, httptest.NewRequest(http.MethodGet, "/api/studio/attempts", nil))
+	assert.Equal(t, http.StatusUnauthorized, attemptList.Code)
 
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/pg/studio/arbitrary", nil))
@@ -69,7 +72,7 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	previousSecret := common.SessionSecret
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.AuditLog{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.AuditLog{}, &model.StudioAttempt{}))
 	model.DB = db
 	model.LOG_DB = db
 	common.RedisEnabled = false
@@ -102,6 +105,9 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 			"token_id":    c.GetInt("token_id"),
 			"raw_query":   c.Request.URL.RawQuery,
 		})
+	})
+	engine.POST("/pg/studio/videos", middleware.UserAuth(), middleware.StudioAttemptAudit(), studioSessionAuth(), func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"id": "task-accepted"})
 	})
 
 	request := httptest.NewRequest(http.MethodPost, "/studio-auth", nil)
@@ -205,4 +211,17 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	duplicateQueryRecorder := httptest.NewRecorder()
 	engine.ServeHTTP(duplicateQueryRecorder, duplicateQuery)
 	assert.Equal(t, http.StatusBadRequest, duplicateQueryRecorder.Code)
+	rejectedVideo := httptest.NewRequest(http.MethodPost, "/pg/studio/videos?studio_group=forbidden-group", strings.NewReader(`{"model":"轮换渠道-会员视频","prompt":"film"}`))
+	rejectedVideo.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	rejectedVideo.Header.Set("Content-Type", "application/json")
+	rejectedRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(rejectedRecorder, rejectedVideo)
+	require.Equal(t, http.StatusForbidden, rejectedRecorder.Code)
+	assert.NotEmpty(t, rejectedRecorder.Header().Get("X-Studio-Attempt-ID"))
+	attempts, err := model.ListStudioAttempts(user.Id, 20)
+	require.NoError(t, err)
+	require.Len(t, attempts, 1)
+	assert.Equal(t, "forbidden-group", attempts[0].Group)
+	assert.Equal(t, "轮换渠道-会员视频", attempts[0].Model)
+	assert.Equal(t, "rejected_before_channel", attempts[0].Stage)
 }

@@ -14,7 +14,11 @@ Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-export type StudioVideoFamily = 'seedance-2' | 'seedance-2.5' | 'minimax-h3'
+export type StudioVideoFamily =
+  | 'generic'
+  | 'seedance-2'
+  | 'seedance-2.5'
+  | 'minimax-h3'
 
 export type StudioVideoModel = {
   id: string
@@ -33,6 +37,7 @@ export type StudioVideoInput = {
   imageUrl?: string
   imageUrls?: string[]
   videoUrls?: string[]
+  metadata?: Record<string, unknown>
 }
 
 export type StudioVideoRequest = {
@@ -40,9 +45,9 @@ export type StudioVideoRequest = {
   prompt: string
   seconds: string
   duration?: number
-  metadata: {
-    resolution: string
-    ratio: string
+  metadata: Record<string, unknown> & {
+    resolution?: string
+    ratio?: string
     content?: Array<{
       type: 'image_url' | 'video_url'
       role?: 'reference_image' | 'reference_video'
@@ -58,24 +63,71 @@ const FULL_SEEDANCE_RESOLUTIONS = ['480p', '720p', '1080p', '4k']
 const LITE_SEEDANCE_RESOLUTIONS = ['480p', '720p']
 const SEEDANCE_25_RESOLUTIONS = ['480p', '720p', '1080p']
 const H3_RESOLUTIONS = ['768P', '2K']
+const GENERIC_RESOLUTIONS = ['720p', '1080p', '2K']
 const STUDIO_MIN_SECONDS = 1
 const STUDIO_MAX_SECONDS = 3600
 const STUDIO_DEFAULT_SECONDS = 5
-const RATIOS = new Set([
-  '21:9',
-  '16:9',
-  '4:3',
-  '1:1',
-  '3:4',
-  '9:16',
-  'adaptive',
+const RESERVED_METADATA_KEYS = new Set([
+  '__proto__',
+  'constructor',
+  'prototype',
+  'model',
+  'prompt',
+  'seconds',
+  'duration',
+  'images',
+  'image',
+  'input_reference',
+  'content',
+  'resolution',
+  'ratio',
+  'size',
+  'n',
+  'count',
+  'output_count',
+  'api_key',
+  'apikey',
+  'authorization',
+  'token',
+  'secret',
 ])
+
+export function parseStudioVideoMetadata(raw: string): Record<string, unknown> {
+  if (!raw.trim()) return {}
+  if (raw.length > 16_384) throw new Error('metadata JSON is too large')
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    throw new Error('metadata must be valid JSON')
+  }
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    throw new Error('metadata must be a JSON object')
+  }
+  const fields = parsed as Record<string, unknown>
+  for (const key of Object.keys(fields)) {
+    if (RESERVED_METADATA_KEYS.has(key.toLowerCase())) {
+      throw new Error(`metadata field ${key} is reserved`)
+    }
+  }
+  return Object.fromEntries(Object.entries(fields))
+}
 
 export function buildStudioVideoModel(
   id: string,
   family: StudioVideoFamily
 ): StudioVideoModel {
   const normalized = id.toLowerCase()
+  if (family === 'generic') {
+    return {
+      id,
+      family,
+      resolutions: GENERIC_RESOLUTIONS,
+      minSeconds: STUDIO_MIN_SECONDS,
+      maxSeconds: STUDIO_MAX_SECONDS,
+      defaultSeconds: STUDIO_DEFAULT_SECONDS,
+    }
+  }
   if (family === 'minimax-h3') {
     return {
       id,
@@ -155,9 +207,12 @@ export function buildStudioVideoRequest(
   ) {
     throw new Error('duration is outside the selected model range')
   }
-  if (!model.resolutions.includes(input.resolution)) {
-    throw new Error('resolution is unavailable for the selected model')
+  if (input.resolution.length > 100 || input.ratio.length > 40) {
+    throw new Error('video settings are too long')
   }
+  const extraMetadata = parseStudioVideoMetadata(
+    JSON.stringify(input.metadata || {})
+  )
   const images = [
     ...new Set(
       [input.imageUrl, ...(input.imageUrls || [])].filter(
@@ -166,6 +221,11 @@ export function buildStudioVideoRequest(
     ),
   ]
   const videos = [...new Set(input.videoUrls || [])]
+  if (model.family === 'generic' && images.length && videos.length) {
+    throw new Error(
+      'choose a media request format for mixed image and video references'
+    )
+  }
   if (
     images
       .filter((url) => url.startsWith('data:'))
@@ -173,17 +233,8 @@ export function buildStudioVideoRequest(
   ) {
     throw new Error('image inputs exceed the Studio request limit')
   }
-  if (
-    model.family === 'minimax-h3' &&
-    images.length > (videos.length ? 9 : 2)
-  ) {
-    throw new Error('too many images for the selected video model')
-  }
-  if (
-    !RATIOS.has(input.ratio) ||
-    (input.ratio === 'adaptive' && !images.length && !videos.length)
-  ) {
-    throw new Error('ratio is unavailable for the selected input')
+  if (images.length > 32 || videos.length > 32) {
+    throw new Error('too many media references')
   }
 
   for (const image of images) {
@@ -202,8 +253,6 @@ export function buildStudioVideoRequest(
     }
     throw new Error('a public image URL is required')
   }
-  const videoLimit = model.family === 'seedance-2.5' ? 10 : 3
-  if (videos.length > videoLimit) throw new Error('too many reference videos')
   for (const video of videos) {
     try {
       if (new URL(video).protocol === 'https:') continue
@@ -217,7 +266,13 @@ export function buildStudioVideoRequest(
     model: model.id,
     prompt,
     seconds: String(input.seconds),
-    metadata: { resolution: input.resolution, ratio: input.ratio },
+    metadata: {
+      ...extraMetadata,
+      ...(input.resolution.trim()
+        ? { resolution: input.resolution.trim() }
+        : {}),
+      ...(input.ratio.trim() ? { ratio: input.ratio.trim() } : {}),
+    },
   }
   if (model.family === 'minimax-h3') request.duration = input.seconds
   if (videos.length && model.family === 'minimax-h3') {

@@ -17,7 +17,11 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { z } from 'zod'
 
 import type { StudioCanvasEdge, StudioCanvasNode } from './canvas-flow'
-import { buildStudioVideoModel, inferStudioVideoFamily } from './model-profiles'
+import {
+  buildStudioVideoModel,
+  inferStudioVideoFamily,
+  parseStudioVideoMetadata,
+} from './model-profiles'
 
 const nodeDataSchema = z.strictObject({
   kind: z.enum(['text', 'image', 'video']),
@@ -25,7 +29,9 @@ const nodeDataSchema = z.strictObject({
   prompt: z.string().max(30000),
   model: z.string().max(200).optional(),
   group: z.string().max(100).optional(),
-  videoFamily: z.enum(['seedance-2', 'seedance-2.5', 'minimax-h3']).optional(),
+  videoFamily: z
+    .enum(['generic', 'seedance-2', 'seedance-2.5', 'minimax-h3'])
+    .optional(),
   status: z
     .enum(['idle', 'submitting', 'queued', 'processing', 'completed', 'failed'])
     .optional(),
@@ -37,8 +43,20 @@ const nodeDataSchema = z.strictObject({
   progress: z.number().min(0).max(100).optional(),
   // Accept legacy invalid drafts so one bad duration does not erase a canvas.
   seconds: z.number().nullable().optional(),
-  resolution: z.string().max(20).optional(),
-  ratio: z.string().max(20).optional(),
+  resolution: z.string().max(100).optional(),
+  ratio: z.string().max(40).optional(),
+  metadataJson: z
+    .string()
+    .max(16_384)
+    .refine((raw) => {
+      try {
+        parseStudioVideoMetadata(raw)
+        return true
+      } catch {
+        return false
+      }
+    })
+    .optional(),
 })
 const nodeSchema = z.strictObject({
   id: z.string().min(1).max(128),

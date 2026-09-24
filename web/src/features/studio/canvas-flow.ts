@@ -42,6 +42,7 @@ export type StudioCanvasNodeData = {
   seconds?: number
   resolution?: string
   ratio?: string
+  metadataJson?: string
 }
 
 export type StudioCanvasNode = Node<StudioCanvasNodeData, 'studio'>

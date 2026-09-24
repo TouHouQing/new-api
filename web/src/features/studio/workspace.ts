@@ -137,6 +137,7 @@ export function updateStudioNode(
           'seconds',
           'resolution',
           'ratio',
+          'metadataJson',
         ] as const
       ).some(
         (key) => Object.hasOwn(patch, key) && patch[key] !== node.data[key]

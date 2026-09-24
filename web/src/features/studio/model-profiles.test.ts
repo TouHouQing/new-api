@@ -20,6 +20,7 @@ import {
   buildStudioVideoModel,
   buildStudioVideoRequest,
   inferStudioVideoFamily,
+  parseStudioVideoMetadata,
   selectStudioVideoModels,
 } from './model-profiles'
 
@@ -30,6 +31,78 @@ function videoModel(id: string) {
 }
 
 describe('Studio video models', () => {
+  test('accepts editable JSON metadata and rejects invalid or unsafe drafts', () => {
+    expect(parseStudioVideoMetadata('{"aigc_watermark":false}')).toEqual({
+      aigc_watermark: false,
+    })
+    expect(() => parseStudioVideoMetadata('[]')).toThrow('object')
+    expect(() => parseStudioVideoMetadata('{invalid')).toThrow('JSON')
+    expect(() => parseStudioVideoMetadata('{"duration":360000}')).toThrow(
+      'reserved'
+    )
+    expect(() =>
+      parseStudioVideoMetadata('{"__proto__":{"admin":true}}')
+    ).toThrow('reserved')
+    expect(() => parseStudioVideoMetadata('{"api_key":"sk-private"}')).toThrow(
+      'reserved'
+    )
+  })
+  test('submits an arbitrary alias with user-supplied format values', () => {
+    const model = buildStudioVideoModel('轮换渠道-会员视频', 'generic')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'cinematic portrait',
+        seconds: 30,
+        resolution: 'custom-1536',
+        ratio: '2:3',
+      })
+    ).toMatchObject({
+      model: '轮换渠道-会员视频',
+      seconds: '30',
+      metadata: { resolution: 'custom-1536', ratio: '2:3' },
+    })
+  })
+
+  test('does not silently drop an image when an unknown format mixes image and video references', () => {
+    const model = buildStudioVideoModel('轮换渠道-会员视频', 'generic')
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'continue this shot',
+        seconds: 5,
+        resolution: '720p',
+        ratio: '16:9',
+        imageUrl: 'https://cdn.example/character.png',
+        videoUrls: ['https://cdn.example/previous.mp4'],
+      })
+    ).toThrow('request format')
+  })
+
+  test('keeps extra metadata without letting it replace billing fields', () => {
+    const model = buildStudioVideoModel('rotating-h3-alias', 'minimax-h3')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'mountain sunrise',
+        seconds: 9,
+        resolution: '768P',
+        ratio: '16:9',
+        metadata: { aigc_watermark: false, prompt_optimizer: true },
+      }).metadata
+    ).toMatchObject({
+      aigc_watermark: false,
+      prompt_optimizer: true,
+      resolution: '768P',
+      ratio: '16:9',
+    })
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'mountain sunrise',
+        seconds: 9,
+        resolution: '768P',
+        ratio: '16:9',
+        metadata: { duration: 999999 },
+      })
+    ).toThrow('reserved')
+  })
   test('accepts thirty seconds for an arbitrary site alias without duration words', () => {
     const model = buildStudioVideoModel('会员套餐甲', 'seedance-2')
     expect(
@@ -222,7 +295,7 @@ describe('Studio video models', () => {
     ).toThrow('request limit')
   })
 
-  test('rejects settings outside the selected model contract', () => {
+  test('keeps billing and media safety checks without enforcing guessed model limits', () => {
     const model = videoModel('MiniMax-H3')
     expect(() =>
       buildStudioVideoRequest(model, {
@@ -232,14 +305,14 @@ describe('Studio video models', () => {
         ratio: '16:9',
       })
     ).toThrow('duration')
-    expect(() =>
+    expect(
       buildStudioVideoRequest(model, {
         prompt: 'a quiet forest',
         seconds: 5,
         resolution: '1080p',
         ratio: '16:9',
-      })
-    ).toThrow('resolution')
+      }).metadata.resolution
+    ).toBe('1080p')
     expect(() =>
       buildStudioVideoRequest(model, {
         prompt: 'a quiet forest',

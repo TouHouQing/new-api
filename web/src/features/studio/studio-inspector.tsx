@@ -20,6 +20,7 @@ import { Upload } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { JsonCodeEditor } from '@/components/json-code-editor'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldLabel } from '@/components/ui/field'
@@ -39,6 +40,7 @@ import type { StudioCanvasNode, StudioCanvasNodeData } from './canvas-flow'
 import {
   buildStudioVideoModel,
   inferStudioVideoFamily,
+  parseStudioVideoMetadata,
   type StudioVideoFamily,
 } from './model-profiles'
 
@@ -63,12 +65,19 @@ const RATIOS = ['16:9', '9:16', '1:1', '21:9', '4:3', '3:4', 'adaptive']
 export function StudioInspector(props: Props) {
   const { t } = useTranslation()
   const imageUploadRef = useRef<HTMLInputElement>(null)
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [metadataDraft, setMetadataDraft] = useState(
+    props.node.data.metadataJson || ''
+  )
+  useEffect(() => {
+    setMetadataDraft(props.node.data.metadataJson || '')
+  }, [props.node.id, props.node.data.metadataJson])
   const isVideo = props.node.data.kind === 'video'
   const choices = props.models
   const inferredFamily = props.node.data.model
     ? inferStudioVideoFamily(props.node.data.model)
     : undefined
-  const family = props.node.data.videoFamily || inferredFamily
+  const family = props.node.data.videoFamily || inferredFamily || 'generic'
   const model =
     isVideo && props.node.data.model && family
       ? buildStudioVideoModel(props.node.data.model, family)
@@ -89,12 +98,17 @@ export function StudioInspector(props: Props) {
   ])
   const durationNumber = Number(durationDraft)
   const durationValid = Boolean(
-    model &&
     durationDraft.trim() !== '' &&
     Number.isInteger(durationNumber) &&
-    durationNumber >= model.minSeconds &&
-    durationNumber <= model.maxSeconds
+    durationNumber >= 1 &&
+    durationNumber <= 3600
   )
+  let metadataValid = true
+  try {
+    parseStudioVideoMetadata(metadataDraft)
+  } catch {
+    metadataValid = false
+  }
   const busy =
     props.node.data.status === 'submitting' ||
     props.node.data.status === 'queued' ||
@@ -119,7 +133,6 @@ export function StudioInspector(props: Props) {
                   group: value || undefined,
                   model: undefined,
                   videoFamily: undefined,
-                  resolution: undefined,
                 })
               }
               items={props.videoGroups.map((group) => ({
@@ -172,7 +185,7 @@ export function StudioInspector(props: Props) {
               props.onChange({
                 model: value || undefined,
                 videoFamily: nextFamily,
-                resolution: next?.resolutions[0],
+                resolution: props.node.data.resolution || next?.resolutions[0],
                 seconds:
                   typeof currentSeconds === 'number' &&
                   Number.isInteger(currentSeconds) &&
@@ -180,7 +193,7 @@ export function StudioInspector(props: Props) {
                   currentSeconds <= 3600
                     ? currentSeconds
                     : (next?.defaultSeconds ?? 5),
-                ratio: '16:9',
+                ratio: props.node.data.ratio || '16:9',
               })
             }}
             items={choices.map((id) => ({ value: id, label: id }))}
@@ -270,11 +283,16 @@ export function StudioInspector(props: Props) {
                 const profile = buildStudioVideoModel(modelId, selected)
                 props.onChange({
                   videoFamily: selected,
-                  resolution: profile.resolutions[0],
+                  resolution:
+                    props.node.data.resolution || profile.resolutions[0],
                   seconds: props.node.data.seconds ?? profile.defaultSeconds,
                 })
               }}
               items={[
+                {
+                  value: 'generic',
+                  label: t('studio.video.family.generic'),
+                },
                 {
                   value: 'seedance-2',
                   label: t('studio.video.family.seedance'),
@@ -297,6 +315,9 @@ export function StudioInspector(props: Props) {
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
+                  <SelectItem value='generic'>
+                    {t('studio.video.family.generic')}
+                  </SelectItem>
                   <SelectItem value='seedance-2'>
                     {t('studio.video.family.seedance')}
                   </SelectItem>
@@ -309,6 +330,9 @@ export function StudioInspector(props: Props) {
                 </SelectGroup>
               </SelectContent>
             </Select>
+            <p className='text-muted-foreground text-xs'>
+              {t('studio.video.familyHint')}
+            </p>
           </Field>
         )}
         {(props.node.data.kind !== 'image' || props.node.data.model) && (
@@ -374,7 +398,16 @@ export function StudioInspector(props: Props) {
               </p>
             </Field>
             <Field>
-              <FieldLabel>{t('studio.resolution')}</FieldLabel>
+              <FieldLabel htmlFor='studio-resolution'>
+                {t('studio.resolution')}
+              </FieldLabel>
+              <Input
+                id='studio-resolution'
+                value={props.node.data.resolution || ''}
+                onChange={(event) =>
+                  props.onChange({ resolution: event.target.value })
+                }
+              />
               <div className='flex flex-wrap gap-2'>
                 {model.resolutions.map((resolution) => (
                   <Button
@@ -393,7 +426,16 @@ export function StudioInspector(props: Props) {
               </div>
             </Field>
             <Field>
-              <FieldLabel>{t('studio.ratio')}</FieldLabel>
+              <FieldLabel htmlFor='studio-ratio'>
+                {t('studio.ratio')}
+              </FieldLabel>
+              <Input
+                id='studio-ratio'
+                value={props.node.data.ratio || ''}
+                onChange={(event) =>
+                  props.onChange({ ratio: event.target.value })
+                }
+              />
               <div className='flex flex-wrap gap-2'>
                 {RATIOS.map((ratio) => (
                   <Button
@@ -411,6 +453,41 @@ export function StudioInspector(props: Props) {
               <p className='text-muted-foreground text-xs'>
                 {t('studio.ratio.adaptiveHint')}
               </p>
+            </Field>
+            <Field>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={() => setAdvancedOpen((open) => !open)}
+              >
+                {t('studio.video.advanced')}
+              </Button>
+              {advancedOpen && (
+                <>
+                  <JsonCodeEditor
+                    value={metadataDraft}
+                    onChange={(value) => {
+                      setMetadataDraft(value)
+                      try {
+                        parseStudioVideoMetadata(value)
+                        props.onChange({ metadataJson: value })
+                      } catch {
+                        // Keep invalid drafts in component state, never in project storage.
+                      }
+                    }}
+                    heightClassName='h-40 min-h-40 max-h-40'
+                    ariaLabel={t('studio.video.metadata')}
+                  />
+                  <p className='text-muted-foreground text-xs'>
+                    {t('studio.video.metadataHint')}
+                  </p>
+                </>
+              )}
+              {!metadataValid && (
+                <p className='text-destructive text-xs' role='alert'>
+                  {t('studio.video.metadataInvalid')}
+                </p>
+              )}
             </Field>
           </>
         )}
@@ -434,8 +511,8 @@ export function StudioInspector(props: Props) {
               (isVideo &&
                 (!props.node.data.model ||
                   !props.videoGroup ||
-                  !family ||
-                  !durationValid))
+                  !durationValid ||
+                  !metadataValid))
             }
             onClick={props.onGenerate}
           >

@@ -84,8 +84,10 @@ import {
   buildStudioVideoModel,
   buildStudioVideoRequest,
   inferStudioVideoFamily,
+  parseStudioVideoMetadata,
 } from './model-profiles'
 import { StudioProviderSettings } from './provider-settings'
+import { StudioAttempts } from './studio-attempts'
 import { StudioInspector } from './studio-inspector'
 import { StudioNode } from './studio-node'
 import {
@@ -164,6 +166,7 @@ export function Studio() {
     Partial<Record<StudioProviderKind, string[]>>
   >({})
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [attemptsOpen, setAttemptsOpen] = useState(false)
   const [settingsKind, setSettingsKind] = useState<StudioProviderKind>('text')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
@@ -268,6 +271,7 @@ export function Studio() {
     setProviderConfigs({})
     setProviderModels({})
     setSettingsOpen(false)
+    setAttemptsOpen(false)
     setPreviews({})
     loadedMediaIds.current.clear()
     ownedUrls.current.forEach((url) => URL.revokeObjectURL(url))
@@ -701,8 +705,9 @@ export function Studio() {
             throw new Error(t('studio.model.empty'))
           }
           const family =
-            node.data.videoFamily || inferStudioVideoFamily(node.data.model)
-          if (!family) throw new Error(t('studio.video.family.select'))
+            node.data.videoFamily ||
+            inferStudioVideoFamily(node.data.model) ||
+            'generic'
           const model = buildStudioVideoModel(node.data.model, family)
           const incoming = source.edges
             .filter((edge) => edge.target === node.id)
@@ -739,6 +744,7 @@ export function Studio() {
             seconds: node.data.seconds ?? model.defaultSeconds,
             resolution: node.data.resolution ?? model.resolutions[0],
             ratio: node.data.ratio ?? '16:9',
+            metadata: parseStudioVideoMetadata(node.data.metadataJson || ''),
           })
           update(node.id, {
             status: 'submitting',
@@ -776,9 +782,15 @@ export function Studio() {
           }
         }
       } catch (error) {
-        update(current.id, { status: 'failed', error: errorMessage(error) })
+        const reason = errorMessage(error)
+        const displayReason = reason.includes(
+          'choose a media request format for mixed'
+        )
+          ? t('studio.video.mixedFormatRequired')
+          : reason
+        update(current.id, { status: 'failed', error: displayReason })
         if (current.id !== target.id) {
-          update(target.id, { status: 'failed', error: errorMessage(error) })
+          update(target.id, { status: 'failed', error: displayReason })
         }
       } finally {
         runningTargets.current.delete(runId)
@@ -1002,6 +1014,13 @@ export function Studio() {
           <Settings2 />
           {t('studio.provider.settings')}
         </Button>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => setAttemptsOpen(true)}
+        >
+          {t('studio.attempt.title')}
+        </Button>
         <Input
           ref={uploadRef}
           type='file'
@@ -1218,6 +1237,7 @@ export function Studio() {
                   'seconds',
                   'resolution',
                   'ratio',
+                  'metadataJson',
                 ] as const
                 const changed = inputKeys.some(
                   (key) =>
@@ -1307,6 +1327,11 @@ export function Studio() {
         onSave={saveProvider}
         onRefresh={refreshProviderModels}
         onDelete={removeProvider}
+      />
+      <StudioAttempts
+        open={attemptsOpen}
+        onOpenChange={setAttemptsOpen}
+        userId={userId}
       />
     </div>
   )

@@ -16,12 +16,30 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, test, vi } from 'vitest'
 
 import type { StudioCanvasNode } from './canvas-flow'
 import { StudioInspector } from './studio-inspector'
+
+vi.mock('@/components/json-code-editor', () => ({
+  JsonCodeEditor: ({
+    value,
+    onChange,
+    ariaLabel,
+  }: {
+    value: string
+    onChange: (value: string) => void
+    ariaLabel: string
+  }) => (
+    <textarea
+      aria-label={ariaLabel}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+    />
+  ),
+}))
 
 const video = (model: string): StudioCanvasNode => ({
   id: 'video',
@@ -39,6 +57,109 @@ const video = (model: string): StudioCanvasNode => ({
 })
 
 describe('Studio model controls', () => {
+  test('keeps invalid or secret metadata drafts out of saved project state', () => {
+    const node = video('会员套餐甲')
+    const onChange = vi.fn()
+    render(
+      <StudioInspector
+        node={node}
+        models={['会员套餐甲']}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={onChange}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.video.advanced' })
+    )
+    fireEvent.change(screen.getByLabelText('studio.video.metadata'), {
+      target: { value: '{"api_key":"sk-private"}' },
+    })
+    expect(onChange).not.toHaveBeenCalledWith({
+      metadataJson: '{"api_key":"sk-private"}',
+    })
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'studio.generate',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
+    fireEvent.change(screen.getByLabelText('studio.video.metadata'), {
+      target: { value: '{"aigc_watermark":false}' },
+    })
+    expect(onChange).toHaveBeenCalledWith({
+      metadataJson: '{"aigc_watermark":false}',
+    })
+  })
+  test('explains an invalid advanced draft before submission even when collapsed', () => {
+    const node = video('会员套餐甲')
+    node.data.metadataJson = '{"duration":999999}'
+    render(
+      <StudioInspector
+        node={node}
+        models={['会员套餐甲']}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'studio.generate',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
+    expect(screen.getByRole('alert').textContent).toContain(
+      'studio.video.metadataInvalid'
+    )
+  })
+  test('lets an unknown site alias submit custom resolution and ratio without a family guess', async () => {
+    const node = video('轮换渠道-会员视频')
+    node.data.videoFamily = undefined
+    node.data.resolution = 'custom-1536'
+    node.data.ratio = '2:3'
+    const onChange = vi.fn()
+    render(
+      <StudioInspector
+        node={node}
+        models={['轮换渠道-会员视频']}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={onChange}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'studio.generate',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
+    expect(
+      (screen.getByLabelText('studio.resolution') as HTMLInputElement).value
+    ).toBe('custom-1536')
+    expect(
+      (screen.getByLabelText('studio.ratio') as HTMLInputElement).value
+    ).toBe('2:3')
+    fireEvent.change(screen.getByLabelText('studio.resolution'), {
+      target: { value: 'custom-2048' },
+    })
+    expect(onChange).toHaveBeenCalledWith({ resolution: 'custom-2048' })
+  })
   test('shows only H3 duration and resolution controls for an H3 node', () => {
     render(
       <StudioInspector

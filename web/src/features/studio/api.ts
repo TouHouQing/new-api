@@ -31,6 +31,17 @@ export type StudioProviderConfigs = Partial<
   Record<StudioProviderKind, StudioProviderConfig>
 >
 export type StudioGroup = { id: string; description: string }
+export type StudioAttempt = {
+  id: string
+  group: string
+  model: string
+  stage: string
+  httpStatus: number
+  errorCode: string
+  channelId: number
+  taskId: string
+  createdAt: string
+}
 
 export type StudioTaskState = {
   status: 'queued' | 'processing' | 'completed' | 'failed'
@@ -40,6 +51,41 @@ export type StudioTaskState = {
 
 function isRecord(value: unknown): value is RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+export function parseStudioAttempts(value: unknown): StudioAttempt[] {
+  if (
+    !isRecord(value) ||
+    value.success !== true ||
+    !Array.isArray(value.data)
+  ) {
+    throw new Error('Studio submissions are unavailable')
+  }
+  return value.data
+    .filter(
+      (item): item is RecordValue =>
+        isRecord(item) &&
+        typeof item.id === 'string' &&
+        item.id.length > 0 &&
+        typeof item.stage === 'string' &&
+        typeof item.http_status === 'number'
+    )
+    .map((item) => ({
+      id: item.id as string,
+      group: typeof item.group === 'string' ? item.group : '',
+      model: typeof item.model === 'string' ? item.model : '',
+      stage: item.stage as string,
+      httpStatus: item.http_status as number,
+      errorCode: typeof item.error_code === 'string' ? item.error_code : '',
+      channelId: typeof item.channel_id === 'number' ? item.channel_id : 0,
+      taskId: typeof item.task_id === 'string' ? item.task_id : '',
+      createdAt: typeof item.created_at === 'string' ? item.created_at : '',
+    }))
+}
+
+export async function fetchStudioAttempts(): Promise<StudioAttempt[]> {
+  const response = await api.get('/api/studio/attempts')
+  return parseStudioAttempts(response.data)
 }
 
 export function parseStudioGroups(value: unknown): StudioGroup[] {
@@ -273,10 +319,34 @@ export async function createStudioVideo(
   group: string
 ): Promise<string> {
   if (!group) throw new Error('a video group is required')
-  const response = await api.post('/pg/studio/videos', request, {
-    params: { studio_group: group },
-  })
-  return parseStudioVideoResponse(response.data)
+  try {
+    const response = await api.post('/pg/studio/videos', request, {
+      params: { studio_group: group },
+    })
+    return parseStudioVideoResponse(response.data)
+  } catch (error) {
+    const response = isRecord(error) ? error.response : undefined
+    const headers = isRecord(response) ? response.headers : undefined
+    let attemptId: unknown
+    if (isRecord(headers)) {
+      attemptId = headers['x-studio-attempt-id']
+      if (!attemptId && typeof headers.get === 'function') {
+        attemptId = headers.get('x-studio-attempt-id')
+      }
+    }
+    if (
+      typeof attemptId === 'string' &&
+      /^[A-Za-z0-9-]{1,64}$/.test(attemptId)
+    ) {
+      let message = 'video submission failed'
+      if (error instanceof Error) message = error.message
+      else if (isRecord(error) && typeof error.message === 'string') {
+        message = error.message
+      }
+      throw new Error(`${message} (submission ${attemptId})`, { cause: error })
+    }
+    throw error
+  }
 }
 
 export async function getStudioVideoTask(
