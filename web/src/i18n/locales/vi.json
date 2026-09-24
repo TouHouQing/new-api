@@ -6813,6 +6813,7 @@
     "studio.prompt": "Lời nhắc",
     "studio.prompt.placeholder": "Mô tả kết quả bạn muốn tạo",
     "studio.duration": "Thời lượng",
+    "studio.duration.modelHint": "Thời lượng thực tế phụ thuộc vào mô hình của trang web.",
     "studio.seconds": "giây",
     "studio.resolution": "Độ phân giải",
     "studio.ratio": "Tỷ lệ khung hình",

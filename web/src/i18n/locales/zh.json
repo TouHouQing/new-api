@@ -6813,6 +6813,7 @@
     "studio.prompt": "提示词",
     "studio.prompt.placeholder": "描述你希望生成的画面或内容",
     "studio.duration": "时长",
+    "studio.duration.modelHint": "实际可用时长以本站模型为准。",
     "studio.seconds": "秒",
     "studio.resolution": "分辨率",
     "studio.ratio": "画面比例",

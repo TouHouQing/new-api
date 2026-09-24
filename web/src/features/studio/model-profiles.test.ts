@@ -30,12 +30,23 @@ function videoModel(id: string) {
 }
 
 describe('Studio video models', () => {
+  test('accepts thirty seconds for an arbitrary site alias without duration words', () => {
+    const model = buildStudioVideoModel('会员套餐甲', 'seedance-2')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'a quiet forest',
+        seconds: 30,
+        resolution: '720p',
+        ratio: '16:9',
+      }).seconds
+    ).toBe(30)
+  })
   test('recognizes the site Seedance 2.5 thirty-second alias', () => {
     const id = '特价-sd2.5三十秒'
     expect(inferStudioVideoFamily(id)).toBe('seedance-2.5')
     const model = buildStudioVideoModel(id, 'seedance-2.5')
-    expect(model.maxSeconds).toBe(30)
-    expect(model.defaultSeconds).toBe(30)
+    expect(model.maxSeconds).toBe(3600)
+    expect(model.defaultSeconds).toBe(5)
     expect(model.resolutions).toEqual(['480p', '720p', '1080p'])
     expect(
       buildStudioVideoRequest(model, {
@@ -48,7 +59,7 @@ describe('Studio video models', () => {
     expect(() =>
       buildStudioVideoRequest(model, {
         prompt: 'a forest at sunrise',
-        seconds: 31,
+        seconds: 3601,
         resolution: '720p',
         ratio: '16:9',
       })
@@ -144,7 +155,7 @@ describe('Studio video models', () => {
     expect(() =>
       buildStudioVideoRequest(model, {
         prompt: 'a quiet forest',
-        seconds: 16,
+        seconds: 3601,
         resolution: '2K',
         ratio: '16:9',
       })

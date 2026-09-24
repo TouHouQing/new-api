@@ -93,7 +93,7 @@ function normalizeStudioProject(project: StudioProject): StudioProject {
       const inferredFamily = data.model
         ? inferStudioVideoFamily(data.model)
         : undefined
-      if (inferredFamily) data.videoFamily = inferredFamily
+      if (!data.videoFamily && inferredFamily) data.videoFamily = inferredFamily
       const model =
         data.model && data.videoFamily
           ? buildStudioVideoModel(data.model, data.videoFamily)
@@ -102,8 +102,8 @@ function normalizeStudioProject(project: StudioProject): StudioProject {
       if (
         typeof seconds !== 'number' ||
         !Number.isInteger(seconds) ||
-        seconds < (model?.minSeconds ?? 4) ||
-        seconds > (model?.maxSeconds ?? 30)
+        seconds < (model?.minSeconds ?? 1) ||
+        seconds > (model?.maxSeconds ?? 3600)
       ) {
         data.seconds = model?.defaultSeconds ?? 5
       }

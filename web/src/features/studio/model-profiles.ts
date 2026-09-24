@@ -46,6 +46,9 @@ const FULL_SEEDANCE_RESOLUTIONS = ['480p', '720p', '1080p', '4k']
 const LITE_SEEDANCE_RESOLUTIONS = ['480p', '720p']
 const SEEDANCE_25_RESOLUTIONS = ['480p', '720p', '1080p']
 const H3_RESOLUTIONS = ['768P', '2K']
+const STUDIO_MIN_SECONDS = 1
+const STUDIO_MAX_SECONDS = 3600
+const STUDIO_DEFAULT_SECONDS = 5
 const RATIOS = new Set([
   '21:9',
   '16:9',
@@ -66,9 +69,9 @@ export function buildStudioVideoModel(
       id,
       family,
       resolutions: H3_RESOLUTIONS,
-      minSeconds: 4,
-      maxSeconds: 15,
-      defaultSeconds: 5,
+      minSeconds: STUDIO_MIN_SECONDS,
+      maxSeconds: STUDIO_MAX_SECONDS,
+      defaultSeconds: STUDIO_DEFAULT_SECONDS,
     }
   }
   if (family === 'seedance-2.5') {
@@ -76,9 +79,9 @@ export function buildStudioVideoModel(
       id,
       family,
       resolutions: SEEDANCE_25_RESOLUTIONS,
-      minSeconds: 4,
-      maxSeconds: 30,
-      defaultSeconds: /(?:三十|30)\s*(?:秒|s\b)/i.test(id) ? 30 : 5,
+      minSeconds: STUDIO_MIN_SECONDS,
+      maxSeconds: STUDIO_MAX_SECONDS,
+      defaultSeconds: STUDIO_DEFAULT_SECONDS,
     }
   }
   const lite = normalized.includes('-fast-') || normalized.includes('-mini-')
@@ -86,9 +89,9 @@ export function buildStudioVideoModel(
     id,
     family,
     resolutions: lite ? LITE_SEEDANCE_RESOLUTIONS : FULL_SEEDANCE_RESOLUTIONS,
-    minSeconds: 4,
-    maxSeconds: 15,
-    defaultSeconds: 5,
+    minSeconds: STUDIO_MIN_SECONDS,
+    maxSeconds: STUDIO_MAX_SECONDS,
+    defaultSeconds: STUDIO_DEFAULT_SECONDS,
   }
 }
 

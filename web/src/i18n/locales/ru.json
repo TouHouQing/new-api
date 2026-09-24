@@ -6813,6 +6813,7 @@
     "studio.prompt": "Запрос",
     "studio.prompt.placeholder": "Опишите желаемый результат",
     "studio.duration": "Длительность",
+    "studio.duration.modelHint": "Фактическая допустимая длительность зависит от модели сайта.",
     "studio.seconds": "секунд",
     "studio.resolution": "Разрешение",
     "studio.ratio": "Соотношение сторон",

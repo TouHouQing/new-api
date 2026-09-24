@@ -6813,6 +6813,7 @@
     "studio.prompt": "Consigne",
     "studio.prompt.placeholder": "Décrivez le résultat souhaité",
     "studio.duration": "Durée",
+    "studio.duration.modelHint": "La durée réelle dépend du modèle du site.",
     "studio.seconds": "secondes",
     "studio.resolution": "Résolution",
     "studio.ratio": "Format",

@@ -6813,6 +6813,7 @@
     "studio.prompt": "Prompt",
     "studio.prompt.placeholder": "Describe the scene or result you want",
     "studio.duration": "Duration",
+    "studio.duration.modelHint": "Actual duration limits depend on the site model.",
     "studio.seconds": "seconds",
     "studio.resolution": "Resolution",
     "studio.ratio": "Aspect ratio",

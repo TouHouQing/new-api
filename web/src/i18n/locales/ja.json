@@ -6813,6 +6813,7 @@
     "studio.prompt": "プロンプト",
     "studio.prompt.placeholder": "生成したい内容を入力",
     "studio.duration": "長さ",
+    "studio.duration.modelHint": "実際に指定できる長さはサイトのモデルによって異なります。",
     "studio.seconds": "秒",
     "studio.resolution": "解像度",
     "studio.ratio": "縦横比",

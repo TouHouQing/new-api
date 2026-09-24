@@ -64,7 +64,7 @@ export function StudioInspector(props: Props) {
   const inferredFamily = props.node.data.model
     ? inferStudioVideoFamily(props.node.data.model)
     : undefined
-  const family = inferredFamily || props.node.data.videoFamily
+  const family = props.node.data.videoFamily || inferredFamily
   const model =
     isVideo && props.node.data.model && family
       ? buildStudioVideoModel(props.node.data.model, family)
@@ -164,11 +164,18 @@ export function StudioInspector(props: Props) {
                 value && nextFamily
                   ? buildStudioVideoModel(value, nextFamily)
                   : undefined
+              const currentSeconds = props.node.data.seconds
               props.onChange({
                 model: value || undefined,
                 videoFamily: nextFamily,
                 resolution: next?.resolutions[0],
-                seconds: next?.defaultSeconds ?? 5,
+                seconds:
+                  typeof currentSeconds === 'number' &&
+                  Number.isInteger(currentSeconds) &&
+                  currentSeconds > 0 &&
+                  currentSeconds <= 3600
+                    ? currentSeconds
+                    : (next?.defaultSeconds ?? 5),
                 ratio: '16:9',
               })
             }}
@@ -204,61 +211,59 @@ export function StudioInspector(props: Props) {
             </Button>
           )}
         </Field>
-        {isVideo &&
-          props.node.data.model &&
-          !inferStudioVideoFamily(props.node.data.model) && (
-            <Field>
-              <FieldLabel>{t('studio.video.family')}</FieldLabel>
-              <Select
-                value={family || null}
-                onValueChange={(value) => {
-                  const modelId = props.node.data.model
-                  if (!modelId) return
-                  const selected = value as StudioVideoFamily
-                  const profile = buildStudioVideoModel(modelId, selected)
-                  props.onChange({
-                    videoFamily: selected,
-                    resolution: profile.resolutions[0],
-                    seconds: profile.defaultSeconds,
-                  })
-                }}
-                items={[
-                  {
-                    value: 'seedance-2',
-                    label: t('studio.video.family.seedance'),
-                  },
-                  {
-                    value: 'seedance-2.5',
-                    label: t('studio.video.family.seedance25'),
-                  },
-                  {
-                    value: 'minimax-h3',
-                    label: t('studio.video.family.minimax'),
-                  },
-                ]}
+        {isVideo && props.node.data.model && (
+          <Field>
+            <FieldLabel>{t('studio.video.family')}</FieldLabel>
+            <Select
+              value={family || null}
+              onValueChange={(value) => {
+                const modelId = props.node.data.model
+                if (!modelId) return
+                const selected = value as StudioVideoFamily
+                const profile = buildStudioVideoModel(modelId, selected)
+                props.onChange({
+                  videoFamily: selected,
+                  resolution: profile.resolutions[0],
+                  seconds: props.node.data.seconds ?? profile.defaultSeconds,
+                })
+              }}
+              items={[
+                {
+                  value: 'seedance-2',
+                  label: t('studio.video.family.seedance'),
+                },
+                {
+                  value: 'seedance-2.5',
+                  label: t('studio.video.family.seedance25'),
+                },
+                {
+                  value: 'minimax-h3',
+                  label: t('studio.video.family.minimax'),
+                },
+              ]}
+            >
+              <SelectTrigger
+                className='w-full'
+                aria-label={t('studio.video.family')}
               >
-                <SelectTrigger
-                  className='w-full'
-                  aria-label={t('studio.video.family')}
-                >
-                  <SelectValue placeholder={t('studio.video.family.select')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value='seedance-2'>
-                      {t('studio.video.family.seedance')}
-                    </SelectItem>
-                    <SelectItem value='seedance-2.5'>
-                      {t('studio.video.family.seedance25')}
-                    </SelectItem>
-                    <SelectItem value='minimax-h3'>
-                      {t('studio.video.family.minimax')}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </Field>
-          )}
+                <SelectValue placeholder={t('studio.video.family.select')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value='seedance-2'>
+                    {t('studio.video.family.seedance')}
+                  </SelectItem>
+                  <SelectItem value='seedance-2.5'>
+                    {t('studio.video.family.seedance25')}
+                  </SelectItem>
+                  <SelectItem value='minimax-h3'>
+                    {t('studio.video.family.minimax')}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor='studio-prompt'>{t('studio.prompt')}</FieldLabel>
           <Textarea
@@ -311,7 +316,8 @@ export function StudioInspector(props: Props) {
                 }}
               />
               <p className='text-muted-foreground text-xs'>
-                {model.minSeconds}–{model.maxSeconds} {t('studio.seconds')}
+                {model.minSeconds}–{model.maxSeconds} {t('studio.seconds')} ·{' '}
+                {t('studio.duration.modelHint')}
               </p>
             </Field>
             <Field>

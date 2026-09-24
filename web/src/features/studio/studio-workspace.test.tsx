@@ -41,7 +41,11 @@ vi.mock('@/components/ai-elements/canvas', () => ({
   }) => (
     <div data-testid='canvas-nodes'>
       {nodes.map((node) => (
-          <button type='button' key={node.id} onClick={() => onNodeClick?.({}, node)}>
+        <button
+          type='button'
+          key={node.id}
+          onClick={() => onNodeClick?.({}, node)}
+        >
           {node.data.title}
         </button>
       ))}
@@ -50,7 +54,7 @@ vi.mock('@/components/ai-elements/canvas', () => ({
 }))
 vi.mock('./api', () => ({
   fetchStudioGroups: async () => [{ id: 'default', description: 'Default' }],
-  fetchStudioModels: async () => ['MiniMax-H3', '特价-sd2.5三十秒'],
+  fetchStudioModels: async () => ['MiniMax-H3', '会员套餐甲'],
   fetchStudioProviderConfigs: async () => ({}),
   fetchStudioProviderModels: vi.fn(),
   saveStudioProviderConfig: vi.fn(),
@@ -83,7 +87,7 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks())
 
 describe('Studio account isolation', () => {
-  test('submits the saved thirty-second alias without the old 15-second cap', async () => {
+  test('submits an arbitrary saved thirty-second alias without a name-based cap', async () => {
     const base = addStudioNode(
       createStudioProject('Thirty seconds', 'project-30'),
       'video',
@@ -91,7 +95,7 @@ describe('Studio account isolation', () => {
     )
     const project = updateStudioNode(base, 'video-30', {
       title: 'Thirty-second shot',
-      model: '特价-sd2.5三十秒',
+      model: '会员套餐甲',
       videoFamily: 'seedance-2',
       seconds: 30,
       resolution: '720p',
@@ -122,7 +126,7 @@ describe('Studio account isolation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'studio.generate' }))
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
-        expect.objectContaining({ model: '特价-sd2.5三十秒', seconds: 30 }),
+        expect.objectContaining({ model: '会员套餐甲', seconds: 30 }),
         'default'
       )
     )

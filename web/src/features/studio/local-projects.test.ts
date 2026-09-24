@@ -54,7 +54,7 @@ describe('browser-local Studio projects', () => {
     expect(loadStudioProjects(localStorage, 12)).toEqual([])
   })
 
-  test('preserves thirty-second alias projects and repairs invalid legacy durations', () => {
+  test('preserves arbitrary thirty-second alias projects and repairs invalid legacy durations', () => {
     const node = (id: string, seconds: number | null) => ({
       id,
       type: 'studio',
@@ -63,7 +63,7 @@ describe('browser-local Studio projects', () => {
         kind: 'video',
         title: id,
         prompt: 'a forest',
-        model: '特价-sd2.5三十秒',
+        model: '会员套餐甲',
         videoFamily: 'seedance-2',
         seconds,
       },
@@ -86,13 +86,11 @@ describe('browser-local Studio projects', () => {
     )
     const loaded = loadStudioProjects(localStorage, 12)
     expect(loaded).toHaveLength(1)
-    expect(loaded[0].nodes.map((item) => item.data.seconds)).toEqual([
-      30, 30, 30,
-    ])
+    expect(loaded[0].nodes.map((item) => item.data.seconds)).toEqual([30, 5, 5])
     expect(loaded[0].nodes.map((item) => item.data.videoFamily)).toEqual([
-      'seedance-2.5',
-      'seedance-2.5',
-      'seedance-2.5',
+      'seedance-2',
+      'seedance-2',
+      'seedance-2',
     ])
   })
 

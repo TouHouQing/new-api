@@ -75,7 +75,7 @@ describe('Studio model controls', () => {
     expect(screen.queryByText('2K')).toBeNull()
   })
 
-  test('uses the thirty-second range for an existing Seedance 2.5 alias node', async () => {
+  test('keeps a thirty-second duration on an existing video alias node', async () => {
     const node = video('特价-sd2.5三十秒')
     node.data.videoFamily = 'seedance-2'
     node.data.seconds = 30
@@ -97,7 +97,7 @@ describe('Studio model controls', () => {
     const duration = screen.getByLabelText(
       'studio.duration'
     ) as HTMLInputElement
-    expect(duration.max).toBe('30')
+    expect(duration.max).toBe('3600')
     expect(duration.value).toBe('30')
     expect(
       (
@@ -117,8 +117,9 @@ describe('Studio model controls', () => {
     ).toBe(true)
   })
 
-  test('selecting the thirty-second alias defaults its duration to thirty', async () => {
+  test('selecting a site alias preserves the user-entered duration', async () => {
     const node = video('')
+    node.data.seconds = 30
     const onChange = vi.fn()
     const user = userEvent.setup()
     render(
@@ -190,6 +191,41 @@ describe('Studio model controls', () => {
     expect(
       screen.getByRole('combobox', { name: 'studio.video.family' })
     ).toBeTruthy()
+  })
+
+  test('lets an unrelated alias keep thirty seconds and its manually selected family', () => {
+    const node = video('会员套餐甲')
+    node.data.videoFamily = 'seedance-2'
+    node.data.seconds = 30
+    render(
+      <StudioInspector
+        node={node}
+        models={['会员套餐甲']}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(
+      (screen.getByLabelText('studio.duration') as HTMLInputElement).value
+    ).toBe('30')
+    expect(
+      (screen.getByLabelText('studio.duration') as HTMLInputElement).max
+    ).toBe('3600')
+    expect(
+      screen.getByRole('combobox', { name: 'studio.video.family' })
+    ).toBeTruthy()
+    expect(
+      (
+        screen.getByRole('button', {
+          name: 'studio.generate',
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(false)
   })
 
   test('changes the site group before selecting a model', async () => {

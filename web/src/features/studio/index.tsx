@@ -522,7 +522,7 @@ export function Studio() {
             throw new Error(t('studio.model.empty'))
           }
           const family =
-            inferStudioVideoFamily(node.data.model) || node.data.videoFamily
+            node.data.videoFamily || inferStudioVideoFamily(node.data.model)
           if (!family) throw new Error(t('studio.video.family.select'))
           const model = buildStudioVideoModel(node.data.model, family)
           const request = buildStudioVideoRequest(model, {
