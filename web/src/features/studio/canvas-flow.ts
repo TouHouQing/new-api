@@ -47,6 +47,75 @@ export type StudioCanvasNodeData = {
 export type StudioCanvasNode = Node<StudioCanvasNodeData, 'studio'>
 export type StudioCanvasEdge = Edge
 
+// Dependency traversal follows Node Banana's node execution model:
+// https://github.com/shrimbly/node-banana/blob/65746adfb0b581c91c0149f642d8b81c639ea8dc/src/store/utils/executionUtils.ts
+// Copyright (c) 2026 William Falloon, MIT. See NODE_BANANA_LICENSE.txt.
+export function planStudioExecution(
+  nodes: StudioCanvasNode[],
+  edges: StudioCanvasEdge[],
+  targetId: string
+): StudioCanvasNode[] {
+  const byId = new Map(nodes.map((node) => [node.id, node]))
+  if (!byId.has(targetId)) throw new Error('canvas target node is missing')
+  const visiting = new Set<string>()
+  const visited = new Set<string>()
+  const ordered: StudioCanvasNode[] = []
+
+  const visit = (nodeId: string): void => {
+    if (visiting.has(nodeId)) throw new Error('canvas connection cycle')
+    if (visited.has(nodeId)) return
+    const node = byId.get(nodeId)
+    if (!node) throw new Error('canvas connection source is missing')
+    visiting.add(nodeId)
+    for (const edge of edges) {
+      if (edge.target === nodeId) visit(edge.source)
+    }
+    visiting.delete(nodeId)
+    visited.add(nodeId)
+    ordered.push(node)
+  }
+
+  visit(targetId)
+  return ordered
+}
+
+export function isValidStudioConnection(
+  nodes: StudioCanvasNode[],
+  edges: StudioCanvasEdge[],
+  sourceId: string,
+  targetId: string
+): boolean {
+  if (
+    sourceId === targetId ||
+    edges.some((edge) => edge.source === sourceId && edge.target === targetId)
+  ) {
+    return false
+  }
+  const source = nodes.find((node) => node.id === sourceId)
+  const target = nodes.find((node) => node.id === targetId)
+  if (!source || !target) return false
+  const allowed = {
+    text: ['text', 'image', 'video'],
+    image: ['video'],
+    video: ['video'],
+  } as const
+  if (
+    !(allowed[source.data.kind] as readonly string[]).includes(target.data.kind)
+  ) {
+    return false
+  }
+  try {
+    planStudioExecution(
+      nodes,
+      [...edges, { id: 'candidate', source: sourceId, target: targetId }],
+      targetId
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function connectedGenerationInput(
   nodes: StudioCanvasNode[],
   edges: StudioCanvasEdge[],
@@ -63,9 +132,22 @@ export function connectedGenerationInput(
     .filter((node) => node.data.kind === 'text')
     .map((node) => node.data.outputText?.trim() || node.data.prompt.trim())
     .filter((value): value is string => Boolean(value))
-  const prompt = [...text, target.data.prompt.trim()]
+  const directPrompt = [...text, target.data.prompt.trim()]
     .filter(Boolean)
     .join('\n\n')
+  let inherited: string[] = []
+  if (!directPrompt) {
+    try {
+      inherited = planStudioExecution(nodes, edges, targetId)
+        .slice(0, -1)
+        .filter((node) => node.data.kind === 'text')
+        .map((node) => node.data.outputText?.trim() || node.data.prompt.trim())
+        .filter(Boolean)
+    } catch {
+      // Invalid imported graphs remain editable; execution reports the cycle.
+    }
+  }
+  const prompt = directPrompt || [...new Set(inherited)].join('\n\n')
   const imageUrl = sources
     .filter((node) => node.data.kind === 'image')
     .map((node) => node.data.outputUrl)

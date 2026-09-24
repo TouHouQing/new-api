@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useEffect, useState } from 'react'
+import { Upload } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -52,6 +53,7 @@ type Props = {
   previewUrl?: string
   onChange: (patch: Partial<StudioCanvasNodeData>) => void
   onGenerate: () => void
+  onUploadImage?: (file: File) => void
   onDelete: () => void
   onRetryMedia?: () => void
 }
@@ -60,6 +62,7 @@ const RATIOS = ['16:9', '9:16', '1:1', '21:9', '4:3', '3:4', 'adaptive']
 
 export function StudioInspector(props: Props) {
   const { t } = useTranslation()
+  const imageUploadRef = useRef<HTMLInputElement>(null)
   const isVideo = props.node.data.kind === 'video'
   const choices = props.models
   const inferredFamily = props.node.data.model
@@ -183,7 +186,11 @@ export function StudioInspector(props: Props) {
             items={choices.map((id) => ({ value: id, label: id }))}
           >
             <SelectTrigger className='w-full' aria-label={t('studio.model')}>
-              <SelectValue placeholder={t('studio.model.select')} />
+              <SelectValue
+                placeholder={
+                  isVideo ? t('studio.model.select') : t('studio.source.manual')
+                }
+              />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -195,7 +202,7 @@ export function StudioInspector(props: Props) {
               </SelectGroup>
             </SelectContent>
           </Select>
-          {choices.length === 0 && (
+          {choices.length === 0 && (isVideo || props.node.data.model) && (
             <p className='text-muted-foreground text-xs'>
               {!isVideo && !props.providerConfigured
                 ? t('studio.provider.configureHint')
@@ -203,15 +210,54 @@ export function StudioInspector(props: Props) {
             </p>
           )}
           {!isVideo && (
+            <div className='flex flex-wrap gap-2'>
+              <Button
+                size='sm'
+                variant='outline'
+                onClick={props.onConfigureProvider}
+              >
+                {t('studio.provider.settings')}
+              </Button>
+              {props.node.data.model && (
+                <Button
+                  size='sm'
+                  variant='outline'
+                  onClick={() => props.onChange({ model: undefined })}
+                >
+                  {t('studio.source.manual')}
+                </Button>
+              )}
+            </div>
+          )}
+        </Field>
+        {props.node.data.kind === 'image' && !props.node.data.model && (
+          <Field>
+            <FieldLabel>{t('studio.image.local')}</FieldLabel>
+            <Input
+              ref={imageUploadRef}
+              type='file'
+              accept='image/png,image/jpeg,image/webp'
+              className='hidden'
+              aria-label={t('studio.image.local')}
+              onChange={(event) => {
+                const file = event.target.files?.[0]
+                if (file) props.onUploadImage?.(file)
+                event.target.value = ''
+              }}
+            />
             <Button
               size='sm'
               variant='outline'
-              onClick={props.onConfigureProvider}
+              onClick={() => imageUploadRef.current?.click()}
             >
-              {t('studio.provider.settings')}
+              <Upload />
+              {t('studio.image.upload')}
             </Button>
-          )}
-        </Field>
+            <p className='text-muted-foreground text-xs'>
+              {t('studio.image.uploadHint')}
+            </p>
+          </Field>
+        )}
         {isVideo && props.node.data.model && (
           <Field>
             <FieldLabel>{t('studio.video.family')}</FieldLabel>
@@ -265,16 +311,22 @@ export function StudioInspector(props: Props) {
             </Select>
           </Field>
         )}
-        <Field>
-          <FieldLabel htmlFor='studio-prompt'>{t('studio.prompt')}</FieldLabel>
-          <Textarea
-            id='studio-prompt'
-            className='min-h-32'
-            value={props.node.data.prompt}
-            onChange={(event) => props.onChange({ prompt: event.target.value })}
-            placeholder={t('studio.prompt.placeholder')}
-          />
-        </Field>
+        {(props.node.data.kind !== 'image' || props.node.data.model) && (
+          <Field>
+            <FieldLabel htmlFor='studio-prompt'>
+              {t('studio.prompt')}
+            </FieldLabel>
+            <Textarea
+              id='studio-prompt'
+              className='min-h-32'
+              value={props.node.data.prompt}
+              onChange={(event) =>
+                props.onChange({ prompt: event.target.value })
+              }
+              placeholder={t('studio.prompt.placeholder')}
+            />
+          </Field>
+        )}
         {props.node.data.kind === 'video' && model && (
           <>
             <Field>
@@ -367,10 +419,23 @@ export function StudioInspector(props: Props) {
             className='flex-1'
             disabled={
               busy ||
-              !props.node.data.model ||
-              !choices.includes(props.node.data.model) ||
-              (!props.node.data.prompt.trim() && !props.hasConnectedPrompt) ||
-              (isVideo && (!props.videoGroup || !family || !durationValid))
+              (props.node.data.model !== undefined &&
+                !choices.includes(props.node.data.model)) ||
+              (props.node.data.kind === 'image' &&
+                !props.node.data.model &&
+                !props.node.data.mediaId) ||
+              (props.node.data.kind !== 'image' &&
+                !props.node.data.prompt.trim() &&
+                !props.hasConnectedPrompt) ||
+              (Boolean(props.node.data.model) &&
+                props.node.data.kind === 'image' &&
+                !props.node.data.prompt.trim() &&
+                !props.hasConnectedPrompt) ||
+              (isVideo &&
+                (!props.node.data.model ||
+                  !props.videoGroup ||
+                  !family ||
+                  !durationValid))
             }
             onClick={props.onGenerate}
           >

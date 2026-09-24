@@ -31,6 +31,8 @@ export type StudioVideoInput = {
   resolution: string
   ratio: string
   imageUrl?: string
+  imageUrls?: string[]
+  videoUrls?: string[]
 }
 
 export type StudioVideoRequest = {
@@ -38,7 +40,17 @@ export type StudioVideoRequest = {
   prompt: string
   seconds: string
   duration?: number
-  metadata: { resolution: string; ratio: string }
+  metadata: {
+    resolution: string
+    ratio: string
+    content?: Array<{
+      type: 'image_url' | 'video_url'
+      role?: 'reference_image' | 'reference_video'
+      image_url?: { url: string }
+      video_url?: { url: string }
+    }>
+    reference_video?: string[]
+  }
   images?: string[]
 }
 
@@ -146,11 +158,59 @@ export function buildStudioVideoRequest(
   if (!model.resolutions.includes(input.resolution)) {
     throw new Error('resolution is unavailable for the selected model')
   }
+  const images = [
+    ...new Set(
+      [input.imageUrl, ...(input.imageUrls || [])].filter(
+        (url): url is string => Boolean(url)
+      )
+    ),
+  ]
+  const videos = [...new Set(input.videoUrls || [])]
+  if (
+    images
+      .filter((url) => url.startsWith('data:'))
+      .reduce((total, url) => total + url.length, 0) > 30_000_000
+  ) {
+    throw new Error('image inputs exceed the Studio request limit')
+  }
+  if (
+    model.family === 'minimax-h3' &&
+    images.length > (videos.length ? 9 : 2)
+  ) {
+    throw new Error('too many images for the selected video model')
+  }
   if (
     !RATIOS.has(input.ratio) ||
-    (input.ratio === 'adaptive' && !input.imageUrl)
+    (input.ratio === 'adaptive' && !images.length && !videos.length)
   ) {
     throw new Error('ratio is unavailable for the selected input')
+  }
+
+  for (const image of images) {
+    if (
+      /^data:image\/(?:png|jpeg|webp|gif|bmp|tiff|heic|heif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(
+        image
+      ) &&
+      image.length <= 40_000_000
+    ) {
+      continue
+    }
+    try {
+      if (new URL(image).protocol === 'https:') continue
+    } catch {
+      // The user must provide a usable HTTPS URL or a supported image data URI.
+    }
+    throw new Error('a public image URL is required')
+  }
+  const videoLimit = model.family === 'seedance-2.5' ? 10 : 3
+  if (videos.length > videoLimit) throw new Error('too many reference videos')
+  for (const video of videos) {
+    try {
+      if (new URL(video).protocol === 'https:') continue
+    } catch {
+      // Reference videos must be reachable by the selected upstream model.
+    }
+    throw new Error('a public video URL is required')
   }
 
   const request: StudioVideoRequest = {
@@ -160,17 +220,31 @@ export function buildStudioVideoRequest(
     metadata: { resolution: input.resolution, ratio: input.ratio },
   }
   if (model.family === 'minimax-h3') request.duration = input.seconds
-  if (input.imageUrl) {
-    let url: URL
-    try {
-      url = new URL(input.imageUrl)
-    } catch {
-      throw new Error('a public image URL is required')
+  if (videos.length && model.family === 'minimax-h3') {
+    if (images.length) {
+      request.metadata.content = [
+        ...images.map((url) => ({
+          type: 'image_url' as const,
+          role: 'reference_image' as const,
+          image_url: { url },
+        })),
+        ...videos.map((url) => ({
+          type: 'video_url' as const,
+          role: 'reference_video' as const,
+          video_url: { url },
+        })),
+      ]
+    } else {
+      request.metadata.reference_video = videos
     }
-    if (url.protocol !== 'https:') {
-      throw new Error('a public image URL is required')
+  } else {
+    if (images.length) request.images = images
+    if (videos.length) {
+      request.metadata.content = videos.map((url) => ({
+        type: 'video_url',
+        video_url: { url },
+      }))
     }
-    request.images = [url.toString()]
   }
   return request
 }

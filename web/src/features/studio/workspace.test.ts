@@ -21,6 +21,7 @@ import { describe, expect, test } from 'vitest'
 import {
   addStudioNode,
   createStudioProject,
+  invalidateStudioBranch,
   updateStudioNode,
 } from './workspace'
 
@@ -94,5 +95,47 @@ describe('Studio project editing', () => {
     })
     expect(changed.nodes[0].data.outputText).toBeUndefined()
     expect(changed.nodes[0].data.status).toBe('idle')
+  })
+
+  test('invalidates downstream generated media when a source changes', () => {
+    let project = createStudioProject('Sequence', 'p1')
+    project = addStudioNode(project, 'text', 't')
+    project = addStudioNode(project, 'image', 'i')
+    project = addStudioNode(project, 'video', 'v')
+    project.edges = [
+      { id: 'ti', source: 't', target: 'i' },
+      { id: 'iv', source: 'i', target: 'v' },
+    ]
+    project = updateStudioNode(project, 'i', { model: 'image-model' })
+    project = updateStudioNode(project, 'i', {
+      mediaId: 'image-old',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'v', {
+      taskId: 'video-old',
+      status: 'completed',
+    })
+    const changed = invalidateStudioBranch(project, 't')
+    expect(changed.nodes[1].data.mediaId).toBeUndefined()
+    expect(changed.nodes[2].data.taskId).toBeUndefined()
+    expect(changed.nodes[2].data.status).toBe('idle')
+  })
+
+  test('keeps a manually uploaded image while invalidating its generated successors', () => {
+    let project = createStudioProject('Sequence', 'p1')
+    project = addStudioNode(project, 'image', 'i')
+    project = addStudioNode(project, 'video', 'v')
+    project.edges = [{ id: 'iv', source: 'i', target: 'v' }]
+    project = updateStudioNode(project, 'i', {
+      mediaId: 'local-image',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'v', {
+      taskId: 'video-old',
+      status: 'completed',
+    })
+    const changed = invalidateStudioBranch(project, 'i')
+    expect(changed.nodes[0].data.mediaId).toBe('local-image')
+    expect(changed.nodes[1].data.taskId).toBeUndefined()
   })
 })

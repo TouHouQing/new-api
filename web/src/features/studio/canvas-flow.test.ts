@@ -16,7 +16,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 import { describe, expect, test } from 'vitest'
 
-import { connectedGenerationInput, type StudioCanvasNode } from './canvas-flow'
+import {
+  connectedGenerationInput,
+  isValidStudioConnection,
+  planStudioExecution,
+  type StudioCanvasNode,
+} from './canvas-flow'
 
 const nodes: StudioCanvasNode[] = [
   {
@@ -50,6 +55,64 @@ const nodes: StudioCanvasNode[] = [
 ]
 
 describe('Studio canvas connections', () => {
+  test('plans only the ancestors of a target in dependency order', () => {
+    const image = {
+      ...nodes[1],
+      data: { ...nodes[1].data, outputUrl: undefined },
+    }
+    const graph = [
+      nodes[0],
+      image,
+      nodes[2],
+      {
+        ...nodes[2],
+        id: 'other-video',
+      },
+    ]
+    expect(
+      planStudioExecution(
+        graph,
+        [
+          { id: 'text-image', source: 'text', target: 'image' },
+          { id: 'image-video', source: 'image', target: 'video' },
+        ],
+        'video'
+      ).map((node) => node.id)
+    ).toEqual(['text', 'image', 'video'])
+  })
+
+  test('rejects cycles and unsupported node connections', () => {
+    const edges = [{ id: 'text-video', source: 'text', target: 'video' }]
+    expect(isValidStudioConnection(nodes, edges, 'video', 'text')).toBe(false)
+    expect(isValidStudioConnection(nodes, edges, 'video', 'image')).toBe(false)
+    expect(isValidStudioConnection(nodes, edges, 'text', 'image')).toBe(true)
+    expect(() =>
+      planStudioExecution(
+        nodes,
+        [
+          { id: 'a', source: 'text', target: 'video' },
+          { id: 'b', source: 'video', target: 'text' },
+        ],
+        'video'
+      )
+    ).toThrow('cycle')
+    const blank = nodes.map((node) =>
+      node.id === 'video'
+        ? { ...node, data: { ...node.data, prompt: '' } }
+        : node
+    )
+    expect(() =>
+      connectedGenerationInput(
+        blank,
+        [
+          { id: 'a', source: 'video', target: 'image' },
+          { id: 'b', source: 'image', target: 'video' },
+        ],
+        'video'
+      )
+    ).not.toThrow()
+  })
+
   test('passes text and a generated image into a downstream video', () => {
     expect(
       connectedGenerationInput(
@@ -110,5 +173,26 @@ describe('Studio canvas connections', () => {
         'video'
       )
     ).toEqual({ prompt: 'A beautiful woman' })
+  })
+
+  test('passes text through an image node when the final video has no prompt', () => {
+    const draft = nodes.map((node) =>
+      node.id === 'video'
+        ? { ...node, data: { ...node.data, prompt: '' } }
+        : node
+    )
+    expect(
+      connectedGenerationInput(
+        draft,
+        [
+          { id: 'text-image', source: 'text', target: 'image' },
+          { id: 'image-video', source: 'image', target: 'video' },
+        ],
+        'video'
+      )
+    ).toEqual({
+      prompt: 'Rainy city at dusk',
+      imageUrl: 'https://cdn.example/frame.png',
+    })
   })
 })

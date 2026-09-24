@@ -25,7 +25,9 @@ import {
   createStudioVideo,
   fetchStudioProviderConfigs,
   fetchStudioProviderModels,
+  generateStudioImage,
   generateStudioText,
+  getStudioVideoContentUrl,
   getStudioVideoTask,
 } from './api'
 import type { StudioCanvasNode } from './canvas-flow'
@@ -74,16 +76,23 @@ vi.mock('./api', () => ({
   getStudioVideoTask: vi.fn(),
   getStudioVideoContentUrl: vi.fn(),
 }))
+const storedMedia = new Map<string, Blob>()
 vi.mock('./media-store', () => ({
   studioMediaStore: () => ({
-    get: async () => null,
-    put: async () => undefined,
-    delete: async () => undefined,
+    get: async (userId: number, mediaId: string) =>
+      storedMedia.get(`${userId}:${mediaId}`) || null,
+    put: async (userId: number, mediaId: string, blob: Blob) => {
+      storedMedia.set(`${userId}:${mediaId}`, blob)
+    },
+    delete: async (userId: number, mediaId: string) => {
+      storedMedia.delete(`${userId}:${mediaId}`)
+    },
   }),
 }))
 
 beforeEach(() => {
   vi.clearAllMocks()
+  storedMedia.clear()
   localStorage.clear()
   useAuthStore.setState((state) => ({
     auth: {
@@ -93,9 +102,261 @@ beforeEach(() => {
   }))
 })
 
-afterEach(() => vi.restoreAllMocks())
+afterEach(() => {
+  vi.restoreAllMocks()
+  vi.unstubAllGlobals()
+})
 
 describe('Studio account isolation', () => {
+  test('regenerates an image after its upstream manual text changes', async () => {
+    vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
+      image: {
+        kind: 'image',
+        baseUrl: 'https://image.example/v1',
+        hasKey: true,
+      },
+    })
+    vi.mocked(fetchStudioProviderModels).mockResolvedValue(['image-model'])
+    vi.mocked(generateStudioImage).mockResolvedValue({
+      url: 'https://cdn.example/new.png',
+    })
+    vi.mocked(createStudioVideo).mockResolvedValue('task-refreshed')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(['new image'], { type: 'image/png' }),
+      })
+    )
+    let project = createStudioProject('Refresh', 'project-refresh')
+    project = addStudioNode(project, 'text', 'text-1')
+    project = addStudioNode(project, 'image', 'image-1')
+    project = addStudioNode(project, 'video', 'video-1')
+    project = updateStudioNode(project, 'text-1', { prompt: 'Old scene' })
+    project = updateStudioNode(project, 'image-1', { model: 'image-model' })
+    project = updateStudioNode(project, 'image-1', {
+      status: 'completed',
+      outputUrl: 'https://cdn.example/old.png',
+    })
+    project = updateStudioNode(project, 'video-1', {
+      model: '会员套餐甲',
+      videoFamily: 'seedance-2',
+      resolution: '720p',
+      prompt: 'slow camera move',
+    })
+    project.edges = [
+      { id: 'ti', source: 'text-1', target: 'image-1' },
+      { id: 'iv', source: 'image-1', target: 'video-1' },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Text 1' }))
+    fireEvent.change(screen.getByLabelText('studio.prompt'), {
+      target: { value: 'New scene' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Video 3' }))
+    const button = screen.getByRole('button', { name: 'studio.generate' })
+    await waitFor(() =>
+      expect((button as HTMLButtonElement).disabled).toBe(false)
+    )
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(generateStudioImage).toHaveBeenCalledWith(
+        'image-model',
+        'New scene'
+      )
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({ images: ['https://cdn.example/new.png'] }),
+        'default'
+      )
+    )
+  })
+
+  test('uses a manual text prompt and an uploaded local image without external models', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-manual')
+    let project = createStudioProject('Manual sources', 'project-manual')
+    project = addStudioNode(project, 'text', 'text-manual')
+    project = addStudioNode(project, 'image', 'image-manual')
+    project = addStudioNode(project, 'video', 'video-manual')
+    project = updateStudioNode(project, 'text-manual', {
+      prompt: 'A quiet village',
+    })
+    project = updateStudioNode(project, 'video-manual', {
+      model: '会员套餐甲',
+      videoFamily: 'seedance-2',
+      resolution: '720p',
+    })
+    project.edges = [
+      { id: 'text-video', source: 'text-manual', target: 'video-manual' },
+      { id: 'image-video', source: 'image-manual', target: 'video-manual' },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Image 2' }))
+    const image = new File(['image bytes'], 'frame.png', { type: 'image/png' })
+    fireEvent.change(screen.getByLabelText('studio.image.local'), {
+      target: { files: [image] },
+    })
+    await waitFor(() => expect(storedMedia.size).toBe(1))
+    fireEvent.click(screen.getByRole('button', { name: 'Video 3' }))
+    const button = await screen.findByRole('button', {
+      name: 'studio.generate',
+    })
+    await waitFor(() =>
+      expect((button as HTMLButtonElement).disabled).toBe(false)
+    )
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: 'A quiet village',
+          images: [expect.stringMatching(/^data:image\/png;base64,/)],
+        }),
+        'default'
+      )
+    )
+    expect(generateStudioText).not.toHaveBeenCalled()
+    expect(generateStudioImage).not.toHaveBeenCalled()
+  })
+
+  test('passes a completed upstream video into the final video request', async () => {
+    vi.mocked(getStudioVideoContentUrl).mockResolvedValue(
+      'https://new.thqllm.com/api/task/first/content?sig=abc'
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-final')
+    let project = createStudioProject('Sequence', 'project-sequence')
+    project = addStudioNode(project, 'video', 'video-first')
+    project = addStudioNode(project, 'video', 'video-final')
+    project = updateStudioNode(project, 'video-first', {
+      prompt: 'establishing shot',
+    })
+    project = updateStudioNode(project, 'video-first', {
+      taskId: 'task-first',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'video-final', {
+      model: '会员套餐甲',
+      videoFamily: 'seedance-2',
+      resolution: '720p',
+      prompt: 'continue the scene',
+    })
+    project.edges = [
+      { id: 'video-video', source: 'video-first', target: 'video-final' },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 2' }))
+    const button = await screen.findByRole('button', {
+      name: 'studio.generate',
+    })
+    await waitFor(() =>
+      expect((button as HTMLButtonElement).disabled).toBe(false)
+    )
+    fireEvent.click(button)
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            content: [
+              {
+                type: 'video_url',
+                video_url: {
+                  url: 'https://new.thqllm.com/api/task/first/content?sig=abc',
+                },
+              },
+            ],
+          }),
+        }),
+        'default'
+      )
+    )
+    expect(getStudioVideoContentUrl).toHaveBeenCalledWith('task-first')
+  })
+
+  test('runs text and image ancestors before submitting the connected video', async () => {
+    vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
+      text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },
+      image: {
+        kind: 'image',
+        baseUrl: 'https://image.example/v1',
+        hasKey: true,
+      },
+    })
+    vi.mocked(fetchStudioProviderModels).mockImplementation(async (kind) =>
+      kind === 'text' ? ['text-model'] : ['image-model']
+    )
+    vi.mocked(generateStudioText).mockResolvedValue('A woman at dusk')
+    vi.mocked(generateStudioImage).mockResolvedValue({
+      url: 'https://cdn.example/shot.png',
+    })
+    vi.mocked(createStudioVideo).mockResolvedValue('task-shot')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(['image'], { type: 'image/png' }),
+      })
+    )
+    let project = createStudioProject('Shot', 'project-shot')
+    project = addStudioNode(project, 'text', 'text-1')
+    project = addStudioNode(project, 'image', 'image-1')
+    project = addStudioNode(project, 'video', 'video-1')
+    project = updateStudioNode(project, 'text-1', {
+      model: 'text-model',
+      prompt: 'Describe the heroine',
+    })
+    project = updateStudioNode(project, 'image-1', {
+      model: 'image-model',
+      prompt: '',
+    })
+    project = updateStudioNode(project, 'video-1', {
+      model: '会员套餐甲',
+      videoFamily: 'seedance-2',
+      resolution: '720p',
+      prompt: 'camera pushes in',
+    })
+    project.edges = [
+      { id: 'text-image', source: 'text-1', target: 'image-1' },
+      { id: 'image-video', source: 'image-1', target: 'video-1' },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 3' }))
+    const generateButton = await screen.findByRole('button', {
+      name: 'studio.generate',
+    })
+    await waitFor(() =>
+      expect((generateButton as HTMLButtonElement).disabled).toBe(false)
+    )
+    fireEvent.click(generateButton)
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prompt: 'camera pushes in',
+          images: ['https://cdn.example/shot.png'],
+        }),
+        'default'
+      )
+    )
+    expect(generateStudioText).toHaveBeenCalledWith(
+      'text-model',
+      'Describe the heroine'
+    )
+    expect(generateStudioImage).toHaveBeenCalledWith(
+      'image-model',
+      'A woman at dusk'
+    )
+    expect(
+      vi.mocked(generateStudioText).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(generateStudioImage).mock.invocationCallOrder[0])
+    expect(
+      vi.mocked(generateStudioImage).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(createStudioVideo).mock.invocationCallOrder[0])
+  })
+
   test('runs a connected text model before submitting a video with its result', async () => {
     vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
       text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },

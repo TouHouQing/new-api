@@ -67,6 +67,8 @@ import {
 } from './api'
 import {
   connectedGenerationInput,
+  isValidStudioConnection,
+  planStudioExecution,
   type StudioCanvasNode,
   type StudioCanvasNodeData,
 } from './canvas-flow'
@@ -89,6 +91,8 @@ import { StudioNode } from './studio-node'
 import {
   addStudioNode,
   createStudioProject,
+  invalidateStudioBranch,
+  studioBranchNodeIds,
   updateStudioNode,
 } from './workspace'
 
@@ -110,6 +114,20 @@ function newId(): string {
 
 function previewKey(projectId: string, nodeId: string): string {
   return `${projectId}:${nodeId}`
+}
+
+function blobToDataUrl(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.addEventListener('load', () => {
+      if (typeof reader.result === 'string') resolve(reader.result)
+      else reject(new Error('image file could not be read'))
+    })
+    reader.addEventListener('error', () =>
+      reject(reader.error || new Error('image file could not be read'))
+    )
+    reader.readAsDataURL(blob)
+  })
 }
 
 function resolveVideoGroup(
@@ -171,6 +189,17 @@ export function Studio() {
     [visible, workspace.projects]
   )
   const project = projects.find((item) => item.id === workspace.activeId)
+  const canvasNodes = useMemo(
+    () =>
+      project?.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          previewUrl: previews[previewKey(project.id, node.id)],
+        },
+      })) ?? [],
+    [project, previews]
+  )
   const selectedNode = project?.nodes.find((node) => node.id === selectedNodeId)
   const selectedGroup =
     selectedNode?.data.kind === 'video'
@@ -192,6 +221,7 @@ export function Studio() {
     [project?.id, project?.nodes]
   )
   const loadedMediaIds = useRef(new Set<string>())
+  const runningTargets = useRef(new Set<string>())
   const pendingVideos = useMemo(
     () =>
       projects.flatMap((item) =>
@@ -417,6 +447,21 @@ export function Studio() {
     [mediaStore, previews, userId]
   )
 
+  const discardBranchMedia = useCallback(
+    (source: StudioProject, nodeId: string) => {
+      for (const id of studioBranchNodeIds(source, nodeId)) {
+        const node = source.nodes.find((item) => item.id === id)
+        if (
+          node?.data.mediaId &&
+          (node.data.kind !== 'image' || node.data.model)
+        ) {
+          discardNodeMedia(source.id, node)
+        }
+      }
+    },
+    [discardNodeMedia]
+  )
+
   const saveMedia = useCallback(
     async (
       ownerId: number,
@@ -446,78 +491,212 @@ export function Studio() {
     [mediaStore]
   )
 
-  const generate = useCallback(
-    async (node: StudioCanvasNode, source: StudioProject) => {
-      if (!userId || workspace.ownerId !== userId) return
-      const { prompt } = connectedGenerationInput(
-        source.nodes,
-        source.edges,
-        node.id
-      )
-      if (!prompt.trim() || !node.data.model) return
-      setMessage(null)
-      if (node.data.mediaId) discardNodeMedia(source.id, node)
-      else {
-        setPreviews((current) => {
-          const next = { ...current }
-          delete next[previewKey(source.id, node.id)]
-          return next
-        })
+  const uploadImage = useCallback(
+    async (node: StudioCanvasNode, source: StudioProject, file: File) => {
+      if (!mediaStore) throw new Error('browser media storage is unavailable')
+      if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+        throw new Error(t('studio.image.uploadType'))
       }
-      editNode(source.id, node.id, {
-        status: 'submitting',
-        error: undefined,
-        progress: undefined,
-        outputUrl: undefined,
-        outputText: undefined,
-        mediaId: undefined,
-        taskId: undefined,
-      })
+      if (file.size > 20_000_000) throw new Error(t('studio.image.uploadSize'))
+      if (node.data.mediaId) discardNodeMedia(source.id, node)
+      discardBranchMedia(source, node.id)
+      const mediaId = newId()
+      await mediaStore.put(userId, mediaId, file)
+      loadedMediaIds.current.add(`${source.id}:${mediaId}`)
+      const preview = URL.createObjectURL(file)
+      ownedUrls.current.push(preview)
+      setPreviews((current) => ({
+        ...current,
+        [previewKey(source.id, node.id)]: preview,
+      }))
+      editProject(source.id, (current) =>
+        updateStudioNode(invalidateStudioBranch(current, node.id), node.id, {
+          model: undefined,
+          mediaId,
+          outputUrl: undefined,
+          status: 'completed',
+          error: undefined,
+        })
+      )
+    },
+    [mediaStore, userId, discardNodeMedia, discardBranchMedia, editProject, t]
+  )
+
+  const generate = useCallback(
+    async (target: StudioCanvasNode, source: StudioProject) => {
+      if (!userId || workspace.ownerId !== userId) return
+      const runId = `${userId}:${source.id}:${target.id}`
+      if (runningTargets.current.has(runId)) return
+      runningTargets.current.add(runId)
+      setMessage(null)
+      let current = target
+      let workingNodes = source.nodes
+      const update = (nodeId: string, patch: Partial<StudioCanvasNodeData>) => {
+        workingNodes = workingNodes.map((item) =>
+          item.id === nodeId
+            ? { ...item, data: { ...item.data, ...patch } }
+            : item
+        )
+        editNode(source.id, nodeId, patch)
+      }
       try {
-        if (node.data.kind === 'text') {
+        update(target.id, { status: 'submitting', error: undefined })
+        const ordered = planStudioExecution(
+          source.nodes,
+          source.edges,
+          target.id
+        )
+        for (const planned of ordered) {
+          if (activeUserId.current !== userId) return
+          const node = workingNodes.find((item) => item.id === planned.id)
+          if (!node) throw new Error('canvas source node is missing')
+          current = node
+          const selected = node.id === target.id
+          const input = connectedGenerationInput(
+            workingNodes,
+            source.edges,
+            node.id
+          )
+
+          if (node.data.kind === 'text') {
+            if (!node.data.model) {
+              if (!input.prompt.trim()) {
+                throw new Error(t('studio.prompt.required'))
+              }
+              update(node.id, {
+                outputText: input.prompt,
+                status: 'completed',
+                error: undefined,
+              })
+              continue
+            }
+            if (
+              !selected &&
+              node.data.status === 'completed' &&
+              node.data.outputText?.trim()
+            ) {
+              continue
+            }
+            if (
+              !providerConfigs.text?.hasKey ||
+              !providerModels.text?.includes(node.data.model)
+            ) {
+              throw new Error(t('studio.model.empty'))
+            }
+            update(node.id, { status: 'submitting', error: undefined })
+            const outputText = await generateStudioText(
+              node.data.model,
+              input.prompt
+            )
+            update(node.id, { outputText, status: 'completed' })
+            continue
+          }
+
+          if (node.data.kind === 'image') {
+            if (!node.data.model) {
+              if (!node.data.mediaId) {
+                throw new Error(t('studio.image.uploadRequired'))
+              }
+              update(node.id, { status: 'completed', error: undefined })
+              continue
+            }
+            if (
+              !selected &&
+              node.data.status === 'completed' &&
+              (node.data.outputUrl || node.data.mediaId)
+            ) {
+              continue
+            }
+            if (
+              !providerConfigs.image?.hasKey ||
+              !providerModels.image?.includes(node.data.model)
+            ) {
+              throw new Error(t('studio.model.empty'))
+            }
+            update(node.id, { status: 'submitting', error: undefined })
+            const image = await generateStudioImage(
+              node.data.model,
+              input.prompt
+            )
+            if (node.data.mediaId) discardNodeMedia(source.id, node)
+            let mediaId: string | undefined
+            try {
+              mediaId = await saveMedia(userId, source.id, node.id, image.url)
+            } catch (error) {
+              setPreviews((current) => ({
+                ...current,
+                [previewKey(source.id, node.id)]: image.url,
+              }))
+              setMessage(
+                `${t('studio.storage.failed')}: ${errorMessage(error)}`
+              )
+              if (!image.url.startsWith('https://')) throw error
+            }
+            update(node.id, {
+              outputUrl: image.url.startsWith('https://')
+                ? image.url
+                : undefined,
+              mediaId,
+              status: 'completed',
+            })
+            if (!image.url.startsWith('https://')) {
+              workingNodes = workingNodes.map((item) =>
+                item.id === node.id
+                  ? { ...item, data: { ...item.data, outputUrl: image.url } }
+                  : item
+              )
+            }
+            continue
+          }
+
           if (
-            !providerConfigs.text?.hasKey ||
-            !providerModels.text?.includes(node.data.model)
+            !selected &&
+            node.data.taskId &&
+            (node.data.status === 'queued' || node.data.status === 'processing')
           ) {
-            throw new Error(t('studio.model.empty'))
+            const deadline = Date.now() + 20 * 60_000
+            while (Date.now() < deadline) {
+              if (activeUserId.current !== userId) return
+              const task = await getStudioVideoTask(node.data.taskId)
+              if (task.status === 'failed') {
+                throw new Error(task.error || 'upstream video failed')
+              }
+              if (task.status === 'completed') {
+                const url = await getStudioVideoContentUrl(node.data.taskId)
+                update(node.id, {
+                  status: 'completed',
+                  progress: 100,
+                  outputUrl: url,
+                })
+                break
+              }
+              update(node.id, { status: task.status, progress: task.progress })
+              await new Promise((resolve) => window.setTimeout(resolve, 5000))
+            }
+            if (
+              workingNodes.find((item) => item.id === node.id)?.data.status !==
+              'completed'
+            ) {
+              throw new Error(t('studio.video.upstreamTimeout'))
+            }
+            continue
           }
-          const text = await generateStudioText(node.data.model, prompt)
-          editNode(source.id, node.id, {
-            outputText: text,
-            status: 'completed',
-          })
-        } else if (node.data.kind === 'image') {
           if (
-            !providerConfigs.image?.hasKey ||
-            !providerModels.image?.includes(node.data.model)
+            !selected &&
+            node.data.status === 'completed' &&
+            node.data.taskId
           ) {
-            throw new Error(t('studio.model.empty'))
+            const url = await getStudioVideoContentUrl(node.data.taskId)
+            update(node.id, { outputUrl: url })
+            continue
           }
-          const image = await generateStudioImage(node.data.model, prompt)
-          let mediaId: string | undefined
-          try {
-            mediaId = await saveMedia(userId, source.id, node.id, image.url)
-          } catch (error) {
-            setPreviews((current) => ({
-              ...current,
-              [previewKey(source.id, node.id)]: image.url,
-            }))
-            setMessage(`${t('studio.storage.failed')}: ${errorMessage(error)}`)
-          }
-          editNode(source.id, node.id, {
-            outputUrl: image.url.startsWith('https://') ? image.url : undefined,
-            mediaId,
-            status: 'completed',
-          })
-        } else {
+          if (!node.data.model) throw new Error(t('studio.model.empty'))
           const group = resolveVideoGroup(
             node.data.group,
             userGroup,
             videoGroups
           )
-          if (!group) {
-            throw new Error(t('studio.video.group.select'))
-          }
+          if (!group) throw new Error(t('studio.video.group.select'))
           if (!videoModelsByGroup[group]?.includes(node.data.model)) {
             throw new Error(t('studio.model.empty'))
           }
@@ -525,85 +704,84 @@ export function Studio() {
             node.data.videoFamily || inferStudioVideoFamily(node.data.model)
           if (!family) throw new Error(t('studio.video.family.select'))
           const model = buildStudioVideoModel(node.data.model, family)
-          let connectedNodes = source.nodes
-          const seenSources = new Set<string>()
-          for (const edge of source.edges) {
-            if (edge.target !== node.id || seenSources.has(edge.source)) {
-              continue
+          const incoming = source.edges
+            .filter((edge) => edge.target === node.id)
+            .map((edge) => workingNodes.find((item) => item.id === edge.source))
+            .filter((item): item is StudioCanvasNode => Boolean(item))
+          const images: string[] = []
+          const videos: string[] = []
+          for (const parent of incoming) {
+            if (parent.data.kind === 'image') {
+              if (
+                parent.data.outputUrl?.startsWith('https://') ||
+                parent.data.outputUrl?.startsWith('data:image/')
+              ) {
+                images.push(parent.data.outputUrl)
+              } else if (parent.data.mediaId && mediaStore) {
+                const blob = await mediaStore.get(userId, parent.data.mediaId)
+                if (!blob) throw new Error(t('studio.media.missing'))
+                images.push(await blobToDataUrl(blob))
+              } else {
+                throw new Error(t('studio.media.missing'))
+              }
             }
-            seenSources.add(edge.source)
-            const textNode = connectedNodes.find(
-              (candidate) => candidate.id === edge.source
-            )
-            if (
-              textNode?.data.kind !== 'text' ||
-              !textNode.data.model ||
-              textNode.data.outputText?.trim() ||
-              !textNode.data.prompt.trim()
-            ) {
-              continue
-            }
-            if (
-              !providerConfigs.text?.hasKey ||
-              !providerModels.text?.includes(textNode.data.model)
-            ) {
-              const error = t('studio.model.empty')
-              editNode(source.id, textNode.id, { status: 'failed', error })
-              throw new Error(error)
-            }
-            editNode(source.id, textNode.id, {
-              status: 'submitting',
-              error: undefined,
-            })
-            try {
-              const outputText = await generateStudioText(
-                textNode.data.model,
-                textNode.data.prompt.trim()
-              )
-              editNode(source.id, textNode.id, {
-                outputText,
-                status: 'completed',
-              })
-              connectedNodes = connectedNodes.map((candidate) =>
-                candidate.id === textNode.id
-                  ? {
-                      ...candidate,
-                      data: { ...candidate.data, outputText },
-                    }
-                  : candidate
-              )
-            } catch (error) {
-              editNode(source.id, textNode.id, {
-                status: 'failed',
-                error: errorMessage(error),
-              })
-              throw error
+            if (parent.data.kind === 'video') {
+              if (!parent.data.outputUrl) {
+                throw new Error(t('studio.media.missing'))
+              }
+              videos.push(parent.data.outputUrl)
             }
           }
-          const connectedInput = connectedGenerationInput(
-            connectedNodes,
-            source.edges,
-            node.id
-          )
           const request = buildStudioVideoRequest(model, {
-            prompt: connectedInput.prompt,
-            imageUrl: connectedInput.imageUrl,
+            prompt: input.prompt,
+            imageUrls: images,
+            videoUrls: videos,
             seconds: node.data.seconds ?? model.defaultSeconds,
             resolution: node.data.resolution ?? model.resolutions[0],
             ratio: node.data.ratio ?? '16:9',
           })
-          const taskId = await createStudioVideo(request, group)
-          editNode(source.id, node.id, {
-            taskId,
-            status: 'queued',
-            progress: 0,
+          update(node.id, {
+            status: 'submitting',
+            error: undefined,
+            progress: undefined,
           })
+          const taskId = await createStudioVideo(request, group)
+          update(node.id, { taskId, status: 'queued', progress: 0 })
+          if (!selected) {
+            const deadline = Date.now() + 20 * 60_000
+            while (Date.now() < deadline) {
+              if (activeUserId.current !== userId) return
+              const task = await getStudioVideoTask(taskId)
+              if (task.status === 'failed') {
+                throw new Error(task.error || 'upstream video failed')
+              }
+              if (task.status === 'completed') {
+                const url = await getStudioVideoContentUrl(taskId)
+                update(node.id, {
+                  status: 'completed',
+                  progress: 100,
+                  outputUrl: url,
+                })
+                break
+              }
+              update(node.id, { status: task.status, progress: task.progress })
+              await new Promise((resolve) => window.setTimeout(resolve, 5000))
+            }
+            if (
+              workingNodes.find((item) => item.id === node.id)?.data.status !==
+              'completed'
+            ) {
+              throw new Error(t('studio.video.upstreamTimeout'))
+            }
+          }
         }
       } catch (error) {
-        editNode(source.id, node.id, {
-          status: 'failed',
-          error: errorMessage(error),
-        })
+        update(current.id, { status: 'failed', error: errorMessage(error) })
+        if (current.id !== target.id) {
+          update(target.id, { status: 'failed', error: errorMessage(error) })
+        }
+      } finally {
+        runningTargets.current.delete(runId)
       }
     },
     [
@@ -612,6 +790,7 @@ export function Studio() {
       editNode,
       saveMedia,
       discardNodeMedia,
+      mediaStore,
       videoGroups,
       videoModelsByGroup,
       providerConfigs,
@@ -891,12 +1070,23 @@ export function Studio() {
           aria-label={t('studio.canvas')}
         >
           <Canvas
-            nodes={project.nodes}
+            nodes={canvasNodes}
             edges={project.edges}
             nodeTypes={nodeTypes}
             onNodeClick={(_, node) => setSelectedNodeId(node.id)}
             onPaneClick={() => setSelectedNodeId(null)}
             onNodesChange={(changes: NodeChange<StudioCanvasNode>[]) => {
+              const removedIds = new Set(
+                changes
+                  .filter((change) => change.type === 'remove')
+                  .map((change) => change.id)
+              )
+              const affectedTargets = project.edges
+                .filter(
+                  (edge) =>
+                    removedIds.has(edge.source) && !removedIds.has(edge.target)
+                )
+                .map((edge) => edge.target)
               for (const change of changes) {
                 if (change.type === 'remove') {
                   const removed = project.nodes.find(
@@ -905,34 +1095,82 @@ export function Studio() {
                   if (removed) discardNodeMedia(project.id, removed)
                 }
               }
-              editProject(project.id, (current) => ({
-                ...current,
-                nodes: applyNodeChanges(changes, current.nodes),
-                edges: current.edges.filter(
-                  (edge) =>
-                    !changes.some(
-                      (change) =>
-                        change.type === 'remove' &&
-                        (edge.source === change.id || edge.target === change.id)
-                    )
-                ),
-                updatedAt: new Date().toISOString(),
-              }))
+              for (const targetId of affectedTargets) {
+                discardBranchMedia(project, targetId)
+              }
+              editProject(project.id, (current) => {
+                let next = {
+                  ...current,
+                  nodes: applyNodeChanges(changes, current.nodes),
+                  edges: current.edges.filter(
+                    (edge) =>
+                      !removedIds.has(edge.source) &&
+                      !removedIds.has(edge.target)
+                  ),
+                  updatedAt: new Date().toISOString(),
+                }
+                for (const targetId of affectedTargets) {
+                  next = invalidateStudioBranch(next, targetId)
+                }
+                return next
+              })
             }}
-            onEdgesChange={(changes: EdgeChange[]) =>
-              editProject(project.id, (current) => ({
-                ...current,
-                edges: applyEdgeChanges(changes, current.edges),
-                updatedAt: new Date().toISOString(),
-              }))
-            }
-            onConnect={(connection: Connection) =>
-              editProject(project.id, (current) => ({
-                ...current,
-                edges: addEdge(connection, current.edges),
-                updatedAt: new Date().toISOString(),
-              }))
-            }
+            onEdgesChange={(changes: EdgeChange[]) => {
+              const targets = project.edges
+                .filter((edge) =>
+                  changes.some(
+                    (change) =>
+                      change.type === 'remove' && change.id === edge.id
+                  )
+                )
+                .map((edge) => edge.target)
+              for (const targetId of targets) {
+                discardBranchMedia(project, targetId)
+              }
+              editProject(project.id, (current) => {
+                let next = {
+                  ...current,
+                  edges: applyEdgeChanges(changes, current.edges),
+                  updatedAt: new Date().toISOString(),
+                }
+                for (const targetId of targets) {
+                  next = invalidateStudioBranch(next, targetId)
+                }
+                return next
+              })
+            }}
+            onConnect={(connection: Connection) => {
+              const sourceId = connection.source
+              const targetId = connection.target
+              if (!sourceId || !targetId) return
+              if (
+                !isValidStudioConnection(
+                  project.nodes,
+                  project.edges,
+                  sourceId,
+                  targetId
+                )
+              ) {
+                return
+              }
+              discardBranchMedia(project, targetId)
+              editProject(project.id, (current) =>
+                isValidStudioConnection(
+                  current.nodes,
+                  current.edges,
+                  sourceId,
+                  targetId
+                )
+                  ? invalidateStudioBranch(
+                      {
+                        ...current,
+                        edges: addEdge(connection, current.edges),
+                      },
+                      targetId
+                    )
+                  : current
+              )
+            }}
           />
           {project.nodes.length === 0 && (
             <div className='text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-center text-sm'>
@@ -972,16 +1210,39 @@ export function Studio() {
                 selectedNode.data.outputUrl
               }
               onChange={(patch) => {
-                if (
-                  patch.prompt !== undefined &&
-                  patch.prompt !== selectedNode.data.prompt &&
-                  selectedNode.data.mediaId
-                ) {
-                  discardNodeMedia(project.id, selectedNode)
+                const inputKeys = [
+                  'prompt',
+                  'model',
+                  'group',
+                  'videoFamily',
+                  'seconds',
+                  'resolution',
+                  'ratio',
+                ] as const
+                const changed = inputKeys.some(
+                  (key) =>
+                    Object.hasOwn(patch, key) &&
+                    patch[key] !== selectedNode.data[key]
+                )
+                if (changed) {
+                  discardBranchMedia(project, selectedNode.id)
+                  editProject(project.id, (current) =>
+                    updateStudioNode(
+                      invalidateStudioBranch(current, selectedNode.id),
+                      selectedNode.id,
+                      patch
+                    )
+                  )
+                } else {
+                  editNode(project.id, selectedNode.id, patch)
                 }
-                editNode(project.id, selectedNode.id, patch)
               }}
               onGenerate={() => void generate(selectedNode, project)}
+              onUploadImage={(file) => {
+                void uploadImage(selectedNode, project, file).catch((error) =>
+                  setMessage(errorMessage(error))
+                )
+              }}
               onDelete={() => setDeleteTarget('node')}
               onRetryMedia={() => void retryMedia(selectedNode, project)}
             />

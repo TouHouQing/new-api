@@ -150,6 +150,78 @@ describe('Studio video models', () => {
     })
   })
 
+  test('passes a local image and an upstream video to a Seedance reference request', () => {
+    const model = buildStudioVideoModel('任意视频别名', 'seedance-2.5')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'Continue the scene',
+        seconds: 8,
+        resolution: '720p',
+        ratio: '16:9',
+        imageUrl: 'data:image/png;base64,aGVsbG8=',
+        videoUrls: [
+          'https://new.thqllm.com/v1/tasks/task-1/artifacts/video/content?access=signed',
+        ],
+      })
+    ).toMatchObject({
+      model: '任意视频别名',
+      images: ['data:image/png;base64,aGVsbG8='],
+      metadata: {
+        content: [
+          {
+            type: 'video_url',
+            video_url: {
+              url: 'https://new.thqllm.com/v1/tasks/task-1/artifacts/video/content?access=signed',
+            },
+          },
+        ],
+      },
+    })
+  })
+
+  test('uses reference media roles when MiniMax H3 combines an image and video', () => {
+    const model = buildStudioVideoModel('本站H3别名', 'minimax-h3')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'A new shot of the same character',
+        seconds: 5,
+        resolution: '768P',
+        ratio: '16:9',
+        imageUrl: 'https://cdn.example/character.png',
+        videoUrls: ['https://cdn.example/previous.mp4'],
+      })
+    ).toMatchObject({
+      model: '本站H3别名',
+      metadata: {
+        content: [
+          {
+            type: 'image_url',
+            role: 'reference_image',
+            image_url: { url: 'https://cdn.example/character.png' },
+          },
+          {
+            type: 'video_url',
+            role: 'reference_video',
+            video_url: { url: 'https://cdn.example/previous.mp4' },
+          },
+        ],
+      },
+    })
+  })
+
+  test('rejects local image payloads larger than the relay request limit', () => {
+    const model = buildStudioVideoModel('任意视频别名', 'seedance-2')
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'A village',
+        seconds: 5,
+        resolution: '720p',
+        ratio: '16:9',
+        imageUrl: `data:image/png;base64,${'A'.repeat(30_000_000)}`,
+      })
+    ).toThrow('request limit')
+  })
+
   test('rejects settings outside the selected model contract', () => {
     const model = videoModel('MiniMax-H3')
     expect(() =>

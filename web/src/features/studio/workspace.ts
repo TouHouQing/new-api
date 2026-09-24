@@ -19,6 +19,60 @@ For commercial licensing, please contact support@quantumnous.com
 import type { StudioCanvasNodeData } from './canvas-flow'
 import type { StudioProject } from './local-projects'
 
+export function studioBranchNodeIds(
+  project: StudioProject,
+  nodeId: string
+): Set<string> {
+  const affected = new Set<string>()
+  const pending = [nodeId]
+  while (pending.length) {
+    const next = pending.pop()
+    if (!next || affected.has(next)) continue
+    affected.add(next)
+    for (const edge of project.edges) {
+      if (edge.source === next) pending.push(edge.target)
+    }
+  }
+  return affected
+}
+
+export function invalidateStudioBranch(
+  project: StudioProject,
+  nodeId: string
+): StudioProject {
+  const affected = studioBranchNodeIds(project, nodeId)
+  return {
+    ...project,
+    updatedAt: new Date().toISOString(),
+    nodes: project.nodes.map((node) => {
+      if (!affected.has(node.id)) return node
+      if (node.data.kind === 'image' && !node.data.model) {
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            error: undefined,
+            status: node.data.mediaId ? 'completed' : 'idle',
+          },
+        }
+      }
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          status: 'idle',
+          outputText: undefined,
+          outputUrl: undefined,
+          mediaId: undefined,
+          taskId: undefined,
+          progress: undefined,
+          error: undefined,
+        },
+      }
+    }),
+  }
+}
+
 export function createStudioProject(title: string, id: string): StudioProject {
   const now = new Date().toISOString()
   return {
@@ -91,7 +145,10 @@ export function updateStudioNode(
         delete data.error
         if (data.status === 'failed') data.status = 'idle'
       }
-      if (promptChanged || modelChanged) {
+      if (
+        (promptChanged || modelChanged) &&
+        !(node.data.kind === 'image' && !node.data.model && !modelChanged)
+      ) {
         delete data.outputText
         delete data.outputUrl
         delete data.mediaId

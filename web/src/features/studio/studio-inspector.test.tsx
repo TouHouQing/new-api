@@ -276,7 +276,7 @@ describe('Studio model controls', () => {
         onDelete={vi.fn()}
       />
     )
-    expect(screen.getByText('studio.provider.configureHint')).toBeTruthy()
+    expect(screen.getByText('studio.source.manual')).toBeTruthy()
     screen.getByRole('button', { name: 'studio.provider.settings' }).click()
     expect(onConfigureProvider).toHaveBeenCalledOnce()
   })

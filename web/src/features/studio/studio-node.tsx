@@ -31,6 +31,8 @@ import type { StudioCanvasNode } from './canvas-flow'
 export function StudioNode(props: NodeProps<StudioCanvasNode>) {
   const { t } = useTranslation()
   const data = props.data
+  const imageUrl =
+    typeof data.previewUrl === 'string' ? data.previewUrl : data.outputUrl
   return (
     <Node
       handles={{ target: true, source: true }}
@@ -46,17 +48,19 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
         </NodeTitle>
       </NodeHeader>
       <NodeContent className='space-y-2'>
-        <p className='text-muted-foreground line-clamp-3 min-h-10 text-xs'>
-          {data.prompt || t('studio.node.emptyPrompt')}
-        </p>
+        {(data.kind !== 'image' || data.model) && (
+          <p className='text-muted-foreground line-clamp-3 min-h-10 text-xs'>
+            {data.prompt || t('studio.node.emptyPrompt')}
+          </p>
+        )}
         {data.outputText && (
           <p className='bg-muted line-clamp-4 rounded-md p-2 text-xs whitespace-pre-wrap'>
             {data.outputText}
           </p>
         )}
-        {data.kind === 'image' && data.outputUrl && (
+        {data.kind === 'image' && imageUrl && (
           <img
-            src={data.outputUrl}
+            src={imageUrl}
             alt={data.title}
             className='max-h-28 w-full rounded-md object-contain'
           />
