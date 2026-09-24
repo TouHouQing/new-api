@@ -17,6 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { describe, expect, test } from 'vitest'
 
 import {
+  buildStudioVideoModel,
   buildStudioVideoRequest,
   selectStudioVideoModels,
 } from './model-profiles'
@@ -28,6 +29,20 @@ function videoModel(id: string) {
 }
 
 describe('Studio video models', () => {
+  test('uses a selected family for an arbitrary site model alias', () => {
+    const model = buildStudioVideoModel('my-site-sd2-alias', 'seedance-2')
+    expect(model.id).toBe('my-site-sd2-alias')
+    expect(model.resolutions).toContain('1080p')
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'camera moves',
+        seconds: 8,
+        resolution: '1080p',
+        ratio: '16:9',
+      }).model
+    ).toBe('my-site-sd2-alias')
+  })
+
   test('uses the signed-in account model IDs without inventing a video model', () => {
     expect(
       selectStudioVideoModels([
@@ -58,6 +73,7 @@ describe('Studio video models', () => {
         ratio: '16:9',
       }).model
     ).toBe('sd2')
+    expect(videoModel('minimaxh3').family).toBe('minimax-h3')
   })
 
   test('builds the Seedance 2.0 request with its resolution and optional source image', () => {

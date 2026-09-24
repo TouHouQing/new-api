@@ -25,10 +25,11 @@ type protectedFetchDialer struct {
 }
 
 type ssrfProtectedRoundTripper struct {
-	resolver      ssrfResolver
-	dialContext   func(ctx context.Context, network, address string) (net.Conn, error)
-	getProtection func() (*common.SSRFProtection, bool, error)
-	proxy         func(*http.Request) (*url.URL, error)
+	resolver             ssrfResolver
+	dialContext          func(ctx context.Context, network, address string) (net.Conn, error)
+	getProtection        func() (*common.SSRFProtection, bool, error)
+	proxy                func(*http.Request) (*url.URL, error)
+	forceTLSVerification bool
 
 	mutex      sync.Mutex
 	transports map[string]*http.Transport
@@ -161,7 +162,7 @@ func (t *ssrfProtectedRoundTripper) newTransport(proxyURL *url.URL) *http.Transp
 		Proxy:               proxyFunc,
 		DialContext:         dialContext,
 	}
-	if common.TLSInsecureSkipVerify {
+	if common.TLSInsecureSkipVerify && !t.forceTLSVerification {
 		transport.TLSClientConfig = common.InsecureTLSConfig
 	}
 	return transport

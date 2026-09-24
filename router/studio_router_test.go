@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
+	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
@@ -25,6 +26,7 @@ func TestStudioRoutesRequireDashboardAuthentication(t *testing.T) {
 	for _, path := range []string{
 		"/pg/studio/images/generations",
 		"/pg/studio/videos",
+		"/api/studio/providers/text/generate",
 	} {
 		t.Run(path, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"MiniMax-H3","prompt":"test"}`))
@@ -34,6 +36,9 @@ func TestStudioRoutesRequireDashboardAuthentication(t *testing.T) {
 			assert.Equal(t, http.StatusUnauthorized, recorder.Code)
 		})
 	}
+	providerList := httptest.NewRecorder()
+	engine.ServeHTTP(providerList, httptest.NewRequest(http.MethodGet, "/api/studio/providers", nil))
+	assert.Equal(t, http.StatusUnauthorized, providerList.Code)
 
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/pg/studio/arbitrary", nil))
@@ -86,10 +91,11 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	engine := gin.New()
 	engine.POST("/studio-auth", middleware.UserAuth(), studioSessionAuth(), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{
-			"user_id":  c.GetInt("id"),
-			"group":    c.GetString("group"),
-			"funded":   c.GetBool("studio_session_relay"),
-			"token_id": c.GetInt("token_id"),
+			"user_id":     c.GetInt("id"),
+			"group":       c.GetString("group"),
+			"using_group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
+			"funded":      c.GetBool("studio_session_relay"),
+			"token_id":    c.GetInt("token_id"),
 		})
 	})
 
@@ -102,6 +108,7 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	require.NoError(t, common.Unmarshal(recorder.Body.Bytes(), &body))
 	assert.EqualValues(t, user.Id, body["user_id"])
 	assert.Equal(t, "default", body["group"])
+	assert.Equal(t, "default", body["using_group"])
 	assert.Equal(t, true, body["funded"])
 	assert.EqualValues(t, 0, body["token_id"])
 
@@ -110,4 +117,11 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	patRecorder := httptest.NewRecorder()
 	engine.ServeHTTP(patRecorder, patRequest)
 	assert.Equal(t, http.StatusForbidden, patRecorder.Code)
+
+	forbiddenGroup := httptest.NewRequest(http.MethodPost, "/studio-auth", nil)
+	forbiddenGroup.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	forbiddenGroup.Header.Set("X-Studio-Group", "forbidden-group")
+	forbiddenRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(forbiddenRecorder, forbiddenGroup)
+	assert.Equal(t, http.StatusForbidden, forbiddenRecorder.Code)
 }

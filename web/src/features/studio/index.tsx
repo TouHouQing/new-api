@@ -24,7 +24,15 @@ import {
   type EdgeChange,
   type NodeChange,
 } from '@xyflow/react'
-import { Download, Film, ImagePlus, Plus, Type, Upload } from 'lucide-react'
+import {
+  Download,
+  Film,
+  ImagePlus,
+  Plus,
+  Settings2,
+  Type,
+  Upload,
+} from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -43,11 +51,19 @@ import { useAuthStore } from '@/stores/auth-store'
 
 import {
   createStudioVideo,
+  deleteStudioProviderConfig,
+  fetchStudioGroups,
   fetchStudioModels,
+  fetchStudioProviderConfigs,
+  fetchStudioProviderModels,
   generateStudioImage,
   generateStudioText,
   getStudioVideoContentUrl,
   getStudioVideoTask,
+  saveStudioProviderConfig,
+  type StudioGroup,
+  type StudioProviderConfigs,
+  type StudioProviderKind,
 } from './api'
 import {
   connectedGenerationInput,
@@ -63,9 +79,11 @@ import {
 } from './local-projects'
 import { studioMediaStore } from './media-store'
 import {
+  buildStudioVideoModel,
   buildStudioVideoRequest,
-  selectStudioVideoModels,
+  inferStudioVideoFamily,
 } from './model-profiles'
+import { StudioProviderSettings } from './provider-settings'
 import { StudioInspector } from './studio-inspector'
 import { StudioNode } from './studio-node'
 import {
@@ -94,6 +112,19 @@ function previewKey(projectId: string, nodeId: string): string {
   return `${projectId}:${nodeId}`
 }
 
+function resolveVideoGroup(
+  savedGroup: string | undefined,
+  userGroup: string,
+  groups: StudioGroup[]
+): string {
+  if (savedGroup) {
+    return groups.some((group) => group.id === savedGroup) ? savedGroup : ''
+  }
+  return (
+    groups.find((group) => group.id === userGroup)?.id || groups[0]?.id || ''
+  )
+}
+
 export function Studio() {
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id ?? 0)
@@ -104,7 +135,18 @@ export function Studio() {
     activeId: '',
     ready: false,
   })
-  const [models, setModels] = useState<string[]>([])
+  const [videoGroups, setVideoGroups] = useState<StudioGroup[]>([])
+  const [videoModelsByGroup, setVideoModelsByGroup] = useState<
+    Record<string, string[]>
+  >({})
+  const [providerConfigs, setProviderConfigs] = useState<StudioProviderConfigs>(
+    {}
+  )
+  const [providerModels, setProviderModels] = useState<
+    Partial<Record<StudioProviderKind, string[]>>
+  >({})
+  const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsKind, setSettingsKind] = useState<StudioProviderKind>('text')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
   const [previews, setPreviews] = useState<Record<string, string>>({})
@@ -130,6 +172,10 @@ export function Studio() {
   )
   const project = projects.find((item) => item.id === workspace.activeId)
   const selectedNode = project?.nodes.find((node) => node.id === selectedNodeId)
+  const selectedGroup =
+    selectedNode?.data.kind === 'video'
+      ? resolveVideoGroup(selectedNode.data.group, userGroup, videoGroups)
+      : ''
   const mediaRefs = useMemo(
     () =>
       project?.nodes.flatMap((node) =>
@@ -187,15 +233,40 @@ export function Studio() {
       ready: true,
     })
     setSelectedNodeId(null)
-    setModels([])
+    setVideoGroups([])
+    setVideoModelsByGroup({})
+    setProviderConfigs({})
+    setProviderModels({})
+    setSettingsOpen(false)
     setPreviews({})
     loadedMediaIds.current.clear()
     ownedUrls.current.forEach((url) => URL.revokeObjectURL(url))
     ownedUrls.current = []
     let cancelled = false
-    fetchStudioModels(userGroup)
-      .then((value) => {
-        if (!cancelled) setModels(value)
+    void fetchStudioGroups()
+      .then((groups) => {
+        if (!cancelled) setVideoGroups(groups)
+      })
+      .catch((error) => {
+        if (!cancelled) setMessage(errorMessage(error))
+      })
+    void fetchStudioProviderConfigs()
+      .then(async (configs) => {
+        if (cancelled) return
+        setProviderConfigs(configs)
+        await Promise.all(
+          (['text', 'image'] as const).map(async (kind) => {
+            if (!configs[kind]?.hasKey) return
+            try {
+              const models = await fetchStudioProviderModels(kind)
+              if (!cancelled) {
+                setProviderModels((current) => ({ ...current, [kind]: models }))
+              }
+            } catch (error) {
+              if (!cancelled) setMessage(errorMessage(error))
+            }
+          })
+        )
       })
       .catch((error) => {
         if (!cancelled) setMessage(errorMessage(error))
@@ -206,6 +277,60 @@ export function Studio() {
       ownedUrls.current = []
     }
   }, [userId, userGroup, t])
+
+  useEffect(() => {
+    if (!visible || !selectedGroup || videoModelsByGroup[selectedGroup]) return
+    let cancelled = false
+    void fetchStudioModels(selectedGroup)
+      .then((models) => {
+        if (!cancelled) {
+          setVideoModelsByGroup((current) => ({
+            ...current,
+            [selectedGroup]: models,
+          }))
+        }
+      })
+      .catch((error) => {
+        if (!cancelled) setMessage(errorMessage(error))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [visible, selectedGroup, videoModelsByGroup])
+
+  const refreshProviderModels = useCallback(
+    async (kind: StudioProviderKind) => {
+      const ownerId = userId
+      const models = await fetchStudioProviderModels(kind)
+      if (activeUserId.current === ownerId) {
+        setProviderModels((current) => ({ ...current, [kind]: models }))
+      }
+    },
+    [userId]
+  )
+
+  const saveProvider = useCallback(
+    async (kind: StudioProviderKind, baseUrl: string, key: string) => {
+      const ownerId = userId
+      const config = await saveStudioProviderConfig(kind, baseUrl, key)
+      if (activeUserId.current !== ownerId) return
+      setProviderConfigs((current) => ({ ...current, [kind]: config }))
+      setProviderModels((current) => ({ ...current, [kind]: [] }))
+      await refreshProviderModels(kind)
+    },
+    [userId, refreshProviderModels]
+  )
+
+  const removeProvider = useCallback(
+    async (kind: StudioProviderKind) => {
+      const ownerId = userId
+      await deleteStudioProviderConfig(kind)
+      if (activeUserId.current !== ownerId) return
+      setProviderConfigs((current) => ({ ...current, [kind]: undefined }))
+      setProviderModels((current) => ({ ...current, [kind]: [] }))
+    },
+    [userId]
+  )
 
   useEffect(() => {
     if (!visible) return
@@ -350,12 +475,24 @@ export function Studio() {
       })
       try {
         if (node.data.kind === 'text') {
+          if (
+            !providerConfigs.text?.hasKey ||
+            !providerModels.text?.includes(node.data.model)
+          ) {
+            throw new Error(t('studio.model.empty'))
+          }
           const text = await generateStudioText(node.data.model, prompt)
           editNode(source.id, node.id, {
             outputText: text,
             status: 'completed',
           })
         } else if (node.data.kind === 'image') {
+          if (
+            !providerConfigs.image?.hasKey ||
+            !providerModels.image?.includes(node.data.model)
+          ) {
+            throw new Error(t('studio.model.empty'))
+          }
           const image = await generateStudioImage(node.data.model, prompt)
           let mediaId: string | undefined
           try {
@@ -373,10 +510,21 @@ export function Studio() {
             status: 'completed',
           })
         } else {
-          const model = selectStudioVideoModels(models).find(
-            (item) => item.id === node.data.model
+          const group = resolveVideoGroup(
+            node.data.group,
+            userGroup,
+            videoGroups
           )
-          if (!model) throw new Error(t('studio.model.empty'))
+          if (!group) {
+            throw new Error(t('studio.video.group.select'))
+          }
+          if (!videoModelsByGroup[group]?.includes(node.data.model)) {
+            throw new Error(t('studio.model.empty'))
+          }
+          const family =
+            node.data.videoFamily || inferStudioVideoFamily(node.data.model)
+          if (!family) throw new Error(t('studio.video.family.select'))
+          const model = buildStudioVideoModel(node.data.model, family)
           const request = buildStudioVideoRequest(model, {
             prompt,
             imageUrl,
@@ -384,7 +532,7 @@ export function Studio() {
             resolution: node.data.resolution ?? model.resolutions[0],
             ratio: node.data.ratio ?? '16:9',
           })
-          const taskId = await createStudioVideo(request)
+          const taskId = await createStudioVideo(request, group)
           editNode(source.id, node.id, {
             taskId,
             status: 'queued',
@@ -404,7 +552,11 @@ export function Studio() {
       editNode,
       saveMedia,
       discardNodeMedia,
-      models,
+      videoGroups,
+      videoModelsByGroup,
+      providerConfigs,
+      providerModels,
+      userGroup,
       t,
     ]
   )
@@ -600,6 +752,17 @@ export function Studio() {
           <Upload />
           {t('studio.import')}
         </Button>
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={() => {
+            setSettingsKind('text')
+            setSettingsOpen(true)
+          }}
+        >
+          <Settings2 />
+          {t('studio.provider.settings')}
+        </Button>
         <Input
           ref={uploadRef}
           type='file'
@@ -721,7 +884,22 @@ export function Studio() {
           {selectedNode ? (
             <StudioInspector
               node={selectedNode}
-              models={models}
+              models={
+                selectedNode.data.kind === 'video'
+                  ? videoModelsByGroup[selectedGroup] || []
+                  : providerModels[selectedNode.data.kind] || []
+              }
+              videoGroups={videoGroups}
+              videoGroup={selectedGroup}
+              providerConfigured={
+                selectedNode.data.kind !== 'video' &&
+                Boolean(providerConfigs[selectedNode.data.kind]?.hasKey)
+              }
+              onConfigureProvider={() => {
+                if (selectedNode.data.kind === 'video') return
+                setSettingsKind(selectedNode.data.kind)
+                setSettingsOpen(true)
+              }}
               previewUrl={
                 previews[previewKey(project.id, selectedNode.id)] ||
                 selectedNode.data.outputUrl
@@ -788,6 +966,19 @@ export function Studio() {
           }
           setDeleteTarget(null)
         }}
+      />
+      <StudioProviderSettings
+        open={settingsOpen}
+        initialKind={settingsKind}
+        configs={providerConfigs}
+        modelCounts={{
+          text: providerModels.text?.length || 0,
+          image: providerModels.image?.length || 0,
+        }}
+        onOpenChange={setSettingsOpen}
+        onSave={saveProvider}
+        onRefresh={refreshProviderModels}
+        onDelete={removeProvider}
       />
     </div>
   )

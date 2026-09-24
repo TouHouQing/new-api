@@ -38,7 +38,12 @@ vi.mock('@/components/ai-elements/canvas', () => ({
   ),
 }))
 vi.mock('./api', () => ({
+  fetchStudioGroups: async () => [{ id: 'default', description: 'Default' }],
   fetchStudioModels: async () => ['MiniMax-H3'],
+  fetchStudioProviderConfigs: async () => ({}),
+  fetchStudioProviderModels: vi.fn(),
+  saveStudioProviderConfig: vi.fn(),
+  deleteStudioProviderConfig: vi.fn(),
   generateStudioText: vi.fn(),
   generateStudioImage: vi.fn(),
   createStudioVideo: vi.fn(),

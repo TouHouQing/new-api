@@ -16,7 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
@@ -26,18 +25,28 @@ import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
+import type { StudioGroup } from './api'
 import type { StudioCanvasNode, StudioCanvasNodeData } from './canvas-flow'
-import { selectStudioVideoModels } from './model-profiles'
+import {
+  buildStudioVideoModel,
+  inferStudioVideoFamily,
+  type StudioVideoFamily,
+} from './model-profiles'
 
 type Props = {
   node: StudioCanvasNode
   models: string[]
+  videoGroups: StudioGroup[]
+  videoGroup: string
+  providerConfigured: boolean
+  onConfigureProvider: () => void
   previewUrl?: string
   onChange: (patch: Partial<StudioCanvasNodeData>) => void
   onGenerate: () => void
@@ -49,19 +58,17 @@ const RATIOS = ['16:9', '9:16', '1:1', '21:9', '4:3', '3:4', 'adaptive']
 
 export function StudioInspector(props: Props) {
   const { t } = useTranslation()
-  const videoModels = useMemo(
-    () => selectStudioVideoModels(props.models),
-    [props.models]
-  )
-  const choices =
-    props.node.data.kind === 'video'
-      ? videoModels.map((model) => model.id)
-      : props.models.filter(
-          (id) => !videoModels.some((video) => video.id === id)
-        )
-  const model = videoModels.find(
-    (profile) => profile.id === props.node.data.model
-  )
+  const isVideo = props.node.data.kind === 'video'
+  const choices = props.models
+  const family =
+    props.node.data.videoFamily ||
+    (props.node.data.model
+      ? inferStudioVideoFamily(props.node.data.model)
+      : undefined)
+  const model =
+    isVideo && props.node.data.model && family
+      ? buildStudioVideoModel(props.node.data.model, family)
+      : undefined
   const busy =
     props.node.data.status === 'submitting' ||
     props.node.data.status === 'queued' ||
@@ -76,6 +83,44 @@ export function StudioInspector(props: Props) {
         </p>
       </CardHeader>
       <CardContent className='flex flex-1 flex-col gap-4 pb-4 lg:min-h-0 lg:overflow-y-auto'>
+        {isVideo && (
+          <Field>
+            <FieldLabel>{t('studio.video.group')}</FieldLabel>
+            <Select
+              value={props.videoGroup || null}
+              onValueChange={(value) =>
+                props.onChange({
+                  group: value || undefined,
+                  model: undefined,
+                  videoFamily: undefined,
+                  resolution: undefined,
+                })
+              }
+              items={props.videoGroups.map((group) => ({
+                value: group.id,
+                label: group.description || group.id,
+              }))}
+            >
+              <SelectTrigger
+                className='w-full'
+                aria-label={t('studio.video.group')}
+              >
+                <SelectValue placeholder={t('studio.video.group.select')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {props.videoGroups.map((group) => (
+                    <SelectItem key={group.id} value={group.id}>
+                      {group.description
+                        ? `${group.description} (${group.id})`
+                        : group.id}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         <Field>
           <FieldLabel htmlFor='studio-node-title'>
             {t('studio.node.title')}
@@ -91,9 +136,15 @@ export function StudioInspector(props: Props) {
           <Select
             value={props.node.data.model || null}
             onValueChange={(value) => {
-              const next = videoModels.find((profile) => profile.id === value)
+              const nextFamily =
+                value && isVideo ? inferStudioVideoFamily(value) : undefined
+              const next =
+                value && nextFamily
+                  ? buildStudioVideoModel(value, nextFamily)
+                  : undefined
               props.onChange({
                 model: value || undefined,
+                videoFamily: nextFamily,
                 resolution: next?.resolutions[0],
                 seconds: 5,
                 ratio: '16:9',
@@ -105,19 +156,80 @@ export function StudioInspector(props: Props) {
               <SelectValue placeholder={t('studio.model.select')} />
             </SelectTrigger>
             <SelectContent>
-              {choices.map((id) => (
-                <SelectItem key={id} value={id}>
-                  {id}
-                </SelectItem>
-              ))}
+              <SelectGroup>
+                {choices.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {id}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
             </SelectContent>
           </Select>
           {choices.length === 0 && (
             <p className='text-muted-foreground text-xs'>
-              {t('studio.model.empty')}
+              {!isVideo && !props.providerConfigured
+                ? t('studio.provider.configureHint')
+                : t('studio.model.empty')}
             </p>
           )}
+          {!isVideo && (
+            <Button
+              size='sm'
+              variant='outline'
+              onClick={props.onConfigureProvider}
+            >
+              {t('studio.provider.settings')}
+            </Button>
+          )}
         </Field>
+        {isVideo &&
+          props.node.data.model &&
+          !inferStudioVideoFamily(props.node.data.model) && (
+            <Field>
+              <FieldLabel>{t('studio.video.family')}</FieldLabel>
+              <Select
+                value={family || null}
+                onValueChange={(value) => {
+                  const modelId = props.node.data.model
+                  if (!modelId) return
+                  const selected = value as StudioVideoFamily
+                  const profile = buildStudioVideoModel(modelId, selected)
+                  props.onChange({
+                    videoFamily: selected,
+                    resolution: profile.resolutions[0],
+                    seconds: 5,
+                  })
+                }}
+                items={[
+                  {
+                    value: 'seedance-2',
+                    label: t('studio.video.family.seedance'),
+                  },
+                  {
+                    value: 'minimax-h3',
+                    label: t('studio.video.family.minimax'),
+                  },
+                ]}
+              >
+                <SelectTrigger
+                  className='w-full'
+                  aria-label={t('studio.video.family')}
+                >
+                  <SelectValue placeholder={t('studio.video.family.select')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value='seedance-2'>
+                      {t('studio.video.family.seedance')}
+                    </SelectItem>
+                    <SelectItem value='minimax-h3'>
+                      {t('studio.video.family.minimax')}
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </Field>
+          )}
         <Field>
           <FieldLabel htmlFor='studio-prompt'>{t('studio.prompt')}</FieldLabel>
           <Textarea
@@ -194,7 +306,11 @@ export function StudioInspector(props: Props) {
           <Button
             className='flex-1'
             disabled={
-              busy || !props.node.data.model || !props.node.data.prompt.trim()
+              busy ||
+              !props.node.data.model ||
+              !choices.includes(props.node.data.model) ||
+              !props.node.data.prompt.trim() ||
+              (isVideo && (!props.videoGroup || !family))
             }
             onClick={props.onGenerate}
           >

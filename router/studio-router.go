@@ -2,6 +2,7 @@ package router
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
@@ -9,6 +10,7 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/relaykit/types"
+	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -16,6 +18,20 @@ import (
 // dashboard session. These two fixed routes never accept an upstream URL from
 // the browser or a token supplied by the Studio UI.
 func SetStudioRouter(router *gin.Engine) {
+	providerAPI := router.Group("/api/studio")
+	providerAPI.Use(
+		middleware.RouteTag("api"),
+		middleware.SystemPerformanceCheck(),
+		middleware.UserAuth(),
+		studioSessionAuth(),
+		middleware.DisableCache(),
+	)
+	providerAPI.GET("/providers", controller.ListStudioProviderConfigs)
+	providerAPI.PUT("/providers/:kind", middleware.CriticalRateLimit(), controller.PutStudioProvider)
+	providerAPI.DELETE("/providers/:kind", middleware.CriticalRateLimit(), controller.DeleteStudioProvider)
+	providerAPI.GET("/providers/:kind/models", middleware.UserCriticalRateLimit("studio-provider"), controller.StudioProviderModels)
+	providerAPI.POST("/providers/:kind/generate", middleware.UserCriticalRateLimit("studio-provider"), controller.StudioProviderGenerate)
+
 	studio := router.Group("/pg/studio")
 	studio.Use(
 		middleware.RouteTag("relay"),
@@ -65,8 +81,18 @@ func studioSessionAuth() gin.HandlerFunc {
 			})
 			return
 		}
-		common.SetContextKey(c, constant.ContextKeyUsingGroup, group)
-		token := &model.Token{UserId: userID, Name: "studio", Group: group}
+		selectedGroup := group
+		if requested := strings.TrimSpace(c.GetHeader("X-Studio-Group")); requested != "" {
+			if !service.IsUserSelectableGroup(group, requested) {
+				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+					"error": gin.H{"code": "studio_group_forbidden", "message": "Studio group is unavailable to this account"},
+				})
+				return
+			}
+			selectedGroup = requested
+		}
+		common.SetContextKey(c, constant.ContextKeyUsingGroup, selectedGroup)
+		token := &model.Token{UserId: userID, Name: "studio", Group: selectedGroup}
 		if err := middleware.SetupContextForToken(c, token); err != nil {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error": gin.H{"code": "studio_user_invalid", "message": "Studio user is unavailable"},

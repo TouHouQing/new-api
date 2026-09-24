@@ -18,13 +18,69 @@ import { describe, expect, test } from 'vitest'
 
 import {
   buildStudioImageRequest,
+  parseStudioGroups,
   parseStudioImageResponse,
+  parseStudioProviderConfigs,
+  parseStudioProviderModels,
   parseStudioTaskResponse,
   parseStudioTextResponse,
   parseStudioVideoResponse,
 } from './api'
 
 describe('Studio relay responses', () => {
+  test('lists selectable account groups and excludes automatic routing', () => {
+    expect(
+      parseStudioGroups({
+        success: true,
+        data: {
+          premium: { desc: 'Premium', ratio: 2 },
+          auto: { desc: 'Auto', ratio: 'auto' },
+          default: { desc: 'Default', ratio: 1 },
+        },
+      })
+    ).toEqual([
+      { id: 'default', description: 'Default' },
+      { id: 'premium', description: 'Premium' },
+    ])
+  })
+
+  test('parses external provider settings without retaining a returned key', () => {
+    expect(
+      parseStudioProviderConfigs({
+        success: true,
+        data: [
+          {
+            kind: 'text',
+            base_url: 'https://api.example.com/v1',
+            has_key: true,
+            api_key: 'should-not-survive',
+          },
+        ],
+      })
+    ).toEqual({
+      text: {
+        kind: 'text',
+        baseUrl: 'https://api.example.com/v1',
+        hasKey: true,
+      },
+    })
+    expect(
+      parseStudioProviderModels({ success: true, data: ['model-a', 'model-b'] })
+    ).toEqual(['model-a', 'model-b'])
+  })
+
+  test('parses the server-proxied text and image result', () => {
+    expect(
+      parseStudioTextResponse({ success: true, data: { text: 'scene one' } })
+    ).toBe('scene one')
+    expect(
+      parseStudioImageResponse({
+        success: true,
+        data: { url: 'https://cdn.example/frame.png' },
+      })
+    ).toEqual({ url: 'https://cdn.example/frame.png' })
+  })
+
   test('lets each image model choose its own default output size', () => {
     expect(
       buildStudioImageRequest('doubao-seedream-5-0-lite-260128', 'forest')

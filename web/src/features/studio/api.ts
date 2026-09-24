@@ -21,6 +21,17 @@ import type { StudioVideoRequest } from './model-profiles'
 
 type RecordValue = Record<string, unknown>
 
+export type StudioProviderKind = 'text' | 'image'
+export type StudioProviderConfig = {
+  kind: StudioProviderKind
+  baseUrl: string
+  hasKey: boolean
+}
+export type StudioProviderConfigs = Partial<
+  Record<StudioProviderKind, StudioProviderConfig>
+>
+export type StudioGroup = { id: string; description: string }
+
 export type StudioTaskState = {
   status: 'queued' | 'processing' | 'completed' | 'failed'
   progress: number
@@ -31,7 +42,76 @@ function isRecord(value: unknown): value is RecordValue {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
 }
 
+export function parseStudioGroups(value: unknown): StudioGroup[] {
+  if (!isRecord(value) || value.success !== true || !isRecord(value.data)) {
+    throw new Error('account groups are unavailable')
+  }
+  return Object.entries(value.data)
+    .filter(([id, info]) => id !== 'auto' && isRecord(info))
+    .map(([id, info]) => ({
+      id,
+      description:
+        typeof (info as RecordValue).desc === 'string'
+          ? ((info as RecordValue).desc as string)
+          : '',
+    }))
+    .sort((a, b) => a.id.localeCompare(b.id))
+}
+
+export function parseStudioProviderConfigs(
+  value: unknown
+): StudioProviderConfigs {
+  if (
+    !isRecord(value) ||
+    value.success !== true ||
+    !Array.isArray(value.data)
+  ) {
+    throw new Error('Studio service settings are unavailable')
+  }
+  const configs: StudioProviderConfigs = {}
+  for (const item of value.data) {
+    if (!isRecord(item) || (item.kind !== 'text' && item.kind !== 'image')) {
+      continue
+    }
+    if (
+      typeof item.base_url !== 'string' ||
+      typeof item.has_key !== 'boolean'
+    ) {
+      continue
+    }
+    configs[item.kind] = {
+      kind: item.kind,
+      baseUrl: item.base_url,
+      hasKey: item.has_key,
+    }
+  }
+  return configs
+}
+
+export function parseStudioProviderModels(value: unknown): string[] {
+  if (
+    !isRecord(value) ||
+    value.success !== true ||
+    !Array.isArray(value.data)
+  ) {
+    throw new Error('Studio service models are unavailable')
+  }
+  return value.data.filter(
+    (model): model is string =>
+      typeof model === 'string' && model.length > 0 && model.length <= 200
+  )
+}
+
 export function parseStudioImageResponse(value: unknown): { url: string } {
+  if (
+    isRecord(value) &&
+    value.success === true &&
+    isRecord(value.data) &&
+    typeof value.data.url === 'string' &&
+    value.data.url.length > 0
+  ) {
+    return { url: value.data.url }
+  }
   if (!isRecord(value) || !Array.isArray(value.data)) {
     throw new Error('image generation returned no image')
   }
@@ -57,6 +137,15 @@ export function parseStudioVideoResponse(value: unknown): string {
 }
 
 export function parseStudioTextResponse(value: unknown): string {
+  if (
+    isRecord(value) &&
+    value.success === true &&
+    isRecord(value.data) &&
+    typeof value.data.text === 'string' &&
+    value.data.text.trim() !== ''
+  ) {
+    return value.data.text
+  }
   if (!isRecord(value) || !Array.isArray(value.choices)) {
     throw new Error('text generation returned no text')
   }
@@ -109,14 +198,54 @@ export async function fetchStudioModels(group: string): Promise<string[]> {
   )
 }
 
+export async function fetchStudioGroups(): Promise<StudioGroup[]> {
+  const response = await api.get('/api/user/self/groups')
+  return parseStudioGroups(response.data)
+}
+
+export async function fetchStudioProviderConfigs(): Promise<StudioProviderConfigs> {
+  const response = await api.get('/api/studio/providers')
+  return parseStudioProviderConfigs(response.data)
+}
+
+export async function saveStudioProviderConfig(
+  kind: StudioProviderKind,
+  baseUrl: string,
+  apiKey: string
+): Promise<StudioProviderConfig> {
+  const response = await api.put(`/api/studio/providers/${kind}`, {
+    base_url: baseUrl,
+    api_key: apiKey,
+  })
+  const configs = parseStudioProviderConfigs({
+    success: response.data?.success,
+    data: [response.data?.data],
+  })
+  const config = configs[kind]
+  if (!config) throw new Error('Studio service settings were not saved')
+  return config
+}
+
+export async function deleteStudioProviderConfig(
+  kind: StudioProviderKind
+): Promise<void> {
+  await api.delete(`/api/studio/providers/${kind}`)
+}
+
+export async function fetchStudioProviderModels(
+  kind: StudioProviderKind
+): Promise<string[]> {
+  const response = await api.get(`/api/studio/providers/${kind}/models`)
+  return parseStudioProviderModels(response.data)
+}
+
 export async function generateStudioText(
   model: string,
   prompt: string
 ): Promise<string> {
-  const response = await api.post('/pg/chat/completions', {
+  const response = await api.post('/api/studio/providers/text/generate', {
     model,
-    messages: [{ role: 'user', content: prompt }],
-    stream: false,
+    prompt,
   })
   return parseStudioTextResponse(response.data)
 }
@@ -126,7 +255,7 @@ export async function generateStudioImage(
   prompt: string
 ): Promise<{ url: string }> {
   const response = await api.post(
-    '/pg/studio/images/generations',
+    '/api/studio/providers/image/generate',
     buildStudioImageRequest(model, prompt)
   )
   return parseStudioImageResponse(response.data)
@@ -140,9 +269,13 @@ export function buildStudioImageRequest(
 }
 
 export async function createStudioVideo(
-  request: StudioVideoRequest
+  request: StudioVideoRequest,
+  group: string
 ): Promise<string> {
-  const response = await api.post('/pg/studio/videos', request)
+  if (!group) throw new Error('a video group is required')
+  const response = await api.post('/pg/studio/videos', request, {
+    headers: { 'X-Studio-Group': group },
+  })
   return parseStudioVideoResponse(response.data)
 }
 

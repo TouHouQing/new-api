@@ -23,6 +23,8 @@ const nodeDataSchema = z.strictObject({
   title: z.string().max(200),
   prompt: z.string().max(30000),
   model: z.string().max(200).optional(),
+  group: z.string().max(100).optional(),
+  videoFamily: z.enum(['seedance-2', 'minimax-h3']).optional(),
   status: z
     .enum(['idle', 'submitting', 'queued', 'processing', 'completed', 'failed'])
     .optional(),

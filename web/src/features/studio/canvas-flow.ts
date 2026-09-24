@@ -16,12 +16,16 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 import type { Edge, Node } from '@xyflow/react'
 
+import type { StudioVideoFamily } from './model-profiles'
+
 export type StudioCanvasNodeData = {
   [key: string]: unknown
   kind: 'text' | 'image' | 'video'
   title: string
   prompt: string
   model?: string
+  group?: string
+  videoFamily?: StudioVideoFamily
   status?:
     | 'idle'
     | 'submitting'

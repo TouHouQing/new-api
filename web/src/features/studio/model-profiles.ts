@@ -14,9 +14,11 @@ Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+export type StudioVideoFamily = 'seedance-2' | 'minimax-h3'
+
 export type StudioVideoModel = {
   id: string
-  family: 'seedance-2' | 'minimax-h3'
+  family: StudioVideoFamily
   resolutions: string[]
   minSeconds: number
   maxSeconds: number
@@ -52,37 +54,54 @@ const RATIOS = new Set([
   'adaptive',
 ])
 
+export function buildStudioVideoModel(
+  id: string,
+  family: StudioVideoFamily
+): StudioVideoModel {
+  const normalized = id.toLowerCase()
+  if (family === 'minimax-h3') {
+    return {
+      id,
+      family,
+      resolutions: H3_RESOLUTIONS,
+      minSeconds: 4,
+      maxSeconds: 15,
+    }
+  }
+  const lite = normalized.includes('-fast-') || normalized.includes('-mini-')
+  return {
+    id,
+    family,
+    resolutions: lite ? LITE_SEEDANCE_RESOLUTIONS : FULL_SEEDANCE_RESOLUTIONS,
+    minSeconds: 4,
+    maxSeconds: 15,
+  }
+}
+
+export function inferStudioVideoFamily(
+  id: string
+): StudioVideoFamily | undefined {
+  const normalized = id.toLowerCase()
+  if (normalized === 'minimax-h3' || normalized === 'minimaxh3') {
+    return 'minimax-h3'
+  }
+  if (
+    normalized === 'sd2' ||
+    normalized === 'seedance2' ||
+    normalized === 'seedance2.0' ||
+    /^doubao-seedance-2[-_.]0(?:-|$)/.test(normalized) ||
+    /^seedance-2[._-]0(?:-|$)/.test(normalized)
+  ) {
+    return 'seedance-2'
+  }
+  return undefined
+}
+
 export function selectStudioVideoModels(ids: string[]): StudioVideoModel[] {
   const models: StudioVideoModel[] = []
   for (const id of ids) {
-    const normalized = id.toLowerCase()
-    if (normalized === 'minimax-h3') {
-      models.push({
-        id,
-        family: 'minimax-h3',
-        resolutions: H3_RESOLUTIONS,
-        minSeconds: 4,
-        maxSeconds: 15,
-      })
-      continue
-    }
-    if (
-      normalized === 'sd2' ||
-      /^doubao-seedance-2[-_.]0(?:-|$)/.test(normalized) ||
-      /^seedance-2[._-]0(?:-|$)/.test(normalized)
-    ) {
-      const lite =
-        normalized.includes('-fast-') || normalized.includes('-mini-')
-      models.push({
-        id,
-        family: 'seedance-2',
-        resolutions: lite
-          ? LITE_SEEDANCE_RESOLUTIONS
-          : FULL_SEEDANCE_RESOLUTIONS,
-        minSeconds: 4,
-        maxSeconds: 15,
-      })
-    }
+    const family = inferStudioVideoFamily(id)
+    if (family) models.push(buildStudioVideoModel(id, family))
   }
   return models
 }
