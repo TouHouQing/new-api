@@ -36,7 +36,7 @@ export type StudioVideoInput = {
 export type StudioVideoRequest = {
   model: string
   prompt: string
-  seconds: number
+  seconds: string
   duration?: number
   metadata: { resolution: string; ratio: string }
   images?: string[]
@@ -156,7 +156,7 @@ export function buildStudioVideoRequest(
   const request: StudioVideoRequest = {
     model: model.id,
     prompt,
-    seconds: input.seconds,
+    seconds: String(input.seconds),
     metadata: { resolution: input.resolution, ratio: input.ratio },
   }
   if (model.family === 'minimax-h3') request.duration = input.seconds

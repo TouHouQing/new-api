@@ -3,7 +3,9 @@ package common
 import (
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/QuantumNous/new-api/common"
@@ -25,6 +27,27 @@ func TestRelayInfoGetFinalRequestRelayFormatPrefersExplicitFinal(t *testing.T) {
 	}
 
 	require.Equal(t, types.RelayFormat(types.RelayFormatOpenAIResponses), info.GetFinalRequestRelayFormat())
+}
+
+func TestStudioVideoDurationMatchesTaskSubmitContract(t *testing.T) {
+	const payload = `{"model":"会员套餐甲","prompt":"forest","seconds":"30","metadata":{"resolution":"720p","ratio":"16:9"}}`
+	var request TaskSubmitReq
+	err := common.Unmarshal([]byte(payload), &request)
+	require.NoError(t, err)
+	assert.Equal(t, "30", request.Seconds)
+	assert.Equal(t, "会员套餐甲", request.Model)
+	context, _ := gin.CreateTestContext(httptest.NewRecorder())
+	context.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", strings.NewReader(payload))
+	context.Request.Header.Set("Content-Type", "application/json")
+	info := &RelayInfo{TaskRelayInfo: &TaskRelayInfo{}}
+	require.Nil(t, ValidateBasicTaskRequest(context, info, constant.TaskActionTextToVideo))
+	stored, err := GetTaskRequest(context)
+	require.NoError(t, err)
+	assert.Equal(t, "30", stored.Seconds)
+
+	var invalid TaskSubmitReq
+	err = common.Unmarshal([]byte(`{"model":"会员套餐甲","prompt":"forest","seconds":30}`), &invalid)
+	assert.ErrorContains(t, err, "seconds")
 }
 
 func TestRelayInfoGetFinalRequestRelayFormatFallsBackToConversionChain(t *testing.T) {

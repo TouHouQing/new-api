@@ -39,7 +39,7 @@ describe('Studio video models', () => {
         resolution: '720p',
         ratio: '16:9',
       }).seconds
-    ).toBe(30)
+    ).toBe('30')
   })
   test('recognizes the site Seedance 2.5 thirty-second alias', () => {
     const id = '特价-sd2.5三十秒'
@@ -55,7 +55,7 @@ describe('Studio video models', () => {
         resolution: '720p',
         ratio: '16:9',
       }).seconds
-    ).toBe(30)
+    ).toBe('30')
     expect(() =>
       buildStudioVideoRequest(model, {
         prompt: 'a forest at sunrise',
@@ -126,7 +126,7 @@ describe('Studio video models', () => {
     ).toEqual({
       model: 'doubao-seedance-2-0-260128',
       prompt: 'camera pushes in',
-      seconds: 10,
+      seconds: '10',
       metadata: { resolution: '1080p', ratio: '9:16' },
       images: ['https://cdn.example/frame.png'],
     })
@@ -144,7 +144,7 @@ describe('Studio video models', () => {
     ).toEqual({
       model: 'MiniMax-H3',
       prompt: 'a quiet forest',
-      seconds: 4,
+      seconds: '4',
       duration: 4,
       metadata: { resolution: '2K', ratio: '16:9' },
     })

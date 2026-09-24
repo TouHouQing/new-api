@@ -129,7 +129,7 @@ describe('Studio account isolation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'studio.generate' }))
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
-        expect.objectContaining({ model: '会员套餐甲', seconds: 30 }),
+        expect.objectContaining({ model: '会员套餐甲', seconds: '30' }),
         'default'
       )
     )
@@ -173,7 +173,7 @@ describe('Studio account isolation', () => {
     fireEvent.click(screen.getByRole('button', { name: 'studio.generate' }))
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
-        expect.objectContaining({ model: '会员套餐甲', seconds: 30 }),
+        expect.objectContaining({ model: '会员套餐甲', seconds: '30' }),
         '特价sd'
       )
     )

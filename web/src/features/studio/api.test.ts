@@ -38,7 +38,7 @@ describe('Studio relay responses', () => {
     const request = {
       model: '特价seedance-2.5-720p',
       prompt: 'forest',
-      seconds: 30,
+      seconds: '30',
       metadata: { resolution: '720p', ratio: '16:9' },
     }
     try {
