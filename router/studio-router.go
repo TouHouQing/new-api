@@ -82,7 +82,20 @@ func studioSessionAuth() gin.HandlerFunc {
 			return
 		}
 		selectedGroup := group
-		if requested := strings.TrimSpace(c.GetHeader("X-Studio-Group")); requested != "" {
+		requested := strings.TrimSpace(c.GetHeader("X-Studio-Group"))
+		query := c.Request.URL.Query()
+		if values, present := query["studio_group"]; present {
+			if len(values) != 1 || values[0] == "" {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"error": gin.H{"code": "studio_group_invalid", "message": "Studio group is invalid"},
+				})
+				return
+			}
+			requested = values[0]
+			query.Del("studio_group")
+			c.Request.URL.RawQuery = query.Encode()
+		}
+		if requested != "" {
 			if !service.IsUserSelectableGroup(group, requested) {
 				c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 					"error": gin.H{"code": "studio_group_forbidden", "message": "Studio group is unavailable to this account"},

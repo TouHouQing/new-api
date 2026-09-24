@@ -53,7 +53,10 @@ vi.mock('@/components/ai-elements/canvas', () => ({
   ),
 }))
 vi.mock('./api', () => ({
-  fetchStudioGroups: async () => [{ id: 'default', description: 'Default' }],
+  fetchStudioGroups: async () => [
+    { id: 'default', description: 'Default' },
+    { id: '特价sd', description: '所有sd模型都在这' },
+  ],
   fetchStudioModels: async () => ['MiniMax-H3', '会员套餐甲'],
   fetchStudioProviderConfigs: async () => ({}),
   fetchStudioProviderModels: vi.fn(),
@@ -128,6 +131,50 @@ describe('Studio account isolation', () => {
       expect(createStudioVideo).toHaveBeenCalledWith(
         expect.objectContaining({ model: '会员套餐甲', seconds: 30 }),
         'default'
+      )
+    )
+  })
+
+  test('sends the selected Unicode group ID instead of its display label', async () => {
+    const base = addStudioNode(
+      createStudioProject('Group check', 'project-group'),
+      'video',
+      'video-group'
+    )
+    const project = updateStudioNode(base, 'video-group', {
+      title: 'Grouped shot',
+      group: '特价sd',
+      model: '会员套餐甲',
+      videoFamily: 'seedance-2.5',
+      seconds: 30,
+      resolution: '720p',
+      prompt: 'a forest at sunrise',
+    })
+    localStorage.setItem(
+      studioProjectsKey(12),
+      JSON.stringify({ version: 1, projects: [project] })
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-group')
+    vi.mocked(getStudioVideoTask).mockResolvedValue({
+      status: 'queued',
+      progress: 0,
+    })
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Grouped shot' }))
+    await waitFor(() =>
+      expect(
+        (
+          screen.getByRole('button', {
+            name: 'studio.generate',
+          }) as HTMLButtonElement
+        ).disabled
+      ).toBe(false)
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'studio.generate' }))
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({ model: '会员套餐甲', seconds: 30 }),
+        '特价sd'
       )
     )
   })

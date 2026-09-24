@@ -14,10 +14,13 @@ Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+
+import { api } from '@/lib/api'
 
 import {
   buildStudioImageRequest,
+  createStudioVideo,
   parseStudioGroups,
   parseStudioImageResponse,
   parseStudioProviderConfigs,
@@ -28,6 +31,25 @@ import {
 } from './api'
 
 describe('Studio relay responses', () => {
+  test('sends Unicode group IDs as URL parameters instead of HTTP headers', async () => {
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ data: { id: 'task-1' } })
+    const request = {
+      model: '特价seedance-2.5-720p',
+      prompt: 'forest',
+      seconds: 30,
+      metadata: { resolution: '720p', ratio: '16:9' },
+    }
+    try {
+      expect(await createStudioVideo(request, '特价sd')).toBe('task-1')
+      expect(post).toHaveBeenCalledWith('/pg/studio/videos', request, {
+        params: { studio_group: '特价sd' },
+      })
+    } finally {
+      post.mockRestore()
+    }
+  })
   test('lists selectable account groups and excludes automatic routing', () => {
     expect(
       parseStudioGroups({

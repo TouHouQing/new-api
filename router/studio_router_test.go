@@ -3,6 +3,7 @@ package router
 import (
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -99,6 +100,7 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 			"using_group": common.GetContextKeyString(c, constant.ContextKeyUsingGroup),
 			"funded":      c.GetBool("studio_session_relay"),
 			"token_id":    c.GetInt("token_id"),
+			"raw_query":   c.Request.URL.RawQuery,
 		})
 	})
 
@@ -163,6 +165,23 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	restrictedVideo := httptest.NewRecorder()
 	engine.ServeHTTP(restrictedVideo, allowedGroup)
 	assert.Equal(t, http.StatusForbidden, restrictedVideo.Code)
+	groupRatios := ratio_setting.GetGroupRatioSetting().GroupRatio
+	previousGroupRatios := groupRatios.ReadAll()
+	t.Cleanup(func() {
+		groupRatios.Clear()
+		groupRatios.AddAll(previousGroupRatios)
+	})
+	groupRatios.Set("特价sd", 1)
+	specialGroups.Set("default", map[string]string{"+:特价sd": "所有sd模型都在这"})
+	unicodeGroup := httptest.NewRequest(http.MethodPost, "/studio-auth?studio_group="+url.QueryEscape("特价sd"), nil)
+	unicodeGroup.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	unicodeRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(unicodeRecorder, unicodeGroup)
+	require.Equal(t, http.StatusOK, unicodeRecorder.Code, unicodeRecorder.Body.String())
+	var unicodeBody map[string]any
+	require.NoError(t, common.Unmarshal(unicodeRecorder.Body.Bytes(), &unicodeBody))
+	assert.Equal(t, "特价sd", unicodeBody["using_group"])
+	assert.Equal(t, "", unicodeBody["raw_query"])
 
 	patRequest := httptest.NewRequest(http.MethodPost, "/studio-auth", nil)
 	patRequest.Header.Set("Authorization", "Bearer "+pat)
@@ -176,4 +195,14 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	forbiddenRecorder := httptest.NewRecorder()
 	engine.ServeHTTP(forbiddenRecorder, forbiddenGroup)
 	assert.Equal(t, http.StatusForbidden, forbiddenRecorder.Code)
+	forbiddenQuery := httptest.NewRequest(http.MethodPost, "/studio-auth?studio_group=forbidden-group", nil)
+	forbiddenQuery.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	forbiddenQueryRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(forbiddenQueryRecorder, forbiddenQuery)
+	assert.Equal(t, http.StatusForbidden, forbiddenQueryRecorder.Code)
+	duplicateQuery := httptest.NewRequest(http.MethodPost, "/studio-auth?studio_group=default&studio_group=vip", nil)
+	duplicateQuery.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	duplicateQueryRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(duplicateQueryRecorder, duplicateQuery)
+	assert.Equal(t, http.StatusBadRequest, duplicateQueryRecorder.Code)
 }

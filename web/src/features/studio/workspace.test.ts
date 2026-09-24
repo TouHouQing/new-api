@@ -54,4 +54,24 @@ describe('Studio project editing', () => {
     expect(changed.nodes[1].data.outputUrl).toBeUndefined()
     expect(changed.nodes[1].data.status).toBe('idle')
   })
+
+  test('clears a stale group error when the video group changes', () => {
+    const project = addStudioNode(
+      createStudioProject('Film', 'p1'),
+      'video',
+      'n1'
+    )
+    const failed = updateStudioNode(project, 'n1', {
+      group: 'old-group',
+      status: 'failed',
+      error: 'Studio group is unavailable to this account',
+    })
+    const changed = updateStudioNode(failed, 'n1', {
+      group: '特价sd',
+      model: undefined,
+    })
+    expect(changed.nodes[0].data.group).toBe('特价sd')
+    expect(changed.nodes[0].data.status).toBe('idle')
+    expect(changed.nodes[0].data.error).toBeUndefined()
+  })
 })

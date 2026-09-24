@@ -71,7 +71,25 @@ export function updateStudioNode(
     nodes: project.nodes.map((node) => {
       if (node.id !== nodeId) return node
       const data = { ...node.data, ...patch }
-      if (patch.prompt !== undefined && patch.prompt !== node.data.prompt) {
+      const promptChanged =
+        patch.prompt !== undefined && patch.prompt !== node.data.prompt
+      const settingsChanged = (
+        [
+          'group',
+          'model',
+          'videoFamily',
+          'seconds',
+          'resolution',
+          'ratio',
+        ] as const
+      ).some(
+        (key) => Object.hasOwn(patch, key) && patch[key] !== node.data[key]
+      )
+      if (promptChanged || settingsChanged) {
+        delete data.error
+        if (data.status === 'failed') data.status = 'idle'
+      }
+      if (promptChanged) {
         delete data.outputText
         delete data.outputUrl
         delete data.mediaId

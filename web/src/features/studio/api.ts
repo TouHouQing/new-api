@@ -274,7 +274,7 @@ export async function createStudioVideo(
 ): Promise<string> {
   if (!group) throw new Error('a video group is required')
   const response = await api.post('/pg/studio/videos', request, {
-    headers: { 'X-Studio-Group': group },
+    params: { studio_group: group },
   })
   return parseStudioVideoResponse(response.data)
 }
