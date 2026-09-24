@@ -449,7 +449,7 @@ export function Studio() {
   const generate = useCallback(
     async (node: StudioCanvasNode, source: StudioProject) => {
       if (!userId || workspace.ownerId !== userId) return
-      const { prompt, imageUrl } = connectedGenerationInput(
+      const { prompt } = connectedGenerationInput(
         source.nodes,
         source.edges,
         node.id
@@ -525,9 +525,69 @@ export function Studio() {
             node.data.videoFamily || inferStudioVideoFamily(node.data.model)
           if (!family) throw new Error(t('studio.video.family.select'))
           const model = buildStudioVideoModel(node.data.model, family)
+          let connectedNodes = source.nodes
+          const seenSources = new Set<string>()
+          for (const edge of source.edges) {
+            if (edge.target !== node.id || seenSources.has(edge.source)) {
+              continue
+            }
+            seenSources.add(edge.source)
+            const textNode = connectedNodes.find(
+              (candidate) => candidate.id === edge.source
+            )
+            if (
+              textNode?.data.kind !== 'text' ||
+              !textNode.data.model ||
+              textNode.data.outputText?.trim() ||
+              !textNode.data.prompt.trim()
+            ) {
+              continue
+            }
+            if (
+              !providerConfigs.text?.hasKey ||
+              !providerModels.text?.includes(textNode.data.model)
+            ) {
+              const error = t('studio.model.empty')
+              editNode(source.id, textNode.id, { status: 'failed', error })
+              throw new Error(error)
+            }
+            editNode(source.id, textNode.id, {
+              status: 'submitting',
+              error: undefined,
+            })
+            try {
+              const outputText = await generateStudioText(
+                textNode.data.model,
+                textNode.data.prompt.trim()
+              )
+              editNode(source.id, textNode.id, {
+                outputText,
+                status: 'completed',
+              })
+              connectedNodes = connectedNodes.map((candidate) =>
+                candidate.id === textNode.id
+                  ? {
+                      ...candidate,
+                      data: { ...candidate.data, outputText },
+                    }
+                  : candidate
+              )
+            } catch (error) {
+              editNode(source.id, textNode.id, {
+                status: 'failed',
+                error: errorMessage(error),
+              })
+              throw error
+            }
+          }
+          const connectedInput = connectedGenerationInput(
+            connectedNodes,
+            source.edges,
+            node.id
+          )
           const request = buildStudioVideoRequest(model, {
-            prompt,
-            imageUrl,
+            prompt: connectedInput.prompt,
+            imageUrl: connectedInput.imageUrl,
             seconds: node.data.seconds ?? model.defaultSeconds,
             resolution: node.data.resolution ?? model.resolutions[0],
             ratio: node.data.ratio ?? '16:9',
@@ -895,6 +955,13 @@ export function Studio() {
                 selectedNode.data.kind !== 'video' &&
                 Boolean(providerConfigs[selectedNode.data.kind]?.hasKey)
               }
+              hasConnectedPrompt={Boolean(
+                connectedGenerationInput(
+                  project.nodes,
+                  project.edges,
+                  selectedNode.id
+                ).prompt.trim()
+              )}
               onConfigureProvider={() => {
                 if (selectedNode.data.kind === 'video') return
                 setSettingsKind(selectedNode.data.kind)

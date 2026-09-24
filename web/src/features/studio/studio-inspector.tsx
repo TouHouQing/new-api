@@ -47,6 +47,7 @@ type Props = {
   videoGroups: StudioGroup[]
   videoGroup: string
   providerConfigured: boolean
+  hasConnectedPrompt?: boolean
   onConfigureProvider: () => void
   previewUrl?: string
   onChange: (patch: Partial<StudioCanvasNodeData>) => void
@@ -368,7 +369,7 @@ export function StudioInspector(props: Props) {
               busy ||
               !props.node.data.model ||
               !choices.includes(props.node.data.model) ||
-              !props.node.data.prompt.trim() ||
+              (!props.node.data.prompt.trim() && !props.hasConnectedPrompt) ||
               (isVideo && (!props.videoGroup || !family || !durationValid))
             }
             onClick={props.onGenerate}

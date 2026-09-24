@@ -21,7 +21,13 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
 
-import { createStudioVideo, getStudioVideoTask } from './api'
+import {
+  createStudioVideo,
+  fetchStudioProviderConfigs,
+  fetchStudioProviderModels,
+  generateStudioText,
+  getStudioVideoTask,
+} from './api'
 import type { StudioCanvasNode } from './canvas-flow'
 import { Studio } from './index'
 import { saveStudioProjects, studioProjectsKey } from './local-projects'
@@ -58,7 +64,7 @@ vi.mock('./api', () => ({
     { id: '特价sd', description: '所有sd模型都在这' },
   ],
   fetchStudioModels: async () => ['MiniMax-H3', '会员套餐甲'],
-  fetchStudioProviderConfigs: async () => ({}),
+  fetchStudioProviderConfigs: vi.fn(async () => ({})),
   fetchStudioProviderModels: vi.fn(),
   saveStudioProviderConfig: vi.fn(),
   deleteStudioProviderConfig: vi.fn(),
@@ -90,6 +96,76 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks())
 
 describe('Studio account isolation', () => {
+  test('runs a connected text model before submitting a video with its result', async () => {
+    vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
+      text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },
+    })
+    vi.mocked(fetchStudioProviderModels).mockResolvedValue(['text-model'])
+    let finishText: (value: string) => void = () => undefined
+    vi.mocked(generateStudioText).mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          finishText = resolve
+        })
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-connected')
+    const text = addStudioNode(
+      createStudioProject('Connected text', 'project-connected'),
+      'text',
+      'text-1'
+    )
+    const withVideo = addStudioNode(text, 'video', 'video-1')
+    const project = {
+      ...withVideo,
+      edges: [{ id: 'text-video', source: 'text-1', target: 'video-1' }],
+      nodes: withVideo.nodes.map((node) => {
+        if (node.id === 'text-1') {
+          return {
+            ...node,
+            data: { ...node.data, model: 'text-model', prompt: 'Describe her' },
+          }
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            model: '会员套餐甲',
+            videoFamily: 'seedance-2' as const,
+            resolution: '720p',
+            prompt: '',
+          },
+        }
+      }),
+    }
+    saveStudioProjects(localStorage, 12, [project])
+
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 2' }))
+    const generateButton = await screen.findByRole('button', {
+      name: 'studio.generate',
+    })
+    await waitFor(() =>
+      expect((generateButton as HTMLButtonElement).disabled).toBe(false)
+    )
+    fireEvent.click(generateButton)
+    await waitFor(() => expect(generateStudioText).toHaveBeenCalled())
+    expect(createStudioVideo).not.toHaveBeenCalled()
+    finishText('A beautiful woman')
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({ prompt: 'A beautiful woman' }),
+        'default'
+      )
+    )
+    expect(generateStudioText).toHaveBeenCalledWith(
+      'text-model',
+      'Describe her'
+    )
+    expect(
+      vi.mocked(generateStudioText).mock.invocationCallOrder[0]
+    ).toBeLessThan(vi.mocked(createStudioVideo).mock.invocationCallOrder[0])
+  })
+
   test('submits an arbitrary saved thirty-second alias without a name-based cap', async () => {
     const base = addStudioNode(
       createStudioProject('Thirty seconds', 'project-30'),

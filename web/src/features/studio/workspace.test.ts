@@ -74,4 +74,25 @@ describe('Studio project editing', () => {
     expect(changed.nodes[0].data.status).toBe('idle')
     expect(changed.nodes[0].data.error).toBeUndefined()
   })
+
+  test('clears generated text when its model changes so downstream generation refreshes it', () => {
+    const project = addStudioNode(
+      createStudioProject('Script', 'p1'),
+      'text',
+      'n1'
+    )
+    const configured = updateStudioNode(project, 'n1', {
+      model: 'model-one',
+      prompt: 'Write a scene',
+    })
+    const completed = updateStudioNode(configured, 'n1', {
+      outputText: 'Old scene',
+      status: 'completed',
+    })
+    const changed = updateStudioNode(completed, 'n1', {
+      model: 'model-two',
+    })
+    expect(changed.nodes[0].data.outputText).toBeUndefined()
+    expect(changed.nodes[0].data.status).toBe('idle')
+  })
 })

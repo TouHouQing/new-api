@@ -73,6 +73,8 @@ export function updateStudioNode(
       const data = { ...node.data, ...patch }
       const promptChanged =
         patch.prompt !== undefined && patch.prompt !== node.data.prompt
+      const modelChanged =
+        Object.hasOwn(patch, 'model') && patch.model !== node.data.model
       const settingsChanged = (
         [
           'group',
@@ -89,7 +91,7 @@ export function updateStudioNode(
         delete data.error
         if (data.status === 'failed') data.status = 'idle'
       }
-      if (promptChanged) {
+      if (promptChanged || modelChanged) {
         delete data.outputText
         delete data.outputUrl
         delete data.mediaId

@@ -91,4 +91,24 @@ describe('Studio canvas connections', () => {
       prompt: 'slow push in',
     })
   })
+
+  test('uses an ungenerated connected text prompt when the video prompt is empty', () => {
+    const draftNodes: StudioCanvasNode[] = [
+      {
+        ...nodes[0],
+        data: { kind: 'text', title: 'Script', prompt: 'A beautiful woman' },
+      },
+      {
+        ...nodes[2],
+        data: { kind: 'video', title: 'Shot', prompt: '' },
+      },
+    ]
+    expect(
+      connectedGenerationInput(
+        draftNodes,
+        [{ id: 'draft', source: 'text', target: 'video' }],
+        'video'
+      )
+    ).toEqual({ prompt: 'A beautiful woman' })
+  })
 })

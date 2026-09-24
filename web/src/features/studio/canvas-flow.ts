@@ -61,7 +61,7 @@ export function connectedGenerationInput(
     .filter((node): node is StudioCanvasNode => node !== undefined)
   const text = sources
     .filter((node) => node.data.kind === 'text')
-    .map((node) => node.data.outputText?.trim())
+    .map((node) => node.data.outputText?.trim() || node.data.prompt.trim())
     .filter((value): value is string => Boolean(value))
   const prompt = [...text, target.data.prompt.trim()]
     .filter(Boolean)
