@@ -1095,12 +1095,16 @@ export function Studio() {
             if (activeUserId.current !== userId) return
             update(node.id, { status: 'submitting', error: undefined })
             const expected = fingerprint(node.id)
-            const reference = source.edges
+            const references = source.edges
               .filter((edge) => edge.target === node.id)
               .map((edge) =>
                 workingNodes.find((item) => item.id === edge.source)
               )
-              .find((parent) => parent?.data.kind === 'image')
+              .filter((parent) => parent?.data.kind === 'image')
+            if (references.length > 1) {
+              throw new Error(t('studio.image.singleReference'))
+            }
+            const reference = references[0]
             let imageReference: string | undefined
             if (reference?.data.mediaId && mediaStore) {
               const blob = await mediaStore.get(userId, reference.data.mediaId)

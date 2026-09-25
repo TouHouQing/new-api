@@ -140,6 +140,45 @@ describe('Studio canvas connections', () => {
     ).toBe(true)
   })
 
+  test('rejects a second image input when an image edit already has a reference', () => {
+    const secondSource = { ...nodes[1], id: 'image-two' }
+    const target = { ...nodes[1], id: 'image-edit' }
+    const graph = [...nodes, secondSource, target]
+    expect(
+      isValidStudioConnection(
+        graph,
+        [{ id: 'first', source: 'image', target: 'image-edit' }],
+        'image-two',
+        'image-edit'
+      )
+    ).toBe(false)
+    expect(
+      isValidStudioConnection(
+        graph,
+        [
+          {
+            id: 'first',
+            source: 'image',
+            target: 'image-edit',
+            targetHandle: 'reference_image',
+          },
+        ],
+        'image-two',
+        'image-edit',
+        'image',
+        'reference_image'
+      )
+    ).toBe(false)
+    expect(
+      isValidStudioConnection(
+        graph,
+        [{ id: 'first', source: 'image', target: 'video' }],
+        'image-two',
+        'video'
+      )
+    ).toBe(true)
+  })
+
   test('accepts typed media ports and rejects a second first frame', () => {
     expect(
       isValidStudioConnection(

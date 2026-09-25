@@ -317,6 +317,54 @@ describe('Studio account isolation', () => {
       )
     )
   })
+  test('reports an imported image edit with two references before calling the provider', async () => {
+    vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
+      image: {
+        kind: 'image',
+        baseUrl: 'https://image.example/v1',
+        hasKey: true,
+      },
+    })
+    vi.mocked(fetchStudioProviderModels).mockResolvedValue(['image-model'])
+    storedMedia.set(
+      '12:reference-one',
+      new Blob(['one'], { type: 'image/png' })
+    )
+    storedMedia.set(
+      '12:reference-two',
+      new Blob(['two'], { type: 'image/png' })
+    )
+    let project = createStudioProject('Two references', 'two-references')
+    project = addStudioNode(project, 'image', 'first')
+    project = addStudioNode(project, 'image', 'second')
+    project = addStudioNode(project, 'image', 'target')
+    project = updateStudioNode(project, 'first', {
+      mediaId: 'reference-one',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'second', {
+      mediaId: 'reference-two',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'target', {
+      model: 'image-model',
+      prompt: 'change the lighting',
+    })
+    project.edges = [
+      { id: 'first-reference', source: 'first', target: 'target' },
+      { id: 'second-reference', source: 'second', target: 'target' },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Image 3' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    expect(
+      await screen.findByText('studio.image.singleReference')
+    ).toBeVisible()
+    expect(generateStudioImage).not.toHaveBeenCalled()
+  })
   test('shares one in-flight text request across two downstream video nodes', async () => {
     vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
       text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },

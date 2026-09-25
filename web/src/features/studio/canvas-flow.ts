@@ -131,6 +131,17 @@ export function isValidStudioConnection(
   const source = nodes.find((node) => node.id === sourceId)
   const target = nodes.find((node) => node.id === targetId)
   if (!source || !target) return false
+  if (
+    source.data.kind === 'image' &&
+    target.data.kind === 'image' &&
+    edges.some(
+      (edge) =>
+        edge.target === targetId &&
+        nodes.find((node) => node.id === edge.source)?.data.kind === 'image'
+    )
+  ) {
+    return false
+  }
   if (sourceHandle || targetHandle) {
     const defaultSource = {
       text: 'scene',
