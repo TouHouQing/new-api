@@ -55,6 +55,13 @@ test('creates a final video and can select and generate it from the storyboard',
       onMoveShot={vi.fn()}
       onRenameShot={vi.fn()}
       onDeleteShot={vi.fn()}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
     />
   )
   fireEvent.click(screen.getByRole('button', { name: 'studio.shot.editFinal' }))
@@ -97,6 +104,13 @@ test('a storyboard shot selects source nodes and generates through its video nod
       onMoveShot={vi.fn()}
       onRenameShot={vi.fn()}
       onDeleteShot={onDeleteShot}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
     />
   )
   expect(screen.getByText('Opening')).toBeTruthy()

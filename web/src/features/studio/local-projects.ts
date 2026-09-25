@@ -85,6 +85,7 @@ const projectSchema = z.strictObject({
   nodes: z.array(nodeSchema).max(500),
   edges: z.array(edgeSchema).max(1000),
   finalVideoNodeId: z.string().min(1).max(128).optional(),
+  assembledMediaId: z.string().min(1).max(128).optional(),
   shots: z
     .array(
       z.strictObject({
@@ -112,6 +113,7 @@ export type StudioProject = {
   edges: StudioCanvasEdge[]
   shots?: StudioShot[]
   finalVideoNodeId?: string
+  assembledMediaId?: string
   createdAt: string
   updatedAt: string
 }
@@ -155,9 +157,10 @@ function normalizeStudioProject(project: StudioProject): StudioProject {
 
 export function serializeStudioProjectExport(project: StudioProject): string {
   const safe = normalizeStudioProject(project)
+  const { assembledMediaId: _assembledMediaId, ...portable } = safe
   return JSON.stringify(
     {
-      ...safe,
+      ...portable,
       nodes: safe.nodes.map((node) => {
         const data = { ...node.data }
         delete data.outputUrl
@@ -178,6 +181,7 @@ export function parseStudioProjectImport(raw: string): StudioProject {
     )
     return {
       ...project,
+      assembledMediaId: undefined,
       nodes: project.nodes.map((node) => {
         const data = { ...node.data }
         delete data.mediaId

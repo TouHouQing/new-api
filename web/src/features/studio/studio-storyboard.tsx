@@ -22,6 +22,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
 import type { StudioProject } from './local-projects'
+import { StudioAssemblyPanel } from './studio-assembly-panel'
 
 type Props = {
   project: StudioProject
@@ -35,6 +36,15 @@ type Props = {
   onMoveShot: (shotId: string, direction: 'up' | 'down') => void
   onRenameShot: (shotId: string, title: string) => void
   onDeleteShot: (shotId: string) => void
+  assembly: {
+    busy: boolean
+    progress: number
+    previewUrl?: string
+    error?: string
+    onAssemble: () => void
+    onCancel: () => void
+    onDownload: () => void
+  }
 }
 
 export function StudioStoryboard(props: Props) {
@@ -322,6 +332,7 @@ export function StudioStoryboard(props: Props) {
             </CardContent>
           </Card>
         )}
+        {shots.length > 0 && <StudioAssemblyPanel {...props.assembly} />}
       </div>
     </div>
   )

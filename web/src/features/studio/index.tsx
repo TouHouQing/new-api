@@ -34,6 +34,7 @@ import {
   Upload,
 } from 'lucide-react'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
 import { Canvas } from '@/components/ai-elements/canvas'
@@ -65,6 +66,13 @@ import {
   type StudioProviderConfigs,
   type StudioProviderKind,
 } from './api'
+import { loadStudioAssemblyBlobs } from './assembly-media'
+import {
+  planStudioAssembly,
+  reconcileStudioAssembly,
+  StudioAssemblyError,
+  studioAssemblyFingerprint,
+} from './assembly-plan'
 import {
   connectedGenerationInput,
   isValidStudioConnection,
@@ -110,6 +118,12 @@ type WorkspaceState = {
   activeId: string
   ready: boolean
 }
+type StudioMediaRef = {
+  projectId: string
+  nodeId: string
+  mediaId: string
+  kind: 'node' | 'assembly'
+}
 const nodeTypes = { studio: StudioNode }
 
 function errorMessage(error: unknown): string {
@@ -122,6 +136,12 @@ function newId(): string {
 
 function previewKey(projectId: string, nodeId: string): string {
   return `${projectId}:${nodeId}`
+}
+
+function mediaLoadKey(
+  ref: Pick<StudioMediaRef, 'kind' | 'projectId' | 'mediaId'>
+): string {
+  return JSON.stringify([ref.kind, ref.projectId, ref.mediaId])
 }
 
 function blobToDataUrl(blob: Blob): Promise<string> {
@@ -177,14 +197,29 @@ export function Studio() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [view, setView] = useState<'canvas' | 'storyboard'>('canvas')
   const [batchBusy, setBatchBusy] = useState(false)
+  const [assemblyBusy, setAssemblyBusy] = useState(false)
+  const [assemblyProgress, setAssemblyProgress] = useState(0)
+  const [assemblyError, setAssemblyError] = useState<string | undefined>()
   const [message, setMessage] = useState<string | null>(null)
   const [previews, setPreviews] = useState<Record<string, string>>({})
+  const [assemblyPreviews, setAssemblyPreviews] = useState<Map<string, string>>(
+    () => new Map()
+  )
   const [deleteTarget, setDeleteTarget] = useState<
     'node' | 'project' | 'shot' | null
   >(null)
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const ownedUrls = useRef<string[]>([])
+  const assemblyRun = useRef<{
+    ownerId: number
+    projectId: string
+    controller: AbortController
+  } | null>(null)
+  const previousAssemblies = useRef<{
+    ownerId: number
+    ids: Map<string, string>
+  }>({ ownerId: 0, ids: new Map() })
   const activeUserId = useRef(userId)
   activeUserId.current = userId
   const mediaStore = useMemo(() => {
@@ -201,6 +236,10 @@ export function Studio() {
     [visible, workspace.projects]
   )
   const project = projects.find((item) => item.id === workspace.activeId)
+  const activeProjectId = useRef(project?.id)
+  activeProjectId.current = project?.id
+  const projectsRef = useRef(projects)
+  projectsRef.current = projects
   const canvasNodes = useMemo(
     () =>
       project?.nodes.map((node) => ({
@@ -217,21 +256,31 @@ export function Studio() {
     selectedNode?.data.kind === 'video'
       ? resolveVideoGroup(selectedNode.data.group, userGroup, videoGroups)
       : ''
-  const mediaRefs = useMemo(
-    () =>
-      project?.nodes.flatMap((node) =>
-        node.data.mediaId
-          ? [
-              {
-                projectId: project.id,
-                nodeId: node.id,
-                mediaId: node.data.mediaId,
-              },
-            ]
-          : []
-      ) ?? [],
-    [project?.id, project?.nodes]
-  )
+  const mediaRefs: StudioMediaRef[] = useMemo(() => {
+    if (!project) return []
+    const refs: StudioMediaRef[] = project.nodes.flatMap((node) =>
+      node.data.mediaId
+        ? [
+            {
+              projectId: project.id,
+              nodeId: node.id,
+              mediaId: node.data.mediaId,
+              kind: 'node' as const,
+            },
+          ]
+        : []
+    )
+    if (project.assembledMediaId) {
+      refs.push({
+        projectId: project.id,
+        nodeId: 'assembly',
+        mediaId: project.assembledMediaId,
+        kind: 'assembly',
+      })
+    }
+    return refs
+  }, [project])
+  const mediaRefsKey = JSON.stringify(mediaRefs)
   const loadedMediaIds = useRef(new Set<string>())
   const runningTargets = useRef(new Set<string>())
   const pendingVideos = useMemo(
@@ -283,6 +332,7 @@ export function Studio() {
     setSettingsOpen(false)
     setAttemptsOpen(false)
     setPreviews({})
+    setAssemblyPreviews(new Map())
     loadedMediaIds.current.clear()
     ownedUrls.current.forEach((url) => URL.revokeObjectURL(url))
     ownedUrls.current = []
@@ -387,20 +437,88 @@ export function Studio() {
 
   useEffect(() => {
     if (!visible || !mediaStore) return
+    const ids = new Map<string, string>(
+      projects.flatMap((item) =>
+        item.assembledMediaId ? [[item.id, item.assembledMediaId] as const] : []
+      )
+    )
+    const previous = previousAssemblies.current
+    if (previous.ownerId === userId) {
+      for (const [projectId, mediaId] of previous.ids) {
+        if (ids.get(projectId) === mediaId) continue
+        void mediaStore
+          .delete(userId, mediaId)
+          .catch((error) => setMessage(errorMessage(error)))
+        loadedMediaIds.current.delete(
+          mediaLoadKey({ kind: 'assembly', projectId, mediaId })
+        )
+        if (!ids.has(projectId)) {
+          setAssemblyPreviews((current) => {
+            const url = current.get(projectId)
+            if (url?.startsWith('blob:')) {
+              URL.revokeObjectURL(url)
+              ownedUrls.current = ownedUrls.current.filter(
+                (owned) => owned !== url
+              )
+            }
+            const next = new Map(current)
+            next.delete(projectId)
+            return next
+          })
+        }
+      }
+    }
+    previousAssemblies.current = { ownerId: userId, ids }
+  }, [visible, userId, projects, mediaStore])
+
+  useEffect(() => {
+    setAssemblyBusy(false)
+    setAssemblyProgress(0)
+    setAssemblyError(undefined)
+    return () => {
+      const run = assemblyRun.current
+      if (run?.ownerId === userId && run.projectId === project?.id) {
+        run.controller.abort()
+      }
+    }
+  }, [userId, project?.id])
+
+  useEffect(() => {
+    if (!visible || !mediaStore) return
     let cancelled = false
+    const started = new Set<string>()
+    const loadedIds = loadedMediaIds.current
+    const refs = JSON.parse(mediaRefsKey) as StudioMediaRef[]
     Promise.all(
-      mediaRefs.map(async ({ projectId, nodeId, mediaId }) => {
-        const key = `${projectId}:${mediaId}`
-        if (loadedMediaIds.current.has(key)) return
-        loadedMediaIds.current.add(key)
-        const blob = await mediaStore.get(userId, mediaId)
-        if (blob && !cancelled) {
+      refs.map(async (ref) => {
+        const { projectId, nodeId, mediaId, kind } = ref
+        const key = mediaLoadKey(ref)
+        if (loadedIds.has(key)) return
+        loadedIds.add(key)
+        started.add(key)
+        try {
+          const blob = await mediaStore.get(userId, mediaId)
+          if (!blob || cancelled) {
+            if (!cancelled) loadedIds.delete(key)
+            return
+          }
           const url = URL.createObjectURL(blob)
           ownedUrls.current.push(url)
-          setPreviews((current) => ({
-            ...current,
-            [previewKey(projectId, nodeId)]: url,
-          }))
+          if (kind === 'assembly') {
+            setAssemblyPreviews((current) =>
+              new Map(current).set(projectId, url)
+            )
+          } else {
+            setPreviews((current) => ({
+              ...current,
+              [previewKey(projectId, nodeId)]: url,
+            }))
+          }
+        } catch (error) {
+          if (!cancelled) loadedIds.delete(key)
+          throw error
+        } finally {
+          started.delete(key)
         }
       })
     ).catch((error) => {
@@ -408,8 +526,9 @@ export function Studio() {
     })
     return () => {
       cancelled = true
+      for (const key of started) loadedIds.delete(key)
     }
-  }, [visible, userId, mediaRefs, mediaStore])
+  }, [visible, userId, mediaRefsKey, mediaStore])
 
   const editProject = useCallback(
     (projectId: string, edit: (project: StudioProject) => StudioProject) => {
@@ -418,7 +537,9 @@ export function Studio() {
         return {
           ...current,
           projects: current.projects.map((item) =>
-            item.id === projectId ? edit(item) : item
+            item.id === projectId
+              ? reconcileStudioAssembly(item, edit(item))
+              : item
           ),
         }
       })
@@ -492,7 +613,9 @@ export function Studio() {
       const mediaId = newId()
       await mediaStore.put(ownerId, mediaId, blob)
       if (activeUserId.current === ownerId) {
-        loadedMediaIds.current.add(`${projectId}:${mediaId}`)
+        loadedMediaIds.current.add(
+          mediaLoadKey({ kind: 'node', projectId, mediaId })
+        )
         const preview = URL.createObjectURL(blob)
         ownedUrls.current.push(preview)
         setPreviews((current) => ({
@@ -516,7 +639,9 @@ export function Studio() {
       discardBranchMedia(source, node.id)
       const mediaId = newId()
       await mediaStore.put(userId, mediaId, file)
-      loadedMediaIds.current.add(`${source.id}:${mediaId}`)
+      loadedMediaIds.current.add(
+        mediaLoadKey({ kind: 'node', projectId: source.id, mediaId })
+      )
       const preview = URL.createObjectURL(file)
       ownedUrls.current.push(preview)
       setPreviews((current) => ({
@@ -984,6 +1109,194 @@ export function Studio() {
     }
   }
 
+  const downloadAssembly = () => {
+    if (!project?.assembledMediaId) return
+    const url = assemblyPreviews.get(project.id)
+    if (!url) return
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = `studio-${project.id}.mp4`
+    anchor.click()
+  }
+
+  const assembleMp4 = async () => {
+    if (!project || assemblyBusy) return
+    if (!mediaStore) {
+      setAssemblyError(t('studio.assembly.error.storage'))
+      return
+    }
+    const ownerId = userId
+    const sourceProject = project
+    const fingerprint = studioAssemblyFingerprint(sourceProject)
+    const controller = new AbortController()
+    assemblyRun.current = { ownerId, projectId: sourceProject.id, controller }
+    const isCurrent = () =>
+      activeUserId.current === ownerId &&
+      activeProjectId.current === sourceProject.id &&
+      assemblyRun.current?.controller === controller
+    setAssemblyBusy(true)
+    setAssemblyProgress(0)
+    setAssemblyError(undefined)
+    try {
+      const clips = planStudioAssembly(sourceProject)
+      const blobs = await loadStudioAssemblyBlobs(
+        clips,
+        ownerId,
+        mediaStore,
+        getStudioVideoContentUrl,
+        fetch,
+        controller.signal
+      )
+      if (!isCurrent() || controller.signal.aborted) return
+      const { stitchStudioVideos } = await import('./studio-mp4')
+      const blob = await stitchStudioVideos(
+        blobs,
+        (progress) => {
+          if (isCurrent()) {
+            setAssemblyProgress(progress.percent)
+          }
+        },
+        controller.signal
+      )
+      const currentProject = projectsRef.current.find(
+        (item) => item.id === sourceProject.id
+      )
+      if (!isCurrent() || controller.signal.aborted) return
+      if (
+        !currentProject ||
+        studioAssemblyFingerprint(currentProject) !== fingerprint
+      ) {
+        throw new Error(t('studio.assembly.changed'))
+      }
+      const mediaId = newId()
+      try {
+        await mediaStore.put(ownerId, mediaId, blob)
+      } catch {
+        if (!isCurrent() || controller.signal.aborted) {
+          return
+        }
+        const latest = projectsRef.current.find(
+          (item) => item.id === sourceProject.id
+        )
+        if (!latest || studioAssemblyFingerprint(latest) !== fingerprint) {
+          throw new Error(t('studio.assembly.changed'))
+        }
+        let currentAtDownload = false
+        flushSync(() => {
+          setWorkspace((current) => {
+            if (current.ownerId !== ownerId) return current
+            const existing = current.projects.find(
+              (item) => item.id === sourceProject.id
+            )
+            currentAtDownload = Boolean(
+              existing && studioAssemblyFingerprint(existing) === fingerprint
+            )
+            return currentAtDownload ? { ...current } : current
+          })
+        })
+        if (!currentAtDownload) throw new Error(t('studio.assembly.changed'))
+        const temporaryUrl = URL.createObjectURL(blob)
+        const anchor = document.createElement('a')
+        anchor.href = temporaryUrl
+        anchor.download = `studio-${sourceProject.id}.mp4`
+        anchor.click()
+        window.setTimeout(() => URL.revokeObjectURL(temporaryUrl), 30_000)
+        setAssemblyProgress(100)
+        setAssemblyError(t('studio.assembly.error.saveFailed'))
+        return
+      }
+      if (!isCurrent() || controller.signal.aborted) {
+        await mediaStore.delete(ownerId, mediaId)
+        return
+      }
+      const latestProject = projectsRef.current.find(
+        (item) => item.id === sourceProject.id
+      )
+      if (
+        !latestProject ||
+        studioAssemblyFingerprint(latestProject) !== fingerprint
+      ) {
+        await mediaStore.delete(ownerId, mediaId)
+        throw new Error(t('studio.assembly.changed'))
+      }
+      const newLoadKey = mediaLoadKey({
+        kind: 'assembly',
+        projectId: sourceProject.id,
+        mediaId,
+      })
+      loadedMediaIds.current.add(newLoadKey)
+      let committed = false
+      flushSync(() => {
+        setWorkspace((current) => {
+          if (current.ownerId !== ownerId) return current
+          const existing = current.projects.find(
+            (item) => item.id === sourceProject.id
+          )
+          if (
+            !existing ||
+            studioAssemblyFingerprint(existing) !== fingerprint
+          ) {
+            return current
+          }
+          committed = true
+          return {
+            ...current,
+            projects: current.projects.map((item) =>
+              item.id === sourceProject.id
+                ? { ...item, assembledMediaId: mediaId }
+                : item
+            ),
+          }
+        })
+      })
+      if (!committed) {
+        loadedMediaIds.current.delete(newLoadKey)
+        await mediaStore.delete(ownerId, mediaId)
+        throw new Error(t('studio.assembly.changed'))
+      }
+      const oldUrl = assemblyPreviews.get(sourceProject.id)
+      if (oldUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(oldUrl)
+        ownedUrls.current = ownedUrls.current.filter(
+          (owned) => owned !== oldUrl
+        )
+      }
+      const url = URL.createObjectURL(blob)
+      ownedUrls.current.push(url)
+      setAssemblyPreviews((current) =>
+        new Map(current).set(sourceProject.id, url)
+      )
+      const anchor = document.createElement('a')
+      anchor.href = url
+      anchor.download = `studio-${sourceProject.id}.mp4`
+      anchor.click()
+      setAssemblyProgress(100)
+    } catch (error) {
+      if (
+        isCurrent() &&
+        !controller.signal.aborted &&
+        !(error instanceof DOMException && error.name === 'AbortError')
+      ) {
+        const detail =
+          error instanceof StudioAssemblyError
+            ? `${t(`studio.assembly.error.${error.code}`)}${error.shotTitle ? `：${error.shotTitle}` : ''}`
+            : errorMessage(error)
+        setAssemblyError(detail)
+      }
+    } finally {
+      if (assemblyRun.current?.controller === controller) {
+        assemblyRun.current = null
+      }
+      if (
+        activeUserId.current === ownerId &&
+        activeProjectId.current === sourceProject.id &&
+        assemblyRun.current === null
+      ) {
+        setAssemblyBusy(false)
+      }
+    }
+  }
+
   const addProject = () => {
     const next = createStudioProject(t('studio.project.untitled'), newId())
     setWorkspace((current) => ({
@@ -1333,6 +1646,17 @@ export function Studio() {
               project={project}
               previews={previews}
               batchBusy={batchBusy}
+              assembly={{
+                busy: assemblyBusy,
+                progress: assemblyProgress,
+                previewUrl: project.assembledMediaId
+                  ? assemblyPreviews.get(project.id)
+                  : undefined,
+                error: assemblyError,
+                onAssemble: () => void assembleMp4(),
+                onCancel: () => assemblyRun.current?.controller.abort(),
+                onDownload: downloadAssembly,
+              }}
               onAddShot={addShot}
               onSelectNode={setSelectedNodeId}
               onGenerateVideo={(nodeId) => {
