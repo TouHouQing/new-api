@@ -24,6 +24,7 @@ import {
   studioProjectsKey,
 } from './local-projects'
 import {
+  addStudioNode,
   addStudioShot,
   createStudioProject,
   ensureStudioFinalVideo,
@@ -32,6 +33,20 @@ import {
 beforeEach(() => localStorage.clear())
 
 describe('browser-local Studio projects', () => {
+  test('preserves canvas lines saved before named ports existed', () => {
+    let project = addStudioNode(
+      createStudioProject('Old canvas', 'old-canvas'),
+      'text',
+      'text'
+    )
+    project = addStudioNode(project, 'video', 'video')
+    project.edges = [{ id: 'old-line', source: 'text', target: 'video' }]
+    saveStudioProjects(localStorage, 12, [project])
+
+    expect(loadStudioProjects(localStorage, 12)[0].edges).toEqual([
+      { id: 'old-line', source: 'text', target: 'video' },
+    ])
+  })
   test('migrates an older pending video task into recoverable version history', () => {
     const project = createStudioProject('Legacy', 'legacy')
     project.nodes = [

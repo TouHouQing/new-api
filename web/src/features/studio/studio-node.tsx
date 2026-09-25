@@ -66,7 +66,7 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
   return (
     <Node
       handles={{ target: false, source: false }}
-      className='w-72 border-0'
+      className='w-72 overflow-visible border-0'
       aria-label={data.title}
     >
       <NodeHeader>
