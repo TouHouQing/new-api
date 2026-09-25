@@ -6864,7 +6864,7 @@
     "studio.model.loading": "正在載入模型與價格…",
     "studio.model.loadFailed": "無法載入可用模型，請重試。",
     "studio.model.descriptionMissing": "暫無模型描述",
-    "studio.model.priceEstimated": "依目前時長估算",
+    "studio.model.pricePerRequest": "/請求",
     "studio.model.priceReference": "目錄參考價",
     "studio.model.priceUnknown": "價格暫不可用",
     "studio.model.priceNote": "價格來自本站模型目錄；實際扣費以提交參數與渠道為準。",

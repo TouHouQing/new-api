@@ -6864,7 +6864,7 @@
     "studio.model.loading": "正在加载模型与价格…",
     "studio.model.loadFailed": "无法加载可用模型，请刷新重试。",
     "studio.model.descriptionMissing": "暂无模型描述",
-    "studio.model.priceEstimated": "按当前时长预估",
+    "studio.model.pricePerRequest": "/请求",
     "studio.model.priceReference": "目录参考价",
     "studio.model.priceUnknown": "价格暂不可用",
     "studio.model.priceNote": "价格来自本站模型目录；实际扣费以提交参数和渠道为准。",

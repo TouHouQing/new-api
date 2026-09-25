@@ -220,7 +220,7 @@ export function StudioVideoModelPicker(props: Props) {
             )
             let priceLabel = t('studio.model.priceUnknown')
             if (price?.kind === 'estimate') {
-              priceLabel = t('studio.model.priceEstimated')
+              priceLabel = ''
             } else if (price?.kind === 'reference') {
               priceLabel = t('studio.model.priceReference')
             }
@@ -253,12 +253,17 @@ export function StudioVideoModelPicker(props: Props) {
                   </span>
                 </span>
                 <span className='shrink-0 text-left sm:text-right'>
-                  <span className='text-muted-foreground block text-xs'>
-                    {priceLabel}
-                  </span>
+                  {priceLabel && (
+                    <span className='text-muted-foreground block text-xs'>
+                      {priceLabel}
+                    </span>
+                  )}
                   {price && (
-                    <span className='block font-mono text-sm font-semibold tabular-nums'>
+                    <span className='block font-mono text-sm font-semibold whitespace-nowrap tabular-nums'>
                       {price.amount}
+                      <span className='text-muted-foreground ml-1 text-xs font-normal'>
+                        {t('studio.model.pricePerRequest')}
+                      </span>
                     </span>
                   )}
                 </span>

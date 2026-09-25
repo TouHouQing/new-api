@@ -6864,7 +6864,7 @@
     "studio.model.loading": "Loading models and prices…",
     "studio.model.loadFailed": "Could not load available models. Try refreshing.",
     "studio.model.descriptionMissing": "No description provided",
-    "studio.model.priceEstimated": "Estimated cost at current duration",
+    "studio.model.pricePerRequest": "/request",
     "studio.model.priceReference": "Reference catalog price",
     "studio.model.priceUnknown": "Price unavailable",
     "studio.model.priceNote": "Prices come from this site's catalog. Final charges depend on the submitted parameters and channel.",

@@ -6864,7 +6864,7 @@
     "studio.model.loading": "Загрузка моделей и цен…",
     "studio.model.loadFailed": "Не удалось загрузить модели. Повторите попытку.",
     "studio.model.descriptionMissing": "Описание отсутствует",
-    "studio.model.priceEstimated": "Оценка стоимости для текущей длительности",
+    "studio.model.pricePerRequest": "/запрос",
     "studio.model.priceReference": "Справочная цена из каталога",
     "studio.model.priceUnknown": "Цена недоступна",
     "studio.model.priceNote": "Цены взяты из каталога сайта. Итоговая сумма зависит от параметров запроса и канала.",

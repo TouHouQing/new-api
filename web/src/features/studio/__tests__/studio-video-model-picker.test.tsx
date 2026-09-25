@@ -113,7 +113,11 @@ test('shows only freshly available site models with description and group price'
   expect(fetchStudioModels).toHaveBeenCalledWith('vip')
   expect(await screen.findByText('A flexible video model')).toBeInTheDocument()
   expect(screen.queryByText('Must stay hidden')).toBeNull()
-  expect(screen.getByText('$0.624')).toBeInTheDocument()
+  expect(screen.getByText(/\$0\.624/)).toBeInTheDocument()
+  expect(
+    screen.getAllByText('studio.model.pricePerRequest').length
+  ).toBeGreaterThan(0)
+  expect(screen.queryByText('studio.model.priceEstimated')).toBeNull()
   expect(
     screen.getByText('studio.model.descriptionMissing')
   ).toBeInTheDocument()

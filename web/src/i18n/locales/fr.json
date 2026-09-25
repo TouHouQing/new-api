@@ -6864,7 +6864,7 @@
     "studio.model.loading": "Chargement des modèles et des prix…",
     "studio.model.loadFailed": "Impossible de charger les modèles. Réessayez.",
     "studio.model.descriptionMissing": "Aucune description fournie",
-    "studio.model.priceEstimated": "Coût estimé pour la durée actuelle",
+    "studio.model.pricePerRequest": "/requête",
     "studio.model.priceReference": "Prix indicatif du catalogue",
     "studio.model.priceUnknown": "Prix indisponible",
     "studio.model.priceNote": "Les prix proviennent du catalogue du site. Le montant final dépend des paramètres et du canal.",

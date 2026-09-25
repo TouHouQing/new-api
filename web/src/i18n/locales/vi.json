@@ -6864,7 +6864,7 @@
     "studio.model.loading": "Đang tải mô hình và giá…",
     "studio.model.loadFailed": "Không thể tải mô hình. Hãy thử làm mới.",
     "studio.model.descriptionMissing": "Chưa có mô tả",
-    "studio.model.priceEstimated": "Chi phí ước tính theo thời lượng hiện tại",
+    "studio.model.pricePerRequest": "/yêu cầu",
     "studio.model.priceReference": "Giá tham khảo trong danh mục",
     "studio.model.priceUnknown": "Chưa có giá",
     "studio.model.priceNote": "Giá lấy từ danh mục của trang. Phí thực tế phụ thuộc vào tham số gửi và kênh.",
