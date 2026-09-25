@@ -73,6 +73,49 @@ func TestStudioProviderGenerationUsesFixedCompatiblePaths(t *testing.T) {
 	assert.Equal(t, "https://cdn.example.com/frame.png", imageURL)
 }
 
+func TestStudioProviderTextAcceptsChatContentParts(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"First scene. "},{"type":"text","text":"Then the reveal."}]},"finish_reason":"stop"}]}`), nil
+	})}
+	text, err := GenerateStudioProviderText(context.Background(), provider, "text-model", "scene", client)
+	require.NoError(t, err)
+	assert.Equal(t, "First scene. Then the reveal.", text)
+}
+
+func TestStudioProviderTextDoesNotMistakeToolCallsForText(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":null,"tool_calls":[{"function":{"arguments":"sk-private-test"}}]},"finish_reason":"tool_calls"}]}`), nil
+	})}
+	_, err := GenerateStudioProviderText(context.Background(), provider, "text-model", "scene", client)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "tool calls")
+	assert.NotContains(t, err.Error(), "sk-private-test")
+}
+
+func TestStudioProviderTextReportsSuccessStatusErrorEnvelopeWithoutLeakingIt(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return studioResponse(http.StatusOK, `{"error":{"code":"quota_exceeded","message":"sk-private-test quota exhausted"}}`), nil
+	})}
+	_, err := GenerateStudioProviderText(context.Background(), provider, "text-model", "scene", client)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "error response")
+	assert.NotContains(t, err.Error(), "sk-private-test")
+}
+
+func TestStudioProviderTextRejectsReasoningOnlyOutputWithoutLeakingIt(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":null,"reasoning_content":"private chain of thought"},"finish_reason":"stop"}]}`), nil
+	})}
+	_, err := GenerateStudioProviderText(context.Background(), provider, "text-model", "scene", client)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "reasoning without final text")
+	assert.NotContains(t, err.Error(), "private chain of thought")
+}
+
 func TestStudioProviderErrorsNeverExposeSavedKey(t *testing.T) {
 	provider := studioTestProvider(t, "text")
 	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {

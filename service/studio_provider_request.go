@@ -3,6 +3,7 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -127,16 +128,71 @@ func GenerateStudioProviderText(ctx context.Context, provider *model.StudioProvi
 		return "", err
 	}
 	var parsed struct {
+		Error   json.RawMessage `json:"error"`
+		Success *bool           `json:"success"`
 		Choices []struct {
 			Message struct {
-				Content string `json:"content"`
+				Content          json.RawMessage `json:"content"`
+				ToolCalls        json.RawMessage `json:"tool_calls"`
+				ReasoningContent string          `json:"reasoning_content"`
+				Refusal          string          `json:"refusal"`
 			} `json:"message"`
+			FinishReason string `json:"finish_reason"`
 		} `json:"choices"`
 	}
-	if err := common.Unmarshal(data, &parsed); err != nil || len(parsed.Choices) == 0 || strings.TrimSpace(parsed.Choices[0].Message.Content) == "" {
-		return "", errors.New("text provider returned no text")
+	if err := common.Unmarshal(data, &parsed); err != nil {
+		return "", errors.New("text provider returned invalid JSON")
 	}
-	return parsed.Choices[0].Message.Content, nil
+	if (len(parsed.Error) > 0 && string(parsed.Error) != "null") || (parsed.Success != nil && !*parsed.Success) {
+		return "", errors.New("text provider returned an error response")
+	}
+	if len(parsed.Choices) == 0 {
+		return "", errors.New("text provider returned no text (response has no choices)")
+	}
+	choice := parsed.Choices[0]
+	content := studioChatContentText(choice.Message.Content)
+	if strings.TrimSpace(content) != "" {
+		return content, nil
+	}
+	if choice.FinishReason == "tool_calls" || studioHasToolCalls(choice.Message.ToolCalls) {
+		return "", errors.New("text provider returned tool calls instead of text")
+	}
+	if choice.FinishReason == "content_filter" || choice.Message.Refusal != "" {
+		return "", errors.New("text provider did not return text because the output was filtered or refused")
+	}
+	if choice.Message.ReasoningContent != "" {
+		return "", errors.New("text provider returned reasoning without final text")
+	}
+	return "", errors.New("text provider returned no text")
+}
+
+func studioChatContentText(raw json.RawMessage) string {
+	if len(raw) == 0 || string(raw) == "null" {
+		return ""
+	}
+	var plain string
+	if err := common.Unmarshal(raw, &plain); err == nil {
+		return plain
+	}
+	var parts []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := common.Unmarshal(raw, &parts); err != nil {
+		return ""
+	}
+	var combined strings.Builder
+	for _, part := range parts {
+		if part.Type == "text" || part.Type == "output_text" {
+			combined.WriteString(part.Text)
+		}
+	}
+	return combined.String()
+}
+
+func studioHasToolCalls(raw json.RawMessage) bool {
+	var calls []json.RawMessage
+	return common.Unmarshal(raw, &calls) == nil && len(calls) > 0
 }
 
 func GenerateStudioProviderImage(ctx context.Context, provider *model.StudioProvider, modelName, prompt string, client *http.Client) (string, error) {
