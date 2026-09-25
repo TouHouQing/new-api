@@ -18,6 +18,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 
 type Props = {
   busy: boolean
@@ -27,6 +28,12 @@ type Props = {
   onAssemble: () => void
   onCancel: () => void
   onDownload: () => void
+  soundtrackUrl?: string
+  soundtrackVolume?: number
+  preflight?: { totalDuration: number; estimatedOutputBytes: number }
+  onUploadSoundtrack?: (file: File) => void
+  onRemoveSoundtrack?: () => void
+  onSoundtrackVolumeChange?: (volume: number) => void
 }
 
 export function StudioAssemblyPanel(props: Props) {
@@ -40,6 +47,60 @@ export function StudioAssemblyPanel(props: Props) {
         <p className='text-muted-foreground text-xs'>
           {t('studio.assembly.description')}
         </p>
+        <div className='space-y-2 rounded-md border p-3'>
+          <p className='text-sm font-medium'>
+            {t('studio.timeline.soundtrack')}
+          </p>
+          <Input
+            type='file'
+            accept='audio/*'
+            aria-label={t('studio.timeline.soundtrack')}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) props.onUploadSoundtrack?.(file)
+              event.target.value = ''
+            }}
+          />
+          {props.soundtrackUrl && (
+            <div className='space-y-2'>
+              <audio src={props.soundtrackUrl} controls className='w-full' />
+              <label className='text-muted-foreground flex items-center gap-2 text-xs'>
+                {t('studio.timeline.volume')}
+                <Input
+                  type='number'
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  className='w-24'
+                  value={props.soundtrackVolume ?? 1}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (value >= 0 && value <= 1) {
+                      props.onSoundtrackVolumeChange?.(value)
+                    }
+                  }}
+                />
+              </label>
+              <Button
+                size='xs'
+                variant='outline'
+                onClick={props.onRemoveSoundtrack}
+              >
+                {t('studio.timeline.removeSoundtrack')}
+              </Button>
+            </div>
+          )}
+        </div>
+        {props.preflight && (
+          <p className='text-muted-foreground text-xs' role='status'>
+            {t('studio.timeline.preflight', {
+              seconds: Math.round(props.preflight.totalDuration),
+              megabytes: Math.ceil(
+                props.preflight.estimatedOutputBytes / 1_000_000
+              ),
+            })}
+          </p>
+        )}
         {props.previewUrl && (
           <video
             aria-label={t('studio.assembly.preview')}

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"errors"
 	"net/http"
 	"strings"
 
@@ -15,8 +16,12 @@ type studioProviderInput struct {
 }
 
 type studioGenerationInput struct {
-	Model  string `json:"model"`
-	Prompt string `json:"prompt"`
+	Model   string  `json:"model"`
+	Prompt  string  `json:"prompt"`
+	Size    *string `json:"size"`
+	Quality *string `json:"quality"`
+	N       *int    `json:"n"`
+	Image   string  `json:"image"`
 }
 
 type studioProviderPublic struct {
@@ -144,7 +149,11 @@ func StudioProviderGenerate(c *gin.Context) {
 		studioProviderError(c, http.StatusBadRequest, "studio_provider_kind_invalid", "Only text and image services can be configured")
 		return
 	}
-	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 32768)
+	maxRequestBytes := int64(32768)
+	if kind == "image" {
+		maxRequestBytes = 12 << 20
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, maxRequestBytes)
 	var input studioGenerationInput
 	if err := c.ShouldBindJSON(&input); err != nil || input.Model == "" || len(input.Model) > 200 || strings.TrimSpace(input.Prompt) == "" || len(input.Prompt) > 30000 {
 		studioProviderError(c, http.StatusBadRequest, "studio_provider_request_invalid", "Model and prompt are required")
@@ -169,11 +178,17 @@ func StudioProviderGenerate(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"success": true, "data": shot})
 		return
 	}
-	imageURL, err := service.GenerateStudioProviderImage(c.Request.Context(), provider, input.Model, input.Prompt, studioProviderClient)
+	images, err := service.GenerateStudioProviderImages(c.Request.Context(), provider, service.StudioImageRequest{
+		Model: input.Model, Prompt: input.Prompt, Size: input.Size, Quality: input.Quality, N: input.N, Image: input.Image,
+	}, studioProviderClient)
 	if err != nil {
+		if errors.Is(err, service.ErrStudioImageRequestInvalid) {
+			studioProviderError(c, http.StatusBadRequest, "studio_provider_request_invalid", err.Error())
+			return
+		}
 		studioProviderError(c, http.StatusBadGateway, "studio_provider_generation_failed", err.Error())
 		return
 	}
 	c.Header("Cache-Control", "private, no-store")
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"url": imageURL}})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"url": images[0], "urls": images}})
 }

@@ -113,6 +113,98 @@ describe('Studio canvas connections', () => {
     ).not.toThrow()
   })
 
+  test('accepts typed media ports and rejects a second first frame', () => {
+    expect(
+      isValidStudioConnection(
+        nodes,
+        [],
+        'text',
+        'image',
+        'image_prompt',
+        'prompt'
+      )
+    ).toBe(true)
+    expect(
+      isValidStudioConnection(
+        nodes,
+        [],
+        'text',
+        'video',
+        'image_prompt',
+        'prompt'
+      )
+    ).toBe(false)
+    const secondImage = { ...nodes[1], id: 'image-two' }
+    expect(
+      isValidStudioConnection(
+        [...nodes, secondImage],
+        [],
+        'image',
+        'image-two',
+        'image',
+        'reference_image'
+      )
+    ).toBe(true)
+    expect(
+      isValidStudioConnection(
+        [...nodes, secondImage],
+        [
+          {
+            id: 'first',
+            source: 'image',
+            target: 'video',
+            targetHandle: 'first_frame',
+          },
+        ],
+        'image-two',
+        'video',
+        'image',
+        'first_frame'
+      )
+    ).toBe(false)
+    const secondVideo = { ...nodes[2], id: 'video-two' }
+    expect(
+      isValidStudioConnection(
+        [...nodes, secondVideo],
+        [],
+        'video',
+        'video-two',
+        'video',
+        'extend_video'
+      )
+    ).toBe(true)
+  })
+
+  test('allows two distinct output roles from one source to the same target', () => {
+    const first = {
+      id: 'scene',
+      source: 'text',
+      target: 'video',
+      sourceHandle: 'scene',
+      targetHandle: 'prompt',
+    }
+    expect(
+      isValidStudioConnection(
+        nodes,
+        [first],
+        'text',
+        'video',
+        'video_prompt',
+        'prompt'
+      )
+    ).toBe(true)
+    expect(
+      isValidStudioConnection(
+        nodes,
+        [first],
+        'text',
+        'video',
+        'scene',
+        'prompt'
+      )
+    ).toBe(false)
+  })
+
   test('passes text and a generated image into a downstream video', () => {
     expect(
       connectedGenerationInput(
@@ -173,6 +265,34 @@ describe('Studio canvas connections', () => {
       prompt: 'She turns toward camera as it pushes in\n\nslow push in',
       imageUrl: 'https://cdn.example/frame.png',
     })
+  })
+
+  test('uses an explicit text output port instead of guessing by target kind', () => {
+    const text = {
+      ...nodes[0],
+      data: {
+        ...nodes[0].data,
+        outputText: 'A woman in the rain',
+        outputImagePrompt: 'A still portrait in the rain',
+        outputVideoPrompt: 'She turns as the camera approaches',
+      },
+    }
+    const video = { ...nodes[2], data: { ...nodes[2].data, prompt: '' } }
+    expect(
+      connectedGenerationInput(
+        [text, video],
+        [
+          {
+            id: 'scene-video',
+            source: 'text',
+            sourceHandle: 'scene',
+            target: 'video',
+            targetHandle: 'prompt',
+          },
+        ],
+        'video'
+      ).prompt
+    ).toBe('A woman in the rain')
   })
 
   test('does not submit a browser blob URL as an upstream image reference', () => {

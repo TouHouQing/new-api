@@ -21,7 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
-import type { StudioProject } from './local-projects'
+import type { StudioProject, StudioShot } from './local-projects'
 import { StudioAssemblyPanel } from './studio-assembly-panel'
 
 type Props = {
@@ -32,10 +32,27 @@ type Props = {
   onGenerateAll: () => void
   onCreateFinalVideo: () => void
   batchBusy?: boolean
+  batchLimit?: number
+  batchCost?:
+    | { status: 'estimated'; estimatedUsd: number }
+    | { status: 'unknown' }
+  onBatchLimitChange?: (limit: number) => void
   onAddShot: () => void
   onMoveShot: (shotId: string, direction: 'up' | 'down') => void
   onRenameShot: (shotId: string, title: string) => void
   onDeleteShot: (shotId: string) => void
+  onUpdateShotEdit?: (
+    shotId: string,
+    patch: Pick<
+      StudioShot,
+      | 'trimStart'
+      | 'trimEnd'
+      | 'muted'
+      | 'volume'
+      | 'transition'
+      | 'transitionSeconds'
+    >
+  ) => void
   assembly: {
     busy: boolean
     progress: number
@@ -44,6 +61,12 @@ type Props = {
     onAssemble: () => void
     onCancel: () => void
     onDownload: () => void
+    soundtrackUrl?: string
+    soundtrackVolume?: number
+    preflight?: { totalDuration: number; estimatedOutputBytes: number }
+    onUploadSoundtrack?: (file: File) => void
+    onRemoveSoundtrack?: () => void
+    onSoundtrackVolumeChange?: (volume: number) => void
   }
 }
 
@@ -90,6 +113,32 @@ export function StudioStoryboard(props: Props) {
           </Button>
         </div>
       </div>
+      <div className='text-muted-foreground mb-4 flex flex-wrap items-center gap-3 text-xs'>
+        <label className='flex items-center gap-2'>
+          {t('studio.batch.limit')}
+          <Input
+            aria-label={t('studio.batch.limit')}
+            type='number'
+            min={1}
+            max={20}
+            className='w-20'
+            value={props.batchLimit ?? 5}
+            onChange={(event) => {
+              const value = Number(event.target.value)
+              if (Number.isInteger(value) && value >= 1 && value <= 20) {
+                props.onBatchLimitChange?.(value)
+              }
+            }}
+          />
+        </label>
+        <span role='status'>
+          {props.batchCost?.status === 'estimated'
+            ? t('studio.cost.estimated', {
+                amount: props.batchCost.estimatedUsd.toFixed(4),
+              })
+            : t('studio.cost.unknown')}
+        </span>
+      </div>
       {shots.length === 0 && (
         <p className='text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm'>
           {t('studio.shot.empty')}
@@ -122,6 +171,7 @@ export function StudioStoryboard(props: Props) {
                   {editingShotId === shot.id ? (
                     <Input
                       value={shot.title}
+                      maxLength={200}
                       aria-label={t('studio.shot.rename')}
                       onChange={(event) =>
                         props.onRenameShot(shot.id, event.target.value)
@@ -268,6 +318,120 @@ export function StudioStoryboard(props: Props) {
                   )}
                 </div>
               </CardContent>
+              <div className='flex flex-wrap items-end gap-3 border-t px-4 pt-3'>
+                <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                  {t('studio.timeline.trimStart')}
+                  <Input
+                    aria-label={`${shot.title} ${t('studio.timeline.trimStart')}`}
+                    type='number'
+                    min={0}
+                    step={0.1}
+                    className='w-24'
+                    value={shot.trimStart ?? 0}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (value >= 0 && value <= 3600) {
+                        props.onUpdateShotEdit?.(shot.id, { trimStart: value })
+                      }
+                    }}
+                  />
+                </label>
+                <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                  {t('studio.timeline.trimEnd')}
+                  <Input
+                    aria-label={`${shot.title} ${t('studio.timeline.trimEnd')}`}
+                    type='number'
+                    min={0}
+                    step={0.1}
+                    className='w-24'
+                    value={shot.trimEnd ?? ''}
+                    placeholder={t('studio.timeline.fullClip')}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (
+                        event.target.value === '' ||
+                        (value >= 0 && value <= 3600)
+                      ) {
+                        props.onUpdateShotEdit?.(shot.id, {
+                          trimEnd:
+                            event.target.value === '' ? undefined : value,
+                        })
+                      }
+                    }}
+                  />
+                </label>
+                <label className='flex items-center gap-2 text-xs'>
+                  <input
+                    type='checkbox'
+                    checked={Boolean(shot.muted)}
+                    onChange={(event) =>
+                      props.onUpdateShotEdit?.(shot.id, {
+                        muted: event.target.checked,
+                      })
+                    }
+                  />
+                  {t('studio.timeline.mute')}
+                </label>
+                <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                  {t('studio.timeline.volume')}
+                  <Input
+                    aria-label={`${shot.title} ${t('studio.timeline.volume')}`}
+                    type='number'
+                    min={0}
+                    max={1}
+                    step={0.1}
+                    className='w-24'
+                    disabled={shot.muted}
+                    value={shot.volume ?? 1}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (value >= 0 && value <= 1) {
+                        props.onUpdateShotEdit?.(shot.id, { volume: value })
+                      }
+                    }}
+                  />
+                </label>
+                {index < shots.length - 1 && (
+                  <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                    {t('studio.timeline.transition')}
+                    <select
+                      aria-label={`${shot.title} ${t('studio.timeline.transition')}`}
+                      className='border-input bg-background h-8 rounded-md border px-2'
+                      value={shot.transition || 'cut'}
+                      onChange={(event) =>
+                        props.onUpdateShotEdit?.(shot.id, {
+                          transition: event.target.value as 'cut' | 'fade',
+                        })
+                      }
+                    >
+                      <option value='cut'>{t('studio.timeline.cut')}</option>
+                      <option value='fade'>{t('studio.timeline.fade')}</option>
+                    </select>
+                  </label>
+                )}
+                {index < shots.length - 1 && shot.transition === 'fade' && (
+                  <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                    {t('studio.timeline.transitionSeconds')}
+                    <Input
+                      aria-label={`${shot.title} ${t('studio.timeline.transitionSeconds')}`}
+                      type='number'
+                      min={0.1}
+                      max={3}
+                      step={0.1}
+                      className='w-24'
+                      value={shot.transitionSeconds ?? 0.5}
+                      onChange={(event) => {
+                        const value = Number(event.target.value)
+                        if (value >= 0.1 && value <= 3) {
+                          props.onUpdateShotEdit?.(shot.id, {
+                            transitionSeconds: value,
+                          })
+                        }
+                      }}
+                    />
+                  </label>
+                )}
+              </div>
             </Card>
           )
         })}

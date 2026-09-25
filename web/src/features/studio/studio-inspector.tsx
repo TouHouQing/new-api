@@ -37,12 +37,19 @@ import { Textarea } from '@/components/ui/textarea'
 
 import type { StudioGroup } from './api'
 import type { StudioCanvasNode, StudioCanvasNodeData } from './canvas-flow'
+import type { StudioAsset } from './local-projects'
 import {
   buildStudioVideoModel,
   inferStudioVideoFamily,
   parseStudioVideoMetadata,
+  parseStudioVideoPayloadPatch,
   type StudioVideoFamily,
 } from './model-profiles'
+import {
+  fetchStudioVideoCostPreview,
+  studioCostDurationSeconds,
+  type StudioVideoCostPreview,
+} from './studio-cost'
 
 type Props = {
   node: StudioCanvasNode
@@ -58,6 +65,9 @@ type Props = {
   onUploadImage?: (file: File) => void
   onDelete: () => void
   onRetryMedia?: () => void
+  onSelectTake?: (takeId: string) => void
+  availableAssets?: StudioAsset[]
+  requestPreview?: string
 }
 
 const RATIOS = ['16:9', '9:16', '1:1', '21:9', '4:3', '3:4', 'adaptive']
@@ -66,12 +76,19 @@ export function StudioInspector(props: Props) {
   const { t } = useTranslation()
   const imageUploadRef = useRef<HTMLInputElement>(null)
   const [advancedOpen, setAdvancedOpen] = useState(false)
+  const [costPreview, setCostPreview] = useState<StudioVideoCostPreview>()
   const [metadataDraft, setMetadataDraft] = useState(
     props.node.data.metadataJson || ''
+  )
+  const [payloadDraft, setPayloadDraft] = useState(
+    props.node.data.payloadPatchJson || ''
   )
   useEffect(() => {
     setMetadataDraft(props.node.data.metadataJson || '')
   }, [props.node.id, props.node.data.metadataJson])
+  useEffect(() => {
+    setPayloadDraft(props.node.data.payloadPatchJson || '')
+  }, [props.node.id, props.node.data.payloadPatchJson])
   const isVideo = props.node.data.kind === 'video'
   const choices = props.models
   const inferredFamily = props.node.data.model
@@ -109,10 +126,51 @@ export function StudioInspector(props: Props) {
   } catch {
     metadataValid = false
   }
+  let payloadValid = true
+  try {
+    parseStudioVideoPayloadPatch(payloadDraft)
+  } catch {
+    payloadValid = false
+  }
   const busy =
     props.node.data.status === 'submitting' ||
     props.node.data.status === 'queued' ||
     props.node.data.status === 'processing'
+
+  useEffect(() => {
+    const modelId = props.node.data.model
+    const durationSeconds = studioCostDurationSeconds(
+      props.node.data.seconds ?? 5,
+      props.node.data.payloadPatchJson
+    )
+    if (
+      props.node.data.kind !== 'video' ||
+      !modelId ||
+      !props.videoGroup ||
+      durationSeconds === null
+    ) {
+      setCostPreview({ status: 'unknown', reason: 'dynamic_pricing' })
+      return
+    }
+    let cancelled = false
+    void fetchStudioVideoCostPreview({
+      modelId,
+      group: props.videoGroup,
+      durationSeconds,
+      quantity: 1,
+    }).then((preview) => {
+      if (!cancelled) setCostPreview(preview)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [
+    props.node.data.kind,
+    props.node.data.model,
+    props.node.data.seconds,
+    props.node.data.payloadPatchJson,
+    props.videoGroup,
+  ])
 
   return (
     <Card className='min-h-[560px] rounded-none border-0 ring-0 lg:h-full lg:min-h-0'>
@@ -167,6 +225,7 @@ export function StudioInspector(props: Props) {
           <Input
             id='studio-node-title'
             value={props.node.data.title}
+            maxLength={200}
             onChange={(event) => props.onChange({ title: event.target.value })}
           />
         </Field>
@@ -271,6 +330,59 @@ export function StudioInspector(props: Props) {
             </p>
           </Field>
         )}
+        {props.node.data.kind === 'image' && props.node.data.model && (
+          <div className='grid grid-cols-3 gap-2'>
+            <Field>
+              <FieldLabel htmlFor='studio-image-size'>
+                {t('studio.image.size')}
+              </FieldLabel>
+              <Input
+                id='studio-image-size'
+                value={props.node.data.imageSize || ''}
+                maxLength={40}
+                placeholder='auto'
+                onChange={(event) =>
+                  props.onChange({ imageSize: event.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor='studio-image-quality'>
+                {t('studio.image.quality')}
+              </FieldLabel>
+              <Input
+                id='studio-image-quality'
+                value={props.node.data.imageQuality || ''}
+                maxLength={40}
+                placeholder='auto'
+                onChange={(event) =>
+                  props.onChange({ imageQuality: event.target.value })
+                }
+              />
+            </Field>
+            <Field>
+              <FieldLabel htmlFor='studio-image-count'>
+                {t('studio.image.count')}
+              </FieldLabel>
+              <Input
+                id='studio-image-count'
+                type='number'
+                min={1}
+                max={10}
+                value={props.node.data.imageCount ?? 1}
+                onChange={(event) => {
+                  const count = Number(event.target.value)
+                  if (Number.isInteger(count) && count >= 1 && count <= 10) {
+                    props.onChange({ imageCount: count })
+                  }
+                }}
+              />
+            </Field>
+            <p className='text-muted-foreground col-span-3 text-xs'>
+              {t('studio.image.optionsHint')}
+            </p>
+          </div>
+        )}
         {isVideo && props.node.data.model && (
           <Field>
             <FieldLabel>{t('studio.video.family')}</FieldLabel>
@@ -344,6 +456,7 @@ export function StudioInspector(props: Props) {
               id='studio-prompt'
               className='min-h-32'
               value={props.node.data.prompt}
+              maxLength={30000}
               onChange={(event) =>
                 props.onChange({ prompt: event.target.value })
               }
@@ -356,6 +469,33 @@ export function StudioInspector(props: Props) {
                   : t('studio.text.manualHint')}
               </p>
             )}
+          </Field>
+        )}
+        {Boolean(props.availableAssets?.length) && (
+          <Field>
+            <FieldLabel>{t('studio.asset.use')}</FieldLabel>
+            <div className='space-y-2 rounded-md border p-3'>
+              {props.availableAssets?.map((asset) => (
+                <label
+                  key={asset.id}
+                  className='flex items-center gap-2 text-xs'
+                >
+                  <input
+                    type='checkbox'
+                    checked={Boolean(
+                      props.node.data.assetIds?.includes(asset.id)
+                    )}
+                    onChange={(event) => {
+                      const selected = new Set(props.node.data.assetIds || [])
+                      if (event.target.checked) selected.add(asset.id)
+                      else selected.delete(asset.id)
+                      props.onChange({ assetIds: [...selected] })
+                    }}
+                  />
+                  {t(`studio.asset.${asset.kind}`)} · {asset.title}
+                </label>
+              ))}
+            </div>
           </Field>
         )}
         {props.node.data.kind === 'video' && model && (
@@ -411,6 +551,7 @@ export function StudioInspector(props: Props) {
               <Input
                 id='studio-resolution'
                 value={props.node.data.resolution || ''}
+                maxLength={100}
                 onChange={(event) =>
                   props.onChange({ resolution: event.target.value })
                 }
@@ -439,6 +580,7 @@ export function StudioInspector(props: Props) {
               <Input
                 id='studio-ratio'
                 value={props.node.data.ratio || ''}
+                maxLength={40}
                 onChange={(event) =>
                   props.onChange({ ratio: event.target.value })
                 }
@@ -488,11 +630,33 @@ export function StudioInspector(props: Props) {
                   <p className='text-muted-foreground text-xs'>
                     {t('studio.video.metadataHint')}
                   </p>
+                  <JsonCodeEditor
+                    value={payloadDraft}
+                    onChange={(value) => {
+                      setPayloadDraft(value)
+                      try {
+                        parseStudioVideoPayloadPatch(value)
+                        props.onChange({ payloadPatchJson: value })
+                      } catch {
+                        // Invalid drafts stay local to the editor.
+                      }
+                    }}
+                    heightClassName='h-40 min-h-40 max-h-40'
+                    ariaLabel={t('studio.video.payloadPatch')}
+                  />
+                  <p className='text-muted-foreground text-xs'>
+                    {t('studio.video.payloadPatchHint')}
+                  </p>
                 </>
               )}
               {!metadataValid && (
                 <p className='text-destructive text-xs' role='alert'>
                   {t('studio.video.metadataInvalid')}
+                </p>
+              )}
+              {!payloadValid && (
+                <p className='text-destructive text-xs' role='alert'>
+                  {t('studio.video.payloadPatchInvalid')}
                 </p>
               )}
             </Field>
@@ -519,7 +683,8 @@ export function StudioInspector(props: Props) {
                 (!props.node.data.model ||
                   !props.videoGroup ||
                   !durationValid ||
-                  !metadataValid))
+                  !metadataValid ||
+                  !payloadValid))
             }
             onClick={props.onGenerate}
           >
@@ -529,6 +694,23 @@ export function StudioInspector(props: Props) {
             {t('studio.deleteNode')}
           </Button>
         </div>
+        {isVideo && props.node.data.model && (
+          <p className='text-muted-foreground text-xs' role='status'>
+            {costPreview?.status === 'estimated'
+              ? t('studio.cost.estimated', {
+                  amount: costPreview.estimatedUsd.toFixed(4),
+                })
+              : t('studio.cost.unknown')}
+          </p>
+        )}
+        {isVideo && props.requestPreview && (
+          <Field>
+            <FieldLabel>{t('studio.video.requestPreview')}</FieldLabel>
+            <pre className='bg-muted max-h-64 overflow-auto rounded-md p-3 text-xs whitespace-pre-wrap'>
+              {props.requestPreview}
+            </pre>
+          </Field>
+        )}
         {props.node.data.status && props.node.data.status !== 'idle' && (
           <p className='text-muted-foreground text-xs' role='status'>
             {t(`studio.status.${props.node.data.status}`)}{' '}
@@ -541,6 +723,34 @@ export function StudioInspector(props: Props) {
           <p className='text-destructive text-sm' role='alert'>
             {props.node.data.error}
           </p>
+        )}
+        {Boolean(props.node.data.takes?.length) && (
+          <Field>
+            <FieldLabel>{t('studio.take.title')}</FieldLabel>
+            <Select
+              value={props.node.data.selectedTakeId || null}
+              onValueChange={(value) => value && props.onSelectTake?.(value)}
+              items={(props.node.data.takes || []).map((take, index) => ({
+                value: take.id,
+                label: `${index + 1} · ${take.model || t('studio.source.manual')} · ${t(`studio.status.${take.status}`)}`,
+              }))}
+            >
+              <SelectTrigger
+                className='w-full'
+                aria-label={t('studio.take.title')}
+              >
+                <SelectValue placeholder={t('studio.take.select')} />
+              </SelectTrigger>
+              <SelectContent>
+                {(props.node.data.takes || []).map((take, index) => (
+                  <SelectItem key={take.id} value={take.id}>
+                    {index + 1} · {take.model || t('studio.source.manual')} ·{' '}
+                    {t(`studio.status.${take.status}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
         )}
         {props.node.data.kind === 'text' && props.node.data.outputText && (
           <Field>

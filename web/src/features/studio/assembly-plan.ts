@@ -38,13 +38,29 @@ export type StudioAssemblyClip = {
   title: string
   taskId?: string
   mediaId?: string
+  trimStart?: number
+  trimEnd?: number
+  muted?: boolean
+  volume?: number
+  fadeInSeconds?: number
+  fadeOutSeconds?: number
 }
 
 export function planStudioAssembly(
   project: StudioProject
 ): StudioAssemblyClip[] {
-  if (!project.shots?.length) throw new StudioAssemblyError('no_shots')
-  return project.shots.map((shot) => {
+  const shots = project.shots
+  if (!shots?.length) throw new StudioAssemblyError('no_shots')
+  return shots.map((shot, index) => {
+    const previous = shots[index - 1]
+    const fadeInSeconds =
+      previous?.transition === 'fade'
+        ? (previous.transitionSeconds ?? 0.5)
+        : undefined
+    const fadeOutSeconds =
+      index < shots.length - 1 && shot.transition === 'fade'
+        ? (shot.transitionSeconds ?? 0.5)
+        : undefined
     const video = project.nodes.find((node) => node.id === shot.videoNodeId)
     if (!video || video.data.kind !== 'video') {
       throw new StudioAssemblyError('missing_video', shot.title)
@@ -60,13 +76,21 @@ export function planStudioAssembly(
       title: shot.title,
       taskId: video.data.taskId,
       mediaId: video.data.mediaId,
+      ...(shot.trimStart !== undefined ? { trimStart: shot.trimStart } : {}),
+      ...(shot.trimEnd !== undefined ? { trimEnd: shot.trimEnd } : {}),
+      ...(shot.muted !== undefined ? { muted: shot.muted } : {}),
+      ...(shot.volume !== undefined ? { volume: shot.volume } : {}),
+      ...(fadeInSeconds !== undefined ? { fadeInSeconds } : {}),
+      ...(fadeOutSeconds !== undefined ? { fadeOutSeconds } : {}),
     }
   })
 }
 
 export function studioAssemblyFingerprint(project: StudioProject): string {
-  return JSON.stringify(
-    (project.shots || []).map((shot) => {
+  return JSON.stringify([
+    project.soundtrackMediaId,
+    project.soundtrackVolume,
+    ...(project.shots || []).map((shot) => {
       const video = project.nodes.find((node) => node.id === shot.videoNodeId)
       return [
         shot.id,
@@ -74,9 +98,15 @@ export function studioAssemblyFingerprint(project: StudioProject): string {
         video?.data.status,
         video?.data.taskId,
         video?.data.mediaId,
+        shot.trimStart,
+        shot.trimEnd,
+        shot.muted,
+        shot.volume,
+        shot.transition,
+        shot.transitionSeconds,
       ]
-    })
-  )
+    }),
+  ])
 }
 
 export function reconcileStudioAssembly(

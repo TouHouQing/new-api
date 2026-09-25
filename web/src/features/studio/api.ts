@@ -153,7 +153,10 @@ export function parseStudioProviderModels(value: unknown): string[] {
   )
 }
 
-export function parseStudioImageResponse(value: unknown): { url: string } {
+export function parseStudioImageResponse(value: unknown): {
+  url: string
+  urls?: string[]
+} {
   if (
     isRecord(value) &&
     value.success === true &&
@@ -161,7 +164,16 @@ export function parseStudioImageResponse(value: unknown): { url: string } {
     typeof value.data.url === 'string' &&
     value.data.url.length > 0
   ) {
-    return { url: value.data.url }
+    const urls = Array.isArray(value.data.urls)
+      ? value.data.urls.filter(
+          (url): url is string =>
+            typeof url === 'string' &&
+            (/^https?:\/\//i.test(url) || url.startsWith('data:image/'))
+        )
+      : []
+    return urls.length > 1
+      ? { url: value.data.url, urls }
+      : { url: value.data.url }
   }
   if (!isRecord(value) || !Array.isArray(value.data)) {
     throw new Error('image generation returned no image')
@@ -302,20 +314,29 @@ export async function generateStudioText(
 
 export async function generateStudioImage(
   model: string,
-  prompt: string
-): Promise<{ url: string }> {
+  prompt: string,
+  options?: { size?: string; quality?: string; n?: number; image?: string }
+): Promise<{ url: string; urls?: string[] }> {
   const response = await api.post(
     '/api/studio/providers/image/generate',
-    buildStudioImageRequest(model, prompt)
+    buildStudioImageRequest(model, prompt, options)
   )
   return parseStudioImageResponse(response.data)
 }
 
 export function buildStudioImageRequest(
   model: string,
+  prompt: string,
+  options?: { size?: string; quality?: string; n?: number; image?: string }
+): {
+  model: string
   prompt: string
-): { model: string; prompt: string } {
-  return { model, prompt }
+  size?: string
+  quality?: string
+  n?: number
+  image?: string
+} {
+  return { model, prompt, ...options }
 }
 
 export async function createStudioVideo(

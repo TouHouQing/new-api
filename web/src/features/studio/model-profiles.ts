@@ -37,6 +37,8 @@ export type StudioVideoInput = {
   imageUrl?: string
   imageUrls?: string[]
   videoUrls?: string[]
+  imageReferences?: { url: string; role: 'first_frame' | 'reference_image' }[]
+  videoReferences?: { url: string; role: 'reference_video' | 'extend_video' }[]
   metadata?: Record<string, unknown>
 }
 
@@ -45,18 +47,156 @@ export type StudioVideoRequest = {
   prompt: string
   seconds: string
   duration?: number
+  mode?: string
+  size?: string
+  image?: string
+  input_reference?: string
   metadata: Record<string, unknown> & {
     resolution?: string
     ratio?: string
     content?: Array<{
       type: 'image_url' | 'video_url'
-      role?: 'reference_image' | 'reference_video'
+      role?:
+        | 'first_frame'
+        | 'last_frame'
+        | 'reference_image'
+        | 'reference_video'
       image_url?: { url: string }
       video_url?: { url: string }
     }>
     reference_video?: string[]
   }
   images?: string[]
+}
+
+const PATCH_FIELDS = new Set([
+  'seconds',
+  'duration',
+  'mode',
+  'size',
+  'image',
+  'images',
+  'input_reference',
+  'metadata',
+])
+
+function safePayloadObject(value: unknown, depth = 0): boolean {
+  if (depth > 8) return false
+  if (Array.isArray(value)) {
+    return value.every((item) => safePayloadObject(item, depth + 1))
+  }
+  if (value && typeof value === 'object') {
+    return Object.entries(value).every(
+      ([key, item]) =>
+        !/^(?:__proto__|constructor|prototype|api_key|apikey|authorization|token|secret)$/i.test(
+          key
+        ) && safePayloadObject(item, depth + 1)
+    )
+  }
+  return (
+    value === null || ['string', 'number', 'boolean'].includes(typeof value)
+  )
+}
+
+/** Overrides only fields that the New API video task endpoint can receive. */
+export function parseStudioVideoPayloadPatch(
+  raw: string
+): Partial<StudioVideoRequest> {
+  if (!raw.trim()) return {}
+  if (raw.length > 16_384) throw new Error('video request patch is too large')
+  let value: unknown
+  try {
+    value = JSON.parse(raw)
+  } catch {
+    throw new Error('video request patch must be valid JSON')
+  }
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('video request patch must be an object')
+  }
+  if (!safePayloadObject(value)) {
+    throw new Error('video request patch contains an unsafe field')
+  }
+  const patch = value as Record<string, unknown>
+  if (Object.keys(patch).some((key) => !PATCH_FIELDS.has(key))) {
+    throw new Error('video request patch contains an unsupported field')
+  }
+  if (
+    patch.seconds !== undefined &&
+    (typeof patch.seconds !== 'string' ||
+      !/^\d{1,4}$/.test(patch.seconds) ||
+      Number(patch.seconds) < 1 ||
+      Number(patch.seconds) > 3600)
+  ) {
+    throw new Error('seconds must be a string from 1 to 3600')
+  }
+  if (
+    patch.duration !== undefined &&
+    (typeof patch.duration !== 'number' ||
+      !Number.isInteger(patch.duration) ||
+      patch.duration < 1 ||
+      patch.duration > 3600)
+  ) {
+    throw new Error('duration must be a number from 1 to 3600')
+  }
+  if (
+    patch.seconds !== undefined &&
+    patch.duration !== undefined &&
+    Number(patch.seconds) !== patch.duration
+  ) {
+    throw new Error('seconds and duration must match')
+  }
+  for (const key of ['mode', 'size', 'image', 'input_reference']) {
+    const field = patch[key]
+    if (
+      field !== undefined &&
+      (typeof field !== 'string' || field.length > 4096)
+    ) {
+      throw new Error(`${key} must be a short string`)
+    }
+  }
+  if (
+    patch.images !== undefined &&
+    (!Array.isArray(patch.images) ||
+      patch.images.length > 32 ||
+      patch.images.some(
+        (item) => typeof item !== 'string' || item.length > 4096
+      ))
+  ) {
+    throw new Error('images must be a list of at most 32 URLs')
+  }
+  if (
+    patch.metadata !== undefined &&
+    (typeof patch.metadata !== 'object' ||
+      patch.metadata === null ||
+      Array.isArray(patch.metadata))
+  ) {
+    throw new Error('metadata must be an object')
+  }
+  return patch as Partial<StudioVideoRequest>
+}
+
+export function applyStudioVideoPayloadPatch(
+  request: StudioVideoRequest,
+  raw: string
+): StudioVideoRequest {
+  const patch = parseStudioVideoPayloadPatch(raw)
+  const effectiveSeconds =
+    patch.duration !== undefined
+      ? String(patch.duration)
+      : (patch.seconds ?? request.seconds)
+  let effectiveDuration = request.duration
+  if (patch.duration !== undefined) {
+    effectiveDuration = patch.duration
+  } else if (patch.seconds !== undefined && request.duration !== undefined) {
+    effectiveDuration = Number(patch.seconds)
+  }
+  return {
+    ...request,
+    ...patch,
+    seconds: effectiveSeconds,
+    ...(effectiveDuration !== undefined ? { duration: effectiveDuration } : {}),
+    metadata: { ...request.metadata, ...patch.metadata },
+  }
 }
 
 const FULL_SEEDANCE_RESOLUTIONS = ['480p', '720p', '1080p', '4k']
@@ -215,29 +355,40 @@ export function buildStudioVideoRequest(
   )
   const images = [
     ...new Set(
-      [input.imageUrl, ...(input.imageUrls || [])].filter(
-        (url): url is string => Boolean(url)
-      )
+      [
+        input.imageUrl,
+        ...(input.imageUrls || []),
+        ...(input.imageReferences || [])
+          .filter((reference) => reference.role === 'first_frame')
+          .map((reference) => reference.url),
+      ].filter((url): url is string => Boolean(url))
     ),
   ]
-  const videos = [...new Set(input.videoUrls || [])]
-  if (model.family === 'generic' && images.length && videos.length) {
-    throw new Error(
-      'choose a media request format for mixed image and video references'
-    )
-  }
+  const referenceImages = [
+    ...new Set(
+      (input.imageReferences || [])
+        .filter((reference) => reference.role === 'reference_image')
+        .map((reference) => reference.url)
+    ),
+  ]
+  const videos = [
+    ...new Set([
+      ...(input.videoUrls || []),
+      ...(input.videoReferences || []).map((reference) => reference.url),
+    ]),
+  ]
   if (
-    images
+    [...images, ...referenceImages]
       .filter((url) => url.startsWith('data:'))
       .reduce((total, url) => total + url.length, 0) > 30_000_000
   ) {
     throw new Error('image inputs exceed the Studio request limit')
   }
-  if (images.length > 32 || videos.length > 32) {
+  if (images.length + referenceImages.length > 32 || videos.length > 32) {
     throw new Error('too many media references')
   }
 
-  for (const image of images) {
+  for (const image of [...images, ...referenceImages]) {
     if (
       /^data:image\/(?:png|jpeg|webp|gif|bmp|tiff|heic|heif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(
         image
@@ -275,6 +426,40 @@ export function buildStudioVideoRequest(
     },
   }
   if (model.family === 'minimax-h3') request.duration = input.seconds
+  if (
+    input.videoReferences?.some(
+      (reference) => reference.role === 'extend_video'
+    )
+  ) {
+    request.mode = 'extend'
+  }
+  if (input.imageReferences?.length || input.videoReferences?.length) {
+    const mixedH3 =
+      model.family === 'minimax-h3' &&
+      (referenceImages.length > 0 || videos.length > 0)
+    if (images.length && !mixedH3) request.images = images
+    if (referenceImages.length || videos.length) {
+      request.metadata.content = [
+        ...(mixedH3 ? images : []).map((url, index) => ({
+          type: 'image_url' as const,
+          role:
+            index === 0 ? ('first_frame' as const) : ('last_frame' as const),
+          image_url: { url },
+        })),
+        ...referenceImages.map((url) => ({
+          type: 'image_url' as const,
+          role: 'reference_image' as const,
+          image_url: { url },
+        })),
+        ...videos.map((url) => ({
+          type: 'video_url' as const,
+          role: 'reference_video' as const,
+          video_url: { url },
+        })),
+      ]
+    }
+    return request
+  }
   if (videos.length && model.family === 'minimax-h3') {
     if (images.length) {
       request.metadata.content = [

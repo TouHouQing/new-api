@@ -16,7 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { StudioCanvasNodeData } from './canvas-flow'
+import type { StudioCanvasNodeData, StudioTake } from './canvas-flow'
 import type { StudioProject } from './local-projects'
 
 export function studioBranchNodeIds(
@@ -34,6 +34,143 @@ export function studioBranchNodeIds(
     }
   }
   return affected
+}
+
+export function selectStudioTake(
+  project: StudioProject,
+  nodeId: string,
+  takeId: string
+): StudioProject {
+  const node = project.nodes.find((item) => item.id === nodeId)
+  const take = node?.data.takes?.find((item) => item.id === takeId)
+  if (!node || !take) throw new Error('Studio take is unavailable')
+  let next: StudioProject = {
+    ...project,
+    updatedAt: new Date().toISOString(),
+    nodes: project.nodes.map((item) =>
+      item.id === nodeId
+        ? {
+            ...item,
+            data: {
+              ...item.data,
+              selectedTakeId: take.id,
+              status: take.status,
+              progress: take.progress,
+              outputText: take.outputText,
+              outputImagePrompt: take.outputImagePrompt,
+              outputVideoPrompt: take.outputVideoPrompt,
+              outputUrl: take.outputUrl,
+              mediaId: take.mediaId,
+              taskId: take.taskId,
+              error: take.error,
+            },
+          }
+        : item
+    ),
+  }
+  for (const edge of project.edges) {
+    if (edge.source === nodeId) next = invalidateStudioBranch(next, edge.target)
+  }
+  return next
+}
+
+export function recordStudioTake(
+  project: StudioProject,
+  nodeId: string,
+  take: StudioTake
+): StudioProject {
+  const node = project.nodes.find((item) => item.id === nodeId)
+  if (!node) throw new Error('Studio node is unavailable')
+  const takes = node.data.takes || []
+  if (takes.length >= 100) throw new Error('Studio take history is full')
+  if (takes.some((item) => item.id === take.id)) {
+    throw new Error('Studio take already exists')
+  }
+  const next = {
+    ...project,
+    nodes: project.nodes.map((item) =>
+      item.id === nodeId
+        ? { ...item, data: { ...item.data, takes: [...takes, take] } }
+        : item
+    ),
+  }
+  return selectStudioTake(next, nodeId, take.id)
+}
+
+/** Keeps a submitted task discoverable when its inputs changed mid-request. */
+export function retainStudioTake(
+  project: StudioProject,
+  nodeId: string,
+  take: StudioTake
+): StudioProject {
+  const node = project.nodes.find((item) => item.id === nodeId)
+  if (!node || node.data.takes?.some((item) => item.id === take.id)) {
+    return project
+  }
+  const takes = node.data.takes || []
+  if (takes.length >= 100) throw new Error('Studio take history is full')
+  return {
+    ...project,
+    updatedAt: new Date().toISOString(),
+    nodes: project.nodes.map((item) =>
+      item.id === nodeId
+        ? { ...item, data: { ...item.data, takes: [...takes, take] } }
+        : item
+    ),
+  }
+}
+
+export function updateStudioTake(
+  project: StudioProject,
+  nodeId: string,
+  takeId: string,
+  patch: Partial<StudioTake>
+): StudioProject {
+  const node = project.nodes.find((item) => item.id === nodeId)
+  if (!node?.data.takes?.some((take) => take.id === takeId)) {
+    throw new Error('Studio take is unavailable')
+  }
+  return {
+    ...project,
+    updatedAt: new Date().toISOString(),
+    nodes: project.nodes.map((item) => {
+      if (item.id !== nodeId) return item
+      const takes = item.data.takes?.map((take) =>
+        take.id === takeId ? { ...take, ...patch } : take
+      )
+      if (item.data.selectedTakeId !== takeId) {
+        return { ...item, data: { ...item.data, takes } }
+      }
+      return {
+        ...item,
+        data: {
+          ...item.data,
+          takes,
+          ...(Object.hasOwn(patch, 'status') ? { status: patch.status } : {}),
+          ...(Object.hasOwn(patch, 'progress')
+            ? { progress: patch.progress }
+            : {}),
+          ...(Object.hasOwn(patch, 'taskId') ? { taskId: patch.taskId } : {}),
+          ...(Object.hasOwn(patch, 'mediaId')
+            ? { mediaId: patch.mediaId }
+            : {}),
+          ...(Object.hasOwn(patch, 'outputUrl')
+            ? { outputUrl: patch.outputUrl }
+            : {}),
+          ...(Object.hasOwn(patch, 'outputText')
+            ? { outputText: patch.outputText }
+            : {}),
+          ...(Object.hasOwn(patch, 'outputImagePrompt')
+            ? { outputImagePrompt: patch.outputImagePrompt }
+            : {}),
+          ...(Object.hasOwn(patch, 'outputVideoPrompt')
+            ? { outputVideoPrompt: patch.outputVideoPrompt }
+            : {}),
+          ...(Object.hasOwn(patch, 'error') ? { error: patch.error } : {}),
+        },
+      }
+    }),
+  }
 }
 
 export function invalidateStudioBranch(
@@ -61,6 +198,7 @@ export function invalidateStudioBranch(
         data: {
           ...node.data,
           status: 'idle',
+          selectedTakeId: undefined,
           outputText: undefined,
           outputImagePrompt: undefined,
           outputVideoPrompt: undefined,
@@ -101,9 +239,27 @@ export function addStudioShot(
     ...next,
     edges: [
       ...next.edges,
-      { id: `${shotId}-ti`, source: ids.text, target: ids.image },
-      { id: `${shotId}-tv`, source: ids.text, target: ids.video },
-      { id: `${shotId}-iv`, source: ids.image, target: ids.video },
+      {
+        id: `${shotId}-ti`,
+        source: ids.text,
+        target: ids.image,
+        sourceHandle: 'image_prompt',
+        targetHandle: 'prompt',
+      },
+      {
+        id: `${shotId}-tv`,
+        source: ids.text,
+        target: ids.video,
+        sourceHandle: 'video_prompt',
+        targetHandle: 'prompt',
+      },
+      {
+        id: `${shotId}-iv`,
+        source: ids.image,
+        target: ids.video,
+        sourceHandle: 'image',
+        targetHandle: 'first_frame',
+      },
     ],
     shots: [
       ...(next.shots || []),
@@ -129,6 +285,8 @@ function syncStudioFinalVideoEdges(project: StudioProject): StudioProject {
       id: `${shot.id}-final`,
       source: shot.videoNodeId,
       target: finalId,
+      sourceHandle: 'video',
+      targetHandle: 'reference_video',
     }))
   )
   return invalidateStudioBranch({ ...project, edges }, finalId)

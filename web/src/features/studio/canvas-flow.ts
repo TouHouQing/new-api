@@ -18,6 +18,23 @@ import type { Edge, Node } from '@xyflow/react'
 
 import type { StudioVideoFamily } from './model-profiles'
 
+export type StudioTake = {
+  id: string
+  createdAt: string
+  model?: string
+  group?: string
+  prompt: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  progress?: number
+  taskId?: string
+  mediaId?: string
+  outputUrl?: string
+  outputText?: string
+  outputImagePrompt?: string
+  outputVideoPrompt?: string
+  error?: string
+}
+
 export type StudioCanvasNodeData = {
   [key: string]: unknown
   kind: 'text' | 'image' | 'video'
@@ -36,15 +53,22 @@ export type StudioCanvasNodeData = {
   outputText?: string
   outputImagePrompt?: string
   outputVideoPrompt?: string
+  takes?: StudioTake[]
+  selectedTakeId?: string
+  assetIds?: string[]
   outputUrl?: string
   mediaId?: string
   taskId?: string
   error?: string
   progress?: number
   seconds?: number
+  imageSize?: string
+  imageQuality?: string
+  imageCount?: number
   resolution?: string
   ratio?: string
   metadataJson?: string
+  payloadPatchJson?: string
 }
 
 export type StudioCanvasNode = Node<StudioCanvasNodeData, 'studio'>
@@ -86,31 +110,76 @@ export function isValidStudioConnection(
   nodes: StudioCanvasNode[],
   edges: StudioCanvasEdge[],
   sourceId: string,
-  targetId: string
+  targetId: string,
+  sourceHandle?: string | null,
+  targetHandle?: string | null
 ): boolean {
   if (
     sourceId === targetId ||
-    edges.some((edge) => edge.source === sourceId && edge.target === targetId)
+    edges.some(
+      (edge) =>
+        edge.source === sourceId &&
+        edge.target === targetId &&
+        (edge.sourceHandle || null) === (sourceHandle || null) &&
+        (edge.targetHandle || null) === (targetHandle || null)
+    )
   ) {
     return false
   }
   const source = nodes.find((node) => node.id === sourceId)
   const target = nodes.find((node) => node.id === targetId)
   if (!source || !target) return false
-  const allowed = {
-    text: ['text', 'image', 'video'],
-    image: ['video'],
-    video: ['video'],
-  } as const
-  if (
-    !(allowed[source.data.kind] as readonly string[]).includes(target.data.kind)
-  ) {
-    return false
+  if (sourceHandle || targetHandle) {
+    if (!sourceHandle || !targetHandle) return false
+    const typed = new Set([
+      'text:scene:text:brief',
+      'text:scene:image:prompt',
+      'text:image_prompt:image:prompt',
+      'text:scene:video:prompt',
+      'text:video_prompt:video:prompt',
+      'image:image:image:reference_image',
+      'image:image:video:first_frame',
+      'image:image:video:reference_image',
+      'video:video:video:reference_video',
+      'video:video:video:extend_video',
+    ])
+    const connection = `${source.data.kind}:${sourceHandle}:${target.data.kind}:${targetHandle}`
+    if (!typed.has(connection)) return false
+    if (
+      (targetHandle === 'first_frame' || targetHandle === 'extend_video') &&
+      edges.some(
+        (edge) => edge.target === targetId && edge.targetHandle === targetHandle
+      )
+    ) {
+      return false
+    }
+  } else {
+    const allowed = {
+      text: ['text', 'image', 'video'],
+      image: ['video'],
+      video: ['video'],
+    } as const
+    if (
+      !(allowed[source.data.kind] as readonly string[]).includes(
+        target.data.kind
+      )
+    ) {
+      return false
+    }
   }
   try {
     planStudioExecution(
       nodes,
-      [...edges, { id: 'candidate', source: sourceId, target: targetId }],
+      [
+        ...edges,
+        {
+          id: 'candidate',
+          source: sourceId,
+          target: targetId,
+          sourceHandle,
+          targetHandle,
+        },
+      ],
       targetId
     )
     return true
@@ -128,20 +197,34 @@ export function connectedGenerationInput(
   if (!target) throw new Error('canvas target node is missing')
 
   const incoming = edges.filter((edge) => edge.target === targetId)
-  const sources = incoming
-    .map((edge) => nodes.find((node) => node.id === edge.source))
-    .filter((node): node is StudioCanvasNode => node !== undefined)
-  const imageSources = sources.filter((node) => node.data.kind === 'image')
-  const hasImageSource = imageSources.some((node) =>
-    Boolean(node.data.outputUrl || node.data.mediaId)
+  const sources = incoming.flatMap((edge) => {
+    const node = nodes.find((item) => item.id === edge.source)
+    return node ? [{ edge, node }] : []
+  })
+  const imageSources = sources.filter(
+    (source) => source.node.data.kind === 'image'
   )
-  const textForTarget = (node: StudioCanvasNode): string => {
+  const hasImageSource = imageSources.some((source) =>
+    Boolean(source.node.data.outputUrl || source.node.data.mediaId)
+  )
+  const textForTarget = (
+    node: StudioCanvasNode,
+    sourceHandle?: string | null
+  ): string => {
     const scene = node.data.outputText?.trim() || node.data.prompt.trim()
-    if (target.data.kind === 'image') {
+    if (sourceHandle === 'scene') return scene
+    if (
+      sourceHandle === 'image_prompt' ||
+      (target.data.kind === 'image' && !sourceHandle)
+    ) {
       return node.data.outputImagePrompt?.trim() || scene
     }
     const motion = node.data.outputVideoPrompt?.trim()
-    if (target.data.kind === 'video' && motion) {
+    if (
+      (sourceHandle === 'video_prompt' ||
+        (target.data.kind === 'video' && !sourceHandle)) &&
+      motion
+    ) {
       return hasImageSource
         ? motion
         : [scene, motion].filter(Boolean).join('\n\n')
@@ -149,8 +232,8 @@ export function connectedGenerationInput(
     return scene
   }
   const text = sources
-    .filter((node) => node.data.kind === 'text')
-    .map(textForTarget)
+    .filter((source) => source.node.data.kind === 'text')
+    .map((source) => textForTarget(source.node, source.edge.sourceHandle))
     .filter((value): value is string => Boolean(value))
   const directPrompt = [...text, target.data.prompt.trim()]
     .filter(Boolean)
@@ -161,7 +244,7 @@ export function connectedGenerationInput(
       inherited = planStudioExecution(nodes, edges, targetId)
         .slice(0, -1)
         .filter((node) => node.data.kind === 'text')
-        .map(textForTarget)
+        .map((node) => textForTarget(node))
         .filter(Boolean)
     } catch {
       // Invalid imported graphs remain editable; execution reports the cycle.
@@ -169,7 +252,14 @@ export function connectedGenerationInput(
   }
   const prompt = directPrompt || [...new Set(inherited)].join('\n\n')
   const imageUrl = imageSources
-    .map((node) => node.data.outputUrl)
+    .filter(
+      (source) =>
+        !source.edge.targetHandle ||
+        source.edge.targetHandle === 'first_frame' ||
+        (target.data.kind === 'image' &&
+          source.edge.targetHandle === 'reference_image')
+    )
+    .map((source) => source.node.data.outputUrl)
     .find(
       (url): url is string =>
         typeof url === 'string' && url.startsWith('https://')

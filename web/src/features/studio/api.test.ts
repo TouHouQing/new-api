@@ -178,6 +178,35 @@ describe('Studio relay responses', () => {
       buildStudioImageRequest('doubao-seedream-5-0-lite-260128', 'forest')
     ).toEqual({ model: 'doubao-seedream-5-0-lite-260128', prompt: 'forest' })
   })
+  test('sends model-specific image options and retains returned variants', () => {
+    expect(
+      buildStudioImageRequest('image-model', 'forest', {
+        size: '1536x1024',
+        quality: 'high',
+        n: 2,
+        image: 'data:image/png;base64,AAAA',
+      })
+    ).toEqual({
+      model: 'image-model',
+      prompt: 'forest',
+      size: '1536x1024',
+      quality: 'high',
+      n: 2,
+      image: 'data:image/png;base64,AAAA',
+    })
+    expect(
+      parseStudioImageResponse({
+        success: true,
+        data: {
+          url: 'https://cdn.example/1.png',
+          urls: ['https://cdn.example/1.png', 'https://cdn.example/2.png'],
+        },
+      })
+    ).toEqual({
+      url: 'https://cdn.example/1.png',
+      urls: ['https://cdn.example/1.png', 'https://cdn.example/2.png'],
+    })
+  })
   test('accepts the image URL returned by the OpenAI image contract', () => {
     expect(
       parseStudioImageResponse({

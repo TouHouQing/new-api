@@ -3,31 +3,58 @@ package service
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
+	"strconv"
 	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
+	_ "golang.org/x/image/webp"
 )
 
 const (
 	studioModelsMaxResponse = 2 << 20
 	studioTextMaxResponse   = 2 << 20
 	studioImageMaxResponse  = 24 << 20
+	studioImageMaxInput     = 8 << 20
 	studioShotSystemPrompt  = `你是 AI 视频创作画布的镜头提示词编剧。用户输入的是创作想法，不是与你聊天。请将它写成一个可用于生图和生视频的单镜头设定，并保留用户指定的人物、场景、风格和动作。
 只输出一个合法 JSON 对象，不要 Markdown、解释、寒暄、问句、选项、工作计划或工具/API 描述。字段必须是：
 {"text":"简短的画面设定","image_prompt":"用于生成首帧图片的主体、环境、构图、光线和风格描述","video_prompt":"同一镜头中主体与环境的具体运动、镜头运动及时间变化"}
 video_prompt 应聚焦可见的动作和镜头变化；image_prompt 应描述静态画面。使用与用户输入相同的语言。三个字段都必须是非空字符串。`
 )
 
+var ErrStudioImageRequestInvalid = errors.New("Studio image request is invalid")
+
 type StudioGeneratedShot struct {
 	Text        string `json:"text"`
 	ImagePrompt string `json:"image_prompt"`
 	VideoPrompt string `json:"video_prompt"`
+}
+
+type StudioImageRequest struct {
+	Model   string  `json:"model"`
+	Prompt  string  `json:"prompt"`
+	Size    *string `json:"size,omitempty"`
+	Quality *string `json:"quality,omitempty"`
+	N       *int    `json:"n,omitempty"`
+	Image   string  `json:"image,omitempty"`
+}
+
+type studioImageEdit struct {
+	request   StudioImageRequest
+	data      []byte
+	mediaType string
+	fileName  string
 }
 
 func callStudioProvider(ctx context.Context, provider *model.StudioProvider, method, path string, body any, maxResponse int64, client *http.Client) ([]byte, error) {
@@ -43,12 +70,53 @@ func callStudioProvider(ctx context.Context, provider *model.StudioProvider, met
 		return nil, errors.New("Studio provider key is unavailable; reconfigure this service")
 	}
 	var requestBody io.Reader
+	contentType := "application/json"
 	if body != nil {
-		encoded, err := common.Marshal(body)
-		if err != nil {
-			return nil, err
+		if edit, ok := body.(studioImageEdit); ok {
+			var encoded bytes.Buffer
+			writer := multipart.NewWriter(&encoded)
+			for key, value := range map[string]string{"model": edit.request.Model, "prompt": edit.request.Prompt} {
+				if err := writer.WriteField(key, value); err != nil {
+					return nil, err
+				}
+			}
+			if edit.request.Size != nil {
+				if err := writer.WriteField("size", *edit.request.Size); err != nil {
+					return nil, err
+				}
+			}
+			if edit.request.Quality != nil {
+				if err := writer.WriteField("quality", *edit.request.Quality); err != nil {
+					return nil, err
+				}
+			}
+			if edit.request.N != nil {
+				if err := writer.WriteField("n", strconv.Itoa(*edit.request.N)); err != nil {
+					return nil, err
+				}
+			}
+			partHeader := make(textproto.MIMEHeader)
+			partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, edit.fileName))
+			partHeader.Set("Content-Type", edit.mediaType)
+			part, err := writer.CreatePart(partHeader)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := part.Write(edit.data); err != nil {
+				return nil, err
+			}
+			if err := writer.Close(); err != nil {
+				return nil, err
+			}
+			contentType = writer.FormDataContentType()
+			requestBody = &encoded
+		} else {
+			encoded, err := common.Marshal(body)
+			if err != nil {
+				return nil, err
+			}
+			requestBody = bytes.NewReader(encoded)
 		}
-		requestBody = bytes.NewReader(encoded)
 	}
 	request, err := http.NewRequestWithContext(ctx, method, baseURL+path, requestBody)
 	if err != nil {
@@ -57,7 +125,7 @@ func callStudioProvider(ctx context.Context, provider *model.StudioProvider, met
 	request.Header.Set("Authorization", "Bearer "+apiKey)
 	request.Header.Set("Accept", "application/json")
 	if body != nil {
-		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Content-Type", contentType)
 	}
 	if client == nil {
 		client = NewStudioProviderHTTPClient()
@@ -235,16 +303,86 @@ func studioHasToolCalls(raw json.RawMessage) bool {
 }
 
 func GenerateStudioProviderImage(ctx context.Context, provider *model.StudioProvider, modelName, prompt string, client *http.Client) (string, error) {
-	if provider == nil || provider.Kind != "image" {
-		return "", errors.New("image provider is not configured")
-	}
-	if err := validStudioModelAndPrompt(modelName, prompt); err != nil {
-		return "", err
-	}
-	request := map[string]string{"model": modelName, "prompt": prompt}
-	data, err := callStudioProvider(ctx, provider, http.MethodPost, "/images/generations", request, studioImageMaxResponse, client)
+	images, err := GenerateStudioProviderImages(ctx, provider, StudioImageRequest{Model: modelName, Prompt: prompt}, client)
 	if err != nil {
 		return "", err
+	}
+	return images[0], nil
+}
+
+func GenerateStudioProviderImages(ctx context.Context, provider *model.StudioProvider, request StudioImageRequest, client *http.Client) ([]string, error) {
+	if provider == nil || provider.Kind != "image" {
+		return nil, errors.New("image provider is not configured")
+	}
+	if err := validStudioModelAndPrompt(request.Model, request.Prompt); err != nil {
+		return nil, err
+	}
+	if request.Size != nil {
+		width, height, found := strings.Cut(*request.Size, "x")
+		w, werr := strconv.Atoi(width)
+		h, herr := strconv.Atoi(height)
+		if *request.Size != "auto" && (!found || werr != nil || herr != nil || w < 1 || w > 4096 || h < 1 || h > 4096) {
+			return nil, fmt.Errorf("%w: image size is invalid", ErrStudioImageRequestInvalid)
+		}
+	}
+	if request.Quality != nil {
+		switch *request.Quality {
+		case "auto", "low", "medium", "high", "standard", "hd":
+		default:
+			return nil, fmt.Errorf("%w: image quality is invalid", ErrStudioImageRequestInvalid)
+		}
+	}
+	if request.N != nil && (*request.N < 1 || *request.N > 10) {
+		return nil, fmt.Errorf("%w: image count must be between 1 and 10", ErrStudioImageRequestInvalid)
+	}
+	path := "/images/generations"
+	jsonBody := map[string]any{"model": request.Model, "prompt": request.Prompt}
+	if request.Size != nil {
+		jsonBody["size"] = *request.Size
+	}
+	if request.Quality != nil {
+		jsonBody["quality"] = *request.Quality
+	}
+	if request.N != nil {
+		jsonBody["n"] = *request.N
+	}
+	var body any = jsonBody
+	if request.Image != "" {
+		if len(request.Image) > (studioImageMaxInput*4/3)+128 {
+			return nil, fmt.Errorf("%w: image input is too large", ErrStudioImageRequestInvalid)
+		}
+		header, encoded, found := strings.Cut(request.Image, ",")
+		mediaType := strings.TrimSuffix(strings.TrimPrefix(header, "data:"), ";base64")
+		fileName := ""
+		formatName := ""
+		switch mediaType {
+		case "image/png":
+			fileName = "image.png"
+			formatName = "png"
+		case "image/jpeg":
+			fileName = "image.jpg"
+			formatName = "jpeg"
+		case "image/webp":
+			fileName = "image.webp"
+			formatName = "webp"
+		}
+		if !found || header != "data:"+mediaType+";base64" || fileName == "" {
+			return nil, fmt.Errorf("%w: image input must be a PNG, JPEG or WebP base64 data URI", ErrStudioImageRequestInvalid)
+		}
+		imageData, err := base64.StdEncoding.Strict().DecodeString(encoded)
+		if err != nil || len(imageData) == 0 || len(imageData) > studioImageMaxInput {
+			return nil, fmt.Errorf("%w: image input is invalid", ErrStudioImageRequestInvalid)
+		}
+		config, decodedFormat, err := image.DecodeConfig(bytes.NewReader(imageData))
+		if err != nil || decodedFormat != formatName || config.Width < 1 || config.Height < 1 || config.Width > 8192 || config.Height > 8192 || config.Width*config.Height > 20_000_000 {
+			return nil, fmt.Errorf("%w: image input is invalid", ErrStudioImageRequestInvalid)
+		}
+		path = "/images/edits"
+		body = studioImageEdit{request: request, data: imageData, mediaType: mediaType, fileName: fileName}
+	}
+	data, err := callStudioProvider(ctx, provider, http.MethodPost, path, body, studioImageMaxResponse, client)
+	if err != nil {
+		return nil, err
 	}
 	var parsed struct {
 		Data []struct {
@@ -253,15 +391,20 @@ func GenerateStudioProviderImage(ctx context.Context, provider *model.StudioProv
 		} `json:"data"`
 	}
 	if err := common.Unmarshal(data, &parsed); err != nil || len(parsed.Data) == 0 {
-		return "", errors.New("image provider returned no image")
+		return nil, errors.New("image provider returned no image")
 	}
+	images := make([]string, 0, len(parsed.Data))
 	for _, item := range parsed.Data {
 		if strings.HasPrefix(item.URL, "https://") || strings.HasPrefix(item.URL, "http://") {
-			return item.URL, nil
+			images = append(images, item.URL)
+			continue
 		}
 		if item.B64JSON != "" {
-			return "data:image/png;base64," + item.B64JSON, nil
+			images = append(images, "data:image/png;base64,"+item.B64JSON)
 		}
 	}
-	return "", errors.New("image provider returned no image")
+	if len(images) == 0 {
+		return nil, errors.New("image provider returned no image")
+	}
+	return images, nil
 }

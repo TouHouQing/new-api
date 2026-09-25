@@ -115,4 +115,154 @@ describe('Studio MP4 assembly planning', () => {
       ).assembledMediaId
     ).toBeUndefined()
   })
+
+  test('propagates optional shot trims and invalidates an export when a trim changes', () => {
+    let project = addStudioShot(
+      createStudioProject('Drama', 'p1'),
+      's1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = updateStudioNode(project, 'v1', {
+      status: 'completed',
+      mediaId: 'clip-1',
+    })
+    const trimmed = {
+      ...project,
+      assembledMediaId: 'assembled',
+      shots: project.shots?.map((shot) => ({
+        ...shot,
+        trimStart: 0.5,
+        trimEnd: 2.5,
+      })),
+    }
+
+    expect(planStudioAssembly(trimmed)[0]).toMatchObject({
+      trimStart: 0.5,
+      trimEnd: 2.5,
+    })
+    expect(
+      reconcileStudioAssembly(trimmed, project).assembledMediaId
+    ).toBeUndefined()
+  })
+
+  test('propagates shot audio controls and invalidates an export when they change', () => {
+    let project = addStudioShot(
+      createStudioProject('Drama', 'p1'),
+      's1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = updateStudioNode(project, 'v1', {
+      status: 'completed',
+      mediaId: 'clip-1',
+    })
+    const mixed = {
+      ...project,
+      assembledMediaId: 'assembled',
+      shots: project.shots?.map((shot) => ({
+        ...shot,
+        muted: true,
+        volume: 0.4,
+      })),
+    }
+
+    expect(planStudioAssembly(mixed)[0]).toMatchObject({
+      muted: true,
+      volume: 0.4,
+    })
+    expect(
+      reconcileStudioAssembly(mixed, project).assembledMediaId
+    ).toBeUndefined()
+  })
+
+  test('a fade after a shot applies matching outgoing and incoming windows', () => {
+    let project = createStudioProject('Drama', 'p1')
+    for (const [index, title] of ['Opening', 'Arrival', 'End'].entries()) {
+      const suffix = String(index + 1)
+      project = addStudioShot(
+        project,
+        `s${suffix}`,
+        {
+          text: `t${suffix}`,
+          image: `i${suffix}`,
+          video: `v${suffix}`,
+        },
+        title
+      )
+      project = updateStudioNode(project, `v${suffix}`, {
+        status: 'completed',
+        mediaId: `clip-${suffix}`,
+      })
+    }
+    const fading = {
+      ...project,
+      assembledMediaId: 'assembled',
+      shots: project.shots?.map((shot, index) => ({
+        ...shot,
+        ...(index === 0
+          ? { transition: 'fade' as const, transitionSeconds: 0.4 }
+          : {}),
+        ...(index === 2 ? { transition: 'fade' as const } : {}),
+      })),
+    }
+
+    expect(planStudioAssembly(fading)).toEqual([
+      {
+        shotId: 's1',
+        title: 'Opening',
+        taskId: undefined,
+        mediaId: 'clip-1',
+        fadeOutSeconds: 0.4,
+      },
+      {
+        shotId: 's2',
+        title: 'Arrival',
+        taskId: undefined,
+        mediaId: 'clip-2',
+        fadeInSeconds: 0.4,
+      },
+      {
+        shotId: 's3',
+        title: 'End',
+        taskId: undefined,
+        mediaId: 'clip-3',
+      },
+    ])
+    expect(
+      reconcileStudioAssembly(fading, project).assembledMediaId
+    ).toBeUndefined()
+  })
+
+  test('a fade without a duration uses a half-second boundary', () => {
+    let project = createStudioProject('Drama', 'p1')
+    for (const suffix of ['1', '2']) {
+      project = addStudioShot(
+        project,
+        `s${suffix}`,
+        { text: `t${suffix}`, image: `i${suffix}`, video: `v${suffix}` },
+        `Shot ${suffix}`
+      )
+      project = updateStudioNode(project, `v${suffix}`, {
+        status: 'completed',
+        mediaId: `clip-${suffix}`,
+      })
+    }
+    const fading = {
+      ...project,
+      shots: project.shots?.map((shot, index) =>
+        index === 0 ? { ...shot, transition: 'fade' as const } : shot
+      ),
+    }
+
+    expect(
+      planStudioAssembly(fading).map((shot) => [
+        shot.fadeInSeconds,
+        shot.fadeOutSeconds,
+      ])
+    ).toEqual([
+      [undefined, 0.5],
+      [0.5, undefined],
+    ])
+  })
 })

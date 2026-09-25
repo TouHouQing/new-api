@@ -17,10 +17,12 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { describe, expect, test } from 'vitest'
 
 import {
+  applyStudioVideoPayloadPatch,
   buildStudioVideoModel,
   buildStudioVideoRequest,
   inferStudioVideoFamily,
   parseStudioVideoMetadata,
+  parseStudioVideoPayloadPatch,
   selectStudioVideoModels,
 } from './model-profiles'
 
@@ -31,6 +33,63 @@ function videoModel(id: string) {
 }
 
 describe('Studio video models', () => {
+  test('allows explicit model-specific payload fields while protecting routing and credentials', () => {
+    const base = buildStudioVideoRequest(
+      buildStudioVideoModel('rotating-alias', 'generic'),
+      {
+        prompt: 'next shot',
+        seconds: 8,
+        resolution: 'custom',
+        ratio: '16:9',
+      }
+    )
+    expect(
+      applyStudioVideoPayloadPatch(
+        base,
+        JSON.stringify({
+          seconds: '30',
+          duration: 30,
+          mode: 'extend',
+          metadata: {
+            content: [
+              {
+                type: 'video_url',
+                video_url: { url: 'https://cdn.example/v.mp4' },
+              },
+            ],
+          },
+        })
+      )
+    ).toMatchObject({
+      model: 'rotating-alias',
+      prompt: 'next shot',
+      seconds: '30',
+      duration: 30,
+      mode: 'extend',
+      metadata: { resolution: 'custom', content: [{ type: 'video_url' }] },
+    })
+    expect(() => parseStudioVideoPayloadPatch('{"model":"other"}')).toThrow(
+      'unsupported'
+    )
+    expect(() =>
+      parseStudioVideoPayloadPatch('{"metadata":{"api_key":"secret"}}')
+    ).toThrow('unsafe')
+    expect(() => parseStudioVideoPayloadPatch('{"seconds":30}')).toThrow(
+      'string'
+    )
+    expect(() =>
+      parseStudioVideoPayloadPatch('{"seconds":"30","duration":5}')
+    ).toThrow('match')
+    expect(
+      applyStudioVideoPayloadPatch(
+        buildStudioVideoRequest(
+          buildStudioVideoModel('rotating-h3', 'minimax-h3'),
+          { prompt: 'clip', seconds: 5, resolution: '768P', ratio: '16:9' }
+        ),
+        '{"seconds":"30"}'
+      )
+    ).toMatchObject({ seconds: '30', duration: 30 })
+  })
   test('accepts editable JSON metadata and rejects invalid or unsafe drafts', () => {
     expect(parseStudioVideoMetadata('{"aigc_watermark":false}')).toEqual({
       aigc_watermark: false,
@@ -63,9 +122,9 @@ describe('Studio video models', () => {
     })
   })
 
-  test('does not silently drop an image when an unknown format mixes image and video references', () => {
+  test('forwards both image and video references for an arbitrary alias', () => {
     const model = buildStudioVideoModel('轮换渠道-会员视频', 'generic')
-    expect(() =>
+    expect(
       buildStudioVideoRequest(model, {
         prompt: 'continue this shot',
         seconds: 5,
@@ -74,7 +133,92 @@ describe('Studio video models', () => {
         imageUrl: 'https://cdn.example/character.png',
         videoUrls: ['https://cdn.example/previous.mp4'],
       })
-    ).toThrow('request format')
+    ).toMatchObject({
+      images: ['https://cdn.example/character.png'],
+      metadata: {
+        content: [
+          {
+            type: 'video_url',
+            video_url: { url: 'https://cdn.example/previous.mp4' },
+          },
+        ],
+      },
+    })
+  })
+  test('preserves first frame, reference image, and continuation video roles', () => {
+    const request = buildStudioVideoRequest(
+      buildStudioVideoModel('arbitrary-site-model', 'generic'),
+      {
+        prompt: 'continue',
+        seconds: 8,
+        resolution: '720p',
+        ratio: '16:9',
+        imageReferences: [
+          { url: 'https://cdn.example/start.png', role: 'first_frame' },
+          { url: 'https://cdn.example/actor.png', role: 'reference_image' },
+        ],
+        videoReferences: [
+          { url: 'https://cdn.example/shot.mp4', role: 'extend_video' },
+        ],
+      }
+    )
+    expect(request).toMatchObject({
+      mode: 'extend',
+      images: ['https://cdn.example/start.png'],
+      metadata: {
+        content: [
+          {
+            type: 'image_url',
+            role: 'reference_image',
+            image_url: { url: 'https://cdn.example/actor.png' },
+          },
+          {
+            type: 'video_url',
+            role: 'reference_video',
+            video_url: { url: 'https://cdn.example/shot.mp4' },
+          },
+        ],
+      },
+    })
+  })
+  test('does not hide a typed first frame from the H3 task adapter', () => {
+    const request = buildStudioVideoRequest(
+      buildStudioVideoModel('rotating-h3-alias', 'minimax-h3'),
+      {
+        prompt: 'a scene',
+        seconds: 5,
+        resolution: '768P',
+        ratio: '16:9',
+        imageReferences: [
+          { url: 'https://cdn.example/first.png', role: 'first_frame' },
+        ],
+      }
+    )
+    expect(request.images).toEqual(['https://cdn.example/first.png'])
+    expect(request.metadata.content).toBeUndefined()
+  })
+  test('puts a mixed H3 frame in content exactly once', () => {
+    const request = buildStudioVideoRequest(
+      buildStudioVideoModel('rotating-h3-alias', 'minimax-h3'),
+      {
+        prompt: 'a scene',
+        seconds: 5,
+        resolution: '768P',
+        ratio: '16:9',
+        imageReferences: [
+          { url: 'https://cdn.example/first.png', role: 'first_frame' },
+        ],
+        videoReferences: [
+          { url: 'https://cdn.example/previous.mp4', role: 'reference_video' },
+        ],
+      }
+    )
+    expect(request.images).toBeUndefined()
+    expect(request.metadata.content?.[0]).toMatchObject({
+      type: 'image_url',
+      role: 'first_frame',
+      image_url: { url: 'https://cdn.example/first.png' },
+    })
   })
 
   test('keeps extra metadata without letting it replace billing fields', () => {

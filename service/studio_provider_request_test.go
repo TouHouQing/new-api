@@ -76,6 +76,80 @@ func TestStudioProviderGenerationUsesFixedCompatiblePaths(t *testing.T) {
 	assert.Equal(t, "https://cdn.example.com/frame.png", imageURL)
 }
 
+func TestStudioProviderImageOptionsReturnEveryImage(t *testing.T) {
+	provider := studioTestProvider(t, "image")
+	size, quality, n := "1536x1024", "high", 2
+	client := &http.Client{Transport: studioRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "/v1/images/generations", request.URL.Path)
+		require.Equal(t, "application/json", request.Header.Get("Content-Type"))
+		body, err := io.ReadAll(request.Body)
+		require.NoError(t, err)
+		var payload map[string]any
+		require.NoError(t, common.Unmarshal(body, &payload))
+		assert.Equal(t, "image-one", payload["model"])
+		assert.Equal(t, "frame", payload["prompt"])
+		assert.Equal(t, size, payload["size"])
+		assert.Equal(t, quality, payload["quality"])
+		assert.Equal(t, float64(n), payload["n"])
+		assert.NotContains(t, string(body), "sk-private-test")
+		return studioResponse(http.StatusOK, `{"data":[{"url":"https://cdn.example.com/one.png"},{"url":"https://cdn.example.com/two.png"}]}`), nil
+	})}
+	images, err := GenerateStudioProviderImages(context.Background(), provider, StudioImageRequest{Model: "image-one", Prompt: "frame", Size: &size, Quality: &quality, N: &n}, client)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://cdn.example.com/one.png", "https://cdn.example.com/two.png"}, images)
+}
+
+func TestStudioProviderImageEditUsesMultipart(t *testing.T) {
+	provider := studioTestProvider(t, "image")
+	imageBytes, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==")
+	require.NoError(t, err)
+	imageURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imageBytes)
+	size, quality, n := "1024x1024", "high", 1
+	client := &http.Client{Transport: studioRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "/v1/images/edits", request.URL.Path)
+		assert.Equal(t, "Bearer sk-private-test", request.Header.Get("Authorization"))
+		reader, err := request.MultipartReader()
+		require.NoError(t, err)
+		fields := map[string]string{}
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			contents, err := io.ReadAll(part)
+			require.NoError(t, err)
+			if part.FormName() == "image" {
+				assert.Equal(t, "image.png", part.FileName())
+				assert.Equal(t, "image/png", part.Header.Get("Content-Type"))
+				assert.Equal(t, imageBytes, contents)
+			} else {
+				fields[part.FormName()] = string(contents)
+			}
+		}
+		assert.Equal(t, map[string]string{"model": "image-one", "prompt": "revise frame", "size": size, "quality": quality, "n": "1"}, fields)
+		return studioResponse(http.StatusOK, `{"data":[{"b64_json":"aGVsbG8="}]}`), nil
+	})}
+	images, err := GenerateStudioProviderImages(context.Background(), provider, StudioImageRequest{Model: "image-one", Prompt: "revise frame", Size: &size, Quality: &quality, N: &n, Image: imageURI}, client)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"data:image/png;base64,aGVsbG8="}, images)
+}
+
+func TestStudioProviderImageEditRejectsInvalidDataBeforeUpstream(t *testing.T) {
+	provider := studioTestProvider(t, "image")
+	called := false
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		called = true
+		return studioResponse(http.StatusOK, `{}`), nil
+	})}
+	for _, imageURI := range []string{"https://example.com/image.png", "data:image/svg+xml;base64,PHN2Zz4=", "data:image/png;base64,aGVsbG8=", "data:image/png;base64,iVBORw0KGgo="} {
+		_, err := GenerateStudioProviderImages(context.Background(), provider, StudioImageRequest{Model: "image-one", Prompt: "frame", Image: imageURI}, client)
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "image")
+	}
+	assert.False(t, called)
+}
+
 func TestStudioProviderTextAcceptsChatContentParts(t *testing.T) {
 	provider := studioTestProvider(t, "text")
 	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {

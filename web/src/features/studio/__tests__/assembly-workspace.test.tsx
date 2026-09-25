@@ -63,7 +63,19 @@ vi.mock('../media-store', () => ({
     delete: deleteMedia,
   }),
 }))
-vi.mock('../studio-mp4', () => ({ stitchStudioVideos: vi.fn() }))
+vi.mock('../studio-mp4', () => ({
+  stitchStudioVideos: vi.fn(),
+  preflightStudioVideos: vi.fn(async () => ({
+    clipCount: 2,
+    totalBytes: 1024,
+    totalDuration: 8,
+    estimatedOutputBytes: 1024,
+    width: 1280,
+    height: 720,
+    videoCodec: 'avc',
+    audioCodec: null,
+  })),
+}))
 
 beforeEach(() => {
   localStorage.clear()
@@ -117,9 +129,13 @@ test('clicking assemble exports ordered local clips and saves the MP4 for anothe
 
   await waitFor(() =>
     expect(stitchStudioVideos).toHaveBeenCalledWith(
-      [first, second],
+      [
+        expect.objectContaining({ blob: first }),
+        expect.objectContaining({ blob: second }),
+      ],
       expect.any(Function),
-      expect.any(AbortSignal)
+      expect.any(AbortSignal),
+      undefined
     )
   )
   await waitFor(() => {
@@ -133,6 +149,79 @@ test('clicking assemble exports ordered local clips and saves the MP4 for anothe
   expect(
     screen.getByRole('button', { name: 'studio.assembly.download' })
   ).toBeTruthy()
+})
+
+test('passes edited trims, fade, volume, and soundtrack into browser composition', async () => {
+  const first = new Blob(['first'], { type: 'video/mp4' })
+  const second = new Blob(['second'], { type: 'video/mp4' })
+  const music = new Blob(['music'], { type: 'audio/mpeg' })
+  stored.set('12:clip-1', first)
+  stored.set('12:clip-2', second)
+  stored.set('12:music', music)
+  vi.mocked(stitchStudioVideos).mockResolvedValue(
+    new Blob(['joined'], { type: 'video/mp4' })
+  )
+  let project = createStudioProject('Timeline', 'timeline')
+  project = addStudioShot(
+    project,
+    's1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = addStudioShot(
+    project,
+    's2',
+    { text: 't2', image: 'i2', video: 'v2' },
+    'Arrival'
+  )
+  project.shots = project.shots?.map((shot, index) =>
+    index === 0
+      ? {
+          ...shot,
+          trimStart: 0.2,
+          trimEnd: 1.8,
+          muted: true,
+          transition: 'fade',
+          transitionSeconds: 0.4,
+        }
+      : { ...shot, volume: 0.5 }
+  )
+  project.soundtrackMediaId = 'music'
+  project.soundtrackVolume = 0.25
+  project = updateStudioNode(project, 'v1', {
+    status: 'completed',
+    mediaId: 'clip-1',
+  })
+  project = updateStudioNode(project, 'v2', {
+    status: 'completed',
+    mediaId: 'clip-2',
+  })
+  saveStudioProjects(localStorage, 12, [project])
+  render(<Studio />)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'studio.assembly.create' })
+  )
+  await waitFor(() =>
+    expect(stitchStudioVideos).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          blob: first,
+          trimStart: 0.2,
+          trimEnd: 1.8,
+          muted: true,
+          fadeOutSeconds: 0.4,
+        }),
+        expect.objectContaining({
+          blob: second,
+          volume: 0.5,
+          fadeInSeconds: 0.4,
+        }),
+      ],
+      expect.any(Function),
+      expect.any(AbortSignal),
+      { soundtrack: { blob: music, volume: 0.25 } }
+    )
+  )
 })
 
 test('an unfinished shot blocks MP4 assembly with a visible shot error', async () => {

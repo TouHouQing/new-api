@@ -32,6 +32,82 @@ import {
 beforeEach(() => localStorage.clear())
 
 describe('browser-local Studio projects', () => {
+  test('migrates an older pending video task into recoverable version history', () => {
+    const project = createStudioProject('Legacy', 'legacy')
+    project.nodes = [
+      {
+        id: 'video',
+        type: 'studio',
+        position: { x: 0, y: 0 },
+        data: {
+          kind: 'video',
+          title: 'Video',
+          prompt: 'old scene',
+          model: 'site-alias',
+          taskId: 'task-before-update',
+          status: 'queued',
+        },
+      },
+    ]
+    localStorage.setItem(
+      studioProjectsKey(12),
+      JSON.stringify({ version: 1, projects: [project] })
+    )
+    const loaded = loadStudioProjects(localStorage, 12)[0]
+    expect(loaded.nodes[0].data.takes?.[0].taskId).toBe('task-before-update')
+    expect(loaded.nodes[0].data.selectedTakeId).toBe(
+      loaded.nodes[0].data.takes?.[0].id
+    )
+  })
+  test('plain JSON export excludes version, asset, and soundtrack media IDs', () => {
+    const project = createStudioProject('Versions', 'p-versions')
+    project.nodes = [
+      {
+        id: 'image',
+        type: 'studio',
+        position: { x: 0, y: 0 },
+        data: {
+          kind: 'image',
+          title: 'Frame',
+          prompt: 'actor',
+          mediaId: 'current-media',
+          outputUrl: 'https://private.example/current',
+          takes: [
+            {
+              id: 'take-1',
+              createdAt: 'now',
+              prompt: 'actor',
+              status: 'completed',
+              mediaId: 'take-media',
+              outputUrl: 'https://private.example/take',
+            },
+          ],
+        },
+      },
+    ]
+    project.assets = [
+      {
+        id: 'actor',
+        kind: 'character',
+        title: 'Actor',
+        prompt: 'red scarf',
+        mediaId: 'asset-media',
+      },
+    ]
+    project.soundtrackMediaId = 'audio-media'
+    const raw = serializeStudioProjectExport(project)
+    for (const id of [
+      'current-media',
+      'take-media',
+      'asset-media',
+      'audio-media',
+    ]) {
+      expect(raw).not.toContain(id)
+    }
+    const imported = parseStudioProjectImport(raw)
+    expect(imported.nodes[0].data.takes?.[0].mediaId).toBeUndefined()
+    expect(imported.assets?.[0].mediaId).toBeUndefined()
+  })
   test('keeps storyboard and final video links across reload and project export', () => {
     let project = addStudioShot(
       createStudioProject('Drama', 'p1'),
@@ -141,13 +217,32 @@ describe('browser-local Studio projects', () => {
 
   test('treats malformed or outdated documents as empty', () => {
     localStorage.setItem(studioProjectsKey(12), 'broken json')
-    expect(loadStudioProjects(localStorage, 12)).toEqual([])
+    expect(() => loadStudioProjects(localStorage, 12)).toThrow('backup')
 
     localStorage.setItem(
       studioProjectsKey(12),
       JSON.stringify({ version: 0, projects: [{ id: 'old' }] })
     )
-    expect(loadStudioProjects(localStorage, 12)).toEqual([])
+    expect(() => loadStudioProjects(localStorage, 12)).toThrow('backup')
+  })
+
+  test('rejects an invalid edit before it replaces a valid saved project', () => {
+    const project = createStudioProject('Safe', 'safe')
+    saveStudioProjects(localStorage, 12, [project])
+    const original = localStorage.getItem(studioProjectsKey(12))
+    const invalid = {
+      ...project,
+      assets: [
+        {
+          id: 'character',
+          kind: 'character' as const,
+          title: '',
+          prompt: 'portrait',
+        },
+      ],
+    }
+    expect(() => saveStudioProjects(localStorage, 12, [invalid])).toThrow()
+    expect(localStorage.getItem(studioProjectsKey(12))).toBe(original)
   })
 
   test('preserves arbitrary thirty-second alias projects and repairs invalid legacy durations', () => {

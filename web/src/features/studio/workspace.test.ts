@@ -22,15 +22,110 @@ import {
   addStudioNode,
   addStudioShot,
   createStudioProject,
+  retainStudioTake,
   invalidateStudioBranch,
   ensureStudioFinalVideo,
   moveStudioShot,
   pruneStudioShots,
+  recordStudioTake,
   removeStudioShot,
+  selectStudioTake,
+  updateStudioTake,
   updateStudioNode,
 } from './workspace'
 
 describe('Studio project editing', () => {
+  test('retains a submitted video task without restoring an obsolete selection', () => {
+    const project = addStudioNode(
+      createStudioProject('New brief', 'p-detached'),
+      'video',
+      'video'
+    )
+    const retained = retainStudioTake(project, 'video', {
+      id: 'old-task',
+      createdAt: 'now',
+      prompt: 'old brief',
+      status: 'queued',
+      taskId: 'task-123',
+    })
+    expect(retained.nodes[0].data.takes?.[0].taskId).toBe('task-123')
+    expect(retained.nodes[0].data.selectedTakeId).toBeUndefined()
+    expect(retained.nodes[0].data.status).toBe('idle')
+  })
+  test('keeps earlier takes and restores one without retaining downstream media', () => {
+    let project = createStudioProject('Portrait', 'p-takes')
+    project = addStudioNode(project, 'text', 'text')
+    project = addStudioNode(project, 'image', 'image')
+    project.edges = [{ id: 'ti', source: 'text', target: 'image' }]
+    project = recordStudioTake(project, 'text', {
+      id: 'take-one',
+      createdAt: '2026-09-25T00:00:00Z',
+      prompt: 'a woman',
+      status: 'completed',
+      outputText: 'A woman at dawn',
+      outputImagePrompt: 'A still portrait at dawn',
+      outputVideoPrompt: 'She turns to camera',
+    })
+    project = recordStudioTake(project, 'text', {
+      id: 'take-two',
+      createdAt: '2026-09-25T00:01:00Z',
+      prompt: 'a woman',
+      status: 'completed',
+      outputText: 'A woman at night',
+      outputImagePrompt: 'A still portrait at night',
+      outputVideoPrompt: 'She walks away',
+    })
+    project = updateStudioNode(project, 'image', {
+      model: 'image-model',
+      mediaId: 'image-current',
+      status: 'completed',
+    })
+
+    const selected = selectStudioTake(project, 'text', 'take-one')
+
+    expect(selected.nodes[0].data.outputImagePrompt).toBe(
+      'A still portrait at dawn'
+    )
+    expect(selected.nodes[0].data.takes?.map((take) => take.id)).toEqual([
+      'take-one',
+      'take-two',
+    ])
+    expect(selected.nodes[1].data.mediaId).toBeUndefined()
+    expect(selected.nodes[1].data.status).toBe('idle')
+  })
+
+  test('retains a queued video take after its node inputs change', () => {
+    let project = addStudioNode(
+      createStudioProject('Queued', 'p-queued'),
+      'video',
+      'video'
+    )
+    project = recordStudioTake(project, 'video', {
+      id: 'take-queued',
+      createdAt: '2026-09-25T00:00:00Z',
+      model: 'video-model',
+      group: 'default',
+      prompt: 'walks forward',
+      status: 'queued',
+      taskId: 'task-running',
+    })
+
+    const invalidated = invalidateStudioBranch(project, 'video')
+    const completed = updateStudioTake(invalidated, 'video', 'take-queued', {
+      status: 'completed',
+      mediaId: 'media-completed',
+    })
+
+    expect(completed.nodes[0].data.taskId).toBeUndefined()
+    expect(completed.nodes[0].data.selectedTakeId).toBeUndefined()
+    expect(completed.nodes[0].data.takes?.[0]).toEqual(
+      expect.objectContaining({
+        taskId: 'task-running',
+        status: 'completed',
+        mediaId: 'media-completed',
+      })
+    )
+  })
   test('connects ordered shot videos to a final New API video node', () => {
     let project = createStudioProject('Drama', 'p1')
     project = addStudioShot(

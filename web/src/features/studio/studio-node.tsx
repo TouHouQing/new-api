@@ -16,26 +16,56 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import type { NodeProps } from '@xyflow/react'
+import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { useTranslation } from 'react-i18next'
 
 import {
   Node,
   NodeContent,
+  NodeFooter,
   NodeHeader,
   NodeTitle,
 } from '@/components/ai-elements/node'
 
 import type { StudioCanvasNode } from './canvas-flow'
 
+const PORTS = {
+  text: {
+    inputs: [{ id: 'brief', label: 'studio.port.brief' }],
+    outputs: [
+      { id: 'scene', label: 'studio.port.scene' },
+      { id: 'image_prompt', label: 'studio.port.imagePrompt' },
+      { id: 'video_prompt', label: 'studio.port.videoPrompt' },
+    ],
+  },
+  image: {
+    inputs: [
+      { id: 'prompt', label: 'studio.port.prompt' },
+      { id: 'reference_image', label: 'studio.port.referenceImage' },
+    ],
+    outputs: [{ id: 'image', label: 'studio.port.image' }],
+  },
+  video: {
+    inputs: [
+      { id: 'prompt', label: 'studio.port.prompt' },
+      { id: 'first_frame', label: 'studio.port.firstFrame' },
+      { id: 'reference_image', label: 'studio.port.referenceImage' },
+      { id: 'reference_video', label: 'studio.port.referenceVideo' },
+      { id: 'extend_video', label: 'studio.port.extendVideo' },
+    ],
+    outputs: [{ id: 'video', label: 'studio.port.video' }],
+  },
+} as const
+
 export function StudioNode(props: NodeProps<StudioCanvasNode>) {
   const { t } = useTranslation()
   const data = props.data
   const imageUrl =
     typeof data.previewUrl === 'string' ? data.previewUrl : data.outputUrl
+  const ports = PORTS[data.kind]
   return (
     <Node
-      handles={{ target: true, source: true }}
+      handles={{ target: false, source: false }}
       className='w-72 border-0'
       aria-label={data.title}
     >
@@ -80,6 +110,50 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
           <span className='text-destructive block text-xs'>{data.error}</span>
         )}
       </NodeContent>
+      <NodeFooter className='flex flex-col gap-1 p-2!'>
+        {Array.from(
+          { length: Math.max(ports.inputs.length, ports.outputs.length) },
+          (_, index) => {
+            const input = ports.inputs[index]
+            const output = ports.outputs[index]
+            return (
+              <div
+                key={index}
+                className='text-muted-foreground relative flex min-h-5 w-full items-center justify-between gap-2 text-[10px]'
+              >
+                {input ? (
+                  <>
+                    <Handle
+                      id={input.id}
+                      type='target'
+                      position={Position.Left}
+                      style={{ left: -12, top: '50%' }}
+                      aria-label={t(input.label)}
+                      title={t(input.label)}
+                    />
+                    <span>{t(input.label)}</span>
+                  </>
+                ) : (
+                  <span />
+                )}
+                {output && (
+                  <>
+                    <span className='text-right'>{t(output.label)}</span>
+                    <Handle
+                      id={output.id}
+                      type='source'
+                      position={Position.Right}
+                      style={{ right: -12, top: '50%' }}
+                      aria-label={t(output.label)}
+                      title={t(output.label)}
+                    />
+                  </>
+                )}
+              </div>
+            )
+          }
+        )}
+      </NodeFooter>
     </Node>
   )
 }
