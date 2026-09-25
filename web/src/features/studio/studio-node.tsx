@@ -16,7 +16,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+import {
+  Handle,
+  Position,
+  useUpdateNodeInternals,
+  type NodeProps,
+} from '@xyflow/react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import {
@@ -26,6 +32,7 @@ import {
   NodeHeader,
   NodeTitle,
 } from '@/components/ai-elements/node'
+import { Button } from '@/components/ui/button'
 
 import type { StudioCanvasNode } from './canvas-flow'
 
@@ -57,12 +64,47 @@ const PORTS = {
   },
 } as const
 
+const OPTIONAL_PORTS = {
+  text: { inputs: [], outputs: ['image_prompt', 'video_prompt'] },
+  image: { inputs: [], outputs: [] },
+  video: { inputs: ['reference_image', 'extend_video'], outputs: [] },
+} as const
+
+const inputHandleClass =
+  'size-3! border-2! border-primary! bg-background! transition-transform hover:scale-125'
+const outputHandleClass =
+  'size-3! border-2! border-background! bg-primary! transition-transform hover:scale-125'
+
 export function StudioNode(props: NodeProps<StudioCanvasNode>) {
   const { t } = useTranslation()
+  const [advancedOpen, setAdvancedOpen] = useState(false)
+  const updateNodeInternals = useUpdateNodeInternals()
   const data = props.data
   const imageUrl =
     typeof data.previewUrl === 'string' ? data.previewUrl : data.outputUrl
   const ports = PORTS[data.kind]
+  const optional = OPTIONAL_PORTS[data.kind]
+  const usedInputs = new Set(data.usedTargetHandles || [])
+  const usedOutputs = new Set(data.usedSourceHandles || [])
+  const visibleInputs = ports.inputs.filter(
+    (port) =>
+      usedInputs.has(port.id) ||
+      (advancedOpen && (optional.inputs as readonly string[]).includes(port.id))
+  )
+  const visibleOutputs = ports.outputs.filter(
+    (port) =>
+      usedOutputs.has(port.id) ||
+      (advancedOpen &&
+        (optional.outputs as readonly string[]).includes(port.id))
+  )
+  const portSignature = [
+    advancedOpen,
+    ...visibleInputs.map((port) => port.id),
+    ...visibleOutputs.map((port) => port.id),
+  ].join(':')
+  useEffect(() => {
+    updateNodeInternals(props.id)
+  }, [props.id, portSignature, updateNodeInternals])
   return (
     <Node
       handles={{ target: false, source: false }}
@@ -111,11 +153,31 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
         )}
       </NodeContent>
       <NodeFooter className='flex flex-col gap-1 p-2!'>
+        <div className='text-muted-foreground relative flex min-h-7 w-full items-center justify-between gap-2 text-xs'>
+          <Handle
+            type='target'
+            position={Position.Left}
+            className={inputHandleClass}
+            style={{ left: -12, top: '50%' }}
+            aria-label={t('studio.port.input')}
+            title={t('studio.port.input')}
+          />
+          <span>{t('studio.port.input')}</span>
+          <span>{t(`studio.kind.${data.kind}`)}</span>
+          <Handle
+            type='source'
+            position={Position.Right}
+            className={outputHandleClass}
+            style={{ right: -12, top: '50%' }}
+            aria-label={t('studio.port.output')}
+            title={t('studio.port.output')}
+          />
+        </div>
         {Array.from(
-          { length: Math.max(ports.inputs.length, ports.outputs.length) },
+          { length: Math.max(visibleInputs.length, visibleOutputs.length) },
           (_, index) => {
-            const input = ports.inputs[index]
-            const output = ports.outputs[index]
+            const input = visibleInputs[index]
+            const output = visibleOutputs[index]
             return (
               <div
                 key={index}
@@ -127,6 +189,7 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
                       id={input.id}
                       type='target'
                       position={Position.Left}
+                      className={inputHandleClass}
                       style={{ left: -12, top: '50%' }}
                       aria-label={t(input.label)}
                       title={t(input.label)}
@@ -143,6 +206,7 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
                       id={output.id}
                       type='source'
                       position={Position.Right}
+                      className={outputHandleClass}
                       style={{ right: -12, top: '50%' }}
                       aria-label={t(output.label)}
                       title={t(output.label)}
@@ -152,6 +216,19 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
               </div>
             )
           }
+        )}
+        {(optional.inputs.length > 0 || optional.outputs.length > 0) && (
+          <Button
+            type='button'
+            variant='ghost'
+            size='xs'
+            className='nodrag nopan text-muted-foreground h-6 self-start px-1 text-[10px]'
+            onClick={() => setAdvancedOpen((open) => !open)}
+          >
+            {t(
+              advancedOpen ? 'studio.port.hideAdvanced' : 'studio.port.advanced'
+            )}
+          </Button>
         )}
       </NodeFooter>
     </Node>

@@ -309,6 +309,12 @@ export function Studio() {
         data: {
           ...node.data,
           previewUrl: previews[previewKey(project.id, node.id)],
+          usedSourceHandles: project.edges
+            .filter((edge) => edge.source === node.id && edge.sourceHandle)
+            .map((edge) => edge.sourceHandle as string),
+          usedTargetHandles: project.edges
+            .filter((edge) => edge.target === node.id && edge.targetHandle)
+            .map((edge) => edge.targetHandle as string),
         },
       })) ?? [],
     [project, previews]
@@ -2482,6 +2488,11 @@ export function Studio() {
                   )
                 }}
               />
+              {project.nodes.length > 0 && project.edges.length === 0 && (
+                <p className='text-muted-foreground bg-background/85 pointer-events-none absolute top-3 left-3 max-w-72 rounded-md border px-3 py-2 text-xs shadow-sm'>
+                  {t('studio.canvas.connectionHint')}
+                </p>
+              )}
               {project.nodes.length === 0 && (
                 <div className='text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-center text-sm'>
                   <p>{t('studio.canvas.empty')}</p>

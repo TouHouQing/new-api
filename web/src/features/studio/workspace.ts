@@ -243,22 +243,16 @@ export function addStudioShot(
         id: `${shotId}-ti`,
         source: ids.text,
         target: ids.image,
-        sourceHandle: 'image_prompt',
-        targetHandle: 'prompt',
       },
       {
         id: `${shotId}-tv`,
         source: ids.text,
         target: ids.video,
-        sourceHandle: 'video_prompt',
-        targetHandle: 'prompt',
       },
       {
         id: `${shotId}-iv`,
         source: ids.image,
         target: ids.video,
-        sourceHandle: 'image',
-        targetHandle: 'first_frame',
       },
     ],
     shots: [

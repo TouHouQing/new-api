@@ -69,6 +69,8 @@ export type StudioCanvasNodeData = {
   ratio?: string
   metadataJson?: string
   payloadPatchJson?: string
+  usedSourceHandles?: string[]
+  usedTargetHandles?: string[]
 }
 
 export type StudioCanvasNode = Node<StudioCanvasNodeData, 'studio'>
@@ -130,7 +132,23 @@ export function isValidStudioConnection(
   const target = nodes.find((node) => node.id === targetId)
   if (!source || !target) return false
   if (sourceHandle || targetHandle) {
-    if (!sourceHandle || !targetHandle) return false
+    const defaultSource = {
+      text: 'scene',
+      image: 'image',
+      video: 'video',
+    } as const
+    const defaultTargets = {
+      text: { text: 'brief', image: 'prompt', video: 'prompt' },
+      image: { image: 'reference_image', video: 'first_frame' },
+      video: { video: 'reference_video' },
+    } as const
+    const sourceRole = sourceHandle || defaultSource[source.data.kind]
+    const targetRole =
+      targetHandle ||
+      (defaultTargets[source.data.kind] as Record<string, string>)[
+        target.data.kind
+      ]
+    if (!targetRole) return false
     const typed = new Set([
       'text:scene:text:brief',
       'text:scene:image:prompt',
@@ -143,7 +161,7 @@ export function isValidStudioConnection(
       'video:video:video:reference_video',
       'video:video:video:extend_video',
     ])
-    const connection = `${source.data.kind}:${sourceHandle}:${target.data.kind}:${targetHandle}`
+    const connection = `${source.data.kind}:${sourceRole}:${target.data.kind}:${targetRole}`
     if (!typed.has(connection)) return false
     if (
       (targetHandle === 'first_frame' || targetHandle === 'extend_video') &&
@@ -156,7 +174,7 @@ export function isValidStudioConnection(
   } else {
     const allowed = {
       text: ['text', 'image', 'video'],
-      image: ['video'],
+      image: ['image', 'video'],
       video: ['video'],
     } as const
     if (

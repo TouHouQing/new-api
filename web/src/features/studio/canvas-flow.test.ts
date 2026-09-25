@@ -113,6 +113,33 @@ describe('Studio canvas connections', () => {
     ).not.toThrow()
   })
 
+  test('automatically accepts common image edit links without advanced ports', () => {
+    const secondImage = { ...nodes[1], id: 'image-two' }
+    expect(
+      isValidStudioConnection([...nodes, secondImage], [], 'image', 'image-two')
+    ).toBe(true)
+    expect(
+      isValidStudioConnection(
+        [...nodes, secondImage],
+        [],
+        'text',
+        'video',
+        'video_prompt',
+        null
+      )
+    ).toBe(true)
+    expect(
+      isValidStudioConnection(
+        [...nodes, secondImage],
+        [],
+        'image',
+        'video',
+        null,
+        'reference_image'
+      )
+    ).toBe(true)
+  })
+
   test('accepts typed media ports and rejects a second first frame', () => {
     expect(
       isValidStudioConnection(

@@ -35,6 +35,18 @@ import {
 } from './workspace'
 
 describe('Studio project editing', () => {
+  test('new storyboard shots use the simple automatic canvas ports', () => {
+    const project = addStudioShot(
+      createStudioProject('Simple shot', 'simple-shot'),
+      'shot-1',
+      { text: 'text', image: 'image', video: 'video' },
+      'Opening'
+    )
+    expect(project.edges).toHaveLength(3)
+    expect(
+      project.edges.every((edge) => !edge.sourceHandle && !edge.targetHandle)
+    ).toBe(true)
+  })
   test('retains a submitted video task without restoring an obsolete selection', () => {
     const project = addStudioNode(
       createStudioProject('New brief', 'p-detached'),
