@@ -141,6 +141,10 @@ func GenerateStudioProviderText(ctx context.Context, provider *model.StudioProvi
 		} `json:"choices"`
 	}
 	if err := common.Unmarshal(data, &parsed); err != nil {
+		trimmed := bytes.ToLower(bytes.TrimSpace(data))
+		if bytes.HasPrefix(trimmed, []byte("<!doctype html")) || bytes.HasPrefix(trimmed, []byte("<html")) {
+			return "", errors.New("text provider returned HTML instead of API JSON; check the service Base URL (usually ends in /v1)")
+		}
 		return "", errors.New("text provider returned invalid JSON")
 	}
 	if (len(parsed.Error) > 0 && string(parsed.Error) != "null") || (parsed.Success != nil && !*parsed.Success) {

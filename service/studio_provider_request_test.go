@@ -116,6 +116,18 @@ func TestStudioProviderTextRejectsReasoningOnlyOutputWithoutLeakingIt(t *testing
 	assert.NotContains(t, err.Error(), "private chain of thought")
 }
 
+func TestStudioProviderTextExplainsHTMLResponseWithoutLeakingIt(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return studioResponse(http.StatusOK, `<!doctype html><html><body>sk-private-test</body></html>`), nil
+	})}
+	_, err := GenerateStudioProviderText(context.Background(), provider, "text-model", "scene", client)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "HTML")
+	assert.ErrorContains(t, err, "/v1")
+	assert.NotContains(t, err.Error(), "sk-private-test")
+}
+
 func TestStudioProviderErrorsNeverExposeSavedKey(t *testing.T) {
 	provider := studioTestProvider(t, "text")
 	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
