@@ -602,7 +602,11 @@ describe('Studio account isolation', () => {
     vi.mocked(fetchStudioProviderModels).mockImplementation(async (kind) =>
       kind === 'text' ? ['text-model'] : ['image-model']
     )
-    vi.mocked(generateStudioText).mockResolvedValue('A woman at dusk')
+    vi.mocked(generateStudioText).mockResolvedValue({
+      text: 'A woman at dusk',
+      imagePrompt: 'A cinematic still of a woman at dusk',
+      videoPrompt: 'She turns as the camera moves closer',
+    })
     vi.mocked(generateStudioImage).mockResolvedValue({
       url: 'https://cdn.example/shot.png',
     })
@@ -662,7 +666,7 @@ describe('Studio account isolation', () => {
     )
     expect(generateStudioImage).toHaveBeenCalledWith(
       'image-model',
-      'A woman at dusk'
+      'A cinematic still of a woman at dusk'
     )
     expect(
       vi.mocked(generateStudioText).mock.invocationCallOrder[0]
@@ -677,10 +681,14 @@ describe('Studio account isolation', () => {
       text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },
     })
     vi.mocked(fetchStudioProviderModels).mockResolvedValue(['text-model'])
-    let finishText: (value: string) => void = () => undefined
+    let finishText: (value: {
+      text: string
+      imagePrompt: string
+      videoPrompt: string
+    }) => void = () => undefined
     vi.mocked(generateStudioText).mockImplementation(
       () =>
-        new Promise<string>((resolve) => {
+        new Promise((resolve) => {
           finishText = resolve
         })
     )
@@ -698,7 +706,13 @@ describe('Studio account isolation', () => {
         if (node.id === 'text-1') {
           return {
             ...node,
-            data: { ...node.data, model: 'text-model', prompt: 'Describe her' },
+            data: {
+              ...node.data,
+              model: 'text-model',
+              prompt: 'Describe her',
+              outputText: '我先查看当前工作区',
+              status: 'completed' as const,
+            },
           }
         }
         return {
@@ -726,10 +740,16 @@ describe('Studio account isolation', () => {
     fireEvent.click(generateButton)
     await waitFor(() => expect(generateStudioText).toHaveBeenCalled())
     expect(createStudioVideo).not.toHaveBeenCalled()
-    finishText('A beautiful woman')
+    finishText({
+      text: 'A beautiful woman',
+      imagePrompt: 'A cinematic still of a beautiful woman',
+      videoPrompt: 'She turns toward the camera',
+    })
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
-        expect.objectContaining({ prompt: 'A beautiful woman' }),
+        expect.objectContaining({
+          prompt: 'A beautiful woman\n\nShe turns toward the camera',
+        }),
         'default'
       )
     )

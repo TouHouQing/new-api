@@ -152,8 +152,19 @@ describe('Studio relay responses', () => {
 
   test('parses the server-proxied text and image result', () => {
     expect(
-      parseStudioTextResponse({ success: true, data: { text: 'scene one' } })
-    ).toBe('scene one')
+      parseStudioTextResponse({
+        success: true,
+        data: {
+          text: 'scene one',
+          image_prompt: 'a still frame of scene one',
+          video_prompt: 'the camera moves through scene one',
+        },
+      })
+    ).toEqual({
+      text: 'scene one',
+      imagePrompt: 'a still frame of scene one',
+      videoPrompt: 'the camera moves through scene one',
+    })
     expect(
       parseStudioImageResponse({
         success: true,
@@ -200,13 +211,10 @@ describe('Studio relay responses', () => {
     )
   })
 
-  test('extracts text from a Chat Completions response', () => {
-    expect(
-      parseStudioTextResponse({
-        choices: [{ message: { content: 'scene one' } }],
-      })
-    ).toBe('scene one')
-    expect(() => parseStudioTextResponse({ choices: [] })).toThrow('text')
+  test('rejects text results without both downstream prompts', () => {
+    expect(() =>
+      parseStudioTextResponse({ success: true, data: { text: 'chat reply' } })
+    ).toThrow('text')
   })
 
   test('maps the owning user task response into visible progress', () => {

@@ -349,6 +349,13 @@ export function StudioInspector(props: Props) {
               }
               placeholder={t('studio.prompt.placeholder')}
             />
+            {props.node.data.kind === 'text' && (
+              <p className='text-muted-foreground text-xs'>
+                {props.node.data.model
+                  ? t('studio.text.aiHint')
+                  : t('studio.text.manualHint')}
+              </p>
+            )}
           </Field>
         )}
         {props.node.data.kind === 'video' && model && (
@@ -536,10 +543,31 @@ export function StudioInspector(props: Props) {
           </p>
         )}
         {props.node.data.kind === 'text' && props.node.data.outputText && (
-          <pre className='bg-muted max-h-64 overflow-auto rounded-lg p-3 text-xs whitespace-pre-wrap'>
-            {props.node.data.outputText}
-          </pre>
+          <Field>
+            <FieldLabel>{t('studio.text.scene')}</FieldLabel>
+            <pre className='bg-muted max-h-64 overflow-auto rounded-lg p-3 text-xs whitespace-pre-wrap'>
+              {props.node.data.outputText}
+            </pre>
+          </Field>
         )}
+        {props.node.data.kind === 'text' &&
+          props.node.data.outputImagePrompt && (
+            <Field>
+              <FieldLabel>{t('studio.text.imagePrompt')}</FieldLabel>
+              <pre className='bg-muted max-h-64 overflow-auto rounded-lg p-3 text-xs whitespace-pre-wrap'>
+                {props.node.data.outputImagePrompt}
+              </pre>
+            </Field>
+          )}
+        {props.node.data.kind === 'text' &&
+          props.node.data.outputVideoPrompt && (
+            <Field>
+              <FieldLabel>{t('studio.text.videoPrompt')}</FieldLabel>
+              <pre className='bg-muted max-h-64 overflow-auto rounded-lg p-3 text-xs whitespace-pre-wrap'>
+                {props.node.data.outputVideoPrompt}
+              </pre>
+            </Field>
+          )}
         {props.node.data.kind === 'image' && props.previewUrl && (
           <img
             className='max-h-72 w-full rounded-lg object-contain'

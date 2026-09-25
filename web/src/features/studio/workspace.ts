@@ -62,6 +62,8 @@ export function invalidateStudioBranch(
           ...node.data,
           status: 'idle',
           outputText: undefined,
+          outputImagePrompt: undefined,
+          outputVideoPrompt: undefined,
           outputUrl: undefined,
           mediaId: undefined,
           taskId: undefined,
@@ -276,6 +278,8 @@ export function updateStudioNode(
         !(node.data.kind === 'image' && !node.data.model && !modelChanged)
       ) {
         delete data.outputText
+        delete data.outputImagePrompt
+        delete data.outputVideoPrompt
         delete data.outputUrl
         delete data.mediaId
         delete data.taskId

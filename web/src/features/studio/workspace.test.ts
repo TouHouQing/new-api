@@ -235,12 +235,16 @@ describe('Studio project editing', () => {
     })
     const completed = updateStudioNode(configured, 'n1', {
       outputText: 'Old scene',
+      outputImagePrompt: 'Old still frame',
+      outputVideoPrompt: 'Old camera move',
       status: 'completed',
     })
     const changed = updateStudioNode(completed, 'n1', {
       model: 'model-two',
     })
     expect(changed.nodes[0].data.outputText).toBeUndefined()
+    expect(changed.nodes[0].data.outputImagePrompt).toBeUndefined()
+    expect(changed.nodes[0].data.outputVideoPrompt).toBeUndefined()
     expect(changed.nodes[0].data.status).toBe('idle')
   })
 

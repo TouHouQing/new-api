@@ -401,4 +401,32 @@ describe('Studio model controls', () => {
     screen.getByRole('button', { name: 'studio.provider.settings' }).click()
     expect(onConfigureProvider).toHaveBeenCalledOnce()
   })
+
+  test('shows the two downstream prompts produced by an AI text node', () => {
+    const node = video('')
+    node.data.kind = 'text'
+    node.data.model = 'text-model'
+    node.data.outputText = 'A woman at dusk'
+    node.data.outputImagePrompt = 'A still portrait at dusk'
+    node.data.outputVideoPrompt = 'She turns as the camera moves closer'
+    render(
+      <StudioInspector
+        node={node}
+        models={['text-model']}
+        videoGroups={[]}
+        videoGroup=''
+        providerConfigured
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(screen.getByText('studio.text.imagePrompt')).toBeTruthy()
+    expect(screen.getByText('A still portrait at dusk')).toBeTruthy()
+    expect(screen.getByText('studio.text.videoPrompt')).toBeTruthy()
+    expect(
+      screen.getByText('She turns as the camera moves closer')
+    ).toBeTruthy()
+  })
 })

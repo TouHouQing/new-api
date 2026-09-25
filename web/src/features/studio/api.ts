@@ -22,6 +22,11 @@ import type { StudioVideoRequest } from './model-profiles'
 type RecordValue = Record<string, unknown>
 
 export type StudioProviderKind = 'text' | 'image'
+export type StudioTextOutput = {
+  text: string
+  imagePrompt: string
+  videoPrompt: string
+}
 export type StudioProviderConfig = {
   kind: StudioProviderKind
   baseUrl: string
@@ -182,26 +187,25 @@ export function parseStudioVideoResponse(value: unknown): string {
   return id
 }
 
-export function parseStudioTextResponse(value: unknown): string {
+export function parseStudioTextResponse(value: unknown): StudioTextOutput {
   if (
     isRecord(value) &&
     value.success === true &&
     isRecord(value.data) &&
     typeof value.data.text === 'string' &&
-    value.data.text.trim() !== ''
+    value.data.text.trim() !== '' &&
+    typeof value.data.image_prompt === 'string' &&
+    value.data.image_prompt.trim() !== '' &&
+    typeof value.data.video_prompt === 'string' &&
+    value.data.video_prompt.trim() !== ''
   ) {
-    return value.data.text
+    return {
+      text: value.data.text.trim(),
+      imagePrompt: value.data.image_prompt.trim(),
+      videoPrompt: value.data.video_prompt.trim(),
+    }
   }
-  if (!isRecord(value) || !Array.isArray(value.choices)) {
-    throw new Error('text generation returned no text')
-  }
-  const choice = value.choices[0]
-  const message = isRecord(choice) ? choice.message : null
-  const content = isRecord(message) ? message.content : null
-  if (typeof content !== 'string' || content.trim() === '') {
-    throw new Error('text generation returned no text')
-  }
-  return content
+  throw new Error('text generation returned no usable shot')
 }
 
 export function parseStudioTaskResponse(
@@ -288,7 +292,7 @@ export async function fetchStudioProviderModels(
 export async function generateStudioText(
   model: string,
   prompt: string
-): Promise<string> {
+): Promise<StudioTextOutput> {
   const response = await api.post('/api/studio/providers/text/generate', {
     model,
     prompt,

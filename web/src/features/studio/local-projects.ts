@@ -36,6 +36,8 @@ const nodeDataSchema = z.strictObject({
     .enum(['idle', 'submitting', 'queued', 'processing', 'completed', 'failed'])
     .optional(),
   outputText: z.string().max(300000).optional(),
+  outputImagePrompt: z.string().max(30000).optional(),
+  outputVideoPrompt: z.string().max(30000).optional(),
   outputUrl: z.string().max(4096).optional(),
   mediaId: z.string().max(128).optional(),
   taskId: z.string().max(191).optional(),

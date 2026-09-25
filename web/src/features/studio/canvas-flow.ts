@@ -34,6 +34,8 @@ export type StudioCanvasNodeData = {
     | 'completed'
     | 'failed'
   outputText?: string
+  outputImagePrompt?: string
+  outputVideoPrompt?: string
   outputUrl?: string
   mediaId?: string
   taskId?: string
@@ -129,9 +131,26 @@ export function connectedGenerationInput(
   const sources = incoming
     .map((edge) => nodes.find((node) => node.id === edge.source))
     .filter((node): node is StudioCanvasNode => node !== undefined)
+  const imageSources = sources.filter((node) => node.data.kind === 'image')
+  const hasImageSource = imageSources.some((node) =>
+    Boolean(node.data.outputUrl || node.data.mediaId)
+  )
+  const textForTarget = (node: StudioCanvasNode): string => {
+    const scene = node.data.outputText?.trim() || node.data.prompt.trim()
+    if (target.data.kind === 'image') {
+      return node.data.outputImagePrompt?.trim() || scene
+    }
+    const motion = node.data.outputVideoPrompt?.trim()
+    if (target.data.kind === 'video' && motion) {
+      return hasImageSource
+        ? motion
+        : [scene, motion].filter(Boolean).join('\n\n')
+    }
+    return scene
+  }
   const text = sources
     .filter((node) => node.data.kind === 'text')
-    .map((node) => node.data.outputText?.trim() || node.data.prompt.trim())
+    .map(textForTarget)
     .filter((value): value is string => Boolean(value))
   const directPrompt = [...text, target.data.prompt.trim()]
     .filter(Boolean)
@@ -142,15 +161,14 @@ export function connectedGenerationInput(
       inherited = planStudioExecution(nodes, edges, targetId)
         .slice(0, -1)
         .filter((node) => node.data.kind === 'text')
-        .map((node) => node.data.outputText?.trim() || node.data.prompt.trim())
+        .map(textForTarget)
         .filter(Boolean)
     } catch {
       // Invalid imported graphs remain editable; execution reports the cycle.
     }
   }
   const prompt = directPrompt || [...new Set(inherited)].join('\n\n')
-  const imageUrl = sources
-    .filter((node) => node.data.kind === 'image')
+  const imageUrl = imageSources
     .map((node) => node.data.outputUrl)
     .find(
       (url): url is string =>

@@ -718,6 +718,8 @@ export function Studio() {
               }
               update(node.id, {
                 outputText: input.prompt,
+                outputImagePrompt: undefined,
+                outputVideoPrompt: undefined,
                 status: 'completed',
                 error: undefined,
               })
@@ -726,7 +728,9 @@ export function Studio() {
             if (
               !selected &&
               node.data.status === 'completed' &&
-              node.data.outputText?.trim()
+              node.data.outputText?.trim() &&
+              node.data.outputImagePrompt?.trim() &&
+              node.data.outputVideoPrompt?.trim()
             ) {
               continue
             }
@@ -741,12 +745,14 @@ export function Studio() {
             }
             if (activeUserId.current !== userId) return
             update(node.id, { status: 'submitting', error: undefined })
-            const outputText = await generateStudioText(
-              node.data.model,
-              input.prompt
-            )
+            const shot = await generateStudioText(node.data.model, input.prompt)
             if (activeUserId.current !== userId) return
-            update(node.id, { outputText, status: 'completed' })
+            update(node.id, {
+              outputText: shot.text,
+              outputImagePrompt: shot.imagePrompt,
+              outputVideoPrompt: shot.videoPrompt,
+              status: 'completed',
+            })
             if (selected) invalidateDependents(node.id)
             continue
           }

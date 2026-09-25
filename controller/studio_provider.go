@@ -160,13 +160,13 @@ func StudioProviderGenerate(c *gin.Context) {
 		return
 	}
 	if kind == "text" {
-		text, err := service.GenerateStudioProviderText(c.Request.Context(), provider, input.Model, input.Prompt, studioProviderClient)
+		shot, err := service.GenerateStudioProviderText(c.Request.Context(), provider, input.Model, input.Prompt, studioProviderClient)
 		if err != nil {
 			studioProviderError(c, http.StatusBadGateway, "studio_provider_generation_failed", err.Error())
 			return
 		}
 		c.Header("Cache-Control", "private, no-store")
-		c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"text": text}})
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": shot})
 		return
 	}
 	imageURL, err := service.GenerateStudioProviderImage(c.Request.Context(), provider, input.Model, input.Prompt, studioProviderClient)

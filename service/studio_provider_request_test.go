@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,7 +57,7 @@ func TestStudioProviderGenerationUsesFixedCompatiblePaths(t *testing.T) {
 		switch request.URL.Path {
 		case "/v1/chat/completions":
 			assert.Contains(t, string(body), `"model":"gpt-text"`)
-			return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":"A good scene"}}]}`), nil
+			return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":"{\"text\":\"A good scene\",\"image_prompt\":\"A good still frame\",\"video_prompt\":\"The camera pushes in\"}"}}]}`), nil
 		case "/v1/images/generations":
 			assert.Contains(t, string(body), `"model":"image-one"`)
 			return studioResponse(http.StatusOK, `{"data":[{"url":"https://cdn.example.com/frame.png"}]}`), nil
@@ -67,7 +68,9 @@ func TestStudioProviderGenerationUsesFixedCompatiblePaths(t *testing.T) {
 	})}
 	text, err := GenerateStudioProviderText(context.Background(), textProvider, "gpt-text", "scene", client)
 	require.NoError(t, err)
-	assert.Equal(t, "A good scene", text)
+	assert.Equal(t, "A good scene", text.Text)
+	assert.Equal(t, "A good still frame", text.ImagePrompt)
+	assert.Equal(t, "The camera pushes in", text.VideoPrompt)
 	imageURL, err := GenerateStudioProviderImage(context.Background(), imageProvider, "image-one", "frame", client)
 	require.NoError(t, err)
 	assert.Equal(t, "https://cdn.example.com/frame.png", imageURL)
@@ -76,11 +79,47 @@ func TestStudioProviderGenerationUsesFixedCompatiblePaths(t *testing.T) {
 func TestStudioProviderTextAcceptsChatContentParts(t *testing.T) {
 	provider := studioTestProvider(t, "text")
 	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
-		return studioResponse(http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"First scene. "},{"type":"text","text":"Then the reveal."}]},"finish_reason":"stop"}]}`), nil
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"role":"assistant","content":[{"type":"text","text":"{\"text\":\"First scene\","},{"type":"text","text":"\"image_prompt\":\"A still frame\",\"video_prompt\":\"Then the reveal\"}"}]},"finish_reason":"stop"}]}`), nil
 	})}
 	text, err := GenerateStudioProviderText(context.Background(), provider, "text-model", "scene", client)
 	require.NoError(t, err)
-	assert.Equal(t, "First scene. Then the reveal.", text)
+	assert.Equal(t, "First scene", text.Text)
+	assert.Equal(t, "A still frame", text.ImagePrompt)
+	assert.Equal(t, "Then the reveal", text.VideoPrompt)
+}
+
+func TestStudioProviderTextRequestsAProductionReadyShot(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(request.Body)
+		require.NoError(t, err)
+		var payload struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		require.NoError(t, common.Unmarshal(body, &payload))
+		require.Len(t, payload.Messages, 2)
+		assert.Equal(t, "system", payload.Messages[0].Role)
+		assert.Contains(t, payload.Messages[0].Content, "image_prompt")
+		assert.Contains(t, payload.Messages[0].Content, "video_prompt")
+		assert.Contains(t, payload.Messages[1].Content, "生成一个美女")
+		assert.Contains(t, payload.Messages[1].Content, "image_prompt")
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":"{\"text\":\"一位女性站在街角\",\"image_prompt\":\"电影感人像，女性站在街角\",\"video_prompt\":\"她转头看向镜头，镜头缓缓推近\"}"}}]}`), nil
+	})}
+	_, err := GenerateStudioProviderText(context.Background(), provider, "gpt-6-sol", "生成一个美女", client)
+	require.NoError(t, err)
+}
+
+func TestStudioProviderTextRejectsAConversationalAnswer(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":"我先查看当前工作区。请告诉我你希望的风格，也可以直接使用这个提示词生成。"}}]}`), nil
+	})}
+	_, err := GenerateStudioProviderText(context.Background(), provider, "gpt-6-sol", "生成一个美女", client)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "usable shot")
 }
 
 func TestStudioProviderTextDoesNotMistakeToolCallsForText(t *testing.T) {

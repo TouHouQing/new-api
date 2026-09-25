@@ -129,6 +129,52 @@ describe('Studio canvas connections', () => {
     })
   })
 
+  test('routes one generated shot to the image and video prompts it needs', () => {
+    const shotNodes = nodes.map((node) =>
+      node.id === 'text'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              outputText: 'A woman at a rainy street corner',
+              outputImagePrompt:
+                'A still frame of a woman at a rainy street corner',
+              outputVideoPrompt: 'She turns toward camera as it pushes in',
+            },
+          }
+        : node
+    )
+    expect(
+      connectedGenerationInput(
+        shotNodes,
+        [{ id: 'ti', source: 'text', target: 'image' }],
+        'image'
+      ).prompt
+    ).toBe('A still frame of a woman at a rainy street corner\n\ncinematic')
+    expect(
+      connectedGenerationInput(
+        shotNodes,
+        [{ id: 'tv', source: 'text', target: 'video' }],
+        'video'
+      ).prompt
+    ).toBe(
+      'A woman at a rainy street corner\n\nShe turns toward camera as it pushes in\n\nslow push in'
+    )
+    expect(
+      connectedGenerationInput(
+        shotNodes,
+        [
+          { id: 'tv', source: 'text', target: 'video' },
+          { id: 'iv', source: 'image', target: 'video' },
+        ],
+        'video'
+      )
+    ).toEqual({
+      prompt: 'She turns toward camera as it pushes in\n\nslow push in',
+      imageUrl: 'https://cdn.example/frame.png',
+    })
+  })
+
   test('does not submit a browser blob URL as an upstream image reference', () => {
     const localNodes: StudioCanvasNode[] = [
       {
