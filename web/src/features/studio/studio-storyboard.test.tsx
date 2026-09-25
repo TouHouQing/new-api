@@ -67,7 +67,7 @@ test('creates a final video and can select and generate it from the storyboard',
   fireEvent.click(screen.getByRole('button', { name: 'studio.shot.editFinal' }))
   expect(onSelectNode).toHaveBeenCalledWith('final')
   fireEvent.click(
-    screen.getByRole('button', { name: 'studio.shot.generateFinal' })
+    screen.getByRole('button', { name: 'studio.final.aiGenerate' })
   )
   expect(onGenerateVideo).toHaveBeenCalledWith('final')
 })
@@ -127,4 +127,50 @@ test('a storyboard shot selects source nodes and generates through its video nod
     screen.getByRole('button', { name: 'studio.shot.generateAll' })
   )
   expect(onGenerateAll).toHaveBeenCalledOnce()
+})
+
+test('offers previous-shot last frame only when the previous video is completed', () => {
+  let project = addStudioShot(
+    createStudioProject('Continuity', 'p-continuity'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = addStudioShot(
+    project,
+    'shot-2',
+    { text: 't2', image: 'i2', video: 'v2' },
+    'Next'
+  )
+  project = updateStudioNode(project, 'v1', {
+    status: 'completed',
+    mediaId: 'clip-1',
+  })
+  const onUsePreviousFrame = vi.fn()
+  render(
+    <StudioStoryboard
+      project={project}
+      previews={{}}
+      onSelectNode={vi.fn()}
+      onGenerateVideo={vi.fn()}
+      onGenerateAll={vi.fn()}
+      onCreateFinalVideo={vi.fn()}
+      onAddShot={vi.fn()}
+      onMoveShot={vi.fn()}
+      onRenameShot={vi.fn()}
+      onDeleteShot={vi.fn()}
+      onUsePreviousFrame={onUsePreviousFrame}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
+    />
+  )
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.shot.usePreviousFrame' })
+  )
+  expect(onUsePreviousFrame).toHaveBeenCalledWith('shot-2')
 })

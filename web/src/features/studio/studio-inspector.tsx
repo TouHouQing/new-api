@@ -50,6 +50,7 @@ import {
   studioCostDurationSeconds,
   type StudioVideoCostPreview,
 } from './studio-cost'
+import { StudioTextResultEditor } from './studio-text-result-editor'
 import { StudioVideoModelPicker } from './studio-video-model-picker'
 
 type Props = {
@@ -67,6 +68,11 @@ type Props = {
   onDelete: () => void
   onRetryMedia?: () => void
   onSelectTake?: (takeId: string) => void
+  onSaveTextOutput?: (output: {
+    scene: string
+    imagePrompt: string
+    videoPrompt: string
+  }) => void
   availableAssets?: StudioAsset[]
   requestPreview?: string
 }
@@ -758,31 +764,15 @@ export function StudioInspector(props: Props) {
             </Select>
           </Field>
         )}
-        {props.node.data.kind === 'text' && props.node.data.outputText && (
-          <Field>
-            <FieldLabel>{t('studio.text.scene')}</FieldLabel>
-            <pre className='bg-muted max-h-64 overflow-auto rounded-lg p-3 text-xs whitespace-pre-wrap'>
-              {props.node.data.outputText}
-            </pre>
-          </Field>
-        )}
         {props.node.data.kind === 'text' &&
-          props.node.data.outputImagePrompt && (
-            <Field>
-              <FieldLabel>{t('studio.text.imagePrompt')}</FieldLabel>
-              <pre className='bg-muted max-h-64 overflow-auto rounded-lg p-3 text-xs whitespace-pre-wrap'>
-                {props.node.data.outputImagePrompt}
-              </pre>
-            </Field>
-          )}
-        {props.node.data.kind === 'text' &&
-          props.node.data.outputVideoPrompt && (
-            <Field>
-              <FieldLabel>{t('studio.text.videoPrompt')}</FieldLabel>
-              <pre className='bg-muted max-h-64 overflow-auto rounded-lg p-3 text-xs whitespace-pre-wrap'>
-                {props.node.data.outputVideoPrompt}
-              </pre>
-            </Field>
+          (props.node.data.status === 'completed' ||
+            props.node.data.outputText ||
+            props.node.data.outputImagePrompt ||
+            props.node.data.outputVideoPrompt) && (
+            <StudioTextResultEditor
+              node={props.node}
+              onSave={props.onSaveTextOutput}
+            />
           )}
         {props.node.data.kind === 'image' && props.previewUrl && (
           <img

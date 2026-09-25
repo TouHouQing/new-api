@@ -54,6 +54,7 @@ vi.mock('../api', () => ({
   fetchStudioProviderConfigs: async () => ({}),
   fetchStudioProviderModels: async () => [],
   fetchStudioAttempts: async () => [],
+  generateStudioStoryboard: vi.fn(),
   getStudioVideoContentUrl: async () => '',
 }))
 vi.mock('../media-store', () => ({

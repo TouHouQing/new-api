@@ -26,6 +26,7 @@ import {
   inferStudioVideoFamily,
   parseStudioVideoMetadata,
   parseStudioVideoPayloadPatch,
+  type StudioVideoFamily,
 } from './model-profiles'
 
 const nodeDataSchema = z.strictObject({
@@ -133,6 +134,20 @@ const projectSchema = z.strictObject({
   assembledMediaId: z.string().min(1).max(128).optional(),
   soundtrackMediaId: z.string().min(1).max(128).optional(),
   soundtrackVolume: z.number().min(0).max(1).optional(),
+  defaults: z
+    .strictObject({
+      textModel: z.string().max(200).optional(),
+      imageModel: z.string().max(200).optional(),
+      videoGroup: z.string().max(100).optional(),
+      videoModel: z.string().max(200).optional(),
+      videoFamily: z
+        .enum(['generic', 'seedance-2', 'seedance-2.5', 'minimax-h3'])
+        .optional(),
+      seconds: z.number().int().min(1).max(3600).optional(),
+      resolution: z.string().max(100).optional(),
+      ratio: z.string().max(40).optional(),
+    })
+    .optional(),
   shots: z
     .array(
       z.strictObject({
@@ -191,8 +206,20 @@ export type StudioProject = {
   assembledMediaId?: string
   soundtrackMediaId?: string
   soundtrackVolume?: number
+  defaults?: StudioProjectDefaults
   createdAt: string
   updatedAt: string
+}
+
+export type StudioProjectDefaults = {
+  textModel?: string
+  imageModel?: string
+  videoGroup?: string
+  videoModel?: string
+  videoFamily?: StudioVideoFamily
+  seconds?: number
+  resolution?: string
+  ratio?: string
 }
 
 export type StudioShot = {

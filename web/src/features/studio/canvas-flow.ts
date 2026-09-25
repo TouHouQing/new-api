@@ -240,7 +240,11 @@ export function connectedGenerationInput(
     node: StudioCanvasNode,
     sourceHandle?: string | null
   ): string => {
-    const scene = node.data.outputText?.trim() || node.data.prompt.trim()
+    const scene =
+      node.data.outputText?.trim() ||
+      node.data.outputImagePrompt?.trim() ||
+      node.data.outputVideoPrompt?.trim() ||
+      node.data.prompt.trim()
     if (sourceHandle === 'scene') return scene
     if (
       sourceHandle === 'image_prompt' ||
@@ -254,9 +258,10 @@ export function connectedGenerationInput(
         (target.data.kind === 'video' && !sourceHandle)) &&
       motion
     ) {
-      return hasImageSource
-        ? motion
-        : [scene, motion].filter(Boolean).join('\n\n')
+      if (hasImageSource || motion === scene) {
+        return motion
+      }
+      return [scene, motion].filter(Boolean).join('\n\n')
     }
     return scene
   }

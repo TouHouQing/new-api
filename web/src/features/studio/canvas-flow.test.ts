@@ -333,6 +333,51 @@ describe('Studio canvas connections', () => {
     })
   })
 
+  test('does not repeat a manual shot description when scene and motion are identical', () => {
+    const shotNodes = nodes.map((node) =>
+      node.id === 'text'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              outputText: 'A woman enters a station.',
+              outputVideoPrompt: 'A woman enters a station.',
+            },
+          }
+        : node
+    )
+    expect(
+      connectedGenerationInput(
+        shotNodes,
+        [{ id: 'tv', source: 'text', target: 'video' }],
+        'video'
+      ).prompt
+    ).toBe('A woman enters a station.\n\nslow push in')
+  })
+
+  test('a partial saved text result falls back to its saved prompt instead of the old brief', () => {
+    const shotNodes = nodes.map((node) =>
+      node.id === 'text'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              outputText: '',
+              outputImagePrompt: 'Saved still frame',
+              outputVideoPrompt: '',
+            },
+          }
+        : node
+    )
+    expect(
+      connectedGenerationInput(
+        shotNodes,
+        [{ id: 'tv', source: 'text', target: 'video' }],
+        'video'
+      ).prompt
+    ).toBe('Saved still frame\n\nslow push in')
+  })
+
   test('uses an explicit text output port instead of guessing by target kind', () => {
     const text = {
       ...nodes[0],

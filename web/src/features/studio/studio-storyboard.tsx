@@ -21,12 +21,37 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 
-import type { StudioProject, StudioShot } from './local-projects'
+import type { StudioGroup, StudioShotDraft } from './api'
+import type {
+  StudioProject,
+  StudioProjectDefaults,
+  StudioShot,
+} from './local-projects'
 import { StudioAssemblyPanel } from './studio-assembly-panel'
+import { StudioShotDefaults } from './studio-shot-defaults'
+import { StudioShotPlanner } from './studio-shot-planner'
 
 type Props = {
   project: StudioProject
   previews: Record<string, string>
+  groups?: StudioGroup[]
+  userGroup?: string
+  textModels?: string[]
+  imageModels?: string[]
+  onChangeDefaults?: (patch: Partial<StudioProjectDefaults>) => void
+  onPlanShots?: (
+    model: string,
+    prompt: string,
+    count: number
+  ) => Promise<StudioShotDraft[]>
+  onCreatePlannedShots?: (
+    drafts: StudioShotDraft[],
+    sourcePrompt: string,
+    model?: string
+  ) => boolean | void
+  planningScope?: string
+  onUsePreviousFrame?: (shotId: string) => void
+  frameBusyShotId?: string | null
   onSelectNode: (nodeId: string) => void
   onGenerateVideo: (nodeId: string) => void
   onGenerateAll: () => void
@@ -113,6 +138,27 @@ export function StudioStoryboard(props: Props) {
           </Button>
         </div>
       </div>
+      {props.onPlanShots && props.onCreatePlannedShots && (
+        <StudioShotPlanner
+          scopeKey={props.planningScope || props.project.id}
+          models={props.textModels || []}
+          defaultModel={props.project.defaults?.textModel}
+          onPlan={props.onPlanShots}
+          onConfirm={props.onCreatePlannedShots}
+        />
+      )}
+      {props.onChangeDefaults && (
+        <div className='mb-4'>
+          <StudioShotDefaults
+            value={props.project.defaults || {}}
+            groups={props.groups || []}
+            userGroup={props.userGroup || ''}
+            textModels={props.textModels || []}
+            imageModels={props.imageModels || []}
+            onChange={props.onChangeDefaults}
+          />
+        </div>
+      )}
       <div className='text-muted-foreground mb-4 flex flex-wrap items-center gap-3 text-xs'>
         <label className='flex items-center gap-2'>
           {t('studio.batch.limit')}
@@ -267,6 +313,30 @@ export function StudioStoryboard(props: Props) {
                   >
                     {t('studio.shot.editImage')}
                   </Button>
+                  {index > 0 && props.onUsePreviousFrame && (
+                    <Button
+                      size='xs'
+                      variant='outline'
+                      disabled={
+                        props.frameBusyShotId === shot.id ||
+                        !props.project.nodes.some(
+                          (node) =>
+                            node.id === shots[index - 1].videoNodeId &&
+                            node.data.status === 'completed' &&
+                            Boolean(
+                              node.data.mediaId ||
+                              node.data.taskId ||
+                              node.data.outputUrl
+                            )
+                        )
+                      }
+                      onClick={() => props.onUsePreviousFrame?.(shot.id)}
+                    >
+                      {props.frameBusyShotId === shot.id
+                        ? t('studio.generating')
+                        : t('studio.shot.usePreviousFrame')}
+                    </Button>
+                  )}
                 </div>
                 <div className='min-w-0 space-y-2 rounded-md border p-3'>
                   <p className='text-muted-foreground text-xs'>
@@ -439,12 +509,15 @@ export function StudioStoryboard(props: Props) {
           <Card className='gap-3 py-3'>
             <CardHeader className='px-4'>
               <CardTitle className='text-sm'>
-                {t('studio.shot.finalTitle')}
+                {t('studio.final.aiTitle')}
               </CardTitle>
             </CardHeader>
             <CardContent className='space-y-3 px-4'>
               <p className='text-muted-foreground text-xs'>
-                {t('studio.shot.finalDescription')}
+                {t('studio.final.aiDescription')}
+              </p>
+              <p className='text-muted-foreground text-xs'>
+                {t('studio.final.aiBillable')}
               </p>
               {finalPreview && (
                 <video
@@ -457,7 +530,7 @@ export function StudioStoryboard(props: Props) {
               <div className='flex flex-wrap gap-2'>
                 {!finalVideo ? (
                   <Button size='sm' onClick={props.onCreateFinalVideo}>
-                    {t('studio.shot.createFinal')}
+                    {t('studio.final.aiCreate')}
                   </Button>
                 ) : (
                   <>
@@ -478,7 +551,7 @@ export function StudioStoryboard(props: Props) {
                       }
                       onClick={() => props.onGenerateVideo(finalVideo.id)}
                     >
-                      {t('studio.shot.generateFinal')}
+                      {t('studio.final.aiGenerate')}
                     </Button>
                   </>
                 )}

@@ -23,7 +23,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
-import type { ReactElement } from 'react'
+import { useEffect, type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
@@ -41,12 +41,14 @@ import {
 import type { StudioCanvasNode } from './canvas-flow'
 import { Studio } from './index'
 import { saveStudioProjects, studioProjectsKey } from './local-projects'
+import { captureStudioLastFrame } from './studio-frame-grab'
 import { importStudioProjectBundle } from './studio-project-bundle'
 import {
   addStudioNode,
   addStudioShot,
   createStudioProject,
   ensureStudioFinalVideo,
+  recordStudioTake,
   updateStudioNode,
 } from './workspace'
 
@@ -58,6 +60,34 @@ function render(ui: ReactElement) {
     <QueryClientProvider client={client}>{ui}</QueryClientProvider>
   )
 }
+
+const preflightTestState = vi.hoisted(() => ({ autoConfirm: true }))
+
+vi.mock('./studio-video-preflight', () => ({
+  StudioVideoPreflight: ({
+    data,
+    onConfirm,
+    onCancel,
+  }: {
+    data: { kind: 'video' | 'batch' }
+    onConfirm: () => void
+    onCancel: () => void
+  }) => {
+    useEffect(() => {
+      if (preflightTestState.autoConfirm) onConfirm()
+    }, [onConfirm])
+    return preflightTestState.autoConfirm ? null : (
+      <div role='dialog' aria-label={data.kind}>
+        <button type='button' onClick={onConfirm}>
+          studio.preflight.confirm
+        </button>
+        <button type='button' onClick={onCancel}>
+          studio.preflight.cancel
+        </button>
+      </div>
+    )
+  },
+}))
 
 vi.mock('@/components/ai-elements/canvas', () => ({
   Canvas: ({
@@ -92,6 +122,7 @@ vi.mock('./api', () => ({
   saveStudioProviderConfig: vi.fn(),
   deleteStudioProviderConfig: vi.fn(),
   generateStudioText: vi.fn(),
+  generateStudioStoryboard: vi.fn(),
   generateStudioImage: vi.fn(),
   createStudioVideo: vi.fn(),
   getStudioVideoTask: vi.fn(),
@@ -110,12 +141,14 @@ vi.mock('./media-store', () => ({
     },
   }),
 }))
+vi.mock('./studio-frame-grab', () => ({ captureStudioLastFrame: vi.fn() }))
 vi.mock('./studio-project-bundle', () => ({
   exportStudioProjectBundle: vi.fn(),
   importStudioProjectBundle: vi.fn(),
 }))
 
 beforeEach(() => {
+  preflightTestState.autoConfirm = true
   vi.clearAllMocks()
   storedMedia.clear()
   localStorage.clear()
@@ -577,6 +610,131 @@ describe('Studio account isolation', () => {
     })
   })
 
+  test('requires explicit confirmation before creating a billable video task', async () => {
+    preflightTestState.autoConfirm = false
+    vi.mocked(createStudioVideo).mockResolvedValue('task-confirmed')
+    vi.mocked(getStudioVideoTask).mockResolvedValue({
+      status: 'queued',
+      progress: 0,
+    })
+    let project = addStudioNode(
+      createStudioProject('Confirm', 'confirm'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'A walking subject',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    expect(await screen.findByRole('dialog')).toBeTruthy()
+    expect(createStudioVideo).not.toHaveBeenCalled()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.preflight.cancel' })
+    )
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull())
+    expect(createStudioVideo).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByRole('button', { name: 'studio.generate' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.preflight.confirm' })
+    )
+    await waitFor(() => expect(createStudioVideo).toHaveBeenCalledOnce())
+  })
+
+  test('a partial saved text revision stays authoritative for downstream video', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-revision')
+    vi.mocked(getStudioVideoTask).mockResolvedValue({
+      status: 'queued',
+      progress: 0,
+    })
+    let project = addStudioShot(
+      createStudioProject('Revision', 'p-revision'),
+      'shot-1',
+      { text: 'text', image: 'image', video: 'video' },
+      'Opening'
+    )
+    project = updateStudioNode(project, 'text', {
+      model: 'writer-model',
+      prompt: 'Original brief',
+    })
+    project = recordStudioTake(project, 'text', {
+      id: 'manual-revision',
+      createdAt: '2026-09-26T00:00:00Z',
+      prompt: 'Original brief',
+      status: 'completed',
+      outputText: 'Revised scene',
+      outputImagePrompt: '',
+      outputVideoPrompt: '',
+    })
+    project = updateStudioNode(project, 'video', { model: '会员套餐甲' })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.generateVideo' })
+    )
+    await waitFor(() => expect(createStudioVideo).toHaveBeenCalledOnce())
+    expect(generateStudioText).not.toHaveBeenCalled()
+    expect(createStudioVideo).toHaveBeenCalledWith(
+      expect.objectContaining({ prompt: 'Revised scene' }),
+      'default'
+    )
+  })
+
+  test('copies a completed previous shot frame into the next manual image node', async () => {
+    vi.mocked(captureStudioLastFrame).mockResolvedValue(
+      new Blob(['png'], { type: 'image/png' })
+    )
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:qa-frame')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    storedMedia.set(
+      '12:previous-clip',
+      new Blob(['video'], { type: 'video/mp4' })
+    )
+    let project = addStudioShot(
+      createStudioProject('Continue', 'p-continue'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = addStudioShot(
+      project,
+      'shot-2',
+      { text: 't2', image: 'i2', video: 'v2' },
+      'Next'
+    )
+    project = updateStudioNode(project, 'v1', {
+      status: 'completed',
+      mediaId: 'previous-clip',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', {
+        name: 'studio.shot.usePreviousFrame',
+      })
+    )
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      const image = saved.projects[0].nodes.find(
+        (node: StudioCanvasNode) => node.id === 'i2'
+      )
+      expect(image.data).toMatchObject({ status: 'completed' })
+      expect(image.data.model).toBeUndefined()
+      expect(image.data.mediaId).toBeTruthy()
+      expect(storedMedia.get(`12:${image.data.mediaId}`)?.type).toBe(
+        'image/png'
+      )
+    })
+    expect(captureStudioLastFrame).toHaveBeenCalledWith(expect.any(Blob))
+  })
+
   test('keeps a video task discoverable if the prompt changes during submission', async () => {
     let finishSubmit!: (taskId: string) => void
     vi.mocked(createStudioVideo).mockImplementation(
@@ -654,6 +812,61 @@ describe('Studio account isolation', () => {
       expect(finalNode?.data.taskId).toBeUndefined()
     })
   })
+  test('keeps a queued upstream video alive after a local dependent wait deadline', async () => {
+    vi.mocked(getStudioVideoTask).mockResolvedValue({
+      status: 'queued',
+      progress: 15,
+    })
+    let project = addStudioShot(
+      createStudioProject('Waiting', 'p-wait'),
+      'shot-1',
+      { text: 'text', image: 'image', video: 'shot-video' },
+      'Opening'
+    )
+    project = ensureStudioFinalVideo(project, 'final')
+    project = updateStudioNode(project, 'shot-video', {
+      model: '会员套餐甲',
+      prompt: 'Previous shot',
+    })
+    project = updateStudioNode(project, 'shot-video', {
+      status: 'queued',
+      taskId: 'running-task',
+    })
+    project = updateStudioNode(project, 'final', {
+      model: '会员套餐甲',
+      prompt: 'Continue',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    let tick = 0
+    vi.spyOn(Date, 'now').mockImplementation(() => {
+      tick += 21 * 60_000
+      return tick
+    })
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.final.aiGenerate' })
+    )
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      const upstream = saved.projects[0].nodes.find(
+        (node: StudioCanvasNode) => node.id === 'shot-video'
+      )
+      const final = saved.projects[0].nodes.find(
+        (node: StudioCanvasNode) => node.id === 'final'
+      )
+      expect(upstream.data).toMatchObject({
+        taskId: 'running-task',
+        status: 'queued',
+      })
+      expect(final.data).toMatchObject({
+        status: 'idle',
+        error: 'studio.video.upstreamTimeout',
+      })
+    })
+    expect(createStudioVideo).not.toHaveBeenCalled()
+  })
   test('submits completed storyboard videos to the final model in shot order', async () => {
     vi.mocked(getStudioVideoContentUrl).mockImplementation(
       async (taskId) => `https://cdn.example/${taskId}.mp4`
@@ -688,7 +901,7 @@ describe('Studio account isolation', () => {
     saveStudioProjects(localStorage, 12, [project])
     render(<Studio />)
     fireEvent.click(
-      await screen.findByRole('button', { name: 'studio.shot.generateFinal' })
+      await screen.findByRole('button', { name: 'studio.final.aiGenerate' })
     )
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
@@ -780,7 +993,7 @@ describe('Studio account isolation', () => {
     saveStudioProjects(localStorage, 12, [project])
     render(<Studio />)
     fireEvent.click(
-      await screen.findByRole('button', { name: 'studio.shot.createFinal' })
+      await screen.findByRole('button', { name: 'studio.final.aiCreate' })
     )
     await waitFor(() => {
       const saved = JSON.parse(
@@ -892,6 +1105,59 @@ describe('Studio account isolation', () => {
       screen.getByRole('button', { name: 'studio.shot.generateAll' })
     )
     await waitFor(() => expect(createStudioVideo).toHaveBeenCalledOnce())
+  })
+
+  test('batch overview still confirms each exact billable request and stops on cancel', async () => {
+    preflightTestState.autoConfirm = false
+    vi.mocked(createStudioVideo).mockResolvedValue('task-batch-confirmed')
+    vi.mocked(getStudioVideoTask).mockResolvedValue({
+      status: 'queued',
+      progress: 0,
+    })
+    let project = createStudioProject('Batch confirmations', 'p-batch-confirm')
+    for (const number of [1, 2, 3]) {
+      project = addStudioShot(
+        project,
+        `shot-${number}`,
+        {
+          text: `text-${number}`,
+          image: `image-${number}`,
+          video: `video-${number}`,
+        },
+        `Shot ${number}`
+      )
+      project = updateStudioNode(project, `video-${number}`, {
+        model: '会员套餐甲',
+        prompt: `Scene ${number}`,
+      })
+    }
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.shot.generateAll' })
+    )
+    expect(await screen.findByRole('dialog', { name: 'batch' })).toBeTruthy()
+    expect(createStudioVideo).not.toHaveBeenCalled()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.preflight.confirm' })
+    )
+    expect(await screen.findByRole('dialog', { name: 'video' })).toBeTruthy()
+    expect(createStudioVideo).not.toHaveBeenCalled()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.preflight.confirm' })
+    )
+    await waitFor(() => expect(createStudioVideo).toHaveBeenCalledOnce())
+    expect(await screen.findByRole('dialog', { name: 'video' })).toBeTruthy()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.preflight.cancel' })
+    )
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull()
+      expect(
+        screen.getByRole('button', { name: 'studio.shot.generateAll' })
+      ).toBeTruthy()
+    })
+    expect(createStudioVideo).toHaveBeenCalledOnce()
   })
   test('creates a storyboard shot within the current New API project', async () => {
     render(<Studio />)

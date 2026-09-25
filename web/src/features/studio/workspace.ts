@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import type { StudioShotDraft } from './api'
 import type { StudioCanvasNodeData, StudioTake } from './canvas-flow'
 import type { StudioProject } from './local-projects'
 
@@ -95,6 +96,45 @@ export function recordStudioTake(
     ),
   }
   return selectStudioTake(next, nodeId, take.id)
+}
+
+export function reviseStudioTextOutput(
+  project: StudioProject,
+  nodeId: string,
+  takeId: string,
+  output: { scene: string; imagePrompt: string; videoPrompt: string }
+): StudioProject {
+  const node = project.nodes.find((item) => item.id === nodeId)
+  if (!node || node.data.kind !== 'text') {
+    throw new Error('Studio text node is unavailable')
+  }
+  const scene = output.scene.trim()
+  const imagePrompt = output.imagePrompt.trim()
+  const videoPrompt = output.videoPrompt.trim()
+  if (!scene && !imagePrompt && !videoPrompt) {
+    throw new Error('At least one text result is required')
+  }
+  return recordStudioTake(project, nodeId, {
+    id: takeId,
+    createdAt: new Date().toISOString(),
+    prompt: node.data.prompt,
+    status: 'completed',
+    outputText: scene,
+    outputImagePrompt: imagePrompt,
+    outputVideoPrompt: videoPrompt,
+  })
+}
+
+/** A local polling deadline never changes the state of the billed upstream task. */
+export function markStudioDependentWaiting(
+  project: StudioProject,
+  targetId: string,
+  message: string
+): StudioProject {
+  return updateStudioNode(project, targetId, {
+    status: 'idle',
+    error: message,
+  })
 }
 
 /** Keeps a submitted task discoverable when its inputs changed mid-request. */
@@ -235,6 +275,41 @@ export function addStudioShot(
   let next = addStudioNode(project, 'text', ids.text)
   next = addStudioNode(next, 'image', ids.image)
   next = addStudioNode(next, 'video', ids.video)
+  const defaults = project.defaults
+  if (defaults) {
+    next = {
+      ...next,
+      nodes: next.nodes.map((node) => {
+        if (node.id === ids.text) {
+          return {
+            ...node,
+            data: { ...node.data, model: defaults.textModel },
+          }
+        }
+        if (node.id === ids.image) {
+          return {
+            ...node,
+            data: { ...node.data, model: defaults.imageModel },
+          }
+        }
+        if (node.id === ids.video) {
+          return {
+            ...node,
+            data: {
+              ...node.data,
+              model: defaults.videoModel,
+              group: defaults.videoGroup,
+              videoFamily: defaults.videoFamily,
+              seconds: defaults.seconds ?? node.data.seconds,
+              resolution: defaults.resolution,
+              ratio: defaults.ratio,
+            },
+          }
+        }
+        return node
+      }),
+    }
+  }
   return syncStudioFinalVideoEdges({
     ...next,
     edges: [
@@ -266,6 +341,35 @@ export function addStudioShot(
       },
     ],
   })
+}
+
+export function addPlannedStudioShots(
+  project: StudioProject,
+  planned: Array<{
+    shotId: string
+    ids: { text: string; image: string; video: string }
+    takeId: string
+    draft: StudioShotDraft
+  }>,
+  sourcePrompt: string,
+  model?: string
+): StudioProject {
+  let next = project
+  for (const { draft, shotId, ids, takeId } of planned) {
+    next = addStudioShot(next, shotId, ids, draft.title)
+    next = updateStudioNode(next, ids.text, { prompt: draft.text, model })
+    next = recordStudioTake(next, ids.text, {
+      id: takeId,
+      createdAt: new Date().toISOString(),
+      model,
+      prompt: sourcePrompt,
+      status: 'completed',
+      outputText: draft.text,
+      outputImagePrompt: draft.imagePrompt,
+      outputVideoPrompt: draft.videoPrompt,
+    })
+  }
+  return next
 }
 
 function syncStudioFinalVideoEdges(project: StudioProject): StudioProject {

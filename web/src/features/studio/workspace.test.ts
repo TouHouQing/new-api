@@ -21,13 +21,16 @@ import { describe, expect, test } from 'vitest'
 import {
   addStudioNode,
   addStudioShot,
+  addPlannedStudioShots,
   createStudioProject,
   retainStudioTake,
   invalidateStudioBranch,
   ensureStudioFinalVideo,
   moveStudioShot,
+  markStudioDependentWaiting,
   pruneStudioShots,
   recordStudioTake,
+  reviseStudioTextOutput,
   removeStudioShot,
   selectStudioTake,
   updateStudioTake,
@@ -35,6 +38,160 @@ import {
 } from './workspace'
 
 describe('Studio project editing', () => {
+  test('confirmed storyboard drafts become connected shots with reusable text outputs', () => {
+    const project = addPlannedStudioShots(
+      createStudioProject('Script', 'p-script'),
+      [
+        {
+          shotId: 'shot-1',
+          ids: { text: 'text', image: 'image', video: 'video' },
+          takeId: 'plan-1',
+          draft: {
+            title: 'Station',
+            text: 'Woman enters the station',
+            imagePrompt: 'Still station wide shot',
+            videoPrompt: 'Camera follows her',
+          },
+        },
+      ],
+      'A woman enters a station',
+      'writer-model'
+    )
+    const text = project.nodes.find((node) => node.id === 'text')
+    expect(project.shots?.[0].title).toBe('Station')
+    expect(project.edges).toHaveLength(3)
+    expect(text?.data).toMatchObject({
+      model: 'writer-model',
+      status: 'completed',
+      outputText: 'Woman enters the station',
+      outputImagePrompt: 'Still station wide shot',
+      outputVideoPrompt: 'Camera follows her',
+      selectedTakeId: 'plan-1',
+    })
+  })
+  test('a local wait timeout preserves the upstream task and leaves the dependent retryable', () => {
+    let project = addStudioShot(
+      createStudioProject('Waiting', 'p-waiting'),
+      'shot',
+      { text: 'text', image: 'image', video: 'video' },
+      'Opening'
+    )
+    project = addStudioNode(project, 'video', 'final')
+    project = updateStudioNode(project, 'video', {
+      taskId: 'task-queued',
+      status: 'processing',
+      progress: 42,
+    })
+    project = updateStudioNode(project, 'final', { status: 'submitting' })
+    const waiting = markStudioDependentWaiting(
+      project,
+      'final',
+      'Waiting for upstream video'
+    )
+    expect(
+      waiting.nodes.find((node) => node.id === 'video')?.data
+    ).toMatchObject({
+      taskId: 'task-queued',
+      status: 'processing',
+      progress: 42,
+    })
+    expect(
+      waiting.nodes.find((node) => node.id === 'final')?.data
+    ).toMatchObject({
+      status: 'idle',
+      error: 'Waiting for upstream video',
+    })
+  })
+  test('revising generated text preserves its prior take and clears dependent media', () => {
+    let project = addStudioShot(
+      createStudioProject('Revisions', 'p-revisions'),
+      'shot',
+      { text: 'text', image: 'image', video: 'video' },
+      'Opening'
+    )
+    project = recordStudioTake(project, 'text', {
+      id: 'original',
+      createdAt: '2026-09-26T00:00:00Z',
+      model: 'writer',
+      prompt: 'A woman',
+      status: 'completed',
+      outputText: 'Old scene',
+      outputImagePrompt: 'Old still',
+      outputVideoPrompt: 'Old motion',
+    })
+    project = updateStudioNode(project, 'image', {
+      model: 'image-model',
+      mediaId: 'old-image',
+      status: 'completed',
+    })
+    project = updateStudioNode(project, 'video', {
+      taskId: 'old-video',
+      status: 'completed',
+    })
+
+    const revised = reviseStudioTextOutput(project, 'text', 'revision', {
+      scene: 'New scene',
+      imagePrompt: 'New still',
+      videoPrompt: 'New motion',
+    })
+
+    expect(
+      revised.nodes.find((node) => node.id === 'text')?.data
+    ).toMatchObject({
+      selectedTakeId: 'revision',
+      outputText: 'New scene',
+      outputImagePrompt: 'New still',
+      outputVideoPrompt: 'New motion',
+    })
+    expect(
+      revised.nodes.find((node) => node.id === 'text')?.data.takes
+    ).toHaveLength(2)
+    expect(
+      revised.nodes.find((node) => node.id === 'image')?.data.mediaId
+    ).toBeUndefined()
+    expect(
+      revised.nodes.find((node) => node.id === 'video')?.data.taskId
+    ).toBeUndefined()
+    const restored = selectStudioTake(revised, 'text', 'original')
+    expect(
+      restored.nodes.find((node) => node.id === 'text')?.data.outputText
+    ).toBe('Old scene')
+  })
+  test('new storyboard shots inherit editable project model defaults', () => {
+    const project = {
+      ...createStudioProject('Short drama', 'defaults'),
+      defaults: {
+        textModel: 'writer-model',
+        imageModel: 'image-model',
+        videoGroup: '特价sd',
+        videoModel: 'site-video-alias',
+        videoFamily: 'seedance-2.5' as const,
+        seconds: 30,
+        resolution: '720p',
+        ratio: '9:16',
+      },
+    }
+    const next = addStudioShot(
+      project,
+      'shot-1',
+      { text: 'text', image: 'image', video: 'video' },
+      'Opening'
+    )
+    expect(next.nodes.find((node) => node.id === 'text')?.data.model).toBe(
+      'writer-model'
+    )
+    expect(next.nodes.find((node) => node.id === 'image')?.data.model).toBe(
+      'image-model'
+    )
+    expect(next.nodes.find((node) => node.id === 'video')?.data).toMatchObject({
+      group: '特价sd',
+      model: 'site-video-alias',
+      videoFamily: 'seedance-2.5',
+      seconds: 30,
+      resolution: '720p',
+      ratio: '9:16',
+    })
+  })
   test('new storyboard shots use the simple automatic canvas ports', () => {
     const project = addStudioShot(
       createStudioProject('Simple shot', 'simple-shot'),

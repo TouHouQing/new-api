@@ -129,3 +129,85 @@ func TestStudioProviderImageGenerationPassesOptionsAndReturnsAllImages(t *testin
 	assert.Equal(t, 1, calls)
 	assert.NotContains(t, invalidResponse.Body.String(), "sk-private-test")
 }
+
+func TestStudioProviderStoryboardUsesOwnersTextServiceAndValidatesCount(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("STUDIO_PROVIDER_ENCRYPTION_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x62}, 32)))
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.StudioProvider{}))
+	previousDB := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+	key, err := service.EncryptStudioProviderKey(12, "text", "sk-owner")
+	require.NoError(t, err)
+	require.NoError(t, model.UpsertStudioProvider(12, "text", "https://api.example.com/v1", key))
+
+	previousClient := studioProviderClient
+	calls := 0
+	studioProviderClient = &http.Client{Transport: studioControllerRoundTrip(func(request *http.Request) (*http.Response, error) {
+		calls++
+		assert.Equal(t, "Bearer sk-owner", request.Header.Get("Authorization"))
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"choices":[{"message":{"content":"{\"shots\":[{\"title\":\"Opening\",\"text\":\"A beach\",\"image_prompt\":\"Sunset beach\",\"video_prompt\":\"Camera pans\"}]}"}}]}`)), Header: make(http.Header)}, nil
+	})}
+	t.Cleanup(func() { studioProviderClient = previousClient })
+
+	router := gin.New()
+	router.POST("/providers/text/storyboard", func(c *gin.Context) { c.Set("id", 12); StudioProviderStoryboard(c) })
+	router.POST("/other/providers/text/storyboard", func(c *gin.Context) { c.Set("id", 13); StudioProviderStoryboard(c) })
+	for _, body := range []string{
+		`{"model":"gpt-text","prompt":"scene","count":0}`,
+		`{"model":"gpt-text","prompt":"scene","count":13}`,
+		`{"model":"gpt-text","prompt":"","count":1}`,
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/providers/text/storyboard", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		assert.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	assert.Equal(t, 0, calls)
+
+	otherRequest := httptest.NewRequest(http.MethodPost, "/other/providers/text/storyboard", strings.NewReader(`{"model":"gpt-text","prompt":"scene","count":1}`))
+	otherRequest.Header.Set("Content-Type", "application/json")
+	otherResponse := httptest.NewRecorder()
+	router.ServeHTTP(otherResponse, otherRequest)
+	assert.Equal(t, http.StatusNotFound, otherResponse.Code)
+	assert.Equal(t, 0, calls)
+
+	request := httptest.NewRequest(http.MethodPost, "/providers/text/storyboard", strings.NewReader(`{"model":"gpt-text","prompt":"scene","count":1}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var result struct {
+		Success bool `json:"success"`
+		Data    struct {
+			Shots []struct {
+				Title       string `json:"title"`
+				Text        string `json:"text"`
+				ImagePrompt string `json:"image_prompt"`
+				VideoPrompt string `json:"video_prompt"`
+			} `json:"shots"`
+		} `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
+	assert.True(t, result.Success)
+	require.Len(t, result.Data.Shots, 1)
+	assert.Equal(t, "Opening", result.Data.Shots[0].Title)
+	assert.Equal(t, "A beach", result.Data.Shots[0].Text)
+	assert.Equal(t, 1, calls)
+	assert.Equal(t, "private, no-store", response.Header().Get("Cache-Control"))
+	assert.NotContains(t, response.Body.String(), "sk-owner")
+
+	boundaryBody, err := common.Marshal(studioStoryboardInput{
+		Model: "gpt-text", Prompt: strings.Repeat("\\", 15000) + strings.Repeat("a", 15000), Count: 1,
+	})
+	require.NoError(t, err)
+	boundaryRequest := httptest.NewRequest(http.MethodPost, "/providers/text/storyboard", bytes.NewReader(boundaryBody))
+	boundaryRequest.Header.Set("Content-Type", "application/json")
+	boundaryResponse := httptest.NewRecorder()
+	router.ServeHTTP(boundaryResponse, boundaryRequest)
+	assert.Equal(t, http.StatusOK, boundaryResponse.Code, boundaryResponse.Body.String())
+	assert.Equal(t, 2, calls)
+}

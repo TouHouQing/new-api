@@ -27,6 +27,12 @@ export type StudioTextOutput = {
   imagePrompt: string
   videoPrompt: string
 }
+export type StudioShotDraft = {
+  title: string
+  text: string
+  imagePrompt: string
+  videoPrompt: string
+}
 export type StudioProviderConfig = {
   kind: StudioProviderKind
   baseUrl: string
@@ -310,6 +316,66 @@ export async function generateStudioText(
     prompt,
   })
   return parseStudioTextResponse(response.data)
+}
+
+export function parseStudioStoryboardResponse(
+  value: unknown
+): StudioShotDraft[] {
+  if (
+    !isRecord(value) ||
+    value.success !== true ||
+    !isRecord(value.data) ||
+    !Array.isArray(value.data.shots) ||
+    value.data.shots.length < 1 ||
+    value.data.shots.length > 12
+  ) {
+    throw new Error('Studio storyboard response is invalid')
+  }
+  return value.data.shots.map((item) => {
+    if (
+      !isRecord(item) ||
+      typeof item.title !== 'string' ||
+      !item.title.trim() ||
+      item.title.length > 200 ||
+      typeof item.text !== 'string' ||
+      !item.text.trim() ||
+      item.text.length > 30000 ||
+      typeof item.image_prompt !== 'string' ||
+      !item.image_prompt.trim() ||
+      item.image_prompt.length > 30000 ||
+      typeof item.video_prompt !== 'string' ||
+      !item.video_prompt.trim() ||
+      item.video_prompt.length > 30000
+    ) {
+      throw new Error('Studio storyboard shot is invalid')
+    }
+    return {
+      title: item.title.trim(),
+      text: item.text.trim(),
+      imagePrompt: item.image_prompt.trim(),
+      videoPrompt: item.video_prompt.trim(),
+    }
+  })
+}
+
+export async function generateStudioStoryboard(
+  model: string,
+  prompt: string,
+  count: number
+): Promise<StudioShotDraft[]> {
+  if (!Number.isInteger(count) || count < 1 || count > 12) {
+    throw new Error('Studio storyboard count is invalid')
+  }
+  const response = await api.post('/api/studio/providers/text/storyboard', {
+    model,
+    prompt,
+    count,
+  })
+  const shots = parseStudioStoryboardResponse(response.data)
+  if (shots.length > count) {
+    throw new Error('Studio storyboard count is invalid')
+  }
+  return shots
 }
 
 export async function generateStudioImage(

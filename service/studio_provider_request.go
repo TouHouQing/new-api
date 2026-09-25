@@ -41,6 +41,13 @@ type StudioGeneratedShot struct {
 	VideoPrompt string `json:"video_prompt"`
 }
 
+type StudioStoryboardShot struct {
+	Title       string `json:"title"`
+	Text        string `json:"text"`
+	ImagePrompt string `json:"image_prompt"`
+	VideoPrompt string `json:"video_prompt"`
+}
+
 type StudioImageRequest struct {
 	Model   string  `json:"model"`
 	Prompt  string  `json:"prompt"`
@@ -208,6 +215,67 @@ func GenerateStudioProviderText(ctx context.Context, provider *model.StudioProvi
 	if err != nil {
 		return StudioGeneratedShot{}, err
 	}
+	content, err := studioTextCompletionContent(data)
+	if err != nil {
+		return StudioGeneratedShot{}, err
+	}
+	return parseStudioGeneratedShot(content)
+}
+
+func GenerateStudioProviderStoryboard(ctx context.Context, provider *model.StudioProvider, modelName, prompt string, count int, client *http.Client) ([]StudioStoryboardShot, error) {
+	if provider == nil || provider.Kind != "text" {
+		return nil, errors.New("text provider is not configured")
+	}
+	if err := validStudioModelAndPrompt(modelName, prompt); err != nil {
+		return nil, err
+	}
+	if count < 1 || count > 12 {
+		return nil, errors.New("storyboard count must be between 1 and 12")
+	}
+	request := map[string]any{
+		"model": modelName,
+		"messages": []map[string]string{
+			{"role": "system", "content": fmt.Sprintf(`You write storyboard drafts for AI video creation. The user's input is a creative brief, not a chat message. Return exactly one valid JSON object with this shape: {"shots":[{"title":"short shot title","text":"visible scene description","image_prompt":"static first-frame composition, subjects, setting, lighting and style","video_prompt":"visible subject and camera motion over time"}]}. Create %d coherent shots in narrative order, preserving requested people, setting, style and action. Use the same language as the user's input for every field. Every field must be a nonempty string. Output JSON only: no Markdown, prose, questions, alternatives, tools, or API descriptions.`, count)},
+			{"role": "user", "content": prompt},
+		},
+		"stream": false,
+	}
+	data, err := callStudioProvider(ctx, provider, http.MethodPost, "/chat/completions", request, studioTextMaxResponse, client)
+	if err != nil {
+		return nil, err
+	}
+	content, err := studioTextCompletionContent(data)
+	if err != nil {
+		return nil, err
+	}
+	content = strings.TrimSpace(content)
+	if strings.HasPrefix(content, "```") && strings.HasSuffix(content, "```") {
+		_, body, found := strings.Cut(content, "\n")
+		if found {
+			content = strings.TrimSpace(strings.TrimSuffix(body, "```"))
+		}
+	}
+	var draft struct {
+		Shots []StudioStoryboardShot `json:"shots"`
+	}
+	if err := common.Unmarshal([]byte(content), &draft); err != nil || len(draft.Shots) < 1 || len(draft.Shots) > count {
+		return nil, errors.New("text model did not return a usable storyboard; try another model or write shots manually")
+	}
+	for i := range draft.Shots {
+		shot := &draft.Shots[i]
+		shot.Title = strings.TrimSpace(shot.Title)
+		shot.Text = strings.TrimSpace(shot.Text)
+		shot.ImagePrompt = strings.TrimSpace(shot.ImagePrompt)
+		shot.VideoPrompt = strings.TrimSpace(shot.VideoPrompt)
+		if shot.Title == "" || shot.Text == "" || shot.ImagePrompt == "" || shot.VideoPrompt == "" ||
+			len(shot.Title) > 200 || len(shot.Text) > 30000 || len(shot.ImagePrompt) > 30000 || len(shot.VideoPrompt) > 30000 {
+			return nil, errors.New("text model did not return a usable storyboard; try another model or write shots manually")
+		}
+	}
+	return draft.Shots, nil
+}
+
+func studioTextCompletionContent(data []byte) (string, error) {
 	var parsed struct {
 		Error   json.RawMessage `json:"error"`
 		Success *bool           `json:"success"`
@@ -224,31 +292,31 @@ func GenerateStudioProviderText(ctx context.Context, provider *model.StudioProvi
 	if err := common.Unmarshal(data, &parsed); err != nil {
 		trimmed := bytes.ToLower(bytes.TrimSpace(data))
 		if bytes.HasPrefix(trimmed, []byte("<!doctype html")) || bytes.HasPrefix(trimmed, []byte("<html")) {
-			return StudioGeneratedShot{}, errors.New("text provider returned HTML instead of API JSON; check the service Base URL (usually ends in /v1)")
+			return "", errors.New("text provider returned HTML instead of API JSON; check the service Base URL (usually ends in /v1)")
 		}
-		return StudioGeneratedShot{}, errors.New("text provider returned invalid JSON")
+		return "", errors.New("text provider returned invalid JSON")
 	}
 	if (len(parsed.Error) > 0 && string(parsed.Error) != "null") || (parsed.Success != nil && !*parsed.Success) {
-		return StudioGeneratedShot{}, errors.New("text provider returned an error response")
+		return "", errors.New("text provider returned an error response")
 	}
 	if len(parsed.Choices) == 0 {
-		return StudioGeneratedShot{}, errors.New("text provider returned no text (response has no choices)")
+		return "", errors.New("text provider returned no text (response has no choices)")
 	}
 	choice := parsed.Choices[0]
 	content := studioChatContentText(choice.Message.Content)
 	if strings.TrimSpace(content) != "" {
-		return parseStudioGeneratedShot(content)
+		return content, nil
 	}
 	if choice.FinishReason == "tool_calls" || studioHasToolCalls(choice.Message.ToolCalls) {
-		return StudioGeneratedShot{}, errors.New("text provider returned tool calls instead of text")
+		return "", errors.New("text provider returned tool calls instead of text")
 	}
 	if choice.FinishReason == "content_filter" || choice.Message.Refusal != "" {
-		return StudioGeneratedShot{}, errors.New("text provider did not return text because the output was filtered or refused")
+		return "", errors.New("text provider did not return text because the output was filtered or refused")
 	}
 	if choice.Message.ReasoningContent != "" {
-		return StudioGeneratedShot{}, errors.New("text provider returned reasoning without final text")
+		return "", errors.New("text provider returned reasoning without final text")
 	}
-	return StudioGeneratedShot{}, errors.New("text provider returned no text")
+	return "", errors.New("text provider returned no text")
 }
 
 func parseStudioGeneratedShot(content string) (StudioGeneratedShot, error) {

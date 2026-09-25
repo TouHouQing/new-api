@@ -32,6 +32,7 @@ func SetStudioRouter(router *gin.Engine) {
 	providerAPI.DELETE("/providers/:kind", middleware.CriticalRateLimit(), controller.DeleteStudioProvider)
 	providerAPI.GET("/providers/:kind/models", middleware.UserCriticalRateLimit("studio-provider"), controller.StudioProviderModels)
 	providerAPI.POST("/providers/:kind/generate", middleware.UserCriticalRateLimit("studio-provider"), controller.StudioProviderGenerate)
+	providerAPI.POST("/providers/text/storyboard", middleware.UserCriticalRateLimit("studio-provider"), controller.StudioProviderStoryboard)
 
 	studio := router.Group("/pg/studio")
 	studio.Use(

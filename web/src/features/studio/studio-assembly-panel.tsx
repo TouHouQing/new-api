@@ -41,11 +41,16 @@ export function StudioAssemblyPanel(props: Props) {
   return (
     <Card className='gap-3 py-3'>
       <CardHeader className='px-4'>
-        <CardTitle className='text-sm'>{t('studio.assembly.title')}</CardTitle>
+        <CardTitle className='text-sm'>
+          {t('studio.final.localTitle')}
+        </CardTitle>
       </CardHeader>
       <CardContent className='space-y-3 px-4'>
         <p className='text-muted-foreground text-xs'>
-          {t('studio.assembly.description')}
+          {t('studio.final.localDescription')}
+        </p>
+        <p className='text-muted-foreground text-xs'>
+          {t('studio.final.localNoApi')}
         </p>
         <div className='space-y-2 rounded-md border p-3'>
           <p className='text-sm font-medium'>

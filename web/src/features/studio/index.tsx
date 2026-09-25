@@ -58,11 +58,13 @@ import {
   fetchStudioProviderConfigs,
   fetchStudioProviderModels,
   generateStudioImage,
+  generateStudioStoryboard,
   generateStudioText,
   getStudioVideoContentUrl,
   getStudioVideoTask,
   saveStudioProviderConfig,
   type StudioGroup,
+  type StudioShotDraft,
   type StudioProviderConfigs,
   type StudioProviderKind,
 } from './api'
@@ -113,6 +115,7 @@ import {
   studioPromptWithAssets,
   planStudioVideoBatch,
 } from './studio-execution'
+import { captureStudioLastFrame } from './studio-frame-grab'
 import { StudioInspector } from './studio-inspector'
 import { StudioNode } from './studio-node'
 import {
@@ -121,14 +124,21 @@ import {
 } from './studio-project-bundle'
 import { StudioStoryboard } from './studio-storyboard'
 import {
+  StudioVideoPreflight,
+  type StudioVideoPreflightData,
+} from './studio-video-preflight'
+import {
   addStudioNode,
+  addPlannedStudioShots,
   addStudioShot,
   createStudioProject,
   ensureStudioFinalVideo,
   invalidateStudioBranch,
+  markStudioDependentWaiting,
   moveStudioShot,
   pruneStudioShots,
   recordStudioTake,
+  reviseStudioTextOutput,
   retainStudioTake,
   removeStudioShot,
   selectStudioTake,
@@ -150,6 +160,8 @@ type StudioMediaRef = {
   kind: 'node' | 'assembly' | 'soundtrack' | 'asset'
 }
 class StudioInputChangedError extends Error {}
+class StudioUpstreamWaitError extends Error {}
+class StudioSubmissionCancelledError extends Error {}
 const nodeTypes = { studio: StudioNode }
 
 function errorMessage(error: unknown): string {
@@ -242,10 +254,24 @@ export function Studio() {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const [view, setView] = useState<'canvas' | 'storyboard' | 'assets'>('canvas')
   const [batchBusy, setBatchBusy] = useState(false)
+  const [frameBusyShotId, setFrameBusyShotId] = useState<string | null>(null)
   const [batchLimit, setBatchLimit] = useState(5)
   const [batchCost, setBatchCost] = useState<
     { status: 'estimated'; estimatedUsd: number } | { status: 'unknown' }
   >({ status: 'unknown' })
+  const [preflightData, setPreflightData] =
+    useState<StudioVideoPreflightData | null>(null)
+  const [preflightNonce, setPreflightNonce] = useState(0)
+  const pendingPreflight = useRef<{
+    data: StudioVideoPreflightData
+    projectId: string
+    ownerId: number
+    guard: () => boolean
+    resolve: (approved: boolean) => void
+  } | null>(null)
+  const preflightQueue = useRef<
+    Array<NonNullable<typeof pendingPreflight.current>>
+  >([])
   const [assemblyBusy, setAssemblyBusy] = useState(false)
   const [assemblyProgress, setAssemblyProgress] = useState(0)
   const [assemblyError, setAssemblyError] = useState<string | undefined>()
@@ -299,6 +325,74 @@ export function Studio() {
   activeProjectId.current = project?.id
   const projectsRef = useRef(projects)
   projectsRef.current = projects
+  const settlePreflight = useCallback((approved: boolean) => {
+    const pending = pendingPreflight.current
+    if (!pending) return
+    pendingPreflight.current = null
+    pending.resolve(
+      approved &&
+        activeUserId.current === pending.ownerId &&
+        activeProjectId.current === pending.projectId &&
+        pending.guard()
+    )
+    while (preflightQueue.current.length) {
+      const next = preflightQueue.current.shift()
+      if (!next) break
+      if (
+        next.ownerId === activeUserId.current &&
+        next.projectId === activeProjectId.current &&
+        next.guard()
+      ) {
+        pendingPreflight.current = next
+        setPreflightData(next.data)
+        setPreflightNonce((current) => current + 1)
+        return
+      }
+      next.resolve(false)
+    }
+    setPreflightData(null)
+  }, [])
+  const requestPreflight = useCallback(
+    (data: StudioVideoPreflightData, projectId: string, guard: () => boolean) =>
+      new Promise<boolean>((resolve) => {
+        const pending = {
+          data,
+          projectId,
+          ownerId: activeUserId.current,
+          guard,
+          resolve,
+        }
+        if (pendingPreflight.current) {
+          preflightQueue.current.push(pending)
+          return
+        }
+        pendingPreflight.current = pending
+        setPreflightData(data)
+        setPreflightNonce((current) => current + 1)
+      }),
+    []
+  )
+  useEffect(() => {
+    const pending = pendingPreflight.current
+    if (
+      pending &&
+      (pending.ownerId !== userId ||
+        pending.projectId !== project?.id ||
+        !pending.guard())
+    ) {
+      settlePreflight(false)
+    }
+  }, [workspace.projects, project?.id, userId, settlePreflight])
+  useEffect(
+    () => () => {
+      pendingPreflight.current?.resolve(false)
+      pendingPreflight.current = null
+      for (const queued of preflightQueue.current.splice(0)) {
+        queued.resolve(false)
+      }
+    },
+    []
+  )
   const canvasNodes = useMemo(
     () =>
       project?.nodes.map((node) => ({
@@ -854,6 +948,78 @@ export function Studio() {
     [mediaStore, userId, discardNodeMedia, discardBranchMedia, editProject, t]
   )
 
+  const capturePreviousShotFrame = async (shotId: string) => {
+    if (!project || !mediaStore || frameBusyShotId) return
+    const shotIndex =
+      project.shots?.findIndex((shot) => shot.id === shotId) ?? -1
+    if (shotIndex < 1 || !project.shots) return
+    const previous = project.nodes.find(
+      (node) => node.id === project.shots?.[shotIndex - 1].videoNodeId
+    )
+    const image = project.nodes.find(
+      (node) => node.id === project.shots?.[shotIndex].imageNodeId
+    )
+    if (!previous || !image || previous.data.status !== 'completed') {
+      setMessage(t('studio.shot.previousFrameMissing'))
+      return
+    }
+    const imageFingerprint = studioNodeInputFingerprint(project, image.id)
+    const previousTakeId = previous.data.selectedTakeId
+    setFrameBusyShotId(shotId)
+    setMessage(null)
+    try {
+      let video = previous.data.mediaId
+        ? await mediaStore.get(userId, previous.data.mediaId)
+        : null
+      if (!video) {
+        const url = previous.data.taskId
+          ? await getStudioVideoContentUrl(previous.data.taskId)
+          : previous.data.outputUrl
+        if (!url) {
+          throw new Error(t('studio.shot.previousFrameMissing'))
+        }
+        const response = await fetch(url, { credentials: 'same-origin' })
+        if (!response.ok) {
+          throw new Error(`media download failed (${response.status})`)
+        }
+        video = await response.blob()
+      }
+      const frame = await captureStudioLastFrame(video)
+      if (
+        activeUserId.current !== userId ||
+        activeProjectId.current !== project.id
+      ) {
+        return
+      }
+      const latest = projectsRef.current.find((item) => item.id === project.id)
+      const latestPrevious = latest?.nodes.find(
+        (node) => node.id === previous.id
+      )
+      const latestImage = latest?.nodes.find((node) => node.id === image.id)
+      if (
+        !latest ||
+        !latestImage ||
+        latestPrevious?.data.selectedTakeId !== previousTakeId ||
+        latestPrevious?.data.mediaId !== previous.data.mediaId ||
+        latestPrevious?.data.taskId !== previous.data.taskId ||
+        studioNodeInputFingerprint(latest, image.id) !== imageFingerprint
+      ) {
+        throw new StudioInputChangedError(t('studio.shot.frameChanged'))
+      }
+      await uploadImage(
+        latestImage,
+        latest,
+        new File([frame], `shot-${shotId}-first-frame.png`, {
+          type: 'image/png',
+        })
+      )
+    } catch (error) {
+      setMessage(errorMessage(error))
+    } finally {
+      setFrameBusyShotId(null)
+    }
+  }
+
   const generate = useCallback(
     async (target: StudioCanvasNode, source: StudioProject) => {
       if (!userId || workspace.ownerId !== userId) return
@@ -1000,6 +1166,20 @@ export function Studio() {
           )
 
           if (node.data.kind === 'text') {
+            const textOutputs = [
+              node.data.outputText,
+              node.data.outputImagePrompt,
+              node.data.outputVideoPrompt,
+            ]
+            if (
+              !selected &&
+              node.data.status === 'completed' &&
+              (node.data.selectedTakeId
+                ? textOutputs.some((value) => value?.trim())
+                : textOutputs.every((value) => value?.trim()))
+            ) {
+              continue
+            }
             if (!node.data.model) {
               if (!input.prompt.trim()) {
                 if (selected) throw new Error(t('studio.prompt.required'))
@@ -1012,15 +1192,6 @@ export function Studio() {
                 status: 'completed',
                 error: undefined,
               })
-              continue
-            }
-            if (
-              !selected &&
-              node.data.status === 'completed' &&
-              node.data.outputText?.trim() &&
-              node.data.outputImagePrompt?.trim() &&
-              node.data.outputVideoPrompt?.trim()
-            ) {
               continue
             }
             const textConfig = providerConfigs.text?.hasKey
@@ -1245,7 +1416,9 @@ export function Studio() {
               workingNodes.find((item) => item.id === node.id)?.data.status !==
               'completed'
             ) {
-              throw new Error(t('studio.video.upstreamTimeout'))
+              throw new StudioUpstreamWaitError(
+                t('studio.video.upstreamTimeout')
+              )
             }
             continue
           }
@@ -1383,6 +1556,33 @@ export function Studio() {
             ),
           }))
           if (activeUserId.current !== userId) return
+          const preflightFingerprint = fingerprint(node.id)
+          const costDuration = studioCostDurationSeconds(
+            node.data.seconds ?? model.defaultSeconds,
+            node.data.payloadPatchJson
+          )
+          const approved = await requestPreflight(
+            {
+              kind: 'video',
+              title: node.data.title,
+              group,
+              request,
+              costDuration,
+            },
+            source.id,
+            () => {
+              const latest = projectsRef.current.find(
+                (item) => item.id === source.id
+              )
+              return Boolean(
+                latest &&
+                studioNodeInputFingerprint(latest, node.id) ===
+                  preflightFingerprint
+              )
+            }
+          )
+          if (!approved) throw new StudioSubmissionCancelledError()
+          assertFresh(node.id, preflightFingerprint)
           update(node.id, {
             status: 'submitting',
             error: undefined,
@@ -1456,12 +1656,27 @@ export function Studio() {
               workingNodes.find((item) => item.id === node.id)?.data.status !==
               'completed'
             ) {
-              throw new Error(t('studio.video.upstreamTimeout'))
+              throw new StudioUpstreamWaitError(
+                t('studio.video.upstreamTimeout')
+              )
             }
           }
         }
       } catch (error) {
         if (error instanceof StudioInputChangedError) return
+        if (error instanceof StudioSubmissionCancelledError) {
+          editNode(source.id, target.id, {
+            status: target.data.status || 'idle',
+            error: target.data.error,
+          })
+          return
+        }
+        if (error instanceof StudioUpstreamWaitError) {
+          editProject(source.id, (project) =>
+            markStudioDependentWaiting(project, target.id, error.message)
+          )
+          return
+        }
         const reason = errorMessage(error)
         const displayReason = reason.includes(
           'choose a media request format for mixed'
@@ -1489,6 +1704,7 @@ export function Studio() {
       providerModels,
       userGroup,
       t,
+      requestPreflight,
     ]
   )
 
@@ -1703,25 +1919,97 @@ export function Studio() {
     setView('storyboard')
   }
 
+  const createPlannedShots = (
+    drafts: StudioShotDraft[],
+    sourcePrompt: string,
+    model?: string
+  ): boolean => {
+    if (!project || drafts.length === 0) return false
+    const latest = projectsRef.current.find((item) => item.id === project.id)
+    if (
+      !latest ||
+      (latest.shots?.length || 0) + drafts.length > 166 ||
+      latest.nodes.length + 3 * drafts.length > 500
+    ) {
+      setMessage(t('studio.planner.limit'))
+      return false
+    }
+    const planned = drafts.map((draft) => ({
+      draft,
+      shotId: newId(),
+      ids: { text: newId(), image: newId(), video: newId() },
+      takeId: newId(),
+    }))
+    try {
+      editProject(project.id, (current) =>
+        addPlannedStudioShots(current, planned, sourcePrompt, model)
+      )
+    } catch (error) {
+      setMessage(errorMessage(error))
+      return false
+    }
+    setSelectedNodeId(planned[0].ids.text)
+    setView('storyboard')
+    return true
+  }
+
   const createFinalVideo = () => {
     if (!project) return
     const nodeId = newId()
     editProject(project.id, (current) =>
-      ensureStudioFinalVideo(current, nodeId, t('studio.shot.finalTitle'))
+      ensureStudioFinalVideo(current, nodeId, t('studio.final.aiTitle'))
     )
     setSelectedNodeId(nodeId)
     setView('storyboard')
   }
 
   const generateAllShots = async () => {
-    if (!project || batchBusy) return
-    setBatchBusy(true)
+    if (!project || batchBusy || pendingPreflight.current) return
     try {
       const currentProject = projectsRef.current.find(
         (item) => item.id === project.id
       )
       if (!currentProject) return
       const plan = planStudioVideoBatch(currentProject, batchLimit)
+      if (!plan.targets.length) return
+      const billableFingerprints = plan.billableNodes.map((node) => [
+        node.id,
+        studioNodeInputFingerprint(currentProject, node.id),
+      ])
+      const approved = await requestPreflight(
+        {
+          kind: 'batch',
+          items: plan.billableNodes.map((node) => ({
+            id: node.id,
+            title: node.data.title,
+            group: resolveVideoGroup(node.data.group, userGroup, videoGroups),
+            model: node.data.model || '',
+            seconds: studioCostDurationSeconds(
+              node.data.seconds ?? 5,
+              node.data.payloadPatchJson
+            ),
+            prompt: node.data.prompt,
+            payloadPatch: node.data.payloadPatchJson,
+          })),
+          cost: batchCost,
+        },
+        currentProject.id,
+        () => {
+          const latest = projectsRef.current.find(
+            (item) => item.id === currentProject.id
+          )
+          return Boolean(
+            latest &&
+            billableFingerprints.every(
+              ([nodeId, fingerprint]) =>
+                studioNodeInputFingerprint(latest, nodeId) === fingerprint
+            )
+          )
+        }
+      )
+      if (!approved) return
+      setBatchBusy(true)
+      let stopped = false
       for (const targetId of plan.targets) {
         if (activeUserId.current !== userId) return
         const latest = projectsRef.current.find(
@@ -1731,8 +2019,21 @@ export function Studio() {
         const video = latest.nodes.find((node) => node.id === targetId)
         if (!video) continue
         await generate(video, latest)
+        const submitted = projectsRef.current
+          .find((item) => item.id === project.id)
+          ?.nodes.find((node) => node.id === targetId)
+        if (
+          !submitted?.data.taskId ||
+          submitted.data.taskId === video.data.taskId ||
+          !['queued', 'processing', 'completed'].includes(
+            submitted.data.status || ''
+          )
+        ) {
+          stopped = true
+          break
+        }
       }
-      if (plan.capped) {
+      if (plan.capped && !stopped) {
         setMessage(t('studio.batch.capped', { count: batchLimit }))
       }
     } catch (error) {
@@ -2560,6 +2861,24 @@ export function Studio() {
             <StudioStoryboard
               project={project}
               previews={previews}
+              groups={videoGroups}
+              userGroup={userGroup}
+              textModels={providerModels.text || []}
+              imageModels={providerModels.image || []}
+              onChangeDefaults={(patch) =>
+                editProject(project.id, (current) => ({
+                  ...current,
+                  defaults: { ...current.defaults, ...patch },
+                  updatedAt: new Date().toISOString(),
+                }))
+              }
+              onPlanShots={generateStudioStoryboard}
+              planningScope={`${userId}:${project.id}`}
+              onCreatePlannedShots={createPlannedShots}
+              onUsePreviousFrame={(shotId) =>
+                void capturePreviousShotFrame(shotId)
+              }
+              frameBusyShotId={frameBusyShotId}
               batchBusy={batchBusy}
               batchLimit={batchLimit}
               batchCost={batchCost}
@@ -2727,6 +3046,21 @@ export function Studio() {
                 }
               }}
               onGenerate={() => void generate(selectedNode, project)}
+              onSaveTextOutput={(output) => {
+                try {
+                  editProject(project.id, (current) =>
+                    reviseStudioTextOutput(
+                      current,
+                      selectedNode.id,
+                      newId(),
+                      output
+                    )
+                  )
+                  discardBranchMedia(project, selectedNode.id)
+                } catch (error) {
+                  setMessage(errorMessage(error))
+                }
+              }}
               onUploadImage={(file) => {
                 void uploadImage(selectedNode, project, file).catch((error) =>
                   setMessage(errorMessage(error))
@@ -2754,6 +3088,14 @@ export function Studio() {
           )}
         </aside>
       </div>
+      {preflightData && (
+        <StudioVideoPreflight
+          key={preflightNonce}
+          data={preflightData}
+          onConfirm={() => settlePreflight(true)}
+          onCancel={() => settlePreflight(false)}
+        />
+      )}
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {

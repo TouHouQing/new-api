@@ -24,6 +24,12 @@ type studioGenerationInput struct {
 	Image   string  `json:"image"`
 }
 
+type studioStoryboardInput struct {
+	Model  string `json:"model"`
+	Prompt string `json:"prompt"`
+	Count  int    `json:"count"`
+}
+
 type studioProviderPublic struct {
 	Kind    string `json:"kind"`
 	BaseURL string `json:"base_url"`
@@ -191,4 +197,29 @@ func StudioProviderGenerate(c *gin.Context) {
 	}
 	c.Header("Cache-Control", "private, no-store")
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"url": images[0], "urls": images}})
+}
+
+func StudioProviderStoryboard(c *gin.Context) {
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 192<<10)
+	var input studioStoryboardInput
+	if err := c.ShouldBindJSON(&input); err != nil || input.Model == "" || len(input.Model) > 200 || strings.ContainsAny(input.Model, "\r\n\x00") || strings.TrimSpace(input.Prompt) == "" || len(input.Prompt) > 30000 || input.Count < 1 || input.Count > 12 {
+		studioProviderError(c, http.StatusBadRequest, "studio_provider_request_invalid", "Model and prompt are required; count must be between 1 and 12")
+		return
+	}
+	provider, err := model.GetStudioProvider(c.GetInt("id"), "text")
+	if err != nil {
+		studioProviderError(c, http.StatusInternalServerError, "studio_provider_query_failed", "Could not load Studio service")
+		return
+	}
+	if provider == nil {
+		studioProviderError(c, http.StatusNotFound, "studio_provider_missing", "Configure this Studio service first")
+		return
+	}
+	shots, err := service.GenerateStudioProviderStoryboard(c.Request.Context(), provider, input.Model, input.Prompt, input.Count, studioProviderClient)
+	if err != nil {
+		studioProviderError(c, http.StatusBadGateway, "studio_provider_generation_failed", err.Error())
+		return
+	}
+	c.Header("Cache-Control", "private, no-store")
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"shots": shots}})
 }

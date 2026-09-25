@@ -186,6 +186,106 @@ func TestStudioProviderTextRequestsAProductionReadyShot(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestStudioProviderStoryboardRequestsOneStructuredDraft(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	calls := 0
+	client := &http.Client{Transport: studioRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		calls++
+		require.Equal(t, http.MethodPost, request.Method)
+		require.Equal(t, "/v1/chat/completions", request.URL.Path)
+		assert.Equal(t, "Bearer sk-private-test", request.Header.Get("Authorization"))
+		body, err := io.ReadAll(request.Body)
+		require.NoError(t, err)
+		var payload struct {
+			Model    string `json:"model"`
+			Stream   bool   `json:"stream"`
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		require.NoError(t, common.Unmarshal(body, &payload))
+		assert.Equal(t, "gpt-text", payload.Model)
+		assert.False(t, payload.Stream)
+		require.Len(t, payload.Messages, 2)
+		assert.Equal(t, "system", payload.Messages[0].Role)
+		assert.Contains(t, payload.Messages[0].Content, "shots")
+		assert.Contains(t, payload.Messages[0].Content, "title")
+		assert.Contains(t, payload.Messages[0].Content, "2")
+		assert.Contains(t, payload.Messages[0].Content, "same language")
+		assert.Contains(t, payload.Messages[1].Content, "黄昏的海边")
+		assert.NotContains(t, string(body), "sk-private-test")
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":[{"type":"text","text":"{\"shots\":[{\"title\":\"开场\",\"text\":\"海边\",\"image_prompt\":\"黄昏海景\",\"video_prompt\":\"镜头推进\"},"},{"type":"text","text":"{\"title\":\"特写\",\"text\":\"人物回头\",\"image_prompt\":\"人物侧脸\",\"video_prompt\":\"人物回头，镜头跟随\"}]}"}]},"finish_reason":"stop"}]}`), nil
+	})}
+	shots, err := GenerateStudioProviderStoryboard(context.Background(), provider, "gpt-text", "黄昏的海边", 2, client)
+	require.NoError(t, err)
+	require.Len(t, shots, 2)
+	assert.Equal(t, "开场", shots[0].Title)
+	assert.Equal(t, "镜头推进", shots[0].VideoPrompt)
+	assert.Equal(t, 1, calls)
+}
+
+func TestStudioProviderStoryboardRejectsInvalidRequestsBeforeUpstream(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	calls := 0
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		calls++
+		return studioResponse(http.StatusOK, `{}`), nil
+	})}
+	for _, input := range []struct {
+		name   string
+		model  string
+		prompt string
+		count  int
+	}{
+		{"zero count", "gpt-text", "scene", 0},
+		{"too many shots", "gpt-text", "scene", 13},
+		{"empty prompt", "gpt-text", "  ", 1},
+		{"oversize prompt", "gpt-text", strings.Repeat("a", 30001), 1},
+		{"invalid model", "bad\nmodel", "scene", 1},
+	} {
+		t.Run(input.name, func(t *testing.T) {
+			_, err := GenerateStudioProviderStoryboard(context.Background(), provider, input.model, input.prompt, input.count, client)
+			require.Error(t, err)
+		})
+	}
+	assert.Equal(t, 0, calls)
+}
+
+func TestStudioProviderStoryboardRejectsUnusableOutput(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	for _, tc := range []struct {
+		name     string
+		content  string
+		response string
+		want     string
+	}{
+		{"chat prose", "Here is your storyboard", "", "usable storyboard"},
+		{"empty shots", `{"shots":[]}`, "", "usable storyboard"},
+		{"too many shots", `{"shots":[{"title":"a","text":"b","image_prompt":"c","video_prompt":"d"},{"title":"e","text":"f","image_prompt":"g","video_prompt":"h"}]}`, "", "usable storyboard"},
+		{"missing field", `{"shots":[{"title":"a","text":"b","image_prompt":"c"}]}`, "", "usable storyboard"},
+		{"oversize title", `{"shots":[{"title":"` + strings.Repeat("a", 201) + `","text":"b","image_prompt":"c","video_prompt":"d"}]}`, "", "usable storyboard"},
+		{"provider error", "", `{"error":{"message":"sk-private-test"}}`, "error response"},
+		{"tool calls", "", `{"choices":[{"message":{"content":null,"tool_calls":[{}]},"finish_reason":"tool_calls"}]}`, "tool calls"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := tc.response
+			if response == "" {
+				encoded, err := common.Marshal(tc.content)
+				require.NoError(t, err)
+				response = `{"choices":[{"message":{"content":` + string(encoded) + `}}]}`
+			}
+			client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+				return studioResponse(http.StatusOK, response), nil
+			})}
+			_, err := GenerateStudioProviderStoryboard(context.Background(), provider, "gpt-text", "scene", 1, client)
+			require.Error(t, err)
+			assert.ErrorContains(t, err, tc.want)
+			assert.NotContains(t, err.Error(), "sk-private-test")
+		})
+	}
+}
+
 func TestStudioProviderTextRejectsAConversationalAnswer(t *testing.T) {
 	provider := studioTestProvider(t, "text")
 	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {

@@ -33,6 +33,24 @@ import {
 beforeEach(() => localStorage.clear())
 
 describe('browser-local Studio projects', () => {
+  test('persists project defaults across reload and portable export', () => {
+    const project = {
+      ...createStudioProject('Defaults', 'project-defaults'),
+      defaults: {
+        videoGroup: '特价sd',
+        videoModel: 'site-alias',
+        seconds: 30,
+        ratio: '9:16',
+      },
+    }
+    saveStudioProjects(localStorage, 12, [project])
+    expect(loadStudioProjects(localStorage, 12)[0].defaults).toEqual(
+      project.defaults
+    )
+    expect(
+      parseStudioProjectImport(serializeStudioProjectExport(project)).defaults
+    ).toEqual(project.defaults)
+  })
   test('preserves canvas lines saved before named ports existed', () => {
     let project = addStudioNode(
       createStudioProject('Old canvas', 'old-canvas'),

@@ -30,6 +30,7 @@ func TestStudioRoutesRequireDashboardAuthentication(t *testing.T) {
 		"/pg/studio/images/generations",
 		"/pg/studio/videos",
 		"/api/studio/providers/text/generate",
+		"/api/studio/providers/text/storyboard",
 	} {
 		t.Run(path, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"MiniMax-H3","prompt":"test"}`))
