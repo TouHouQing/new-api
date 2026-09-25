@@ -186,7 +186,7 @@ describe('Studio project editing', () => {
     expect(next.nodes.find((node) => node.id === 'video')?.data).toMatchObject({
       group: '特价sd',
       model: 'site-video-alias',
-      videoFamily: 'seedance-2.5',
+      videoFamily: undefined,
       seconds: 30,
       resolution: '720p',
       ratio: '9:16',

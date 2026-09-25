@@ -36,10 +36,6 @@ import {
 
 import type { StudioGroup } from './api'
 import type { StudioProjectDefaults } from './local-projects'
-import {
-  inferStudioVideoFamily,
-  type StudioVideoFamily,
-} from './model-profiles'
 import { StudioVideoModelPicker } from './studio-video-model-picker'
 
 type Props = {
@@ -179,54 +175,10 @@ export function StudioShotDefaults(props: Props) {
                 props.onChange({
                   videoGroup: group,
                   videoModel: id,
-                  videoFamily: inferStudioVideoFamily(id),
+                  videoFamily: undefined,
                 })
               }
             />
-          </Field>
-          <Field>
-            <FieldLabel>{t('studio.video.family')}</FieldLabel>
-            <Select
-              value={props.value.videoFamily || 'generic'}
-              onValueChange={(value) =>
-                props.onChange({ videoFamily: value as StudioVideoFamily })
-              }
-              items={[
-                { value: 'generic', label: t('studio.video.family.generic') },
-                {
-                  value: 'seedance-2',
-                  label: t('studio.video.family.seedance'),
-                },
-                {
-                  value: 'seedance-2.5',
-                  label: t('studio.video.family.seedance25'),
-                },
-                {
-                  value: 'minimax-h3',
-                  label: t('studio.video.family.minimax'),
-                },
-              ]}
-            >
-              <SelectTrigger aria-label={t('studio.video.family')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value='generic'>
-                    {t('studio.video.family.generic')}
-                  </SelectItem>
-                  <SelectItem value='seedance-2'>
-                    {t('studio.video.family.seedance')}
-                  </SelectItem>
-                  <SelectItem value='seedance-2.5'>
-                    {t('studio.video.family.seedance25')}
-                  </SelectItem>
-                  <SelectItem value='minimax-h3'>
-                    {t('studio.video.family.minimax')}
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
           </Field>
           <Field>
             <FieldLabel htmlFor='studio-default-seconds'>

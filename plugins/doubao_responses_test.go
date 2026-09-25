@@ -55,6 +55,34 @@ func TestDoubaoResponsesProtocol(t *testing.T) {
 	})
 }
 
+func TestDoubaoStudioMixedMediaRequest(t *testing.T) {
+	_, plugin := newDoubaoPlugin(t)
+	content := []any{
+		map[string]any{"type": "image_url", "role": "reference_image", "image_url": map[string]any{"url": "https://cdn.example/image.png"}},
+		map[string]any{"type": "video_url", "role": "reference_video", "video_url": map[string]any{"url": "https://cdn.example/previous.mp4"}},
+	}
+	value, err := plugin.Engine.Call(t.Context(), "buildSubmitRequest", map[string]any{
+		"requestBody": map[string]any{
+			"model": "alias-changing-every-week", "prompt": "continue scene", "seconds": "9", "duration": 9,
+			"metadata": map[string]any{"content": content},
+		},
+		"model": "alias-changing-every-week", "upstreamModel": "doubao-seedance-2-0-260128",
+		"baseUrl": doubaoBaseURL, "apiKey": "test-ak",
+	})
+	require.NoError(t, err)
+	encoded, err := common.Marshal(value)
+	require.NoError(t, err)
+	var descriptor map[string]any
+	require.NoError(t, common.Unmarshal(encoded, &descriptor))
+	assert.Equal(t, "image_to_video", descriptor["action"])
+	body, err := common.Marshal(descriptor["body"])
+	require.NoError(t, err)
+	assert.JSONEq(t, `{"model":"doubao-seedance-2-0-260128","content":[
+		{"type":"image_url","role":"reference_image","image_url":{"url":"https://cdn.example/image.png"}},
+		{"type":"video_url","role":"reference_video","video_url":{"url":"https://cdn.example/previous.mp4"}},
+		{"type":"text","text":"continue scene"}],"duration":9}`, string(body))
+}
+
 func newDoubaoPlugin(t *testing.T) (*jsplugin.Registry, *jsplugin.LoadedPlugin) {
 	t.Helper()
 	source, err := builtinplugins.Source("doubao")

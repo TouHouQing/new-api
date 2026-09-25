@@ -299,7 +299,7 @@ export function addStudioShot(
               ...node.data,
               model: defaults.videoModel,
               group: defaults.videoGroup,
-              videoFamily: defaults.videoFamily,
+              videoFamily: undefined,
               seconds: defaults.seconds ?? node.data.seconds,
               resolution: defaults.resolution,
               ratio: defaults.ratio,

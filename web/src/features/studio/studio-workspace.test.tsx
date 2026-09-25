@@ -1390,6 +1390,7 @@ describe('Studio account isolation', () => {
             content: [
               {
                 type: 'video_url',
+                role: 'reference_video',
                 video_url: {
                   url: 'https://new.thqllm.com/api/task/first/content?sig=abc',
                 },

@@ -40,6 +40,9 @@ test('editing project defaults updates future shot settings without creating a s
   await user.click(
     screen.getByRole('button', { name: 'studio.defaults.title' })
   )
+  expect(
+    screen.queryByRole('combobox', { name: 'studio.video.family' })
+  ).toBeNull()
   fireEvent.change(screen.getByLabelText('studio.duration'), {
     target: { value: '30' },
   })

@@ -43,7 +43,6 @@ import {
   inferStudioVideoFamily,
   parseStudioVideoMetadata,
   parseStudioVideoPayloadPatch,
-  type StudioVideoFamily,
 } from './model-profiles'
 import {
   fetchStudioVideoCostPreview,
@@ -99,29 +98,24 @@ export function StudioInspector(props: Props) {
   const isVideo = props.node.data.kind === 'video'
   const choices = props.models
   const selectModel = (value: string | null) => {
-    const nextFamily =
-      value && isVideo ? inferStudioVideoFamily(value) : undefined
-    const next =
-      value && nextFamily ? buildStudioVideoModel(value, nextFamily) : undefined
     const currentSeconds = props.node.data.seconds
     props.onChange({
       model: value || undefined,
-      videoFamily: nextFamily,
-      resolution: props.node.data.resolution || next?.resolutions[0],
+      videoFamily: undefined,
       seconds:
         typeof currentSeconds === 'number' &&
         Number.isInteger(currentSeconds) &&
         currentSeconds > 0 &&
         currentSeconds <= 3600
           ? currentSeconds
-          : (next?.defaultSeconds ?? 5),
+          : 5,
       ratio: props.node.data.ratio || '16:9',
     })
   }
   const inferredFamily = props.node.data.model
     ? inferStudioVideoFamily(props.node.data.model)
     : undefined
-  const family = props.node.data.videoFamily || inferredFamily || 'generic'
+  const family = inferredFamily || 'generic'
   const model =
     isVideo && props.node.data.model && family
       ? buildStudioVideoModel(props.node.data.model, family)
@@ -393,70 +387,6 @@ export function StudioInspector(props: Props) {
               {t('studio.image.optionsHint')}
             </p>
           </div>
-        )}
-        {isVideo && props.node.data.model && (
-          <Field>
-            <FieldLabel>{t('studio.video.family')}</FieldLabel>
-            <Select
-              value={family || null}
-              onValueChange={(value) => {
-                const modelId = props.node.data.model
-                if (!modelId) return
-                const selected = value as StudioVideoFamily
-                const profile = buildStudioVideoModel(modelId, selected)
-                props.onChange({
-                  videoFamily: selected,
-                  resolution:
-                    props.node.data.resolution || profile.resolutions[0],
-                  seconds: props.node.data.seconds ?? profile.defaultSeconds,
-                })
-              }}
-              items={[
-                {
-                  value: 'generic',
-                  label: t('studio.video.family.generic'),
-                },
-                {
-                  value: 'seedance-2',
-                  label: t('studio.video.family.seedance'),
-                },
-                {
-                  value: 'seedance-2.5',
-                  label: t('studio.video.family.seedance25'),
-                },
-                {
-                  value: 'minimax-h3',
-                  label: t('studio.video.family.minimax'),
-                },
-              ]}
-            >
-              <SelectTrigger
-                className='w-full'
-                aria-label={t('studio.video.family')}
-              >
-                <SelectValue placeholder={t('studio.video.family.select')} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value='generic'>
-                    {t('studio.video.family.generic')}
-                  </SelectItem>
-                  <SelectItem value='seedance-2'>
-                    {t('studio.video.family.seedance')}
-                  </SelectItem>
-                  <SelectItem value='seedance-2.5'>
-                    {t('studio.video.family.seedance25')}
-                  </SelectItem>
-                  <SelectItem value='minimax-h3'>
-                    {t('studio.video.family.minimax')}
-                  </SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <p className='text-muted-foreground text-xs'>
-              {t('studio.video.familyHint')}
-            </p>
-          </Field>
         )}
         {(props.node.data.kind !== 'image' || props.node.data.model) && (
           <Field>

@@ -33,6 +33,50 @@ function videoModel(id: string) {
 }
 
 describe('Studio video models', () => {
+  test('chooses the same media encoding for changing model aliases and legacy family values', () => {
+    const input = {
+      prompt: 'continue the scene',
+      seconds: 9,
+      resolution: '',
+      ratio: '16:9',
+      imageReferences: [
+        { url: 'https://cdn.example/first.png', role: 'first_frame' as const },
+      ],
+      videoReferences: [
+        {
+          url: 'https://cdn.example/previous.mp4',
+          role: 'reference_video' as const,
+        },
+      ],
+    }
+    const requests = (['generic', 'seedance-2', 'minimax-h3'] as const).map(
+      (family) =>
+        buildStudioVideoRequest(
+          buildStudioVideoModel('rotating-alias', family),
+          input
+        )
+    )
+    expect(requests[0]).toMatchObject({
+      seconds: '9',
+      duration: 9,
+      metadata: {
+        content: [
+          {
+            type: 'image_url',
+            role: 'reference_image',
+            image_url: { url: 'https://cdn.example/first.png' },
+          },
+          {
+            type: 'video_url',
+            role: 'reference_video',
+            video_url: { url: 'https://cdn.example/previous.mp4' },
+          },
+        ],
+      },
+    })
+    expect(requests[1]).toEqual(requests[0])
+    expect(requests[2]).toEqual(requests[0])
+  })
   test('allows explicit model-specific payload fields while protecting routing and credentials', () => {
     const base = buildStudioVideoRequest(
       buildStudioVideoModel('rotating-alias', 'generic'),
@@ -134,18 +178,23 @@ describe('Studio video models', () => {
         videoUrls: ['https://cdn.example/previous.mp4'],
       })
     ).toMatchObject({
-      images: ['https://cdn.example/character.png'],
       metadata: {
         content: [
           {
+            type: 'image_url',
+            role: 'reference_image',
+            image_url: { url: 'https://cdn.example/character.png' },
+          },
+          {
             type: 'video_url',
+            role: 'reference_video',
             video_url: { url: 'https://cdn.example/previous.mp4' },
           },
         ],
       },
     })
   })
-  test('preserves first frame, reference image, and continuation video roles', () => {
+  test('converts a first frame to reference media for video continuation', () => {
     const request = buildStudioVideoRequest(
       buildStudioVideoModel('arbitrary-site-model', 'generic'),
       {
@@ -164,9 +213,13 @@ describe('Studio video models', () => {
     )
     expect(request).toMatchObject({
       mode: 'extend',
-      images: ['https://cdn.example/start.png'],
       metadata: {
         content: [
+          {
+            type: 'image_url',
+            role: 'reference_image',
+            image_url: { url: 'https://cdn.example/start.png' },
+          },
           {
             type: 'image_url',
             role: 'reference_image',
@@ -197,7 +250,7 @@ describe('Studio video models', () => {
     expect(request.images).toEqual(['https://cdn.example/first.png'])
     expect(request.metadata.content).toBeUndefined()
   })
-  test('puts a mixed H3 frame in content exactly once', () => {
+  test('sends an H3 frame as a reference image when mixed with video', () => {
     const request = buildStudioVideoRequest(
       buildStudioVideoModel('rotating-h3-alias', 'minimax-h3'),
       {
@@ -216,7 +269,7 @@ describe('Studio video models', () => {
     expect(request.images).toBeUndefined()
     expect(request.metadata.content?.[0]).toMatchObject({
       type: 'image_url',
-      role: 'first_frame',
+      role: 'reference_image',
       image_url: { url: 'https://cdn.example/first.png' },
     })
   })
@@ -344,6 +397,7 @@ describe('Studio video models', () => {
       model: 'doubao-seedance-2-0-260128',
       prompt: 'camera pushes in',
       seconds: '10',
+      duration: 10,
       metadata: { resolution: '1080p', ratio: '9:16' },
       images: ['https://cdn.example/frame.png'],
     })
@@ -382,11 +436,16 @@ describe('Studio video models', () => {
       })
     ).toMatchObject({
       model: '任意视频别名',
-      images: ['data:image/png;base64,aGVsbG8='],
       metadata: {
         content: [
           {
+            type: 'image_url',
+            role: 'reference_image',
+            image_url: { url: 'data:image/png;base64,aGVsbG8=' },
+          },
+          {
             type: 'video_url',
+            role: 'reference_video',
             video_url: {
               url: 'https://new.thqllm.com/v1/tasks/task-1/artifacts/video/content?access=signed',
             },

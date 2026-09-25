@@ -417,6 +417,7 @@ export function buildStudioVideoRequest(
     model: model.id,
     prompt,
     seconds: String(input.seconds),
+    duration: input.seconds,
     metadata: {
       ...extraMetadata,
       ...(input.resolution.trim()
@@ -425,7 +426,6 @@ export function buildStudioVideoRequest(
       ...(input.ratio.trim() ? { ratio: input.ratio.trim() } : {}),
     },
   }
-  if (model.family === 'minimax-h3') request.duration = input.seconds
   if (
     input.videoReferences?.some(
       (reference) => reference.role === 'extend_video'
@@ -433,58 +433,28 @@ export function buildStudioVideoRequest(
   ) {
     request.mode = 'extend'
   }
-  if (input.imageReferences?.length || input.videoReferences?.length) {
-    const mixedH3 =
-      model.family === 'minimax-h3' &&
-      (referenceImages.length > 0 || videos.length > 0)
-    if (images.length && !mixedH3) request.images = images
-    if (referenceImages.length || videos.length) {
-      request.metadata.content = [
-        ...(mixedH3 ? images : []).map((url, index) => ({
-          type: 'image_url' as const,
-          role:
-            index === 0 ? ('first_frame' as const) : ('last_frame' as const),
-          image_url: { url },
-        })),
-        ...referenceImages.map((url) => ({
-          type: 'image_url' as const,
-          role: 'reference_image' as const,
-          image_url: { url },
-        })),
-        ...videos.map((url) => ({
-          type: 'video_url' as const,
-          role: 'reference_video' as const,
-          video_url: { url },
-        })),
-      ]
-    }
-    return request
-  }
-  if (videos.length && model.family === 'minimax-h3') {
-    if (images.length) {
-      request.metadata.content = [
-        ...images.map((url) => ({
-          type: 'image_url' as const,
-          role: 'reference_image' as const,
-          image_url: { url },
-        })),
-        ...videos.map((url) => ({
-          type: 'video_url' as const,
-          role: 'reference_video' as const,
-          video_url: { url },
-        })),
-      ]
-    } else {
-      request.metadata.reference_video = videos
-    }
-  } else {
-    if (images.length) request.images = images
-    if (videos.length) {
-      request.metadata.content = videos.map((url) => ({
-        type: 'video_url',
-        video_url: { url },
-      }))
-    }
-  }
+  // Frame mode and reference mode cannot be mixed by Seedance or MiniMax H3.
+  // Use reference images for mixed media and keep each URL in one field only.
+  // New API's Doubao adapter combines `images` with `content`, while H3 treats
+  // `content` as the complete media list.
+  const mixedMedia =
+    images.length > 0 && (referenceImages.length > 0 || videos.length > 0)
+  if (images.length && !mixedMedia) request.images = images
+  const contentImages = mixedMedia
+    ? [...new Set([...images, ...referenceImages])]
+    : referenceImages
+  const content = [
+    ...contentImages.map((url) => ({
+      type: 'image_url' as const,
+      role: 'reference_image' as const,
+      image_url: { url },
+    })),
+    ...videos.map((url) => ({
+      type: 'video_url' as const,
+      role: 'reference_video' as const,
+      video_url: { url },
+    })),
+  ]
+  if (content.length) request.metadata.content = content
   return request
 }

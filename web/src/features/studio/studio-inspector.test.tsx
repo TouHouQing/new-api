@@ -296,7 +296,7 @@ describe('Studio model controls', () => {
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({
         model: '特价-sd2.5三十秒',
-        videoFamily: 'seedance-2.5',
+        videoFamily: undefined,
         seconds: 30,
       })
     )
@@ -325,7 +325,7 @@ describe('Studio model controls', () => {
     ).toBeTruthy()
   })
 
-  test('shows site model aliases and asks which video family they use', () => {
+  test('shows site model aliases without asking for a media request format', () => {
     render(
       <StudioInspector
         node={video('my-site-video-alias')}
@@ -343,11 +343,11 @@ describe('Studio model controls', () => {
       screen.getByRole('combobox', { name: 'studio.video.group' })
     ).toBeTruthy()
     expect(
-      screen.getByRole('combobox', { name: 'studio.video.family' })
-    ).toBeTruthy()
+      screen.queryByRole('combobox', { name: 'studio.video.family' })
+    ).toBeNull()
   })
 
-  test('lets an unrelated alias keep thirty seconds and its manually selected family', () => {
+  test('keeps thirty seconds while ignoring a saved legacy family selection', () => {
     const node = video('会员套餐甲')
     node.data.videoFamily = 'seedance-2'
     node.data.seconds = 30
@@ -371,8 +371,8 @@ describe('Studio model controls', () => {
       (screen.getByLabelText('studio.duration') as HTMLInputElement).max
     ).toBe('3600')
     expect(
-      screen.getByRole('combobox', { name: 'studio.video.family' })
-    ).toBeTruthy()
+      screen.queryByRole('combobox', { name: 'studio.video.family' })
+    ).toBeNull()
     expect(
       (
         screen.getByRole('button', {

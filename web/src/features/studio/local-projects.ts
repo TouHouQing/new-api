@@ -22,8 +22,6 @@ import type {
   StudioTake,
 } from './canvas-flow'
 import {
-  buildStudioVideoModel,
-  inferStudioVideoFamily,
   parseStudioVideoMetadata,
   parseStudioVideoPayloadPatch,
   type StudioVideoFamily,
@@ -252,14 +250,6 @@ function normalizeStudioProject(project: StudioProject): StudioProject {
       if (node.data.kind !== 'video') return node
       const data = { ...node.data }
       delete data.outputUrl
-      const inferredFamily = data.model
-        ? inferStudioVideoFamily(data.model)
-        : undefined
-      if (!data.videoFamily && inferredFamily) data.videoFamily = inferredFamily
-      const model =
-        data.model && data.videoFamily
-          ? buildStudioVideoModel(data.model, data.videoFamily)
-          : undefined
       const seconds = data.seconds
       if (
         typeof seconds !== 'number' ||
@@ -267,7 +257,7 @@ function normalizeStudioProject(project: StudioProject): StudioProject {
         seconds < 1 ||
         seconds > 3600
       ) {
-        data.seconds = model?.defaultSeconds ?? 5
+        data.seconds = 5
       }
       if (
         data.taskId &&

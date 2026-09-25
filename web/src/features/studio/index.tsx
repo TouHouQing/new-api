@@ -98,7 +98,6 @@ import {
   buildStudioVideoModel,
   buildStudioVideoRequest,
   applyStudioVideoPayloadPatch,
-  inferStudioVideoFamily,
   parseStudioVideoMetadata,
 } from './model-profiles'
 import { StudioProviderSettings } from './provider-settings'
@@ -1446,11 +1445,7 @@ export function Studio() {
             throw new Error(t('studio.model.empty'))
           }
           if (activeUserId.current !== userId) return
-          const family =
-            node.data.videoFamily ||
-            inferStudioVideoFamily(node.data.model) ||
-            'generic'
-          const model = buildStudioVideoModel(node.data.model, family)
+          const model = buildStudioVideoModel(node.data.model, 'generic')
           const incoming = source.edges
             .filter((edge) => edge.target === node.id)
             .flatMap((edge) => {
@@ -1538,7 +1533,7 @@ export function Studio() {
               imageReferences,
               videoReferences,
               seconds: node.data.seconds ?? model.defaultSeconds,
-              resolution: node.data.resolution ?? model.resolutions[0],
+              resolution: node.data.resolution ?? '',
               ratio: node.data.ratio ?? '16:9',
               metadata: parseStudioVideoMetadata(node.data.metadataJson || ''),
             }),
@@ -1677,12 +1672,7 @@ export function Studio() {
           )
           return
         }
-        const reason = errorMessage(error)
-        const displayReason = reason.includes(
-          'choose a media request format for mixed'
-        )
-          ? t('studio.video.mixedFormatRequired')
-          : reason
+        const displayReason = errorMessage(error)
         update(current.id, { status: 'failed', error: displayReason })
         if (current.id !== target.id) {
           update(target.id, { status: 'failed', error: displayReason })
