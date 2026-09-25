@@ -230,9 +230,6 @@ export function Studio() {
   } | null>(null)
   const [backupDownloaded, setBackupDownloaded] = useState(false)
   const [videoGroups, setVideoGroups] = useState<StudioGroup[]>([])
-  const [videoModelsByGroup, setVideoModelsByGroup] = useState<
-    Record<string, string[]>
-  >({})
   const [providerConfigs, setProviderConfigs] = useState<StudioProviderConfigs>(
     {}
   )
@@ -502,7 +499,6 @@ export function Studio() {
     setSelectedNodeId(null)
     setView(projects[0].shots?.length ? 'storyboard' : 'canvas')
     setVideoGroups([])
-    setVideoModelsByGroup({})
     setProviderConfigs({})
     setProviderModels({})
     setSettingsOpen(false)
@@ -549,26 +545,6 @@ export function Studio() {
       ownedUrls.current = []
     }
   }, [userId, userGroup, t])
-
-  useEffect(() => {
-    if (!visible || !selectedGroup || videoModelsByGroup[selectedGroup]) return
-    let cancelled = false
-    void fetchStudioModels(selectedGroup)
-      .then((models) => {
-        if (!cancelled) {
-          setVideoModelsByGroup((current) => ({
-            ...current,
-            [selectedGroup]: models,
-          }))
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) setMessage(errorMessage(error))
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [visible, selectedGroup, videoModelsByGroup])
 
   const refreshProviderModels = useCallback(
     async (kind: StudioProviderKind) => {
@@ -2679,7 +2655,7 @@ export function Studio() {
               node={selectedNode}
               models={
                 selectedNode.data.kind === 'video'
-                  ? videoModelsByGroup[selectedGroup] || []
+                  ? []
                   : providerModels[selectedNode.data.kind] || []
               }
               videoGroups={videoGroups}

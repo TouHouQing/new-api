@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -16,8 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { fireEvent, render, screen } from '@testing-library/react'
+import {
+  fireEvent,
+  render as testingRender,
+  screen,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactElement } from 'react'
 import { describe, expect, test, vi } from 'vitest'
 
 import type { StudioCanvasNode } from './canvas-flow'
@@ -40,6 +46,31 @@ vi.mock('@/components/json-code-editor', () => ({
     />
   ),
 }))
+
+vi.mock('./api', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./api')>()),
+  fetchStudioModels: vi.fn(async () => ['特价-sd2.5三十秒']),
+}))
+vi.mock('@/features/pricing/api', () => ({
+  getPricing: vi.fn(async () => ({
+    success: true,
+    data: [],
+    vendors: [],
+    group_ratio: { default: 1 },
+    usable_group: { default: { desc: 'Default', ratio: 1 } },
+    supported_endpoint: {},
+    auto_groups: [],
+  })),
+}))
+
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  return testingRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+  )
+}
 
 const video = (model: string): StudioCanvasNode => ({
   id: 'video',
@@ -256,9 +287,11 @@ describe('Studio model controls', () => {
         onDelete={vi.fn()}
       />
     )
-    await user.click(screen.getByRole('combobox', { name: 'studio.model' }))
     await user.click(
-      await screen.findByRole('option', { name: '特价-sd2.5三十秒' })
+      screen.getByRole('button', { name: 'studio.model.select' })
+    )
+    await user.click(
+      await screen.findByRole('button', { name: '特价-sd2.5三十秒' })
     )
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({

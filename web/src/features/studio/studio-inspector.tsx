@@ -50,6 +50,7 @@ import {
   studioCostDurationSeconds,
   type StudioVideoCostPreview,
 } from './studio-cost'
+import { StudioVideoModelPicker } from './studio-video-model-picker'
 
 type Props = {
   node: StudioCanvasNode
@@ -91,6 +92,26 @@ export function StudioInspector(props: Props) {
   }, [props.node.id, props.node.data.payloadPatchJson])
   const isVideo = props.node.data.kind === 'video'
   const choices = props.models
+  const selectModel = (value: string | null) => {
+    const nextFamily =
+      value && isVideo ? inferStudioVideoFamily(value) : undefined
+    const next =
+      value && nextFamily ? buildStudioVideoModel(value, nextFamily) : undefined
+    const currentSeconds = props.node.data.seconds
+    props.onChange({
+      model: value || undefined,
+      videoFamily: nextFamily,
+      resolution: props.node.data.resolution || next?.resolutions[0],
+      seconds:
+        typeof currentSeconds === 'number' &&
+        Number.isInteger(currentSeconds) &&
+        currentSeconds > 0 &&
+        currentSeconds <= 3600
+          ? currentSeconds
+          : (next?.defaultSeconds ?? 5),
+      ratio: props.node.data.ratio || '16:9',
+    })
+  }
   const inferredFamily = props.node.data.model
     ? inferStudioVideoFamily(props.node.data.model)
     : undefined
@@ -231,52 +252,36 @@ export function StudioInspector(props: Props) {
         </Field>
         <Field>
           <FieldLabel>{t('studio.model')}</FieldLabel>
-          <Select
-            value={props.node.data.model || null}
-            onValueChange={(value) => {
-              const nextFamily =
-                value && isVideo ? inferStudioVideoFamily(value) : undefined
-              const next =
-                value && nextFamily
-                  ? buildStudioVideoModel(value, nextFamily)
-                  : undefined
-              const currentSeconds = props.node.data.seconds
-              props.onChange({
-                model: value || undefined,
-                videoFamily: nextFamily,
-                resolution: props.node.data.resolution || next?.resolutions[0],
-                seconds:
-                  typeof currentSeconds === 'number' &&
-                  Number.isInteger(currentSeconds) &&
-                  currentSeconds > 0 &&
-                  currentSeconds <= 3600
-                    ? currentSeconds
-                    : (next?.defaultSeconds ?? 5),
-                ratio: props.node.data.ratio || '16:9',
-              })
-            }}
-            items={choices.map((id) => ({ value: id, label: id }))}
-          >
-            <SelectTrigger className='w-full' aria-label={t('studio.model')}>
-              <SelectValue
-                placeholder={
-                  isVideo ? t('studio.model.select') : t('studio.source.manual')
-                }
-              />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {choices.map((id) => (
-                  <SelectItem key={id} value={id}>
-                    {id}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          {choices.length === 0 && (isVideo || props.node.data.model) && (
+          {isVideo ? (
+            <StudioVideoModelPicker
+              group={props.videoGroup}
+              selectedModel={props.node.data.model || ''}
+              durationSeconds={props.node.data.seconds ?? 5}
+              onSelect={selectModel}
+            />
+          ) : (
+            <Select
+              value={props.node.data.model || null}
+              onValueChange={selectModel}
+              items={choices.map((id) => ({ value: id, label: id }))}
+            >
+              <SelectTrigger className='w-full' aria-label={t('studio.model')}>
+                <SelectValue placeholder={t('studio.source.manual')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  {choices.map((id) => (
+                    <SelectItem key={id} value={id}>
+                      {id}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          )}
+          {choices.length === 0 && !isVideo && props.node.data.model && (
             <p className='text-muted-foreground text-xs'>
-              {!isVideo && !props.providerConfigured
+              {!props.providerConfigured
                 ? t('studio.provider.configureHint')
                 : t('studio.model.empty')}
             </p>
@@ -667,7 +672,8 @@ export function StudioInspector(props: Props) {
             className='flex-1'
             disabled={
               busy ||
-              (props.node.data.model !== undefined &&
+              (!isVideo &&
+                props.node.data.model !== undefined &&
                 !choices.includes(props.node.data.model)) ||
               (props.node.data.kind === 'image' &&
                 !props.node.data.model &&
