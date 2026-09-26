@@ -51,16 +51,49 @@ func StudioAttemptAudit() gin.HandlerFunc {
 			c.Next()
 			return
 		}
+		var clientRequestID *string
+		if values, supplied := c.Request.Header[http.CanonicalHeaderKey("X-Studio-Request-ID")]; supplied {
+			if len(values) != 1 {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"error": gin.H{"code": "studio_request_id_invalid", "message": "Studio request ID must be a UUID"},
+				})
+				return
+			}
+			parsed, err := uuid.Parse(values[0])
+			if err != nil {
+				c.AbortWithStatusJSON(http.StatusBadRequest, gin.H{
+					"error": gin.H{"code": "studio_request_id_invalid", "message": "Studio request ID must be a UUID"},
+				})
+				return
+			}
+			canonical := parsed.String()
+			clientRequestID = &canonical
+			c.Header("X-Studio-Request-ID", canonical)
+		}
 		requestedGroup := c.Query("studio_group")
 		if requestedGroup == "" {
 			requestedGroup = c.GetHeader("X-Studio-Group")
 		}
 		attempt := model.StudioAttempt{
-			ID:     uuid.NewString(),
-			UserID: userID,
-			Stage:  "started",
+			ID:              uuid.NewString(),
+			UserID:          userID,
+			ClientRequestID: clientRequestID,
+			Stage:           "started",
 		}
 		if err := model.CreateStudioAttempt(&attempt); err != nil {
+			if clientRequestID != nil {
+				existing, lookupErr := model.GetStudioAttemptByRequest(userID, *clientRequestID)
+				if lookupErr == nil && existing != nil {
+					c.Header("X-Studio-Attempt-ID", existing.ID)
+					c.AbortWithStatusJSON(http.StatusConflict, gin.H{
+						"error": gin.H{
+							"code": "studio_submission_exists", "message": "Studio submission already exists; reconcile before retrying",
+							"attempt_id": existing.ID, "stage": existing.Stage, "task_id": existing.TaskID,
+						},
+					})
+					return
+				}
+			}
 			logger.LogError(c.Request.Context(), fmt.Sprintf("studio attempt insert failed: %v", err))
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{
 				"error": gin.H{"code": "studio_attempt_unavailable", "message": "Studio submission log is unavailable"},

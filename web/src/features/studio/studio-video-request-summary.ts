@@ -16,6 +16,66 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 import type { StudioVideoRequest } from './model-profiles'
 
+/** Durable, non-secret parameters for comparing a completed Studio take. */
+export async function safeStudioVideoRequestSnapshot(
+  request: StudioVideoRequest,
+  sources?: {
+    edges: Array<{
+      source: string
+      takeId?: string
+      role?: string | null
+      mediaId?: string
+    }>
+    assets?: Array<{ id: string; mediaId?: string }>
+  }
+): Promise<string> {
+  const metadata = request.metadata || {}
+  const details = inspectStudioVideoRequest(request)
+  const mediaFingerprints = await Promise.all(
+    details.media.map(async ({ kind, role, url }) => {
+      let fingerprint: string
+      if (globalThis.crypto?.subtle) {
+        const digest = await globalThis.crypto.subtle.digest(
+          'SHA-256',
+          new TextEncoder().encode(url)
+        )
+        fingerprint = Array.from(new Uint8Array(digest), (byte) =>
+          byte.toString(16).padStart(2, '0')
+        ).join('')
+      } else {
+        // Browser contexts without SubtleCrypto can still distinguish versions.
+        let hash = 2166136261
+        for (let index = 0; index < url.length; index += 1) {
+          hash = Math.imul(hash ^ url.charCodeAt(index), 16777619)
+        }
+        fingerprint = `fnv1a-${(hash >>> 0).toString(16)}`
+      }
+      return { kind, role, fingerprint }
+    })
+  )
+  return JSON.stringify(
+    {
+      model: request.model,
+      seconds: request.seconds,
+      duration: request.duration,
+      mode: request.mode,
+      size: request.size,
+      resolution: metadata.resolution,
+      ratio: metadata.ratio,
+      mediaRoles: details.roles,
+      mediaFingerprints,
+      sourceEdges: sources?.edges,
+      assets: sources?.assets,
+      metadataFields: Object.keys(metadata).filter(
+        (key) =>
+          !['resolution', 'ratio', 'content', 'reference_video'].includes(key)
+      ),
+    },
+    null,
+    2
+  ).slice(0, 16_384)
+}
+
 export function inspectStudioVideoRequest(request: StudioVideoRequest) {
   const content = Array.isArray(request.metadata?.content)
     ? request.metadata.content.filter(

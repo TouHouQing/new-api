@@ -54,9 +54,12 @@ export type StudioMp4Clip =
 
 export type StudioMp4Options = {
   soundtrack?: { blob: Blob; volume?: number }
+  soundtrackOffsetSeconds?: number
   voiceover?: { blob: Blob; volume: number }
+  voiceoverOffsetSeconds?: number
   /** SRT or WebVTT text timed against the final assembled video. */
   captions?: string
+  captionOffsetSeconds?: number
 }
 
 export type StudioMp4Preflight = {
@@ -95,6 +98,7 @@ type ExternalAudioTrack = {
   label: 'soundtrack' | 'voiceover'
   blob: Blob
   volume: number
+  offsetSeconds: number
 }
 
 function ensureNotAborted(signal?: AbortSignal): void {
@@ -222,7 +226,20 @@ async function inspectStudioVideos(
 }> {
   if (!inputs.length) throw new Error('at least one video is required')
   ensureNotAborted(signal)
-  const captions = parseStudioCaptions(options?.captions ?? '')
+  for (const [label, offset] of [
+    ['soundtrack', options?.soundtrackOffsetSeconds ?? 0],
+    ['voiceover', options?.voiceoverOffsetSeconds ?? 0],
+    ['caption', options?.captionOffsetSeconds ?? 0],
+  ] as const) {
+    if (!Number.isFinite(offset) || offset < 0 || offset > MAX_TOTAL_DURATION) {
+      throw new Error(`${label} offset must be between 0 and 3600 seconds`)
+    }
+  }
+  const captions = parseStudioCaptions(options?.captions ?? '').map((cue) => ({
+    ...cue,
+    start: cue.start + (options?.captionOffsetSeconds ?? 0),
+    end: cue.end + (options?.captionOffsetSeconds ?? 0),
+  }))
   const soundtrack = options?.soundtrack
   const voiceover = options?.voiceover
   const externalAudio: ExternalAudioTrack[] = []
@@ -231,6 +248,7 @@ async function inspectStudioVideos(
       label: 'soundtrack',
       blob: soundtrack.blob,
       volume: soundtrack.volume ?? 1,
+      offsetSeconds: options?.soundtrackOffsetSeconds ?? 0,
     })
   }
   if (voiceover) {
@@ -238,6 +256,7 @@ async function inspectStudioVideos(
       label: 'voiceover',
       blob: voiceover.blob,
       volume: voiceover.volume,
+      offsetSeconds: options?.voiceoverOffsetSeconds ?? 0,
     })
   }
   for (const track of externalAudio) {
@@ -517,6 +536,7 @@ async function writeAudio(
     buffer: WrappedAudioBuffer | null
     start: number
     volume: number
+    offsetSamples: number
   }[] = []
   let emittedSamples = 0
   try {
@@ -536,6 +556,7 @@ async function writeAudio(
           buffer: first.done ? null : first.value,
           start,
           volume: external.volume,
+          offsetSamples: Math.round(external.offsetSeconds * rate),
         })
       } catch (error) {
         await buffers?.return()
@@ -568,9 +589,9 @@ async function writeAudio(
         for (const reader of externalReaders) {
           while (reader.buffer) {
             ensureNotAborted(signal)
-            const start = Math.round(
-              (reader.buffer.timestamp - reader.start) * rate
-            )
+            const start =
+              Math.round((reader.buffer.timestamp - reader.start) * rate) +
+              reader.offsetSamples
             const end = start + Math.ceil(reader.buffer.buffer.duration * rate)
             if (start >= chunkEnd) break
             if (end > emittedSamples) {

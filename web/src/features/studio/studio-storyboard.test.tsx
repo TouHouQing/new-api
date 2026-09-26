@@ -152,8 +152,12 @@ test('a storyboard shot selects source nodes and generates through its video nod
       }}
     />
   )
-  expect(screen.getByText('Opening')).toBeTruthy()
+  expect(screen.getAllByText('Opening').length).toBeGreaterThan(0)
   expect(screen.getByText('A city at dawn')).toBeTruthy()
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.timeline.selectShot: Opening' })
+  )
+  expect(onSelectNode).toHaveBeenCalledWith('video-1')
   fireEvent.click(screen.getByRole('button', { name: 'studio.shot.editImage' }))
   expect(onSelectNode).toHaveBeenCalledWith('image-1')
   fireEvent.click(
@@ -166,6 +170,60 @@ test('a storyboard shot selects source nodes and generates through its video nod
     screen.getByRole('button', { name: 'studio.shot.generateAll' })
   )
   expect(onGenerateAll).toHaveBeenCalledOnce()
+})
+
+test('the storyboard exposes known settled video spending', () => {
+  let project = addStudioShot(
+    createStudioProject('Costs', 'p-costs'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = {
+    ...project,
+    nodes: project.nodes.map((node) =>
+      node.id === 'v1'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              takes: [
+                {
+                  id: 'take-1',
+                  createdAt: '2026-09-26T00:00:00Z',
+                  prompt: 'scene',
+                  status: 'completed' as const,
+                  taskId: 'task-1',
+                  chargedQuota: 250000,
+                },
+              ],
+            },
+          }
+        : node
+    ),
+  }
+  render(
+    <StudioStoryboard
+      project={project}
+      previews={{}}
+      onSelectNode={vi.fn()}
+      onGenerateVideo={vi.fn()}
+      onGenerateAll={vi.fn()}
+      onCreateFinalVideo={vi.fn()}
+      onAddShot={vi.fn()}
+      onMoveShot={vi.fn()}
+      onRenameShot={vi.fn()}
+      onDeleteShot={vi.fn()}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
+    />
+  )
+  expect(screen.getByText('studio.cost.settledKnown')).toBeTruthy()
 })
 
 test('an invalidated storyboard clip shows why it needs regeneration', () => {

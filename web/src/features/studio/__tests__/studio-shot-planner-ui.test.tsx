@@ -58,6 +58,24 @@ test('manual brief stays as a reviewed draft until the user creates shots', () =
   )
 })
 
+test('a quick-start template fills an editable brief without creating shots', () => {
+  const onConfirm = vi.fn()
+  render(
+    <StudioShotPlanner
+      scopeKey='owner:template'
+      models={[]}
+      onPlan={vi.fn()}
+      onConfirm={onConfirm}
+    />
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'studio.planner.title' }))
+  fireEvent.click(screen.getByRole('button', { name: 'studio.template.drama' }))
+  expect(screen.getByLabelText('studio.planner.brief')).toHaveValue(
+    'studio.template.dramaBrief'
+  )
+  expect(onConfirm).not.toHaveBeenCalled()
+})
+
 test('AI shot drafts can be reviewed before they enter the project', async () => {
   const onConfirm = vi.fn()
   const onPlan = vi.fn().mockResolvedValue([

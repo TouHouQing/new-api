@@ -326,6 +326,21 @@ test('timed captions burn into frames on the assembled timeline across trimmed c
   ])
 })
 
+test('caption offset shifts burn-in cues on the final video timeline', async () => {
+  vi.stubGlobal('OffscreenCanvas', FakeCanvas)
+  await stitchStudioVideos([clip()], undefined, undefined, {
+    captions: '00:00:00,000 --> 00:00:00,001\nHello',
+    captionOffsetSeconds: 0.002,
+  })
+
+  expect(media.video.map((frame) => frame.captionText)).toEqual([
+    '',
+    '',
+    'Hello',
+    '',
+  ])
+})
+
 test('caption text stays fully opaque over a faded video frame', async () => {
   vi.stubGlobal('OffscreenCanvas', FakeCanvas)
 
@@ -666,6 +681,48 @@ test('voiceover mixes with soundtrack and clip audio, then stops at its own end'
   expect(media.audio[1][95]).toBe(0.375)
   expect(media.audio[1][96]).toBe(0.125)
   expect(media.audioRight[0][0]).toBe(0.625)
+})
+
+test('music and voiceover start at their configured offsets while clip audio stays in place', async () => {
+  const video = clip({ audioSamples: new Float32Array(192).fill(0.1) })
+  const soundtrack = clip({ audioSamples: new Float32Array(96).fill(0.25) })
+  const voiceover = clip({ audioSamples: new Float32Array(96).fill(0.5) })
+
+  await stitchStudioVideos([video], undefined, undefined, {
+    soundtrack: { blob: soundtrack, volume: 1 },
+    soundtrackOffsetSeconds: 0.002,
+    voiceover: { blob: voiceover, volume: 1 },
+    voiceoverOffsetSeconds: 0.001,
+  })
+
+  expect(media.audio).toHaveLength(1)
+  expect(media.audio[0][0]).toBeCloseTo(0.1)
+  expect(media.audio[0][48]).toBeCloseTo(0.6)
+  expect(media.audio[0][96]).toBeCloseTo(0.85)
+  expect(media.audio[0][144]).toBeCloseTo(0.35)
+})
+
+test('soundtrack offset crossing a cut starts in the second clip', async () => {
+  const soundtrack = clip({ audioSamples: new Float32Array(96).fill(0.25) })
+  await stitchStudioVideos([clip(), clip()], undefined, undefined, {
+    soundtrack: { blob: soundtrack },
+    soundtrackOffsetSeconds: 0.005,
+  })
+
+  expect(media.audio).toHaveLength(2)
+  expect(media.audio[0].every((sample) => sample === 0)).toBe(true)
+  expect(media.audio[1][47]).toBe(0)
+  expect(media.audio[1][48]).toBeCloseTo(0.25)
+})
+
+test.each([
+  ['soundtrackOffsetSeconds', -0.1, 'soundtrack'],
+  ['voiceoverOffsetSeconds', Number.NaN, 'voiceover'],
+  ['captionOffsetSeconds', 3600.1, 'caption'],
+] as const)('preflight rejects invalid %s', async (key, value, label) => {
+  await expect(
+    preflightStudioVideos([clip()], undefined, { [key]: value })
+  ).rejects.toThrow(`${label} offset`)
 })
 
 test('soundtrack follows the trimmed video timeline across clip boundaries', async () => {

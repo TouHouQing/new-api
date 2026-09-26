@@ -116,6 +116,41 @@ describe('Studio shared execution', () => {
       'walks in\n\ncharacter: Mira — red scarf'
     )
   })
+  test('editing a continuity asset title or visual URL changes generation input', () => {
+    let project = addStudioNode(
+      createStudioProject('Identity', 'identity'),
+      'video',
+      'video'
+    )
+    project.assets = [
+      {
+        id: 'actor',
+        kind: 'character',
+        title: 'Mira',
+        prompt: 'red scarf',
+        outputUrl: 'https://cdn.example/mira.png',
+      },
+    ]
+    project = updateStudioNode(project, 'video', { assetIds: ['actor'] })
+    const first = studioNodeInputFingerprint(project, 'video')
+    project = {
+      ...project,
+      assets: project.assets?.map((asset) => ({
+        ...asset,
+        title: 'Mira in winter',
+      })),
+    }
+    const second = studioNodeInputFingerprint(project, 'video')
+    expect(second).not.toBe(first)
+    project = {
+      ...project,
+      assets: project.assets?.map((asset) => ({
+        ...asset,
+        outputUrl: 'https://cdn.example/mira-v2.png',
+      })),
+    }
+    expect(studioNodeInputFingerprint(project, 'video')).not.toBe(second)
+  })
   test('a shared upstream node submits once across concurrent branches', async () => {
     const coordinator = new StudioExecutionCoordinator()
     let finish!: (value: string) => void

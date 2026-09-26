@@ -59,6 +59,7 @@ const PORTS = {
       { id: 'reference_image', label: 'studio.port.referenceImage' },
       { id: 'reference_video', label: 'studio.port.referenceVideo' },
       { id: 'extend_video', label: 'studio.port.extendVideo' },
+      { id: 'native_extend', label: 'studio.port.nativeExtend' },
     ],
     outputs: [{ id: 'video', label: 'studio.port.video' }],
   },
@@ -67,7 +68,10 @@ const PORTS = {
 const OPTIONAL_PORTS = {
   text: { inputs: [], outputs: ['image_prompt', 'video_prompt'] },
   image: { inputs: [], outputs: [] },
-  video: { inputs: ['reference_image', 'extend_video'], outputs: [] },
+  video: {
+    inputs: ['reference_image', 'extend_video', 'native_extend'],
+    outputs: [],
+  },
 } as const
 
 const inputHandleClass =

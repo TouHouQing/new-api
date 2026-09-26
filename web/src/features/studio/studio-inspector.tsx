@@ -34,6 +34,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+import { formatQuotaWithCurrency } from '@/lib/currency'
 
 import type { StudioGroup } from './api'
 import type {
@@ -70,6 +71,8 @@ type Props = {
   onUploadImage?: (file: File) => void
   onDelete: () => void
   onRetryMedia?: () => void
+  onReconcileSubmission?: () => void
+  onAbandonSubmission?: () => void
   onSelectTake?: (takeId: string) => void
   onSaveTextOutput?: (output: {
     scene: string
@@ -108,6 +111,9 @@ export function StudioInspector(props: Props) {
   }, [props.node.id, props.node.data.payloadPatchJson])
   const isVideo = props.node.data.kind === 'video'
   const choices = props.models
+  const selectedTake = props.node.data.takes?.find(
+    (take) => take.id === props.node.data.selectedTakeId
+  )
   const selectModel = (value: string | null) => {
     const currentSeconds = props.node.data.seconds
     props.onChange({
@@ -366,6 +372,37 @@ export function StudioInspector(props: Props) {
             </div>
           )}
         </Field>
+        {props.node.data.kind === 'text' && props.node.data.model && (
+          <Field>
+            <FieldLabel>{t('studio.text.mode')}</FieldLabel>
+            <Select
+              value={props.node.data.textMode || 'shot'}
+              onValueChange={(value) =>
+                props.onChange({
+                  textMode: value === 'plain' ? 'plain' : 'shot',
+                })
+              }
+              items={[
+                { value: 'shot', label: t('studio.text.modeShot') },
+                { value: 'plain', label: t('studio.text.modePlain') },
+              ]}
+            >
+              <SelectTrigger aria-label={t('studio.text.mode')}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value='shot'>
+                    {t('studio.text.modeShot')}
+                  </SelectItem>
+                  <SelectItem value='plain'>
+                    {t('studio.text.modePlain')}
+                  </SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        )}
         {props.node.data.kind === 'image' && !props.node.data.model && (
           <Field>
             <FieldLabel>{t('studio.image.local')}</FieldLabel>
@@ -667,6 +704,7 @@ export function StudioInspector(props: Props) {
             className='flex-1'
             disabled={
               busy ||
+              Boolean(props.node.data.pendingRequestId) ||
               (!isVideo &&
                 props.node.data.model !== undefined &&
                 !choices.includes(props.node.data.model)) ||
@@ -695,6 +733,16 @@ export function StudioInspector(props: Props) {
             {t('studio.deleteNode')}
           </Button>
         </div>
+        {isVideo && props.node.data.pendingRequestId && (
+          <div className='flex flex-wrap gap-2'>
+            <Button variant='outline' onClick={props.onReconcileSubmission}>
+              {t('studio.submission.reconcile')}
+            </Button>
+            <Button variant='ghost' onClick={props.onAbandonSubmission}>
+              {t('studio.submission.abandon')}
+            </Button>
+          </div>
+        )}
         {isVideo && props.node.data.model && (
           <p className='text-muted-foreground text-xs' role='status'>
             {costPreview?.status === 'estimated'
@@ -751,6 +799,30 @@ export function StudioInspector(props: Props) {
                 ))}
               </SelectContent>
             </Select>
+          </Field>
+        )}
+        {isVideo && selectedTake?.requestSnapshot && (
+          <Field>
+            <FieldLabel>{t('studio.take.submittedParameters')}</FieldLabel>
+            <pre className='bg-muted max-h-48 overflow-auto rounded-md p-2 text-xs whitespace-pre-wrap'>
+              {selectedTake.requestSnapshot}
+            </pre>
+            {selectedTake.clientRequestId && (
+              <p className='text-muted-foreground text-xs break-all'>
+                {t('studio.take.requestId')}: {selectedTake.clientRequestId}
+              </p>
+            )}
+            {selectedTake.channelId && (
+              <p className='text-muted-foreground text-xs'>
+                {t('studio.take.channel')}: {selectedTake.channelId}
+              </p>
+            )}
+            {selectedTake.chargedQuota !== undefined && (
+              <p className='text-sm' role='status'>
+                {t('studio.take.settledCost')}:{' '}
+                {formatQuotaWithCurrency(selectedTake.chargedQuota)}
+              </p>
+            )}
           </Field>
         )}
         {props.node.data.kind === 'text' &&

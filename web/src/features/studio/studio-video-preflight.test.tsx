@@ -20,7 +20,10 @@ import { expect, test, vi } from 'vitest'
 
 import type { StudioVideoRequest } from './model-profiles'
 import { StudioVideoPreflight } from './studio-video-preflight'
-import { inspectStudioVideoRequest } from './studio-video-request-summary'
+import {
+  inspectStudioVideoRequest,
+  safeStudioVideoRequestSnapshot,
+} from './studio-video-request-summary'
 
 test('preflight preserves exact patched request fields and names attached media roles', () => {
   const request: StudioVideoRequest = {
@@ -178,4 +181,87 @@ test('many reference videos show an advisory without blocking submission', () =>
   expect(
     screen.getByRole('button', { name: 'studio.preflight.confirm' })
   ).toBeEnabled()
+})
+
+test('native extension explains that the selected channel determines continuity', () => {
+  render(
+    <StudioVideoPreflight
+      data={{
+        kind: 'video',
+        title: 'Continue',
+        group: 'default',
+        costDuration: null,
+        nativeExtend: true,
+        request: {
+          model: 'alias',
+          prompt: 'Continue walking',
+          seconds: '5',
+          mode: 'extend',
+          metadata: {
+            content: [
+              {
+                type: 'video_url',
+                role: 'reference_video',
+                video_url: { url: 'https://cdn.example/previous.mp4' },
+              },
+            ],
+          },
+        },
+      }}
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />
+  )
+  expect(screen.getByText('studio.preflight.nativeExtend')).toBeTruthy()
+})
+
+test('the stored request summary retains settings and media identity without signed URLs', async () => {
+  const request: StudioVideoRequest = {
+    model: 'rotating-alias',
+    prompt: 'A woman walks',
+    seconds: '30',
+    duration: 30,
+    mode: 'extend',
+    metadata: {
+      ratio: '9:16',
+      resolution: '720p',
+      content: [
+        {
+          type: 'video_url',
+          role: 'reference_video',
+          video_url: { url: 'https://cdn.example/clip.mp4?secret=token' },
+        },
+      ],
+    },
+  }
+  const summary = await safeStudioVideoRequestSnapshot(request, {
+    edges: [
+      { source: 'source-video', takeId: 'take-one', mediaId: 'media-one' },
+    ],
+    assets: [{ id: 'person', mediaId: 'asset-version-one' }],
+  })
+  expect(summary).toContain('rotating-alias')
+  expect(summary).toContain('"duration": 30')
+  expect(summary).toContain('reference_video')
+  expect(summary).not.toContain('cdn.example')
+  expect(summary).not.toContain('secret')
+  expect(summary).not.toContain('A woman walks')
+  expect(summary).toContain('asset-version-one')
+  expect(summary).toContain('media-one')
+  const changed = await safeStudioVideoRequestSnapshot({
+    ...request,
+    metadata: {
+      ...request.metadata,
+      content: [
+        {
+          type: 'video_url',
+          role: 'reference_video',
+          video_url: { url: 'https://cdn.example/other.mp4?secret=token' },
+        },
+      ],
+    },
+  })
+  expect(JSON.parse(summary).mediaFingerprints).not.toEqual(
+    JSON.parse(changed).mediaFingerprints
+  )
 })

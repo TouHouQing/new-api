@@ -32,6 +32,7 @@ import {
   createStudioVideo,
   fetchStudioProviderConfigs,
   fetchStudioAttempts,
+  fetchStudioAttemptByRequest,
   fetchStudioProviderModels,
   fetchStudioModels,
   generateStudioImage,
@@ -42,6 +43,7 @@ import {
 import type { StudioCanvasNode } from './canvas-flow'
 import { Studio } from './index'
 import { saveStudioProjects, studioProjectsKey } from './local-projects'
+import { studioNodeInputFingerprint } from './studio-execution'
 import { captureStudioLastFrame } from './studio-frame-grab'
 import { importStudioProjectBundle } from './studio-project-bundle'
 import {
@@ -119,6 +121,7 @@ vi.mock('./api', () => ({
   fetchStudioModels: vi.fn(async () => ['MiniMax-H3', '会员套餐甲']),
   fetchStudioProviderConfigs: vi.fn(async () => ({})),
   fetchStudioAttempts: vi.fn(async () => []),
+  fetchStudioAttemptByRequest: vi.fn(async () => null),
   fetchStudioProviderModels: vi.fn(),
   saveStudioProviderConfig: vi.fn(),
   deleteStudioProviderConfig: vi.fn(),
@@ -152,6 +155,7 @@ beforeEach(() => {
   preflightTestState.autoConfirm = true
   vi.clearAllMocks()
   vi.mocked(fetchStudioModels).mockResolvedValue(['MiniMax-H3', '会员套餐甲'])
+  vi.mocked(fetchStudioAttemptByRequest).mockResolvedValue(null)
   storedMedia.clear()
   localStorage.clear()
   useAuthStore.setState((state) => ({
@@ -168,6 +172,250 @@ afterEach(() => {
 })
 
 describe('Studio account isolation', () => {
+  test('plain text mode asks the external model for an ordinary visual prompt', async () => {
+    vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
+      text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },
+    })
+    vi.mocked(fetchStudioProviderModels).mockResolvedValue(['writer'])
+    vi.mocked(generateStudioText).mockResolvedValue({
+      text: 'A woman in a white dress',
+      imagePrompt: 'A woman in a white dress',
+      videoPrompt: 'A woman in a white dress',
+    })
+    let project = addStudioNode(
+      createStudioProject('Plain', 'p-plain'),
+      'text',
+      'text'
+    )
+    project = updateStudioNode(project, 'text', {
+      model: 'writer',
+      textMode: 'plain',
+      prompt: 'Describe a woman',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Text 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() =>
+      expect(generateStudioText).toHaveBeenCalledWith(
+        'writer',
+        'Describe a woman',
+        'plain'
+      )
+    )
+  })
+  test('a new empty project opens the guided storyboard first', async () => {
+    render(<Studio />)
+    expect(await screen.findByText('studio.shot.title')).toBeVisible()
+  })
+  test('an ambiguous video timeout keeps its request ID and blocks a new submission', async () => {
+    vi.mocked(createStudioVideo).mockRejectedValue(new Error('522 timeout'))
+    let project = addStudioNode(
+      createStudioProject('Uncertain', 'p-uncertain'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'Night street',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    expect(await screen.findByText('studio.submission.uncertain')).toBeTruthy()
+    expect(createStudioVideo).toHaveBeenCalledTimes(1)
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      expect(saved.projects[0].nodes[0].data.pendingRequestId).toMatch(
+        /^[0-9a-f-]{36}$/
+      )
+    })
+    expect(
+      screen.getByRole('button', { name: 'studio.generate' })
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'studio.submission.reconcile' })
+    ).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.submission.abandon' })
+    )
+    expect(screen.getByText('studio.submission.abandonWarning')).toBeVisible()
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.submission.abandonConfirm' })
+    )
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      expect(saved.projects[0].nodes[0].data.pendingRequestId).toBeUndefined()
+    })
+  })
+  test('a timed-out response with a recorded task resumes the original video', async () => {
+    vi.mocked(createStudioVideo).mockRejectedValue(new Error('522 timeout'))
+    vi.mocked(fetchStudioAttemptByRequest).mockImplementation(
+      async (requestId) => ({
+        id: 'attempt-1',
+        requestId,
+        group: 'default',
+        model: '会员套餐甲',
+        stage: 'submitted',
+        httpStatus: 200,
+        errorCode: '',
+        channelId: 4,
+        taskId: 'task-from-attempt',
+        createdAt: '2026-09-26T00:00:00Z',
+      })
+    )
+    let project = addStudioNode(
+      createStudioProject('Recovered', 'p-recovered'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'Night street',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      const node = saved.projects[0].nodes[0]
+      expect(node.data.taskId).toBe('task-from-attempt')
+      expect(node.data.pendingRequestId).toBeUndefined()
+      expect(node.data.takes[0].clientRequestId).toMatch(/^[0-9a-f-]{36}$/)
+    })
+    expect(createStudioVideo).toHaveBeenCalledTimes(1)
+  })
+  test('reconciliation retains an old task without activating it after input edits', async () => {
+    const requestId = 'c3943135-fc77-4ca2-9378-d53fb5d8385b'
+    vi.mocked(fetchStudioAttemptByRequest).mockResolvedValue({
+      id: 'attempt-old',
+      requestId,
+      group: 'default',
+      model: '会员套餐甲',
+      stage: 'submitted',
+      httpStatus: 200,
+      errorCode: '',
+      channelId: 4,
+      taskId: 'task-old-input',
+      createdAt: '2026-09-26T00:00:00Z',
+    })
+    let project = addStudioNode(
+      createStudioProject('Edited', 'p-edited'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'Old scene',
+    })
+    const oldFingerprint = studioNodeInputFingerprint(project, 'video')
+    project.nodes[0].data = {
+      ...project.nodes[0].data,
+      pendingRequestId: requestId,
+      pendingRequestFingerprint: oldFingerprint,
+      pendingRequestPrompt: 'Old scene',
+      pendingRequestGroup: 'default',
+      pendingRequestModel: '会员套餐甲',
+      status: 'failed',
+    }
+    project = updateStudioNode(project, 'video', { prompt: 'New scene' })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.submission.reconcile' })
+    )
+    await waitFor(() => {
+      const saved = JSON.parse(
+        localStorage.getItem(studioProjectsKey(12)) || '{}'
+      )
+      const node = saved.projects[0].nodes[0]
+      expect(node.data.prompt).toBe('New scene')
+      expect(node.data.selectedTakeId).toBeUndefined()
+      expect(node.data.taskId).toBeUndefined()
+      expect(node.data.takes[0].taskId).toBe('task-old-input')
+      expect(node.data.pendingRequestId).toBeUndefined()
+    })
+  })
+  test('manual reconciliation retries a missing attempt with the same request ID', async () => {
+    vi.mocked(createStudioVideo)
+      .mockRejectedValueOnce(new Error('522 timeout'))
+      .mockResolvedValueOnce('task-safe-retry')
+    let project = addStudioNode(
+      createStudioProject('Safe retry', 'p-safe-retry'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'Night street',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await screen.findByText('studio.submission.uncertain')
+    fireEvent.click(
+      screen.getByRole('button', { name: 'studio.submission.reconcile' })
+    )
+    await waitFor(() => expect(createStudioVideo).toHaveBeenCalledTimes(2))
+    expect(vi.mocked(createStudioVideo).mock.calls[0][2]).toBe(
+      vi.mocked(createStudioVideo).mock.calls[1][2]
+    )
+  })
+  test('an uncertain upstream video blocks dependent work before text generation', async () => {
+    vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
+      text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },
+    })
+    vi.mocked(fetchStudioProviderModels).mockResolvedValue(['writer'])
+    let project = createStudioProject('Blocked', 'p-blocked')
+    project = addStudioNode(project, 'text', 'text')
+    project = addStudioNode(project, 'video', 'source')
+    project = addStudioNode(project, 'video', 'target')
+    project = updateStudioNode(project, 'text', {
+      model: 'writer',
+      prompt: 'Scene',
+    })
+    project = updateStudioNode(project, 'source', {
+      model: '会员套餐甲',
+      prompt: 'First clip',
+      status: 'failed',
+      pendingRequestId: 'c3943135-fc77-4ca2-9378-d53fb5d8385b',
+    })
+    project = updateStudioNode(project, 'target', {
+      model: '会员套餐甲',
+      prompt: 'Second clip',
+    })
+    project.edges = [
+      { id: 'text-source', source: 'text', target: 'source' },
+      { id: 'source-target', source: 'source', target: 'target' },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 3' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    expect(await screen.findByText('studio.submission.uncertain')).toBeTruthy()
+    expect(generateStudioText).not.toHaveBeenCalled()
+    expect(createStudioVideo).not.toHaveBeenCalled()
+  })
   test('a removed video model gives a reselect message before any billable request', async () => {
     vi.mocked(fetchStudioModels).mockResolvedValue(['other-model'])
     let project = addStudioNode(
@@ -374,7 +622,7 @@ describe('Studio account isolation', () => {
       )
     )
   })
-  test('reports an imported image edit with two references before calling the provider', async () => {
+  test('submits two connected images as external image edit references', async () => {
     vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
       image: {
         kind: 'image',
@@ -383,6 +631,16 @@ describe('Studio account isolation', () => {
       },
     })
     vi.mocked(fetchStudioProviderModels).mockResolvedValue(['image-model'])
+    vi.mocked(generateStudioImage).mockResolvedValue({
+      url: 'https://cdn.example/edited.png',
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        blob: async () => new Blob(['result'], { type: 'image/png' }),
+      })
+    )
     storedMedia.set(
       '12:reference-one',
       new Blob(['one'], { type: 'image/png' })
@@ -417,10 +675,18 @@ describe('Studio account isolation', () => {
     fireEvent.click(
       await screen.findByRole('button', { name: 'studio.generate' })
     )
-    expect(
-      await screen.findByText('studio.image.singleReference')
-    ).toBeVisible()
-    expect(generateStudioImage).not.toHaveBeenCalled()
+    await waitFor(() =>
+      expect(generateStudioImage).toHaveBeenCalledWith(
+        'image-model',
+        'change the lighting',
+        expect.objectContaining({
+          images: [
+            expect.stringMatching(/^data:image\/png;base64,/),
+            expect.stringMatching(/^data:image\/png;base64,/),
+          ],
+        })
+      )
+    )
   })
   test('shares one in-flight text request across two downstream video nodes', async () => {
     vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
@@ -584,6 +850,18 @@ describe('Studio account isolation', () => {
   })
 
   test('recovers an unselected pending video take after project reload', async () => {
+    vi.mocked(fetchStudioAttemptByRequest).mockResolvedValue({
+      id: 'attempt-old',
+      requestId: 'c3943135-fc77-4ca2-9378-d53fb5d8385b',
+      group: 'default',
+      model: '会员套餐甲',
+      stage: 'submitted',
+      httpStatus: 200,
+      errorCode: '',
+      channelId: 9,
+      taskId: 'task-old',
+      createdAt: '2026-09-26T00:00:00Z',
+    })
     vi.mocked(getStudioVideoTask).mockResolvedValue({
       status: 'completed',
       progress: 100,
@@ -615,6 +893,7 @@ describe('Studio account isolation', () => {
           prompt: 'old scene',
           status: 'queued',
           taskId: 'task-old',
+          clientRequestId: 'c3943135-fc77-4ca2-9378-d53fb5d8385b',
         },
       ],
     })
@@ -631,6 +910,7 @@ describe('Studio account isolation', () => {
       expect(node.data.status).toBe('idle')
       expect(node.data.takes[0].status).toBe('completed')
       expect(node.data.takes[0].mediaId).toBeTruthy()
+      expect(node.data.takes[0].channelId).toBe(9)
     })
   })
 
@@ -705,7 +985,8 @@ describe('Studio account isolation', () => {
     expect(generateStudioText).not.toHaveBeenCalled()
     expect(createStudioVideo).toHaveBeenCalledWith(
       expect.objectContaining({ prompt: 'Revised scene' }),
-      'default'
+      'default',
+      expect.any(String)
     )
   })
 
@@ -796,6 +1077,7 @@ describe('Studio account isolation', () => {
       expect(node.data.prompt).toBe('new camera move')
       expect(node.data.selectedTakeId).toBeUndefined()
       expect(node.data.takes[0].taskId).toBe('task-old-input')
+      expect(node.data.pendingRequestId).toBeUndefined()
     })
   })
   test('clears an old final video when a source shot is regenerated', async () => {
@@ -945,7 +1227,8 @@ describe('Studio account isolation', () => {
             ],
           }),
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
   })
@@ -967,7 +1250,8 @@ describe('Studio account isolation', () => {
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
         expect.objectContaining({ prompt: 'A quiet village' }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(generateStudioImage).not.toHaveBeenCalled()
@@ -1001,7 +1285,8 @@ describe('Studio account isolation', () => {
           prompt: 'Slow camera pan',
           images: [expect.stringMatching(/^data:image\/png;base64,/)],
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(generateStudioText).not.toHaveBeenCalled()
@@ -1254,7 +1539,8 @@ describe('Studio account isolation', () => {
             aigc_watermark: false,
           }),
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
   })
@@ -1321,7 +1607,8 @@ describe('Studio account isolation', () => {
         expect.objectContaining({
           images: [expect.stringMatching(/^data:image\/png;base64,/)],
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
   })
@@ -1366,7 +1653,8 @@ describe('Studio account isolation', () => {
           prompt: 'A quiet village',
           images: [expect.stringMatching(/^data:image\/png;base64,/)],
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(generateStudioText).not.toHaveBeenCalled()
@@ -1422,7 +1710,8 @@ describe('Studio account isolation', () => {
             ],
           }),
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(getStudioVideoContentUrl).toHaveBeenCalledWith('task-first')
@@ -1477,10 +1766,64 @@ describe('Studio account isolation', () => {
             ]),
           }),
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(captureStudioLastFrame).toHaveBeenCalledWith(expect.any(Blob))
+  })
+
+  test('a native extension connection sends the source clip and an extend request', async () => {
+    vi.mocked(getStudioVideoContentUrl).mockResolvedValue(
+      'https://new.thqllm.com/api/task/first/content?sig=abc'
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-next')
+    let project = createStudioProject('Native extension', 'p-native-extend')
+    project = addStudioNode(project, 'video', 'first')
+    project = addStudioNode(project, 'video', 'next')
+    project = updateStudioNode(project, 'first', {
+      status: 'completed',
+      taskId: 'task-first',
+    })
+    project = updateStudioNode(project, 'next', {
+      model: '会员套餐甲',
+      prompt: 'continue walking',
+    })
+    project.edges = [
+      {
+        id: 'native',
+        source: 'first',
+        sourceHandle: 'video',
+        target: 'next',
+        targetHandle: 'native_extend',
+      },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 2' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mode: 'extend',
+          metadata: expect.objectContaining({
+            content: expect.arrayContaining([
+              expect.objectContaining({
+                type: 'video_url',
+                video_url: {
+                  url: 'https://new.thqllm.com/api/task/first/content?sig=abc',
+                },
+              }),
+            ]),
+          }),
+        }),
+        'default',
+        expect.any(String)
+      )
+    )
+    expect(captureStudioLastFrame).not.toHaveBeenCalled()
   })
 
   test('a pinned image connection sends its version while another take is selected', async () => {
@@ -1527,7 +1870,8 @@ describe('Studio account isolation', () => {
         expect.objectContaining({
           images: ['data:image/png;base64,b2xk'],
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
   })
@@ -1587,7 +1931,8 @@ describe('Studio account isolation', () => {
             ],
           }),
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(getStudioVideoContentUrl).toHaveBeenCalledWith('task-old')
@@ -1660,7 +2005,8 @@ describe('Studio account isolation', () => {
           prompt: 'camera pushes in',
           images: [expect.stringMatching(/^data:image\/png;base64,/)],
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(generateStudioText).toHaveBeenCalledWith(
@@ -1753,7 +2099,8 @@ describe('Studio account isolation', () => {
         expect.objectContaining({
           prompt: 'A beautiful woman\n\nShe turns toward the camera',
         }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
     expect(generateStudioText).toHaveBeenCalledWith(
@@ -1805,7 +2152,8 @@ describe('Studio account isolation', () => {
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
         expect.objectContaining({ model: '会员套餐甲', seconds: '30' }),
-        'default'
+        'default',
+        expect.any(String)
       )
     )
   })
@@ -1849,7 +2197,8 @@ describe('Studio account isolation', () => {
     await waitFor(() =>
       expect(createStudioVideo).toHaveBeenCalledWith(
         expect.objectContaining({ model: '会员套餐甲', seconds: '30' }),
-        '特价sd'
+        '特价sd',
+        expect.any(String)
       )
     )
   })
@@ -1894,7 +2243,7 @@ describe('Studio account isolation', () => {
     )
   })
 
-  test('keeps the first account canvas when another account signs in', async () => {
+  test('keeps the first account project separate when another account signs in', async () => {
     render(<Studio />)
     fireEvent.click(
       await screen.findByRole('button', { name: 'studio.add.video' })
@@ -1912,9 +2261,8 @@ describe('Studio account isolation', () => {
         user: { id: 13, username: 'two', role: 1, group: 'default' },
       },
     }))
-    await waitFor(() =>
-      expect(screen.getByTestId('canvas-nodes').textContent).toBe('')
-    )
+    await screen.findByText('studio.shot.title')
+    expect(screen.queryByText('Video 1')).toBeNull()
     expect(
       localStorage.getItem('newapi:studio:projects:v1:user:13')
     ).not.toContain('Video 1')

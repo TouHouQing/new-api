@@ -88,6 +88,39 @@ const video = (model: string): StudioCanvasNode => ({
 })
 
 describe('Studio model controls', () => {
+  test('a text model can switch between structured shots and plain prompt writing', async () => {
+    const onChange = vi.fn()
+    render(
+      <StudioInspector
+        node={{
+          id: 'text',
+          type: 'studio',
+          position: { x: 0, y: 0 },
+          data: {
+            kind: 'text',
+            title: 'Text',
+            prompt: 'A woman',
+            model: 'writer',
+          },
+        }}
+        models={['writer']}
+        videoGroups={[]}
+        videoGroup=''
+        providerConfigured
+        onConfigureProvider={vi.fn()}
+        onChange={onChange}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    await userEvent
+      .setup()
+      .click(screen.getByRole('combobox', { name: 'studio.text.mode' }))
+    await userEvent
+      .setup()
+      .click(screen.getByRole('option', { name: 'studio.text.modePlain' }))
+    expect(onChange).toHaveBeenCalledWith({ textMode: 'plain' })
+  })
   test('a connected image version can be pinned without changing the source selection', async () => {
     const onPinConnectionTake = vi.fn()
     render(

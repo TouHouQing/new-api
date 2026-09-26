@@ -37,6 +37,7 @@ export type StudioVideoPreflightData =
       request: StudioVideoRequest
       costDuration: number | null
       mediaAdapted?: boolean
+      nativeExtend?: boolean
     }
   | {
       kind: 'batch'
@@ -167,6 +168,13 @@ export function StudioVideoPreflight(props: {
             <Alert>
               <AlertDescription>
                 {t('studio.preflight.frameAdapted')}
+              </AlertDescription>
+            </Alert>
+          )}
+          {video.nativeExtend && (
+            <Alert>
+              <AlertDescription>
+                {t('studio.preflight.nativeExtend')}
               </AlertDescription>
             </Alert>
           )}

@@ -135,6 +135,52 @@ func TestStudioProviderImageEditUsesMultipart(t *testing.T) {
 	assert.Equal(t, []string{"data:image/png;base64,aGVsbG8="}, images)
 }
 
+func TestStudioProviderImageEditSendsEveryReference(t *testing.T) {
+	provider := studioTestProvider(t, "image")
+	imageBytes, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==")
+	require.NoError(t, err)
+	imageURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imageBytes)
+	client := &http.Client{Transport: studioRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		require.Equal(t, "/v1/images/edits", request.URL.Path)
+		reader, err := request.MultipartReader()
+		require.NoError(t, err)
+		images := 0
+		for {
+			part, err := reader.NextPart()
+			if err == io.EOF {
+				break
+			}
+			require.NoError(t, err)
+			if part.FormName() != "image[]" {
+				continue
+			}
+			contents, err := io.ReadAll(part)
+			require.NoError(t, err)
+			assert.Equal(t, imageBytes, contents)
+			images++
+		}
+		assert.Equal(t, 2, images)
+		return studioResponse(http.StatusOK, `{"data":[{"url":"https://cdn.example.com/result.png"}]}`), nil
+	})}
+	result, err := GenerateStudioProviderImages(context.Background(), provider, StudioImageRequest{Model: "image-one", Prompt: "combine both", Images: []string{imageURI, imageURI}}, client)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"https://cdn.example.com/result.png"}, result)
+}
+
+func TestStudioProviderMultiImageRejectionIsExplicit(t *testing.T) {
+	provider := studioTestProvider(t, "image")
+	imageBytes, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==")
+	require.NoError(t, err)
+	imageURI := "data:image/png;base64," + base64.StdEncoding.EncodeToString(imageBytes)
+	client := &http.Client{Transport: studioRoundTripFunc(func(*http.Request) (*http.Response, error) {
+		return studioResponse(http.StatusBadRequest, `{"error":{"message":"sk-private-test"}}`), nil
+	})}
+	_, err = GenerateStudioProviderImages(context.Background(), provider, StudioImageRequest{Model: "image-one", Prompt: "combine both", Images: []string{imageURI, imageURI}}, client)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "multiple reference images")
+	assert.NotContains(t, err.Error(), "sk-private-test")
+}
+
 func TestStudioProviderImageEditRejectsInvalidDataBeforeUpstream(t *testing.T) {
 	provider := studioTestProvider(t, "image")
 	called := false
@@ -160,6 +206,30 @@ func TestStudioProviderTextAcceptsChatContentParts(t *testing.T) {
 	assert.Equal(t, "First scene", text.Text)
 	assert.Equal(t, "A still frame", text.ImagePrompt)
 	assert.Equal(t, "Then the reveal", text.VideoPrompt)
+}
+
+func TestStudioProviderPlainTextReturnsUsablePrompt(t *testing.T) {
+	provider := studioTestProvider(t, "text")
+	client := &http.Client{Transport: studioRoundTripFunc(func(request *http.Request) (*http.Response, error) {
+		body, err := io.ReadAll(request.Body)
+		require.NoError(t, err)
+		var payload struct {
+			Messages []struct {
+				Role    string `json:"role"`
+				Content string `json:"content"`
+			} `json:"messages"`
+		}
+		require.NoError(t, common.Unmarshal(body, &payload))
+		require.Len(t, payload.Messages, 2)
+		assert.Equal(t, "system", payload.Messages[0].Role)
+		assert.NotContains(t, payload.Messages[0].Content, "image_prompt")
+		assert.Contains(t, payload.Messages[0].Content, "prompt")
+		assert.Equal(t, "A woman walks through a city", payload.Messages[1].Content)
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":"A woman in a red coat walks through a rain-soaked city street at dusk."}}]}`), nil
+	})}
+	plain, err := GenerateStudioProviderPlainText(context.Background(), provider, "text-model", "A woman walks through a city", client)
+	require.NoError(t, err)
+	assert.Equal(t, "A woman in a red coat walks through a rain-soaked city street at dusk.", plain)
 }
 
 func TestStudioProviderTextRequestsAProductionReadyShot(t *testing.T) {

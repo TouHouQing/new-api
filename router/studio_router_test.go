@@ -46,6 +46,9 @@ func TestStudioRoutesRequireDashboardAuthentication(t *testing.T) {
 	attemptList := httptest.NewRecorder()
 	engine.ServeHTTP(attemptList, httptest.NewRequest(http.MethodGet, "/api/studio/attempts", nil))
 	assert.Equal(t, http.StatusUnauthorized, attemptList.Code)
+	attemptLookup := httptest.NewRecorder()
+	engine.ServeHTTP(attemptLookup, httptest.NewRequest(http.MethodGet, "/api/studio/attempts/by-request/e0fb443a-bd8c-4ca1-9654-2f64a0fa7833", nil))
+	assert.Equal(t, http.StatusUnauthorized, attemptLookup.Code)
 
 	recorder := httptest.NewRecorder()
 	engine.ServeHTTP(recorder, httptest.NewRequest(http.MethodPost, "/pg/studio/arbitrary", nil))
@@ -107,9 +110,10 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 			"raw_query":   c.Request.URL.RawQuery,
 		})
 	})
-	engine.POST("/pg/studio/videos", middleware.UserAuth(), middleware.StudioAttemptAudit(), studioSessionAuth(), func(c *gin.Context) {
+	engine.POST("/pg/studio/videos", middleware.UserAuth(), studioSessionAuth(), middleware.StudioAttemptAudit(), func(c *gin.Context) {
 		c.JSON(http.StatusOK, gin.H{"id": "task-accepted"})
 	})
+	engine.GET("/api/studio/attempts/by-request/:request_id", middleware.UserAuth(), studioSessionAuth(), controller.GetStudioAttemptByRequest)
 
 	request := httptest.NewRequest(http.MethodPost, "/studio-auth", nil)
 	request.Header.Set("Authorization", "Bearer "+session.AccessToken)
@@ -218,11 +222,27 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	rejectedRecorder := httptest.NewRecorder()
 	engine.ServeHTTP(rejectedRecorder, rejectedVideo)
 	require.Equal(t, http.StatusForbidden, rejectedRecorder.Code)
-	assert.NotEmpty(t, rejectedRecorder.Header().Get("X-Studio-Attempt-ID"))
+	assert.Empty(t, rejectedRecorder.Header().Get("X-Studio-Attempt-ID"))
 	attempts, err := model.ListStudioAttempts(user.Id, 20)
 	require.NoError(t, err)
+	assert.Empty(t, attempts)
+
+	requestID := "e0fb443a-bd8c-4ca1-9654-2f64a0fa7833"
+	accepted := httptest.NewRequest(http.MethodPost, "/pg/studio/videos", strings.NewReader(`{"model":"轮换渠道-会员视频","prompt":"film"}`))
+	accepted.Header.Set("Authorization", "Bearer "+session.AccessToken)
+	accepted.Header.Set("X-Studio-Request-ID", requestID)
+	acceptedRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(acceptedRecorder, accepted)
+	require.Equal(t, http.StatusOK, acceptedRecorder.Code)
+	attempts, err = model.ListStudioAttempts(user.Id, 20)
+	require.NoError(t, err)
 	require.Len(t, attempts, 1)
-	assert.Equal(t, "forbidden-group", attempts[0].Group)
-	assert.Equal(t, "轮换渠道-会员视频", attempts[0].Model)
-	assert.Equal(t, "rejected_before_channel", attempts[0].Stage)
+	assert.Equal(t, "task-accepted", attempts[0].TaskID)
+
+	patLookup := httptest.NewRequest(http.MethodGet, "/api/studio/attempts/by-request/"+requestID, nil)
+	patLookup.Header.Set("Authorization", "Bearer "+pat)
+	patLookupRecorder := httptest.NewRecorder()
+	engine.ServeHTTP(patLookupRecorder, patLookup)
+	assert.Equal(t, http.StatusForbidden, patLookupRecorder.Code)
+	assert.NotContains(t, patLookupRecorder.Body.String(), "task-accepted")
 }

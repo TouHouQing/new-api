@@ -14,13 +14,38 @@ Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+import { Fragment, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
+
+import type { StudioShot } from './local-projects'
+
+export type StudioTimelineShot = Pick<
+  StudioShot,
+  'id' | 'title' | 'trimStart' | 'trimEnd' | 'transition' | 'transitionSeconds'
+> & {
+  plannedDurationSeconds?: number
+  status?:
+    | 'idle'
+    | 'submitting'
+    | 'queued'
+    | 'processing'
+    | 'completed'
+    | 'failed'
+}
 
 type Props = {
   busy: boolean
@@ -32,21 +57,49 @@ type Props = {
   onDownload: () => void
   soundtrackUrl?: string
   soundtrackVolume?: number
+  soundtrackOffsetSeconds?: number
+  onSoundtrackOffsetChange?: (seconds: number) => void
   voiceoverUrl?: string
   voiceoverVolume?: number
+  voiceoverOffsetSeconds?: number
+  onVoiceoverOffsetChange?: (seconds: number) => void
   onUploadVoiceover?: (file: File) => void
   onRemoveVoiceover?: () => void
   onVoiceoverVolumeChange?: (volume: number) => void
   captionsText?: string
+  captionOffsetSeconds?: number
+  onCaptionOffsetChange?: (seconds: number) => void
   onCaptionsChange?: (value: string) => void
   preflight?: { totalDuration: number; estimatedOutputBytes: number }
   onUploadSoundtrack?: (file: File) => void
   onRemoveSoundtrack?: () => void
   onSoundtrackVolumeChange?: (volume: number) => void
+  timelineShots?: StudioTimelineShot[]
+  onSelectTimelineShot?: (shotId: string) => void
+  onMoveTimelineShot?: (shotId: string, direction: 'up' | 'down') => void
+  onUpdateTimelineShotEdit?: (
+    shotId: string,
+    patch: Pick<
+      StudioShot,
+      'trimStart' | 'trimEnd' | 'transition' | 'transitionSeconds'
+    >
+  ) => void
 }
 
 export function StudioAssemblyPanel(props: Props) {
   const { t } = useTranslation()
+  const [selectedShotId, setSelectedShotId] = useState<string | null>(null)
+  const timelineShots = props.timelineShots || []
+  const selectedShot =
+    timelineShots.find((shot) => shot.id === selectedShotId) || timelineShots[0]
+  const selectedShotIndex = timelineShots.findIndex(
+    (shot) => shot.id === selectedShot?.id
+  )
+  const invalidTrim = timelineShots.find(
+    (shot) =>
+      shot.trimEnd !== undefined && shot.trimEnd <= (shot.trimStart ?? 0)
+  )
+
   return (
     <Card className='gap-3 py-3'>
       <CardHeader className='px-4'>
@@ -61,6 +114,322 @@ export function StudioAssemblyPanel(props: Props) {
         <p className='text-muted-foreground text-xs'>
           {t('studio.final.localNoApi')}
         </p>
+        {timelineShots.length > 0 && (
+          <div className='flex flex-col gap-3 rounded-md border p-3'>
+            <div>
+              <p className='text-sm font-medium'>
+                {t('studio.timeline.overview')}
+              </p>
+              <p className='text-muted-foreground text-xs'>
+                {t('studio.timeline.overviewHint')}
+              </p>
+            </div>
+            <div
+              role='region'
+              aria-label={t('studio.timeline.overview')}
+              tabIndex={0}
+              className='focus-visible:outline-ring overflow-x-auto rounded-sm focus-visible:outline-2'
+            >
+              <div className='flex min-w-max flex-col gap-2 pb-3'>
+                <div
+                  role='group'
+                  aria-label={t('studio.timeline.shotTrack')}
+                  className='flex gap-1'
+                >
+                  {timelineShots.map((shot, index) => {
+                    const plannedSeconds =
+                      shot.trimEnd ?? shot.plannedDurationSeconds
+                    const estimatedDuration =
+                      plannedSeconds !== undefined &&
+                      Number.isFinite(plannedSeconds)
+                        ? Math.max(0, plannedSeconds - (shot.trimStart ?? 0))
+                        : undefined
+                    return (
+                      <Fragment key={shot.id}>
+                        <div className='flex w-40 shrink-0 flex-col gap-1'>
+                          <Button
+                            variant='outline'
+                            aria-label={`${t('studio.timeline.selectShot')}: ${shot.title}`}
+                            aria-pressed={selectedShot?.id === shot.id}
+                            className='aria-pressed:border-primary h-auto w-full flex-col items-start whitespace-normal'
+                            disabled={props.busy}
+                            onClick={() => {
+                              setSelectedShotId(shot.id)
+                              props.onSelectTimelineShot?.(shot.id)
+                            }}
+                          >
+                            <span className='text-muted-foreground text-xs'>
+                              {index + 1}
+                            </span>
+                            <span className='w-full truncate text-left'>
+                              {shot.title}
+                            </span>
+                            {estimatedDuration !== undefined && (
+                              <span className='text-muted-foreground text-xs'>
+                                {t('studio.timeline.estimatedDuration', {
+                                  seconds: Number(estimatedDuration.toFixed(1)),
+                                })}
+                              </span>
+                            )}
+                            {(shot.trimStart !== undefined ||
+                              shot.trimEnd !== undefined) && (
+                              <span className='text-muted-foreground text-xs'>
+                                {t('studio.timeline.cropRange', {
+                                  start: shot.trimStart ?? 0,
+                                  end:
+                                    shot.trimEnd ??
+                                    t('studio.timeline.fullClip'),
+                                })}
+                              </span>
+                            )}
+                            {shot.status && shot.status !== 'idle' && (
+                              <span className='text-muted-foreground text-xs'>
+                                {t(`studio.status.${shot.status}`)}
+                              </span>
+                            )}
+                          </Button>
+                          {props.onMoveTimelineShot && (
+                            <div className='flex gap-1'>
+                              <Button
+                                size='xs'
+                                variant='outline'
+                                aria-label={`${shot.title} ${t('studio.timeline.moveEarlier')}`}
+                                disabled={props.busy || index === 0}
+                                onClick={() =>
+                                  props.onMoveTimelineShot?.(shot.id, 'up')
+                                }
+                              >
+                                ←
+                              </Button>
+                              <Button
+                                size='xs'
+                                variant='outline'
+                                aria-label={`${shot.title} ${t('studio.timeline.moveLater')}`}
+                                disabled={
+                                  props.busy ||
+                                  index === timelineShots.length - 1
+                                }
+                                onClick={() =>
+                                  props.onMoveTimelineShot?.(shot.id, 'down')
+                                }
+                              >
+                                →
+                              </Button>
+                            </div>
+                          )}
+                        </div>
+                        {index < timelineShots.length - 1 && (
+                          <span className='text-muted-foreground flex shrink-0 items-center text-xs'>
+                            {shot.transition === 'fade'
+                              ? t('studio.timeline.fadeDuration', {
+                                  seconds: shot.transitionSeconds ?? 0.5,
+                                })
+                              : t('studio.timeline.cut')}
+                          </span>
+                        )}
+                      </Fragment>
+                    )
+                  })}
+                </div>
+                {(
+                  [
+                    {
+                      key: 'studio.timeline.soundtrack',
+                      active: Boolean(props.soundtrackUrl),
+                      offset: props.soundtrackOffsetSeconds ?? 0,
+                      onChange: props.onSoundtrackOffsetChange,
+                    },
+                    {
+                      key: 'studio.timeline.voiceover',
+                      active: Boolean(props.voiceoverUrl),
+                      offset: props.voiceoverOffsetSeconds ?? 0,
+                      onChange: props.onVoiceoverOffsetChange,
+                    },
+                    {
+                      key: 'studio.timeline.captions',
+                      active: Boolean(props.captionsText?.trim()),
+                      offset: props.captionOffsetSeconds ?? 0,
+                      onChange: props.onCaptionOffsetChange,
+                    },
+                  ] as const
+                ).map((lane) => (
+                  <div
+                    key={lane.key}
+                    role='group'
+                    aria-label={t(lane.key)}
+                    className='bg-muted/50 flex min-h-9 items-center gap-2 rounded-md px-2 text-xs'
+                  >
+                    <span className='w-24 shrink-0 font-medium'>
+                      {t(lane.key)}
+                    </span>
+                    {lane.active ? (
+                      <>
+                        <span className='bg-secondary text-secondary-foreground rounded px-2 py-1'>
+                          {lane.offset === 0
+                            ? t('studio.timeline.startsAtZero')
+                            : t('studio.timeline.startsAt', {
+                                seconds: lane.offset,
+                              })}
+                        </span>
+                        {lane.onChange && (
+                          <label className='text-muted-foreground flex items-center gap-1'>
+                            {t('studio.timeline.startOffset')}
+                            <Input
+                              type='number'
+                              aria-label={`${t(lane.key)} ${t('studio.timeline.startOffset')}`}
+                              min={0}
+                              max={3600}
+                              step={0.1}
+                              className='w-20'
+                              disabled={props.busy}
+                              value={lane.offset}
+                              onChange={(event) => {
+                                const value = Number(event.target.value)
+                                if (
+                                  Number.isFinite(value) &&
+                                  value >= 0 &&
+                                  value <= 3600
+                                ) {
+                                  lane.onChange?.(value)
+                                }
+                              }}
+                            />
+                          </label>
+                        )}
+                      </>
+                    ) : (
+                      <span className='text-muted-foreground'>
+                        {t('studio.timeline.emptyLane')}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+            {selectedShot && props.onUpdateTimelineShotEdit && (
+              <div className='flex flex-wrap items-end gap-3 border-t pt-3'>
+                <p className='w-full text-sm font-medium'>
+                  {selectedShot.title}
+                </p>
+                <Field className='w-auto'>
+                  <FieldLabel htmlFor='studio-timeline-trim-start'>
+                    {t('studio.timeline.trimStart')}
+                  </FieldLabel>
+                  <Input
+                    id='studio-timeline-trim-start'
+                    aria-label={`${selectedShot.title} ${t('studio.timeline.trimStart')}`}
+                    type='number'
+                    min={0}
+                    max={3600}
+                    step={0.1}
+                    className='w-24'
+                    disabled={props.busy}
+                    value={selectedShot.trimStart ?? 0}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (value >= 0 && value <= 3600) {
+                        props.onUpdateTimelineShotEdit?.(selectedShot.id, {
+                          trimStart: value,
+                        })
+                      }
+                    }}
+                  />
+                </Field>
+                <Field className='w-auto'>
+                  <FieldLabel htmlFor='studio-timeline-trim-end'>
+                    {t('studio.timeline.trimEnd')}
+                  </FieldLabel>
+                  <Input
+                    id='studio-timeline-trim-end'
+                    aria-label={`${selectedShot.title} ${t('studio.timeline.trimEnd')}`}
+                    type='number'
+                    min={0}
+                    max={3600}
+                    step={0.1}
+                    className='w-24'
+                    disabled={props.busy}
+                    value={selectedShot.trimEnd ?? ''}
+                    placeholder={t('studio.timeline.fullClip')}
+                    onChange={(event) => {
+                      const value = Number(event.target.value)
+                      if (
+                        event.target.value === '' ||
+                        (value >= 0 && value <= 3600)
+                      ) {
+                        props.onUpdateTimelineShotEdit?.(selectedShot.id, {
+                          trimEnd:
+                            event.target.value === '' ? undefined : value,
+                        })
+                      }
+                    }}
+                  />
+                </Field>
+                {selectedShotIndex < timelineShots.length - 1 && (
+                  <Field className='w-auto'>
+                    <FieldLabel>{t('studio.timeline.transition')}</FieldLabel>
+                    <Select
+                      value={selectedShot.transition || 'cut'}
+                      disabled={props.busy}
+                      onValueChange={(value) =>
+                        props.onUpdateTimelineShotEdit?.(selectedShot.id, {
+                          transition: value as 'cut' | 'fade',
+                        })
+                      }
+                    >
+                      <SelectTrigger
+                        aria-label={`${selectedShot.title} ${t('studio.timeline.transition')}`}
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectItem value='cut'>
+                            {t('studio.timeline.cut')}
+                          </SelectItem>
+                          <SelectItem value='fade'>
+                            {t('studio.timeline.fade')}
+                          </SelectItem>
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                )}
+                {selectedShotIndex < timelineShots.length - 1 &&
+                  selectedShot.transition === 'fade' && (
+                    <Field className='w-auto'>
+                      <FieldLabel htmlFor='studio-timeline-transition-seconds'>
+                        {t('studio.timeline.transitionSeconds')}
+                      </FieldLabel>
+                      <Input
+                        id='studio-timeline-transition-seconds'
+                        aria-label={`${selectedShot.title} ${t('studio.timeline.transitionSeconds')}`}
+                        type='number'
+                        min={0.1}
+                        max={3}
+                        step={0.1}
+                        className='w-24'
+                        disabled={props.busy}
+                        value={selectedShot.transitionSeconds ?? 0.5}
+                        onChange={(event) => {
+                          const value = Number(event.target.value)
+                          if (value >= 0.1 && value <= 3) {
+                            props.onUpdateTimelineShotEdit?.(selectedShot.id, {
+                              transitionSeconds: value,
+                            })
+                          }
+                        }}
+                      />
+                    </Field>
+                  )}
+              </div>
+            )}
+          </div>
+        )}
+        {invalidTrim && (
+          <p role='alert' className='text-destructive text-xs'>
+            {t('studio.timeline.invalidTrim', { shot: invalidTrim.title })}
+          </p>
+        )}
         <div className='space-y-2 rounded-md border p-3'>
           <p className='text-sm font-medium'>
             {t('studio.timeline.soundtrack')}
@@ -199,7 +568,11 @@ export function StudioAssemblyPanel(props: Props) {
           </p>
         )}
         <div className='flex flex-wrap gap-2'>
-          <Button size='sm' disabled={props.busy} onClick={props.onAssemble}>
+          <Button
+            size='sm'
+            disabled={props.busy || Boolean(invalidTrim)}
+            onClick={props.onAssemble}
+          >
             {props.busy
               ? t('studio.assembly.working')
               : t('studio.assembly.create')}

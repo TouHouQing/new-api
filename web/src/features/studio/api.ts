@@ -15,7 +15,7 @@ You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
 import { getTaskArtifacts, getUserTaskLogs } from '@/features/usage-logs/api'
-import { api, getUserModels } from '@/lib/api'
+import { api, getUserModels, type ApiRequestConfig } from '@/lib/api'
 
 import type { StudioVideoRequest } from './model-profiles'
 
@@ -44,6 +44,7 @@ export type StudioProviderConfigs = Partial<
 export type StudioGroup = { id: string; description: string }
 export type StudioAttempt = {
   id: string
+  requestId?: string
   group: string
   model: string
   stage: string
@@ -58,6 +59,8 @@ export type StudioTaskState = {
   status: 'queued' | 'processing' | 'completed' | 'failed'
   progress: number
   error?: string
+  chargedQuota?: number
+  channelId?: number
 }
 
 function isRecord(value: unknown): value is RecordValue {
@@ -83,6 +86,9 @@ export function parseStudioAttempts(value: unknown): StudioAttempt[] {
     )
     .map((item) => ({
       id: item.id as string,
+      ...(typeof item.request_id === 'string'
+        ? { requestId: item.request_id }
+        : {}),
       group: typeof item.group === 'string' ? item.group : '',
       model: typeof item.model === 'string' ? item.model : '',
       stage: item.stage as string,
@@ -97,6 +103,30 @@ export function parseStudioAttempts(value: unknown): StudioAttempt[] {
 export async function fetchStudioAttempts(): Promise<StudioAttempt[]> {
   const response = await api.get('/api/studio/attempts')
   return parseStudioAttempts(response.data)
+}
+
+export async function fetchStudioAttemptByRequest(
+  requestId: string
+): Promise<StudioAttempt | null> {
+  try {
+    const response = await api.get(
+      `/api/studio/attempts/by-request/${encodeURIComponent(requestId)}`,
+      {
+        skipBusinessError: true,
+        skipErrorHandler: true,
+      } satisfies ApiRequestConfig
+    )
+    return (
+      parseStudioAttempts({
+        success: response.data?.success,
+        data: [response.data?.data],
+      })[0] || null
+    )
+  } catch (error) {
+    const response = isRecord(error) ? error.response : undefined
+    if (isRecord(response) && response.status === 404) return null
+    throw error
+  }
 }
 
 export function parseStudioGroups(value: unknown): StudioGroup[] {
@@ -243,13 +273,28 @@ export function parseStudioTaskResponse(
   const progress = Number.isFinite(rawProgress)
     ? Math.max(0, Math.min(100, rawProgress))
     : 0
-  if (status === 'SUCCESS') return { status: 'completed', progress: 100 }
+  const billing = {
+    ...(typeof task.quota === 'number' &&
+    Number.isSafeInteger(task.quota) &&
+    task.quota >= 0
+      ? { chargedQuota: task.quota }
+      : {}),
+    ...(typeof task.channel_id === 'number' &&
+    Number.isSafeInteger(task.channel_id) &&
+    task.channel_id > 0
+      ? { channelId: task.channel_id }
+      : {}),
+  }
+  if (status === 'SUCCESS') {
+    return { status: 'completed', progress: 100, ...billing }
+  }
   if (status === 'FAILURE') {
     return {
       status: 'failed',
       progress,
       error:
         typeof task.fail_reason === 'string' ? task.fail_reason : undefined,
+      ...billing,
     }
   }
   if (status === 'IN_PROGRESS') return { status: 'processing', progress }
@@ -309,12 +354,22 @@ export async function fetchStudioProviderModels(
 
 export async function generateStudioText(
   model: string,
-  prompt: string
+  prompt: string,
+  mode: 'shot' | 'plain' = 'shot'
 ): Promise<StudioTextOutput> {
   const response = await api.post('/api/studio/providers/text/generate', {
     model,
     prompt,
+    ...(mode === 'plain' ? { mode } : {}),
   })
+  if (mode === 'plain') {
+    const data = response.data?.data
+    const text = typeof data?.text === 'string' ? data.text.trim() : ''
+    if (response.data?.success !== true || !text) {
+      throw new Error('text generation returned no usable prompt')
+    }
+    return { text, imagePrompt: text, videoPrompt: text }
+  }
   return parseStudioTextResponse(response.data)
 }
 
@@ -381,7 +436,13 @@ export async function generateStudioStoryboard(
 export async function generateStudioImage(
   model: string,
   prompt: string,
-  options?: { size?: string; quality?: string; n?: number; image?: string }
+  options?: {
+    size?: string
+    quality?: string
+    n?: number
+    image?: string
+    images?: string[]
+  }
 ): Promise<{ url: string; urls?: string[] }> {
   const response = await api.post(
     '/api/studio/providers/image/generate',
@@ -393,7 +454,13 @@ export async function generateStudioImage(
 export function buildStudioImageRequest(
   model: string,
   prompt: string,
-  options?: { size?: string; quality?: string; n?: number; image?: string }
+  options?: {
+    size?: string
+    quality?: string
+    n?: number
+    image?: string
+    images?: string[]
+  }
 ): {
   model: string
   prompt: string
@@ -401,18 +468,21 @@ export function buildStudioImageRequest(
   quality?: string
   n?: number
   image?: string
+  images?: string[]
 } {
   return { model, prompt, ...options }
 }
 
 export async function createStudioVideo(
   request: StudioVideoRequest,
-  group: string
+  group: string,
+  requestId?: string
 ): Promise<string> {
   if (!group) throw new Error('a video group is required')
   try {
     const response = await api.post('/pg/studio/videos', request, {
       params: { studio_group: group },
+      ...(requestId ? { headers: { 'X-Studio-Request-ID': requestId } } : {}),
     })
     return parseStudioVideoResponse(response.data)
   } catch (error) {

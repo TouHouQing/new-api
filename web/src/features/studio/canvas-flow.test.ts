@@ -174,7 +174,7 @@ describe('Studio canvas connections', () => {
     ).toBe(true)
   })
 
-  test('rejects a second image input when an image edit already has a reference', () => {
+  test('accepts multiple image edit references', () => {
     const secondSource = { ...nodes[1], id: 'image-two' }
     const target = { ...nodes[1], id: 'image-edit' }
     const graph = [...nodes, secondSource, target]
@@ -185,7 +185,7 @@ describe('Studio canvas connections', () => {
         'image-two',
         'image-edit'
       )
-    ).toBe(false)
+    ).toBe(true)
     expect(
       isValidStudioConnection(
         graph,
@@ -202,7 +202,7 @@ describe('Studio canvas connections', () => {
         'image',
         'reference_image'
       )
-    ).toBe(false)
+    ).toBe(true)
     expect(
       isValidStudioConnection(
         graph,
@@ -271,6 +271,16 @@ describe('Studio canvas connections', () => {
         'video-two',
         'video',
         'extend_video'
+      )
+    ).toBe(true)
+    expect(
+      isValidStudioConnection(
+        [...nodes, secondVideo],
+        [],
+        'video',
+        'video-two',
+        'video',
+        'native_extend'
       )
     ).toBe(true)
   })

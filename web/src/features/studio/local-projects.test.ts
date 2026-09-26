@@ -33,6 +33,55 @@ import {
 beforeEach(() => localStorage.clear())
 
 describe('browser-local Studio projects', () => {
+  test('persists an uncertain billable video submission for later reconciliation', () => {
+    const project = addStudioNode(
+      createStudioProject('Pending', 'p-pending'),
+      'video',
+      'video'
+    )
+    project.nodes[0].data = {
+      ...project.nodes[0].data,
+      status: 'failed',
+      pendingRequestId: 'c3943135-fc77-4ca2-9378-d53fb5d8385b',
+      pendingRequestFingerprint: 'input-v1',
+      pendingRequestPrompt: 'Next shot',
+      pendingRequestGroup: 'default',
+      pendingRequestModel: 'alias',
+      pendingRequestSnapshot: '{"seconds":"5"}',
+    }
+    saveStudioProjects(localStorage, 12, [project])
+    expect(
+      loadStudioProjects(localStorage, 12)[0].nodes[0].data.pendingRequestId
+    ).toBe('c3943135-fc77-4ca2-9378-d53fb5d8385b')
+  })
+  test('persists completed video request provenance and task log charge', () => {
+    const project = addStudioNode(
+      createStudioProject('Provenance', 'p-provenance'),
+      'video',
+      'video'
+    )
+    project.nodes[0].data.takes = [
+      {
+        id: 'take-1',
+        createdAt: '2026-09-26T00:00:00Z',
+        prompt: 'Scene',
+        status: 'completed',
+        taskId: 'task-1',
+        clientRequestId: 'c3943135-fc77-4ca2-9378-d53fb5d8385b',
+        requestSnapshot: '{"seconds":"5"}',
+        chargedQuota: 350000,
+        channelId: 14,
+      },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    expect(
+      loadStudioProjects(localStorage, 12)[0].nodes[0].data.takes?.[0]
+    ).toMatchObject({
+      requestSnapshot: '{"seconds":"5"}',
+      chargedQuota: 350000,
+      channelId: 14,
+    })
+  })
   test('persists project defaults across reload and portable export', () => {
     const project = {
       ...createStudioProject('Defaults', 'project-defaults'),
@@ -148,18 +197,21 @@ describe('browser-local Studio projects', () => {
       },
     ]
     project.soundtrackMediaId = 'audio-media'
+    project.voiceoverMediaId = 'voice-media'
     const raw = serializeStudioProjectExport(project)
     for (const id of [
       'current-media',
       'take-media',
       'asset-media',
       'audio-media',
+      'voice-media',
     ]) {
       expect(raw).not.toContain(id)
     }
     const imported = parseStudioProjectImport(raw)
     expect(imported.nodes[0].data.takes?.[0].mediaId).toBeUndefined()
     expect(imported.assets?.[0].mediaId).toBeUndefined()
+    expect(imported.voiceoverMediaId).toBeUndefined()
   })
   test('keeps storyboard and final video links across reload and project export', () => {
     let project = addStudioShot(

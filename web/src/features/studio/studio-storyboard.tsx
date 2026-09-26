@@ -21,6 +21,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
+import { formatQuotaWithCurrency } from '@/lib/currency'
 
 import type { StudioGroup, StudioShotDraft } from './api'
 import type {
@@ -90,12 +91,18 @@ type Props = {
     onDownload: () => void
     soundtrackUrl?: string
     soundtrackVolume?: number
+    soundtrackOffsetSeconds?: number
+    onSoundtrackOffsetChange?: (seconds: number) => void
     voiceoverUrl?: string
     voiceoverVolume?: number
+    voiceoverOffsetSeconds?: number
+    onVoiceoverOffsetChange?: (seconds: number) => void
     onUploadVoiceover?: (file: File) => void
     onRemoveVoiceover?: () => void
     onVoiceoverVolumeChange?: (volume: number) => void
     captionsText?: string
+    captionOffsetSeconds?: number
+    onCaptionOffsetChange?: (seconds: number) => void
     onCaptionsChange?: (value: string) => void
     preflight?: { totalDuration: number; estimatedOutputBytes: number }
     onUploadSoundtrack?: (file: File) => void
@@ -119,6 +126,22 @@ export function StudioStoryboard(props: Props) {
     props.project.edges
       .filter((edge) => edge.target === finalVideo?.id)
       .map((edge) => edge.source)
+  )
+  const submittedTaskIds = new Set<string>()
+  const settledQuotaByTask = new Map<string, number>()
+  for (const node of props.project.nodes) {
+    if (node.data.kind !== 'video') continue
+    for (const take of node.data.takes || []) {
+      if (!take.taskId) continue
+      submittedTaskIds.add(take.taskId)
+      if (take.chargedQuota !== undefined) {
+        settledQuotaByTask.set(take.taskId, take.chargedQuota)
+      }
+    }
+  }
+  const knownQuota = [...settledQuotaByTask.values()].reduce(
+    (total, quota) => total + quota,
+    0
   )
 
   return (
@@ -198,6 +221,15 @@ export function StudioStoryboard(props: Props) {
               })
             : t('studio.cost.unknown')}
         </span>
+        {submittedTaskIds.size > 0 && (
+          <span role='status'>
+            {t('studio.cost.settledKnown', {
+              amount: formatQuotaWithCurrency(knownQuota),
+              known: settledQuotaByTask.size,
+              total: submittedTaskIds.size,
+            })}
+          </span>
+        )}
       </div>
       {shots.length === 0 && (
         <p className='text-muted-foreground rounded-lg border border-dashed p-6 text-center text-sm'>
@@ -650,7 +682,32 @@ export function StudioStoryboard(props: Props) {
             </CardContent>
           </Card>
         )}
-        {shots.length > 0 && <StudioAssemblyPanel {...props.assembly} />}
+        {shots.length > 0 && (
+          <StudioAssemblyPanel
+            {...props.assembly}
+            timelineShots={shots.map((shot) => {
+              const video = props.project.nodes.find(
+                (node) => node.id === shot.videoNodeId
+              )
+              return {
+                id: shot.id,
+                title: shot.title,
+                trimStart: shot.trimStart,
+                trimEnd: shot.trimEnd,
+                transition: shot.transition,
+                transitionSeconds: shot.transitionSeconds,
+                plannedDurationSeconds: video?.data.seconds,
+                status: video?.data.status,
+              }
+            })}
+            onSelectTimelineShot={(shotId) => {
+              const shot = shots.find((item) => item.id === shotId)
+              if (shot) props.onSelectNode(shot.videoNodeId)
+            }}
+            onUpdateTimelineShotEdit={props.onUpdateShotEdit}
+            onMoveTimelineShot={props.onMoveShot}
+          />
+        )}
       </div>
     </div>
   )

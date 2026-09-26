@@ -111,6 +111,7 @@ test('assembled MP4 receives the project caption track', async () => {
   project = {
     ...project,
     captionsText: '1\n00:00:00,000 --> 00:00:01,000\nHello',
+    captionOffsetSeconds: 1.5,
   }
   saveStudioProjects(localStorage, 12, [project])
   render(<Studio />)
@@ -122,7 +123,10 @@ test('assembled MP4 receives the project caption track', async () => {
       expect.any(Array),
       expect.any(Function),
       expect.any(AbortSignal),
-      expect.objectContaining({ captions: project.captionsText })
+      expect.objectContaining({
+        captions: project.captionsText,
+        captionOffsetSeconds: 1.5,
+      })
     )
   )
 })
@@ -147,6 +151,7 @@ test('assembled MP4 mixes a saved voiceover with the clip audio', async () => {
     ...project,
     voiceoverMediaId: 'voice-1',
     voiceoverVolume: 0.5,
+    voiceoverOffsetSeconds: 2,
   }
   saveStudioProjects(localStorage, 12, [project])
   render(<Studio />)
@@ -163,6 +168,7 @@ test('assembled MP4 mixes a saved voiceover with the clip audio', async () => {
           blob: stored.get('12:voice-1'),
           volume: 0.5,
         },
+        voiceoverOffsetSeconds: 2,
       })
     )
   )
@@ -178,9 +184,14 @@ test('a narration upload is saved locally and can be removed', async () => {
   saveStudioProjects(localStorage, 12, [project])
   render(<Studio />)
   const file = new File(['narration'], 'voice.mp3', { type: 'audio/mpeg' })
-  fireEvent.change(await screen.findByLabelText('studio.timeline.voiceover'), {
-    target: { files: [file] },
-  })
+  fireEvent.change(
+    await screen.findByLabelText('studio.timeline.voiceover', {
+      selector: 'input[type="file"]',
+    }),
+    {
+      target: { files: [file] },
+    }
+  )
   let mediaId = ''
   await waitFor(() => {
     const saved = JSON.parse(
@@ -298,6 +309,7 @@ test('passes edited trims, fade, volume, and soundtrack into browser composition
   )
   project.soundtrackMediaId = 'music'
   project.soundtrackVolume = 0.25
+  project.soundtrackOffsetSeconds = 0.7
   project = updateStudioNode(project, 'v1', {
     status: 'completed',
     mediaId: 'clip-1',
@@ -329,7 +341,10 @@ test('passes edited trims, fade, volume, and soundtrack into browser composition
       ],
       expect.any(Function),
       expect.any(AbortSignal),
-      { soundtrack: { blob: music, volume: 0.25 } }
+      {
+        soundtrack: { blob: music, volume: 0.25 },
+        soundtrackOffsetSeconds: 0.7,
+      }
     )
   )
 })

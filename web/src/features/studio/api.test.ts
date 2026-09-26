@@ -21,6 +21,8 @@ import { api } from '@/lib/api'
 import {
   buildStudioImageRequest,
   createStudioVideo,
+  fetchStudioAttemptByRequest,
+  generateStudioText,
   parseStudioGroups,
   parseStudioAttempts,
   parseStudioImageResponse,
@@ -82,6 +84,82 @@ describe('Studio relay responses', () => {
     } finally {
       post.mockRestore()
     }
+  })
+  test('uses a stable client request ID and can recover its task from an attempt', async () => {
+    const request = {
+      model: 'alias',
+      prompt: 'scene',
+      seconds: '5',
+      metadata: {},
+    }
+    const post = vi
+      .spyOn(api, 'post')
+      .mockResolvedValue({ data: { id: 'task-1' } })
+    const get = vi.spyOn(api, 'get').mockResolvedValue({
+      data: {
+        success: true,
+        data: {
+          id: 'attempt-1',
+          request_id: 'c3943135-fc77-4ca2-9378-d53fb5d8385b',
+          stage: 'submitted',
+          task_id: 'task-1',
+          http_status: 200,
+        },
+      },
+    })
+    try {
+      expect(
+        await createStudioVideo(
+          request,
+          'default',
+          'c3943135-fc77-4ca2-9378-d53fb5d8385b'
+        )
+      ).toBe('task-1')
+      expect(post).toHaveBeenCalledWith('/pg/studio/videos', request, {
+        params: { studio_group: 'default' },
+        headers: {
+          'X-Studio-Request-ID': 'c3943135-fc77-4ca2-9378-d53fb5d8385b',
+        },
+      })
+      expect(
+        await fetchStudioAttemptByRequest(
+          'c3943135-fc77-4ca2-9378-d53fb5d8385b'
+        )
+      ).toMatchObject({
+        id: 'attempt-1',
+        taskId: 'task-1',
+        stage: 'submitted',
+      })
+    } finally {
+      post.mockRestore()
+      get.mockRestore()
+    }
+  })
+  test('reads settled task quota and channel for a completed video', () => {
+    expect(
+      parseStudioTaskResponse(
+        {
+          success: true,
+          data: {
+            items: [
+              {
+                task_id: 'task-1',
+                status: 'SUCCESS',
+                progress: '100%',
+                quota: 350000,
+                channel_id: 14,
+              },
+            ],
+          },
+        },
+        'task-1'
+      )
+    ).toEqual({
+      status: 'completed',
+      progress: 100,
+      chargedQuota: 350000,
+      channelId: 14,
+    })
   })
   test('includes the submission ID when the video relay rejects before a task exists', async () => {
     const post = vi.spyOn(api, 'post').mockRejectedValue({
@@ -172,6 +250,27 @@ describe('Studio relay responses', () => {
       })
     ).toEqual({ url: 'https://cdn.example/frame.png' })
   })
+  test('plain text mode sends an explicit mode and supplies connected prompts', async () => {
+    const post = vi.spyOn(api, 'post').mockResolvedValue({
+      data: { success: true, data: { text: 'A woman walks into the frame.' } },
+    })
+    try {
+      expect(
+        await generateStudioText('writer', 'Describe a woman', 'plain')
+      ).toEqual({
+        text: 'A woman walks into the frame.',
+        imagePrompt: 'A woman walks into the frame.',
+        videoPrompt: 'A woman walks into the frame.',
+      })
+      expect(post).toHaveBeenCalledWith('/api/studio/providers/text/generate', {
+        model: 'writer',
+        prompt: 'Describe a woman',
+        mode: 'plain',
+      })
+    } finally {
+      post.mockRestore()
+    }
+  })
 
   test('lets each image model choose its own default output size', () => {
     expect(
@@ -205,6 +304,15 @@ describe('Studio relay responses', () => {
     ).toEqual({
       url: 'https://cdn.example/1.png',
       urls: ['https://cdn.example/1.png', 'https://cdn.example/2.png'],
+    })
+    expect(
+      buildStudioImageRequest('image-model', 'scene', {
+        images: ['data:image/png;base64,AAAA', 'data:image/png;base64,BBBB'],
+      })
+    ).toEqual({
+      model: 'image-model',
+      prompt: 'scene',
+      images: ['data:image/png;base64,AAAA', 'data:image/png;base64,BBBB'],
     })
   })
   test('accepts the image URL returned by the OpenAI image contract', () => {

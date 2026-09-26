@@ -717,6 +717,7 @@ export function updateStudioNode(
         [
           'group',
           'model',
+          'textMode',
           'videoFamily',
           'seconds',
           'resolution',
@@ -731,7 +732,10 @@ export function updateStudioNode(
         if (data.status === 'failed') data.status = 'idle'
       }
       if (
-        (promptChanged || modelChanged) &&
+        (promptChanged ||
+          modelChanged ||
+          (Object.hasOwn(patch, 'textMode') &&
+            patch.textMode !== node.data.textMode)) &&
         !(node.data.kind === 'image' && !node.data.model && !modelChanged)
       ) {
         delete data.outputText

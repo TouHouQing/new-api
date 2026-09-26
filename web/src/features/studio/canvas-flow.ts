@@ -22,6 +22,7 @@ export type StudioTake = {
   id: string
   createdAt: string
   model?: string
+  textMode?: 'shot' | 'plain'
   group?: string
   prompt: string
   status: 'queued' | 'processing' | 'completed' | 'failed'
@@ -32,6 +33,10 @@ export type StudioTake = {
   outputText?: string
   outputImagePrompt?: string
   outputVideoPrompt?: string
+  clientRequestId?: string
+  requestSnapshot?: string
+  chargedQuota?: number
+  channelId?: number
   error?: string
 }
 
@@ -59,6 +64,12 @@ export type StudioCanvasNodeData = {
   outputUrl?: string
   mediaId?: string
   taskId?: string
+  pendingRequestId?: string
+  pendingRequestFingerprint?: string
+  pendingRequestPrompt?: string
+  pendingRequestGroup?: string
+  pendingRequestModel?: string
+  pendingRequestSnapshot?: string
   error?: string
   staleSourceTitle?: string
   progress?: number
@@ -171,11 +182,11 @@ export function isValidStudioConnection(
   if (
     source.data.kind === 'image' &&
     target.data.kind === 'image' &&
-    edges.some(
+    edges.filter(
       (edge) =>
         edge.target === targetId &&
         nodes.find((node) => node.id === edge.source)?.data.kind === 'image'
-    )
+    ).length >= 8
   ) {
     return false
   }
@@ -208,11 +219,14 @@ export function isValidStudioConnection(
       'image:image:video:reference_image',
       'video:video:video:reference_video',
       'video:video:video:extend_video',
+      'video:video:video:native_extend',
     ])
     const connection = `${source.data.kind}:${sourceRole}:${target.data.kind}:${targetRole}`
     if (!typed.has(connection)) return false
     if (
-      (targetHandle === 'first_frame' || targetHandle === 'extend_video') &&
+      (targetHandle === 'first_frame' ||
+        targetHandle === 'extend_video' ||
+        targetHandle === 'native_extend') &&
       edges.some(
         (edge) => edge.target === targetId && edge.targetHandle === targetHandle
       )

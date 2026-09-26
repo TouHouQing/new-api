@@ -32,6 +32,7 @@ const nodeDataSchema = z.strictObject({
   title: z.string().max(200),
   prompt: z.string().max(30000),
   model: z.string().max(200).optional(),
+  textMode: z.enum(['shot', 'plain']).optional(),
   group: z.string().max(100).optional(),
   videoFamily: z
     .enum(['generic', 'seedance-2', 'seedance-2.5', 'minimax-h3'])
@@ -58,6 +59,10 @@ const nodeDataSchema = z.strictObject({
         outputText: z.string().max(300000).optional(),
         outputImagePrompt: z.string().max(30000).optional(),
         outputVideoPrompt: z.string().max(30000).optional(),
+        clientRequestId: z.string().uuid().optional(),
+        requestSnapshot: z.string().max(16_384).optional(),
+        chargedQuota: z.number().int().min(0).optional(),
+        channelId: z.number().int().min(0).optional(),
         error: z.string().max(2000).optional(),
       })
     )
@@ -68,6 +73,12 @@ const nodeDataSchema = z.strictObject({
   outputUrl: z.string().max(4096).optional(),
   mediaId: z.string().max(128).optional(),
   taskId: z.string().max(191).optional(),
+  pendingRequestId: z.string().uuid().optional(),
+  pendingRequestFingerprint: z.string().max(100_000).optional(),
+  pendingRequestPrompt: z.string().max(30000).optional(),
+  pendingRequestGroup: z.string().max(100).optional(),
+  pendingRequestModel: z.string().max(200).optional(),
+  pendingRequestSnapshot: z.string().max(16_384).optional(),
   error: z.string().max(2000).optional(),
   staleSourceTitle: z.string().max(200).optional(),
   progress: z.number().min(0).max(100).optional(),
@@ -136,9 +147,12 @@ const projectSchema = z.strictObject({
   assembledMediaId: z.string().min(1).max(128).optional(),
   soundtrackMediaId: z.string().min(1).max(128).optional(),
   soundtrackVolume: z.number().min(0).max(1).optional(),
+  soundtrackOffsetSeconds: z.number().min(0).max(3600).optional(),
   voiceoverMediaId: z.string().min(1).max(128).optional(),
   voiceoverVolume: z.number().min(0).max(1).optional(),
+  voiceoverOffsetSeconds: z.number().min(0).max(3600).optional(),
   captionsText: z.string().max(100_000).optional(),
+  captionOffsetSeconds: z.number().min(0).max(3600).optional(),
   defaults: z
     .strictObject({
       textModel: z.string().max(200).optional(),
@@ -211,9 +225,12 @@ export type StudioProject = {
   assembledMediaId?: string
   soundtrackMediaId?: string
   soundtrackVolume?: number
+  soundtrackOffsetSeconds?: number
   voiceoverMediaId?: string
   voiceoverVolume?: number
+  voiceoverOffsetSeconds?: number
   captionsText?: string
+  captionOffsetSeconds?: number
   defaults?: StudioProjectDefaults
   createdAt: string
   updatedAt: string
@@ -304,6 +321,7 @@ export function serializeStudioProjectExport(project: StudioProject): string {
   const {
     assembledMediaId: _assembledMediaId,
     soundtrackMediaId: _soundtrackMediaId,
+    voiceoverMediaId: _voiceoverMediaId,
     ...portable
   } = safe
   return JSON.stringify(
@@ -341,6 +359,7 @@ export function parseStudioProjectImport(raw: string): StudioProject {
       ...project,
       assembledMediaId: undefined,
       soundtrackMediaId: undefined,
+      voiceoverMediaId: undefined,
       nodes: project.nodes.map((node) => {
         const data = { ...node.data }
         delete data.mediaId

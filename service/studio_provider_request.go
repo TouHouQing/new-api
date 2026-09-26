@@ -31,6 +31,7 @@ const (
 只输出一个合法 JSON 对象，不要 Markdown、解释、寒暄、问句、选项、工作计划或工具/API 描述。字段必须是：
 {"text":"简短的画面设定","image_prompt":"用于生成首帧图片的主体、环境、构图、光线和风格描述","video_prompt":"同一镜头中主体与环境的具体运动、镜头运动及时间变化"}
 video_prompt 应聚焦可见的动作和镜头变化；image_prompt 应描述静态画面。使用与用户输入相同的语言。三个字段都必须是非空字符串。`
+	studioPlainTextSystemPrompt = `You write a single production-ready creative prompt for an AI video creation canvas. Rewrite the user's idea into concrete visible subjects, setting, composition, style, and action. Preserve their intent and language. Return only the prompt as plain text. Do not return JSON, Markdown fences, greetings, questions, alternatives, implementation plans, or API instructions.`
 )
 
 var ErrStudioImageRequestInvalid = errors.New("Studio image request is invalid")
@@ -49,19 +50,32 @@ type StudioStoryboardShot struct {
 }
 
 type StudioImageRequest struct {
-	Model   string  `json:"model"`
-	Prompt  string  `json:"prompt"`
-	Size    *string `json:"size,omitempty"`
-	Quality *string `json:"quality,omitempty"`
-	N       *int    `json:"n,omitempty"`
-	Image   string  `json:"image,omitempty"`
+	Model   string   `json:"model"`
+	Prompt  string   `json:"prompt"`
+	Size    *string  `json:"size,omitempty"`
+	Quality *string  `json:"quality,omitempty"`
+	N       *int     `json:"n,omitempty"`
+	Image   string   `json:"image,omitempty"`
+	Images  []string `json:"images,omitempty"`
 }
 
 type studioImageEdit struct {
-	request   StudioImageRequest
+	request StudioImageRequest
+	images  []studioImageInput
+}
+
+type studioImageInput struct {
 	data      []byte
 	mediaType string
 	fileName  string
+}
+
+type studioProviderHTTPError struct {
+	status int
+}
+
+func (err studioProviderHTTPError) Error() string {
+	return fmt.Sprintf("Studio provider returned HTTP %d", err.status)
 }
 
 func callStudioProvider(ctx context.Context, provider *model.StudioProvider, method, path string, body any, maxResponse int64, client *http.Client) ([]byte, error) {
@@ -102,15 +116,21 @@ func callStudioProvider(ctx context.Context, provider *model.StudioProvider, met
 					return nil, err
 				}
 			}
-			partHeader := make(textproto.MIMEHeader)
-			partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="image"; filename="%s"`, edit.fileName))
-			partHeader.Set("Content-Type", edit.mediaType)
-			part, err := writer.CreatePart(partHeader)
-			if err != nil {
-				return nil, err
+			imageField := "image"
+			if len(edit.images) > 1 {
+				imageField = "image[]"
 			}
-			if _, err := part.Write(edit.data); err != nil {
-				return nil, err
+			for _, imageInput := range edit.images {
+				partHeader := make(textproto.MIMEHeader)
+				partHeader.Set("Content-Disposition", fmt.Sprintf(`form-data; name="%s"; filename="%s"`, imageField, imageInput.fileName))
+				partHeader.Set("Content-Type", imageInput.mediaType)
+				part, err := writer.CreatePart(partHeader)
+				if err != nil {
+					return nil, err
+				}
+				if _, err := part.Write(imageInput.data); err != nil {
+					return nil, err
+				}
 			}
 			if err := writer.Close(); err != nil {
 				return nil, err
@@ -143,7 +163,7 @@ func callStudioProvider(ctx context.Context, provider *model.StudioProvider, met
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return nil, fmt.Errorf("Studio provider returned HTTP %d", response.StatusCode)
+		return nil, studioProviderHTTPError{status: response.StatusCode}
 	}
 	limited, err := io.ReadAll(io.LimitReader(response.Body, maxResponse+1))
 	if err != nil {
@@ -220,6 +240,36 @@ func GenerateStudioProviderText(ctx context.Context, provider *model.StudioProvi
 		return StudioGeneratedShot{}, err
 	}
 	return parseStudioGeneratedShot(content)
+}
+
+func GenerateStudioProviderPlainText(ctx context.Context, provider *model.StudioProvider, modelName, prompt string, client *http.Client) (string, error) {
+	if provider == nil || provider.Kind != "text" {
+		return "", errors.New("text provider is not configured")
+	}
+	if err := validStudioModelAndPrompt(modelName, prompt); err != nil {
+		return "", err
+	}
+	request := map[string]any{
+		"model": modelName,
+		"messages": []map[string]string{
+			{"role": "system", "content": studioPlainTextSystemPrompt},
+			{"role": "user", "content": prompt},
+		},
+		"stream": false,
+	}
+	data, err := callStudioProvider(ctx, provider, http.MethodPost, "/chat/completions", request, studioTextMaxResponse, client)
+	if err != nil {
+		return "", err
+	}
+	content, err := studioTextCompletionContent(data)
+	if err != nil {
+		return "", err
+	}
+	content = strings.TrimSpace(content)
+	if content == "" || len(content) > 30000 {
+		return "", errors.New("text model did not return a usable prompt; try another model or write the prompt manually")
+	}
+	return content, nil
 }
 
 func GenerateStudioProviderStoryboard(ctx context.Context, provider *model.StudioProvider, modelName, prompt string, count int, client *http.Client) ([]StudioStoryboardShot, error) {
@@ -415,41 +465,64 @@ func GenerateStudioProviderImages(ctx context.Context, provider *model.StudioPro
 		jsonBody["n"] = *request.N
 	}
 	var body any = jsonBody
+	if request.Image != "" && request.Images != nil {
+		return nil, fmt.Errorf("%w: use either image or images", ErrStudioImageRequestInvalid)
+	}
+	if request.Images != nil && (len(request.Images) < 1 || len(request.Images) > 8) {
+		return nil, fmt.Errorf("%w: image references must contain 1 to 8 images", ErrStudioImageRequestInvalid)
+	}
+	imageURIs := request.Images
 	if request.Image != "" {
-		if len(request.Image) > (studioImageMaxInput*4/3)+128 {
-			return nil, fmt.Errorf("%w: image input is too large", ErrStudioImageRequestInvalid)
-		}
-		header, encoded, found := strings.Cut(request.Image, ",")
-		mediaType := strings.TrimSuffix(strings.TrimPrefix(header, "data:"), ";base64")
-		fileName := ""
-		formatName := ""
-		switch mediaType {
-		case "image/png":
-			fileName = "image.png"
-			formatName = "png"
-		case "image/jpeg":
-			fileName = "image.jpg"
-			formatName = "jpeg"
-		case "image/webp":
-			fileName = "image.webp"
-			formatName = "webp"
-		}
-		if !found || header != "data:"+mediaType+";base64" || fileName == "" {
-			return nil, fmt.Errorf("%w: image input must be a PNG, JPEG or WebP base64 data URI", ErrStudioImageRequestInvalid)
-		}
-		imageData, err := base64.StdEncoding.Strict().DecodeString(encoded)
-		if err != nil || len(imageData) == 0 || len(imageData) > studioImageMaxInput {
-			return nil, fmt.Errorf("%w: image input is invalid", ErrStudioImageRequestInvalid)
-		}
-		config, decodedFormat, err := image.DecodeConfig(bytes.NewReader(imageData))
-		if err != nil || decodedFormat != formatName || config.Width < 1 || config.Height < 1 || config.Width > 8192 || config.Height > 8192 || config.Width*config.Height > 20_000_000 {
-			return nil, fmt.Errorf("%w: image input is invalid", ErrStudioImageRequestInvalid)
+		imageURIs = []string{request.Image}
+	}
+	if len(imageURIs) > 0 {
+		imageInputs := make([]studioImageInput, 0, len(imageURIs))
+		totalBytes := 0
+		for _, imageURI := range imageURIs {
+			if len(imageURI) > (studioImageMaxInput*4/3)+128 {
+				return nil, fmt.Errorf("%w: image input is too large", ErrStudioImageRequestInvalid)
+			}
+			header, encoded, found := strings.Cut(imageURI, ",")
+			mediaType := strings.TrimSuffix(strings.TrimPrefix(header, "data:"), ";base64")
+			fileName := ""
+			formatName := ""
+			switch mediaType {
+			case "image/png":
+				fileName = "image.png"
+				formatName = "png"
+			case "image/jpeg":
+				fileName = "image.jpg"
+				formatName = "jpeg"
+			case "image/webp":
+				fileName = "image.webp"
+				formatName = "webp"
+			}
+			if !found || header != "data:"+mediaType+";base64" || fileName == "" {
+				return nil, fmt.Errorf("%w: image input must be a PNG, JPEG or WebP base64 data URI", ErrStudioImageRequestInvalid)
+			}
+			imageData, err := base64.StdEncoding.Strict().DecodeString(encoded)
+			if err != nil || len(imageData) == 0 || len(imageData) > studioImageMaxInput {
+				return nil, fmt.Errorf("%w: image input is invalid", ErrStudioImageRequestInvalid)
+			}
+			totalBytes += len(imageData)
+			if totalBytes > studioImageMaxInput {
+				return nil, fmt.Errorf("%w: image references are too large", ErrStudioImageRequestInvalid)
+			}
+			config, decodedFormat, err := image.DecodeConfig(bytes.NewReader(imageData))
+			if err != nil || decodedFormat != formatName || config.Width < 1 || config.Height < 1 || config.Width > 8192 || config.Height > 8192 || config.Width*config.Height > 20_000_000 {
+				return nil, fmt.Errorf("%w: image input is invalid", ErrStudioImageRequestInvalid)
+			}
+			imageInputs = append(imageInputs, studioImageInput{data: imageData, mediaType: mediaType, fileName: fileName})
 		}
 		path = "/images/edits"
-		body = studioImageEdit{request: request, data: imageData, mediaType: mediaType, fileName: fileName}
+		body = studioImageEdit{request: request, images: imageInputs}
 	}
 	data, err := callStudioProvider(ctx, provider, http.MethodPost, path, body, studioImageMaxResponse, client)
 	if err != nil {
+		var upstreamError studioProviderHTTPError
+		if len(imageURIs) > 1 && errors.As(err, &upstreamError) && (upstreamError.status == http.StatusBadRequest || upstreamError.status == http.StatusUnsupportedMediaType || upstreamError.status == http.StatusUnprocessableEntity) {
+			return nil, errors.New("image provider rejected multiple reference images; choose one image or use a service that supports multiple image edits")
+		}
 		return nil, err
 	}
 	var parsed struct {

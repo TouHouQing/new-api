@@ -108,6 +108,7 @@ export function studioNodeInputFingerprint(
     nodeId,
     data.kind,
     data.model,
+    data.textMode,
     data.group,
     data.videoFamily,
     data.prompt,
@@ -122,7 +123,14 @@ export function studioNodeInputFingerprint(
     data.assetIds,
     project.assets
       ?.filter((asset) => data.assetIds?.includes(asset.id))
-      .map((asset) => [asset.id, asset.prompt, asset.mediaId]),
+      .map((asset) => [
+        asset.id,
+        asset.kind,
+        asset.title,
+        asset.prompt,
+        asset.mediaId,
+        asset.outputUrl,
+      ]),
     sources,
   ])
 }

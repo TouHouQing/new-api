@@ -130,6 +130,57 @@ func TestStudioProviderImageGenerationPassesOptionsAndReturnsAllImages(t *testin
 	assert.NotContains(t, invalidResponse.Body.String(), "sk-private-test")
 }
 
+func TestStudioProviderPlainTextModeReturnsTextWithoutShotFields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	t.Setenv("STUDIO_PROVIDER_ENCRYPTION_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x62}, 32)))
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.StudioProvider{}))
+	previousDB := model.DB
+	model.DB = db
+	t.Cleanup(func() { model.DB = previousDB })
+	key, err := service.EncryptStudioProviderKey(12, "text", "sk-private-test")
+	require.NoError(t, err)
+	require.NoError(t, model.UpsertStudioProvider(12, "text", "https://api.example.com/v1", key))
+
+	previousClient := studioProviderClient
+	calls := 0
+	studioProviderClient = &http.Client{Transport: studioControllerRoundTrip(func(*http.Request) (*http.Response, error) {
+		calls++
+		return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"choices":[{"message":{"content":"A cinematic close-up of a woman at dusk."}}]}`)), Header: make(http.Header)}, nil
+	})}
+	t.Cleanup(func() { studioProviderClient = previousClient })
+
+	router := gin.New()
+	router.POST("/providers/:kind/generate", func(c *gin.Context) { c.Set("id", 12); StudioProviderGenerate(c) })
+	for _, body := range []string{
+		`{"model":"text-model","prompt":"woman","mode":"unknown"}`,
+		`{"model":"text-model","prompt":"woman","mode":"plain","images":["data:image/png;base64,aGVsbG8="]}`,
+	} {
+		request := httptest.NewRequest(http.MethodPost, "/providers/text/generate", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		response := httptest.NewRecorder()
+		router.ServeHTTP(response, request)
+		assert.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+	}
+	assert.Equal(t, 0, calls)
+
+	request := httptest.NewRequest(http.MethodPost, "/providers/text/generate", strings.NewReader(`{"model":"text-model","prompt":"woman","mode":"plain"}`))
+	request.Header.Set("Content-Type", "application/json")
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+	require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+	var result struct {
+		Success bool           `json:"success"`
+		Data    map[string]any `json:"data"`
+	}
+	require.NoError(t, common.Unmarshal(response.Body.Bytes(), &result))
+	assert.True(t, result.Success)
+	assert.Equal(t, "A cinematic close-up of a woman at dusk.", result.Data["text"])
+	assert.NotContains(t, result.Data, "image_prompt")
+	assert.Equal(t, 1, calls)
+}
+
 func TestStudioProviderStoryboardUsesOwnersTextServiceAndValidatesCount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	t.Setenv("STUDIO_PROVIDER_ENCRYPTION_KEY", base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{0x62}, 32)))

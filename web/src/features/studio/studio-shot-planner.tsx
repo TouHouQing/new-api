@@ -102,6 +102,28 @@ export function StudioShotPlanner(props: {
           <p className='text-muted-foreground text-xs'>
             {t('studio.planner.hint')}
           </p>
+          <div
+            className='flex flex-wrap gap-2'
+            aria-label={t('studio.template.title')}
+          >
+            {(['drama', 'product', 'social'] as const).map((template) => (
+              <Button
+                key={template}
+                type='button'
+                size='xs'
+                variant='outline'
+                disabled={busy}
+                onClick={() => {
+                  plannerRevision.current += 1
+                  setPrompt(t(`studio.template.${template}Brief`))
+                  setCount(3)
+                  setDrafts([])
+                }}
+              >
+                {t(`studio.template.${template}`)}
+              </Button>
+            ))}
+          </div>
           <Textarea
             aria-label={t('studio.planner.brief')}
             placeholder={t('studio.planner.placeholder')}

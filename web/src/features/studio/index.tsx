@@ -54,6 +54,7 @@ import {
   createStudioVideo,
   deleteStudioProviderConfig,
   fetchStudioGroups,
+  fetchStudioAttemptByRequest,
   fetchStudioModels,
   fetchStudioProviderConfigs,
   fetchStudioProviderModels,
@@ -65,6 +66,7 @@ import {
   saveStudioProviderConfig,
   type StudioGroup,
   type StudioShotDraft,
+  type StudioTaskState,
   type StudioProviderConfigs,
   type StudioProviderKind,
 } from './api'
@@ -127,6 +129,7 @@ import {
   StudioVideoPreflight,
   type StudioVideoPreflightData,
 } from './studio-video-preflight'
+import { safeStudioVideoRequestSnapshot } from './studio-video-request-summary'
 import {
   addStudioNode,
   applyStudioAssetToAllShots,
@@ -166,6 +169,7 @@ type StudioMediaRef = {
 class StudioInputChangedError extends Error {}
 class StudioUpstreamWaitError extends Error {}
 class StudioSubmissionCancelledError extends Error {}
+class StudioSubmissionUncertainError extends Error {}
 const nodeTypes = { studio: StudioNode }
 
 function errorMessage(error: unknown): string {
@@ -301,6 +305,10 @@ export function Studio() {
   const [deleteTarget, setDeleteTarget] = useState<
     'node' | 'project' | 'shot' | null
   >(null)
+  const [abandonSubmission, setAbandonSubmission] = useState<{
+    projectId: string
+    nodeId: string
+  } | null>(null)
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null)
   const uploadRef = useRef<HTMLInputElement>(null)
   const ownedUrls = useRef<string[]>([])
@@ -607,7 +615,11 @@ export function Studio() {
       ready: true,
     })
     setSelectedNodeId(null)
-    setView(projects[0].shots?.length ? 'storyboard' : 'canvas')
+    setView(
+      projects[0].shots?.length || projects[0].nodes.length === 0
+        ? 'storyboard'
+        : 'canvas'
+    )
     setVideoGroups([])
     setProviderConfigs({})
     setProviderModels({})
@@ -1043,7 +1055,11 @@ export function Studio() {
   }
 
   const generate = useCallback(
-    async (target: StudioCanvasNode, source: StudioProject) => {
+    async (
+      target: StudioCanvasNode,
+      source: StudioProject,
+      retryPending = false
+    ) => {
       if (!userId || workspace.ownerId !== userId) return
       const runId = `${userId}:${source.id}:${target.id}:${studioNodeInputFingerprint(source, target.id)}`
       if (runningTargets.current.has(runId)) return
@@ -1093,7 +1109,8 @@ export function Studio() {
         nodeId: string,
         taskId: string,
         outputUrl: string,
-        takeId?: string
+        takeId?: string,
+        settled?: StudioTaskState
       ) => {
         const expected = fingerprint(nodeId)
         const currentNode = projectsRef.current
@@ -1115,6 +1132,18 @@ export function Studio() {
             setMessage(`${t('studio.storage.failed')}: ${errorMessage(error)}`)
           }
         }
+        let channelId = settled?.channelId
+        const clientRequestId = currentNode?.data.takes?.find(
+          (take) => take.id === takeId
+        )?.clientRequestId
+        if (!channelId && clientRequestId) {
+          try {
+            channelId = (await fetchStudioAttemptByRequest(clientRequestId))
+              ?.channelId
+          } catch {
+            // The task remains usable even when its submission log is offline.
+          }
+        }
         if (takeId) {
           editProject(source.id, (project) =>
             updateStudioTake(project, nodeId, takeId, {
@@ -1122,6 +1151,8 @@ export function Studio() {
               progress: 100,
               outputUrl,
               mediaId,
+              chargedQuota: settled?.chargedQuota,
+              channelId,
             })
           )
         }
@@ -1162,12 +1193,24 @@ export function Studio() {
         )
       }
       try {
-        update(target.id, { status: 'submitting', error: undefined })
         const ordered = planStudioExecution(
           source.nodes,
           source.edges,
           target.id
         )
+        if (
+          ordered.some(
+            (node) =>
+              node.data.kind === 'video' &&
+              node.data.pendingRequestId &&
+              !(retryPending && node.id === target.id)
+          )
+        ) {
+          throw new StudioSubmissionUncertainError(
+            t('studio.submission.uncertain')
+          )
+        }
+        update(target.id, { status: 'submitting', error: undefined })
         for (const planned of ordered) {
           if (activeUserId.current !== userId) return
           const node = workingNodes.find((item) => item.id === planned.id)
@@ -1182,7 +1225,9 @@ export function Studio() {
           const previousShotNote = source.edges
             .filter(
               (edge) =>
-                edge.target === node.id && edge.targetHandle === 'extend_video'
+                edge.target === node.id &&
+                (edge.targetHandle === 'extend_video' ||
+                  edge.targetHandle === 'native_extend')
             )
             .map((edge) => {
               const parent = workingNodes.find(
@@ -1246,7 +1291,9 @@ export function Studio() {
             const { shot, takeId } = await executionCoordinator.current.run(
               `${userId}:${source.id}:${node.id}:${expected}`,
               async () => ({
-                shot: await generateStudioText(textModelId, generationPrompt),
+                shot: await (node.data.textMode === 'plain'
+                  ? generateStudioText(textModelId, generationPrompt, 'plain')
+                  : generateStudioText(textModelId, generationPrompt)),
                 takeId: newId(),
               }),
               { reuseCompleted: true, force: selected }
@@ -1312,32 +1359,46 @@ export function Studio() {
                   ? resolveStudioEdgeSource(parent, edge)
                   : undefined
               })
-              .filter((parent) => parent?.data.kind === 'image')
-            if (references.length > 1) {
-              throw new Error(t('studio.image.singleReference'))
-            }
-            const reference = references[0]
-            let imageReference: string | undefined
-            if (reference?.data.mediaId && mediaStore) {
-              const blob = await mediaStore.get(userId, reference.data.mediaId)
-              if (!blob) throw new Error(t('studio.media.missing'))
-              imageReference = await blobToDataUrl(blob)
-            } else if (reference?.data.outputUrl?.startsWith('data:image/')) {
-              imageReference = reference.data.outputUrl
-            } else if (reference?.data.outputUrl) {
-              const response = await fetch(reference.data.outputUrl)
-              if (!response.ok) throw new Error(t('studio.media.missing'))
-              imageReference = await blobToDataUrl(await response.blob())
-            }
-            if (!imageReference && mediaStore) {
-              const asset = source.assets?.find(
-                (item) => node.data.assetIds?.includes(item.id) && item.mediaId
+              .filter(
+                (parent): parent is StudioCanvasNode =>
+                  parent?.data.kind === 'image'
               )
-              if (asset?.mediaId) {
+            const imageReferences: string[] = []
+            for (const reference of references) {
+              if (reference.data.mediaId && mediaStore) {
+                const blob = await mediaStore.get(
+                  userId,
+                  reference.data.mediaId
+                )
+                if (!blob) throw new Error(t('studio.media.missing'))
+                imageReferences.push(await blobToDataUrl(blob))
+              } else if (reference.data.outputUrl?.startsWith('data:image/')) {
+                imageReferences.push(reference.data.outputUrl)
+              } else if (reference.data.outputUrl) {
+                const response = await fetch(reference.data.outputUrl)
+                if (!response.ok) throw new Error(t('studio.media.missing'))
+                imageReferences.push(await blobToDataUrl(await response.blob()))
+              }
+              assertFresh(node.id, expected)
+            }
+            for (const asset of source.assets || []) {
+              if (!node.data.assetIds?.includes(asset.id)) continue
+              if (asset.mediaId && mediaStore) {
                 const blob = await mediaStore.get(userId, asset.mediaId)
                 if (!blob) throw new Error(t('studio.media.missing'))
-                imageReference = await blobToDataUrl(blob)
+                imageReferences.push(await blobToDataUrl(blob))
+              } else if (asset.outputUrl?.startsWith('data:image/')) {
+                imageReferences.push(asset.outputUrl)
+              } else if (asset.outputUrl) {
+                const response = await fetch(asset.outputUrl)
+                if (!response.ok) throw new Error(t('studio.media.missing'))
+                imageReferences.push(await blobToDataUrl(await response.blob()))
               }
+              assertFresh(node.id, expected)
+            }
+            const imageInputs = [...new Set(imageReferences)]
+            if (imageInputs.length > 8) {
+              throw new Error(t('studio.image.tooManyReferences'))
             }
             const imageOptions = {
               ...(node.data.imageSize ? { size: node.data.imageSize } : {}),
@@ -1345,7 +1406,8 @@ export function Studio() {
                 ? { quality: node.data.imageQuality }
                 : {}),
               ...(node.data.imageCount ? { n: node.data.imageCount } : {}),
-              ...(imageReference ? { image: imageReference } : {}),
+              ...(imageInputs.length === 1 ? { image: imageInputs[0] } : {}),
+              ...(imageInputs.length > 1 ? { images: imageInputs } : {}),
             }
             const image = await executionCoordinator.current.run(
               `${userId}:${source.id}:${node.id}:${expected}`,
@@ -1446,7 +1508,8 @@ export function Studio() {
                   node.id,
                   node.data.taskId,
                   url,
-                  node.data.selectedTakeId
+                  node.data.selectedTakeId,
+                  task
                 )
                 break
               }
@@ -1471,6 +1534,11 @@ export function Studio() {
             const url = await getStudioVideoContentUrl(node.data.taskId)
             update(node.id, { outputUrl: url })
             continue
+          }
+          if (node.data.pendingRequestId && !(retryPending && selected)) {
+            throw new StudioSubmissionUncertainError(
+              t('studio.submission.uncertain')
+            )
           }
           if (!node.data.model) throw new Error(t('studio.model.empty'))
           const availableGroups = videoGroups.length
@@ -1575,10 +1643,16 @@ export function Studio() {
               if (!videoUrl) {
                 throw new Error(t('studio.media.missing'))
               }
-              if (edge.targetHandle === 'reference_video') {
+              if (
+                edge.targetHandle === 'reference_video' ||
+                edge.targetHandle === 'native_extend'
+              ) {
                 videoReferences.push({
                   url: videoUrl,
-                  role: edge.targetHandle,
+                  role:
+                    edge.targetHandle === 'native_extend'
+                      ? 'extend_video'
+                      : 'reference_video',
                 })
               } else {
                 videos.push(videoUrl)
@@ -1649,6 +1723,11 @@ export function Studio() {
               request,
               costDuration,
               mediaAdapted,
+              nativeExtend:
+                request.mode === 'extend' &&
+                videoReferences.some(
+                  (reference) => reference.role === 'extend_video'
+                ),
             },
             source.id,
             () => {
@@ -1664,18 +1743,97 @@ export function Studio() {
           )
           if (!approved) throw new StudioSubmissionCancelledError()
           assertFresh(node.id, preflightFingerprint)
+          const requestId = node.data.pendingRequestId || newId()
+          if (
+            node.data.pendingRequestId &&
+            node.data.pendingRequestFingerprint !== preflightFingerprint
+          ) {
+            throw new StudioSubmissionUncertainError(
+              t('studio.submission.inputChanged')
+            )
+          }
+          const requestSnapshot = await safeStudioVideoRequestSnapshot(
+            request,
+            {
+              edges: source.edges
+                .filter((edge) => edge.target === node.id)
+                .map((edge) => {
+                  const parent = source.nodes.find(
+                    (item) => item.id === edge.source
+                  )
+                  const takeId =
+                    edge.data?.sourceTakeId || parent?.data.selectedTakeId
+                  return {
+                    source: edge.source,
+                    takeId,
+                    role: edge.targetHandle,
+                    mediaId:
+                      parent?.data.takes?.find((take) => take.id === takeId)
+                        ?.mediaId || parent?.data.mediaId,
+                  }
+                }),
+              assets: source.assets
+                ?.filter((asset) => node.data.assetIds?.includes(asset.id))
+                .map((asset) => ({ id: asset.id, mediaId: asset.mediaId })),
+            }
+          )
+          assertFresh(node.id, preflightFingerprint)
           update(node.id, {
             status: 'submitting',
             error: undefined,
             progress: undefined,
+            pendingRequestId: requestId,
+            pendingRequestFingerprint: preflightFingerprint,
+            pendingRequestPrompt: generationPrompt,
+            pendingRequestGroup: group,
+            pendingRequestModel: node.data.model,
+            pendingRequestSnapshot: requestSnapshot,
           })
+          saveStudioProjects(localStorage, userId, projectsRef.current)
           const expected = fingerprint(node.id)
           const { taskId, takeId } = await executionCoordinator.current.run(
             `${userId}:${source.id}:${node.id}:${expected}`,
-            async () => ({
-              taskId: await createStudioVideo(request, group),
-              takeId: newId(),
-            }),
+            async () => {
+              let taskId: string
+              try {
+                taskId = await createStudioVideo(request, group, requestId)
+              } catch (cause) {
+                let attempt: Awaited<
+                  ReturnType<typeof fetchStudioAttemptByRequest>
+                > = null
+                try {
+                  attempt = await fetchStudioAttemptByRequest(requestId)
+                } catch {
+                  // A second network error leaves the original submission uncertain.
+                }
+                if (attempt?.taskId) {
+                  taskId = attempt.taskId
+                } else if (attempt?.stage === 'rejected_before_channel') {
+                  throw cause
+                } else {
+                  const directStatus = (
+                    cause as { response?: { status?: number } }
+                  )?.response?.status
+                  const causedStatus = (
+                    cause as { cause?: { response?: { status?: number } } }
+                  )?.cause?.response?.status
+                  const status = directStatus ?? causedStatus
+                  if (
+                    !attempt &&
+                    typeof status === 'number' &&
+                    status >= 400 &&
+                    status < 500 &&
+                    status !== 409
+                  ) {
+                    throw cause
+                  }
+                  throw new StudioSubmissionUncertainError(
+                    t('studio.submission.uncertain')
+                  )
+                }
+              }
+              return { taskId, takeId: newId() }
+            },
             { reuseCompleted: true, force: selected }
           )
           if (activeUserId.current !== userId) return
@@ -1688,19 +1846,42 @@ export function Studio() {
             status: 'queued',
             progress: 0,
             taskId,
+            clientRequestId: requestId,
+            requestSnapshot,
           }
           try {
             assertFresh(node.id, expected)
           } catch (error) {
             if (error instanceof StudioInputChangedError) {
               editProject(source.id, (project) =>
-                retainStudioTake(project, node.id, submittedTake)
+                updateStudioNode(
+                  retainStudioTake(project, node.id, submittedTake),
+                  node.id,
+                  {
+                    pendingRequestId: undefined,
+                    pendingRequestFingerprint: undefined,
+                    pendingRequestPrompt: undefined,
+                    pendingRequestGroup: undefined,
+                    pendingRequestModel: undefined,
+                    pendingRequestSnapshot: undefined,
+                  }
+                )
               )
             }
             throw error
           }
           recordTake(node.id, submittedTake)
-          update(node.id, { taskId, status: 'queued', progress: 0 })
+          update(node.id, {
+            taskId,
+            status: 'queued',
+            progress: 0,
+            pendingRequestId: undefined,
+            pendingRequestFingerprint: undefined,
+            pendingRequestPrompt: undefined,
+            pendingRequestGroup: undefined,
+            pendingRequestModel: undefined,
+            pendingRequestSnapshot: undefined,
+          })
           if (selected) invalidateDependents(node.id)
           if (!selected) {
             const deadline = Date.now() + 20 * 60_000
@@ -1721,7 +1902,7 @@ export function Studio() {
               if (task.status === 'completed') {
                 const url = await getStudioVideoContentUrl(taskId)
                 assertFresh(node.id, expected)
-                await completeVideo(node.id, taskId, url, takeId)
+                await completeVideo(node.id, taskId, url, takeId, task)
                 break
               }
               editProject(source.id, (project) =>
@@ -1759,7 +1940,21 @@ export function Studio() {
           return
         }
         const displayReason = errorMessage(error)
-        update(current.id, { status: 'failed', error: displayReason })
+        update(current.id, {
+          status: 'failed',
+          error: displayReason,
+          ...(error instanceof StudioSubmissionUncertainError ||
+          (retryPending && Boolean(target.data.pendingRequestId))
+            ? {}
+            : {
+                pendingRequestId: undefined,
+                pendingRequestFingerprint: undefined,
+                pendingRequestPrompt: undefined,
+                pendingRequestGroup: undefined,
+                pendingRequestModel: undefined,
+                pendingRequestSnapshot: undefined,
+              }),
+        })
         if (current.id !== target.id) {
           update(target.id, { status: 'failed', error: displayReason })
         }
@@ -1783,6 +1978,105 @@ export function Studio() {
       requestPreflight,
     ]
   )
+
+  const reconcileVideoSubmission = async (
+    target: StudioCanvasNode,
+    source: StudioProject
+  ) => {
+    const requestId = target.data.pendingRequestId
+    if (!requestId) return
+    try {
+      const attempt = await fetchStudioAttemptByRequest(requestId)
+      if (activeUserId.current !== userId) return
+      const latest = projectsRef.current.find((item) => item.id === source.id)
+      const latestNode = latest?.nodes.find((item) => item.id === target.id)
+      if (!latest || latestNode?.data.pendingRequestId !== requestId) return
+      if (attempt?.taskId) {
+        const existingTake = latestNode.data.takes?.find(
+          (take) => take.taskId === attempt.taskId
+        )
+        if (existingTake) {
+          editNode(source.id, target.id, {
+            pendingRequestId: undefined,
+            pendingRequestFingerprint: undefined,
+            pendingRequestPrompt: undefined,
+            pendingRequestGroup: undefined,
+            pendingRequestModel: undefined,
+            pendingRequestSnapshot: undefined,
+          })
+          return
+        }
+        const take: StudioTake = {
+          id: newId(),
+          createdAt: new Date().toISOString(),
+          model: latestNode.data.pendingRequestModel || latestNode.data.model,
+          group: latestNode.data.pendingRequestGroup,
+          prompt:
+            latestNode.data.pendingRequestPrompt || latestNode.data.prompt,
+          requestSnapshot: latestNode.data.pendingRequestSnapshot,
+          clientRequestId: requestId,
+          status: 'queued',
+          progress: 0,
+          taskId: attempt.taskId,
+          channelId: attempt.channelId || undefined,
+        }
+        editProject(source.id, (current) => {
+          const currentNode = current.nodes.find(
+            (item) => item.id === target.id
+          )
+          if (currentNode?.data.pendingRequestId !== requestId) return current
+          const inputMatches =
+            currentNode.data.pendingRequestFingerprint ===
+            studioNodeInputFingerprint(current, target.id)
+          let next = inputMatches
+            ? recordStudioTake(current, target.id, take)
+            : retainStudioTake(current, target.id, take)
+          next = updateStudioNode(next, target.id, {
+            ...(inputMatches
+              ? { taskId: attempt.taskId, status: 'queued' as const }
+              : {}),
+            error: undefined,
+            pendingRequestId: undefined,
+            pendingRequestFingerprint: undefined,
+            pendingRequestPrompt: undefined,
+            pendingRequestGroup: undefined,
+            pendingRequestModel: undefined,
+            pendingRequestSnapshot: undefined,
+          })
+          return next
+        })
+        setMessage(t('studio.submission.recovered'))
+        return
+      }
+      if (attempt?.stage === 'rejected_before_channel') {
+        editNode(source.id, target.id, {
+          status: 'failed',
+          error: t('studio.submission.rejected'),
+          pendingRequestId: undefined,
+          pendingRequestFingerprint: undefined,
+          pendingRequestPrompt: undefined,
+          pendingRequestGroup: undefined,
+          pendingRequestModel: undefined,
+          pendingRequestSnapshot: undefined,
+        })
+        return
+      }
+      if (!attempt) {
+        if (
+          latestNode.data.pendingRequestFingerprint !==
+          studioNodeInputFingerprint(latest, target.id)
+        ) {
+          setMessage(t('studio.submission.inputChanged'))
+          return
+        }
+        await generate(latestNode, latest, true)
+        return
+      }
+      setMessage(t('studio.submission.uncertain'))
+    } catch (error) {
+      setMessage(errorMessage(error))
+    }
+  }
 
   useEffect(() => {
     if (!visible || pendingVideoKey === '[]') return
@@ -1808,6 +2102,19 @@ export function Studio() {
               const selected =
                 !entry.takeId ||
                 latestNode?.data.selectedTakeId === entry.takeId
+              let channelId = task.channelId
+              const clientRequestId = latestNode?.data.takes?.find(
+                (take) => take.id === entry.takeId
+              )?.clientRequestId
+              if (!channelId && clientRequestId) {
+                try {
+                  channelId = (
+                    await fetchStudioAttemptByRequest(clientRequestId)
+                  )?.channelId
+                } catch {
+                  // A missing submission log does not block completed media.
+                }
+              }
               try {
                 mediaId = entry.takeId
                   ? latestNode?.data.takes?.find(
@@ -1852,6 +2159,8 @@ export function Studio() {
                         progress: 100,
                         outputUrl,
                         mediaId,
+                        chargedQuota: task.chargedQuota,
+                        channelId,
                         error: storageError,
                       }
                     )
@@ -1917,6 +2226,7 @@ export function Studio() {
     const nodeId = newId()
     editProject(project.id, (current) => addStudioNode(current, kind, nodeId))
     setSelectedNodeId(nodeId)
+    setView('canvas')
   }
 
   const changeAsset = (
@@ -2282,6 +2592,8 @@ export function Studio() {
                       blob: soundtrack,
                       volume: sourceProject.soundtrackVolume ?? 1,
                     },
+                    soundtrackOffsetSeconds:
+                      sourceProject.soundtrackOffsetSeconds ?? 0,
                   }
                 : {}),
               ...(voiceover
@@ -2290,10 +2602,16 @@ export function Studio() {
                       blob: voiceover,
                       volume: sourceProject.voiceoverVolume ?? 1,
                     },
+                    voiceoverOffsetSeconds:
+                      sourceProject.voiceoverOffsetSeconds ?? 0,
                   }
                 : {}),
               ...(sourceProject.captionsText
-                ? { captions: sourceProject.captionsText }
+                ? {
+                    captions: sourceProject.captionsText,
+                    captionOffsetSeconds:
+                      sourceProject.captionOffsetSeconds ?? 0,
+                  }
                 : {}),
             }
           : undefined
@@ -2466,6 +2784,7 @@ export function Studio() {
       activeId: next.id,
     }))
     setSelectedNodeId(null)
+    setView('storyboard')
   }
 
   const exportProject = async () => {
@@ -2644,8 +2963,10 @@ export function Studio() {
             if (!value) return
             setWorkspace((current) => ({ ...current, activeId: value }))
             setSelectedNodeId(null)
+            const selectedProject = projects.find((item) => item.id === value)
             setView(
-              projects.find((item) => item.id === value)?.shots?.length
+              selectedProject?.shots?.length ||
+                selectedProject?.nodes.length === 0
                 ? 'storyboard'
                 : 'canvas'
             )
@@ -3059,8 +3380,22 @@ export function Studio() {
                 preflight: assemblyPreflight,
                 soundtrackUrl: soundtrackPreviews.get(project.id),
                 soundtrackVolume: project.soundtrackVolume ?? 1,
+                soundtrackOffsetSeconds: project.soundtrackOffsetSeconds ?? 0,
+                onSoundtrackOffsetChange: (soundtrackOffsetSeconds) =>
+                  editProject(project.id, (current) => ({
+                    ...current,
+                    soundtrackOffsetSeconds,
+                    updatedAt: new Date().toISOString(),
+                  })),
                 voiceoverUrl: voiceoverPreviews.get(project.id),
                 voiceoverVolume: project.voiceoverVolume ?? 1,
+                voiceoverOffsetSeconds: project.voiceoverOffsetSeconds ?? 0,
+                onVoiceoverOffsetChange: (voiceoverOffsetSeconds) =>
+                  editProject(project.id, (current) => ({
+                    ...current,
+                    voiceoverOffsetSeconds,
+                    updatedAt: new Date().toISOString(),
+                  })),
                 onUploadVoiceover: (file) => void uploadVoiceover(file),
                 onVoiceoverVolumeChange: (volume) =>
                   editProject(project.id, (current) => ({
@@ -3099,6 +3434,13 @@ export function Studio() {
                   }))
                 },
                 captionsText: project.captionsText || '',
+                captionOffsetSeconds: project.captionOffsetSeconds ?? 0,
+                onCaptionOffsetChange: (captionOffsetSeconds) =>
+                  editProject(project.id, (current) => ({
+                    ...current,
+                    captionOffsetSeconds,
+                    updatedAt: new Date().toISOString(),
+                  })),
                 onCaptionsChange: (captionsText) =>
                   editProject(project.id, (current) => ({
                     ...current,
@@ -3265,6 +3607,7 @@ export function Studio() {
                 const inputKeys = [
                   'prompt',
                   'model',
+                  'textMode',
                   'group',
                   'videoFamily',
                   'seconds',
@@ -3301,6 +3644,15 @@ export function Studio() {
                 }
               }}
               onGenerate={() => void generate(selectedNode, project)}
+              onReconcileSubmission={() =>
+                void reconcileVideoSubmission(selectedNode, project)
+              }
+              onAbandonSubmission={() =>
+                setAbandonSubmission({
+                  projectId: project.id,
+                  nodeId: selectedNode.id,
+                })
+              }
               onSaveTextOutput={(output) => {
                 try {
                   editProject(project.id, (current) =>
@@ -3351,6 +3703,31 @@ export function Studio() {
           onCancel={() => settlePreflight(false)}
         />
       )}
+      <ConfirmDialog
+        open={abandonSubmission !== null}
+        onOpenChange={(open) => {
+          if (!open) setAbandonSubmission(null)
+        }}
+        title={t('studio.submission.abandonTitle')}
+        desc={t('studio.submission.abandonWarning')}
+        confirmText={t('studio.submission.abandonConfirm')}
+        destructive
+        handleConfirm={() => {
+          if (abandonSubmission) {
+            editNode(abandonSubmission.projectId, abandonSubmission.nodeId, {
+              status: 'failed',
+              error: t('studio.submission.abandoned'),
+              pendingRequestId: undefined,
+              pendingRequestFingerprint: undefined,
+              pendingRequestPrompt: undefined,
+              pendingRequestGroup: undefined,
+              pendingRequestModel: undefined,
+              pendingRequestSnapshot: undefined,
+            })
+          }
+          setAbandonSubmission(null)
+        }}
+      />
       <ConfirmDialog
         open={deleteTarget !== null}
         onOpenChange={(open) => {

@@ -16,12 +16,14 @@ type studioProviderInput struct {
 }
 
 type studioGenerationInput struct {
-	Model   string  `json:"model"`
-	Prompt  string  `json:"prompt"`
-	Size    *string `json:"size"`
-	Quality *string `json:"quality"`
-	N       *int    `json:"n"`
-	Image   string  `json:"image"`
+	Model   string   `json:"model"`
+	Prompt  string   `json:"prompt"`
+	Mode    string   `json:"mode"`
+	Size    *string  `json:"size"`
+	Quality *string  `json:"quality"`
+	N       *int     `json:"n"`
+	Image   string   `json:"image"`
+	Images  []string `json:"images"`
 }
 
 type studioStoryboardInput struct {
@@ -165,6 +167,11 @@ func StudioProviderGenerate(c *gin.Context) {
 		studioProviderError(c, http.StatusBadRequest, "studio_provider_request_invalid", "Model and prompt are required")
 		return
 	}
+	if (kind == "text" && (input.Mode != "" && input.Mode != "shot" && input.Mode != "plain" || input.Image != "" || input.Images != nil)) ||
+		(kind == "image" && input.Mode != "") {
+		studioProviderError(c, http.StatusBadRequest, "studio_provider_request_invalid", "Invalid Studio generation mode or media")
+		return
+	}
 	provider, err := model.GetStudioProvider(c.GetInt("id"), kind)
 	if err != nil {
 		studioProviderError(c, http.StatusInternalServerError, "studio_provider_query_failed", "Could not load Studio service")
@@ -175,6 +182,16 @@ func StudioProviderGenerate(c *gin.Context) {
 		return
 	}
 	if kind == "text" {
+		if input.Mode == "plain" {
+			plain, err := service.GenerateStudioProviderPlainText(c.Request.Context(), provider, input.Model, input.Prompt, studioProviderClient)
+			if err != nil {
+				studioProviderError(c, http.StatusBadGateway, "studio_provider_generation_failed", err.Error())
+				return
+			}
+			c.Header("Cache-Control", "private, no-store")
+			c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"text": plain}})
+			return
+		}
 		shot, err := service.GenerateStudioProviderText(c.Request.Context(), provider, input.Model, input.Prompt, studioProviderClient)
 		if err != nil {
 			studioProviderError(c, http.StatusBadGateway, "studio_provider_generation_failed", err.Error())
@@ -185,7 +202,7 @@ func StudioProviderGenerate(c *gin.Context) {
 		return
 	}
 	images, err := service.GenerateStudioProviderImages(c.Request.Context(), provider, service.StudioImageRequest{
-		Model: input.Model, Prompt: input.Prompt, Size: input.Size, Quality: input.Quality, N: input.N, Image: input.Image,
+		Model: input.Model, Prompt: input.Prompt, Size: input.Size, Quality: input.Quality, N: input.N, Image: input.Image, Images: input.Images,
 	}, studioProviderClient)
 	if err != nil {
 		if errors.Is(err, service.ErrStudioImageRequestInvalid) {

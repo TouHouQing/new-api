@@ -129,6 +129,25 @@ describe('Studio MP4 assembly planning', () => {
       }).assembledMediaId
     ).toBeUndefined()
   })
+  test('moving audio or captions invalidates a previously assembled MP4', () => {
+    const project = {
+      ...createStudioProject('Offsets', 'p-offsets'),
+      assembledMediaId: 'assembled',
+      soundtrackOffsetSeconds: 0,
+      voiceoverOffsetSeconds: 0,
+      captionOffsetSeconds: 0,
+    }
+    for (const field of [
+      'soundtrackOffsetSeconds',
+      'voiceoverOffsetSeconds',
+      'captionOffsetSeconds',
+    ] as const) {
+      expect(
+        reconcileStudioAssembly(project, { ...project, [field]: 2 })
+          .assembledMediaId
+      ).toBeUndefined()
+    }
+  })
 
   test('changing voiceover audio invalidates an assembled MP4', () => {
     const project = {
