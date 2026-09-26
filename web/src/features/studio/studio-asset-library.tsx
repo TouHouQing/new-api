@@ -41,6 +41,7 @@ type Props = {
   ) => void
   onUpload: (assetId: string, file: File) => void
   onDelete: (assetId: string) => void
+  onApplyToShots?: (assetId: string) => void
 }
 
 export function StudioAssetLibrary(props: Props) {
@@ -150,6 +151,14 @@ export function StudioAssetLibrary(props: Props) {
                   event.target.value = ''
                 }}
               />
+              <Button
+                size='xs'
+                variant='outline'
+                aria-label={`${asset.title} ${t('studio.asset.applyToShots')}`}
+                onClick={() => props.onApplyToShots?.(asset.id)}
+              >
+                {t('studio.asset.applyToShots')}
+              </Button>
               <Button
                 size='xs'
                 variant='outline'

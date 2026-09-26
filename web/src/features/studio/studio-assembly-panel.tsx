@@ -18,7 +18,9 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 
 type Props = {
   busy: boolean
@@ -30,6 +32,13 @@ type Props = {
   onDownload: () => void
   soundtrackUrl?: string
   soundtrackVolume?: number
+  voiceoverUrl?: string
+  voiceoverVolume?: number
+  onUploadVoiceover?: (file: File) => void
+  onRemoveVoiceover?: () => void
+  onVoiceoverVolumeChange?: (volume: number) => void
+  captionsText?: string
+  onCaptionsChange?: (value: string) => void
   preflight?: { totalDuration: number; estimatedOutputBytes: number }
   onUploadSoundtrack?: (file: File) => void
   onRemoveSoundtrack?: () => void
@@ -96,6 +105,67 @@ export function StudioAssemblyPanel(props: Props) {
             </div>
           )}
         </div>
+        <div className='space-y-2 rounded-md border p-3'>
+          <p className='text-sm font-medium'>
+            {t('studio.timeline.voiceover')}
+          </p>
+          <Input
+            type='file'
+            accept='audio/*'
+            aria-label={t('studio.timeline.voiceover')}
+            onChange={(event) => {
+              const file = event.target.files?.[0]
+              if (file) props.onUploadVoiceover?.(file)
+              event.target.value = ''
+            }}
+          />
+          {props.voiceoverUrl && (
+            <div className='space-y-2'>
+              <audio src={props.voiceoverUrl} controls className='w-full' />
+              <label className='text-muted-foreground flex items-center gap-2 text-xs'>
+                {t('studio.timeline.voiceoverVolume')}
+                <Input
+                  type='number'
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  className='w-24'
+                  value={props.voiceoverVolume ?? 1}
+                  onChange={(event) => {
+                    const value = Number(event.target.value)
+                    if (value >= 0 && value <= 1) {
+                      props.onVoiceoverVolumeChange?.(value)
+                    }
+                  }}
+                />
+              </label>
+              <Button
+                size='xs'
+                variant='outline'
+                onClick={props.onRemoveVoiceover}
+              >
+                {t('studio.timeline.removeVoiceover')}
+              </Button>
+            </div>
+          )}
+        </div>
+        <Field>
+          <FieldLabel htmlFor='studio-captions'>
+            {t('studio.timeline.captions')}
+          </FieldLabel>
+          <Textarea
+            id='studio-captions'
+            value={props.captionsText || ''}
+            maxLength={100_000}
+            rows={5}
+            placeholder='1\n00:00:00,000 --> 00:00:02,000\n...'
+            disabled={props.busy}
+            onChange={(event) => props.onCaptionsChange?.(event.target.value)}
+          />
+          <FieldDescription>
+            {t('studio.timeline.captionsHint')}
+          </FieldDescription>
+        </Field>
         {props.preflight && (
           <p className='text-muted-foreground text-xs' role='status'>
             {t('studio.timeline.preflight', {

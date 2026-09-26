@@ -36,7 +36,11 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 
 import type { StudioGroup } from './api'
-import type { StudioCanvasNode, StudioCanvasNodeData } from './canvas-flow'
+import type {
+  StudioCanvasNode,
+  StudioCanvasNodeData,
+  StudioTake,
+} from './canvas-flow'
 import type { StudioAsset } from './local-projects'
 import {
   buildStudioVideoModel,
@@ -74,6 +78,13 @@ type Props = {
   }) => void
   availableAssets?: StudioAsset[]
   requestPreview?: string
+  connections?: Array<{
+    edgeId: string
+    sourceTitle: string
+    pinnedTakeId?: string
+    takes: StudioTake[]
+  }>
+  onPinConnectionTake?: (edgeId: string, takeId?: string) => void
 }
 
 const RATIOS = ['16:9', '9:16', '1:1', '21:9', '4:3', '3:4', 'adaptive']
@@ -250,6 +261,54 @@ export function StudioInspector(props: Props) {
             onChange={(event) => props.onChange({ title: event.target.value })}
           />
         </Field>
+        {props.connections?.map((connection) => (
+          <Field key={connection.edgeId}>
+            <FieldLabel>
+              {t('studio.connection.version')}: {connection.sourceTitle}
+            </FieldLabel>
+            <Select
+              value={connection.pinnedTakeId || '__follow_current__'}
+              onValueChange={(value) =>
+                props.onPinConnectionTake?.(
+                  connection.edgeId,
+                  value === '__follow_current__'
+                    ? undefined
+                    : value || undefined
+                )
+              }
+              items={[
+                {
+                  value: '__follow_current__',
+                  label: t('studio.connection.followCurrent'),
+                },
+                ...connection.takes
+                  .filter((take) => take.status === 'completed')
+                  .map((take) => ({ value: take.id, label: take.id })),
+              ]}
+            >
+              <SelectTrigger
+                className='w-full'
+                aria-label={`${t('studio.connection.version')}: ${connection.sourceTitle}`}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value='__follow_current__'>
+                    {t('studio.connection.followCurrent')}
+                  </SelectItem>
+                  {connection.takes
+                    .filter((take) => take.status === 'completed')
+                    .map((take) => (
+                      <SelectItem key={take.id} value={take.id}>
+                        {take.id}
+                      </SelectItem>
+                    ))}
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+        ))}
         <Field>
           <FieldLabel>{t('studio.model')}</FieldLabel>
           {isVideo ? (

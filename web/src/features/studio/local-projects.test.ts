@@ -65,6 +65,26 @@ describe('browser-local Studio projects', () => {
       { id: 'old-line', source: 'text', target: 'video' },
     ])
   })
+  test('preserves the version pinned to a canvas connection', () => {
+    let project = addStudioNode(
+      createStudioProject('Versions', 'versions'),
+      'image',
+      'image'
+    )
+    project = addStudioNode(project, 'video', 'video')
+    project.edges = [
+      {
+        id: 'pinned-line',
+        source: 'image',
+        target: 'video',
+        data: { sourceTakeId: 'image-take-1' },
+      },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    expect(loadStudioProjects(localStorage, 12)[0].edges[0].data).toEqual({
+      sourceTakeId: 'image-take-1',
+    })
+  })
   test('migrates an older pending video task into recoverable version history', () => {
     const project = createStudioProject('Legacy', 'legacy')
     project.nodes = [

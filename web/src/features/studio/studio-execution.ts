@@ -14,7 +14,11 @@ Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-import { planStudioExecution, type StudioCanvasNode } from './canvas-flow'
+import {
+  planStudioExecution,
+  resolveStudioEdgeSource,
+  type StudioCanvasNode,
+} from './canvas-flow'
 import type { StudioProject } from './local-projects'
 
 const VIDEO_ACTIVE_STATES = new Set([
@@ -76,11 +80,19 @@ export function studioNodeInputFingerprint(
   if (!node) return 'missing'
   const sourceEdges = project.edges.filter((edge) => edge.target === nodeId)
   const sources = sourceEdges.map((edge) => {
-    const source = project.nodes.find((item) => item.id === edge.source)
+    const original = project.nodes.find((item) => item.id === edge.source)
+    let source: StudioCanvasNode | undefined
+    try {
+      source = original ? resolveStudioEdgeSource(original, edge) : undefined
+    } catch {
+      // Invalid imported pins remain visible; execution reports their error.
+      source = undefined
+    }
     return [
       edge.id,
       edge.sourceHandle,
       edge.targetHandle,
+      edge.data?.sourceTakeId,
       source?.data.prompt,
       source?.data.model,
       source?.data.selectedTakeId,

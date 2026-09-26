@@ -39,6 +39,7 @@ type BundleManifest = {
   assetMedia: (string | null)[]
   assembledMedia: string | null
   soundtrackMedia?: string | null
+  voiceoverMedia?: string | null
 }
 type ZipEntry = { path: string; blob: Blob; crc: number; offset: number }
 type ZipIndexEntry = { path: string; offset: number; size: number; crc: number }
@@ -76,6 +77,7 @@ function portableProject(project: StudioProject): StudioProject {
     ...validated,
     assembledMediaId: undefined,
     soundtrackMediaId: undefined,
+    voiceoverMediaId: undefined,
     nodes: validated.nodes.map((node) => ({
       ...node,
       data: {
@@ -333,6 +335,13 @@ function validateManifest(
   ) {
     invalidBundle()
   }
+  if (
+    manifest.voiceoverMedia !== undefined &&
+    manifest.voiceoverMedia !== null &&
+    typeof manifest.voiceoverMedia !== 'string'
+  ) {
+    invalidBundle()
+  }
   if (!manifest.project) invalidBundle()
   const project = portableProject(manifest.project)
   if (
@@ -374,6 +383,7 @@ function validateManifest(
     ...manifest.assetMedia,
     manifest.assembledMedia,
     manifest.soundtrackMedia ?? null,
+    manifest.voiceoverMedia ?? null,
   ]
   if (
     references.some(
@@ -442,6 +452,7 @@ export async function exportStudioProjectBundle(
   }
   const assembledMedia = await addMedia(project.assembledMediaId)
   const soundtrackMedia = await addMedia(project.soundtrackMediaId)
+  const voiceoverMedia = await addMedia(project.voiceoverMediaId)
   const manifest: BundleManifest = {
     format: 'newapi-studio-project-bundle',
     version: 1,
@@ -452,6 +463,7 @@ export async function exportStudioProjectBundle(
     assetMedia,
     assembledMedia,
     soundtrackMedia,
+    voiceoverMedia,
   }
   const json = JSON.stringify(manifest)
   const projectBlob = new Blob([json], { type: 'application/json' })
@@ -523,6 +535,7 @@ export async function importStudioProjectBundle(
       })),
       assembledMediaId: resolveMedia(manifest.assembledMedia),
       soundtrackMediaId: resolveMedia(manifest.soundtrackMedia ?? null),
+      voiceoverMediaId: resolveMedia(manifest.voiceoverMedia ?? null),
     }
   } catch (error) {
     await Promise.allSettled(

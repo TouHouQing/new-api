@@ -24,6 +24,20 @@ import {
 } from '../local-projects'
 import { createStudioProject } from '../workspace'
 
+test('caption text survives local reload and portable project export', () => {
+  const project = {
+    ...createStudioProject('Captions', 'p-captions'),
+    captionsText: '1\n00:00:00,000 --> 00:00:01,000\nHello',
+  }
+  saveStudioProjects(localStorage, 12, [project])
+  expect(loadStudioProjects(localStorage, 12)[0].captionsText).toBe(
+    project.captionsText
+  )
+  expect(
+    parseStudioProjectImport(serializeStudioProjectExport(project)).captionsText
+  ).toBe(project.captionsText)
+})
+
 test('a local assembled MP4 survives reload but is excluded from portable project export', () => {
   const project = {
     ...createStudioProject('Drama', 'p1'),

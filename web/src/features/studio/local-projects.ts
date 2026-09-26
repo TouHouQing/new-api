@@ -69,6 +69,7 @@ const nodeDataSchema = z.strictObject({
   mediaId: z.string().max(128).optional(),
   taskId: z.string().max(191).optional(),
   error: z.string().max(2000).optional(),
+  staleSourceTitle: z.string().max(200).optional(),
   progress: z.number().min(0).max(100).optional(),
   // Accept legacy invalid drafts so one bad duration does not erase a canvas.
   seconds: z.number().nullable().optional(),
@@ -121,6 +122,9 @@ const edgeSchema = z.strictObject({
   target: z.string().min(1).max(128),
   sourceHandle: z.string().nullable().optional(),
   targetHandle: z.string().nullable().optional(),
+  data: z
+    .strictObject({ sourceTakeId: z.string().min(1).max(128).optional() })
+    .optional(),
   selected: z.boolean().optional(),
 })
 const projectSchema = z.strictObject({
@@ -132,6 +136,9 @@ const projectSchema = z.strictObject({
   assembledMediaId: z.string().min(1).max(128).optional(),
   soundtrackMediaId: z.string().min(1).max(128).optional(),
   soundtrackVolume: z.number().min(0).max(1).optional(),
+  voiceoverMediaId: z.string().min(1).max(128).optional(),
+  voiceoverVolume: z.number().min(0).max(1).optional(),
+  captionsText: z.string().max(100_000).optional(),
   defaults: z
     .strictObject({
       textModel: z.string().max(200).optional(),
@@ -204,6 +211,9 @@ export type StudioProject = {
   assembledMediaId?: string
   soundtrackMediaId?: string
   soundtrackVolume?: number
+  voiceoverMediaId?: string
+  voiceoverVolume?: number
+  captionsText?: string
   defaults?: StudioProjectDefaults
   createdAt: string
   updatedAt: string

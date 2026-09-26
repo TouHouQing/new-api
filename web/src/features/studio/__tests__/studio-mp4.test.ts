@@ -37,6 +37,8 @@ const media = vi.hoisted(() => ({
     keyFrame: boolean
     fadeGain: number
     composited: boolean
+    captionText: string
+    captionAlpha: number[]
   }[],
   audio: [] as Float32Array[],
   audioRight: [] as Float32Array[],
@@ -184,6 +186,8 @@ vi.mock('mediabunny', () => {
           duration: number
           fadeGain?: number
           composited?: boolean
+          captionText?: string
+          captionAlpha?: number[]
         },
         options: { keyFrame: boolean }
       ) {
@@ -193,6 +197,8 @@ vi.mock('mediabunny', () => {
           keyFrame: options.keyFrame,
           fadeGain: sample.fadeGain ?? 1,
           composited: sample.composited ?? false,
+          captionText: sample.captionText ?? '',
+          captionAlpha: sample.captionAlpha ?? [],
         })
       }
       close() {}
@@ -202,9 +208,17 @@ vi.mock('mediabunny', () => {
       readonly duration: number
       readonly fadeGain: number
       readonly composited = true
+      readonly captionText: string
+      readonly captionAlpha: number[]
 
       constructor(
-        canvas: { context: { drawAlpha?: number } },
+        canvas: {
+          context: {
+            drawAlpha?: number
+            drawnText?: string[]
+            textAlphas?: number[]
+          }
+        },
         init: { timestamp: number; duration: number }
       ) {
         if (media.failCanvasSample) {
@@ -213,6 +227,8 @@ vi.mock('mediabunny', () => {
         this.timestamp = init.timestamp
         this.duration = init.duration
         this.fadeGain = canvas.context.drawAlpha ?? 1
+        this.captionText = canvas.context.drawnText?.join('\n') ?? ''
+        this.captionAlpha = [...(canvas.context.textAlphas ?? [])]
       }
 
       close() {}
@@ -257,6 +273,18 @@ class FakeCanvas {
     fillStyle: '',
     drawAlpha: undefined as number | undefined,
     fillRect: () => undefined,
+    clearRect: () => {
+      this.context.drawnText = []
+      this.context.textAlphas = []
+      this.context.drawAlpha = undefined
+    },
+    drawnText: [] as string[],
+    textAlphas: [] as number[],
+    measureText: (text: string) => ({ width: text.length * 10 }),
+    fillText: (text: string) => {
+      this.context.drawnText.push(text)
+      this.context.textAlphas.push(this.context.globalAlpha)
+    },
   }
 
   constructor(
@@ -268,6 +296,77 @@ class FakeCanvas {
     return kind === '2d' ? this.context : null
   }
 }
+
+test('timed captions burn into frames on the assembled timeline across trimmed clips', async () => {
+  vi.stubGlobal('OffscreenCanvas', FakeCanvas)
+  const first = clip()
+  const second = clip()
+
+  await stitchStudioVideos(
+    [
+      { blob: first, trimStart: 0.001, trimEnd: 0.003 },
+      { blob: second, trimStart: 0.001, trimEnd: 0.003 },
+    ],
+    undefined,
+    undefined,
+    { captions: '1\n00:00:00,001 --> 00:00:00,003\nHello' }
+  )
+
+  expect(media.video.map((frame) => frame.captionText)).toEqual([
+    '',
+    'Hello',
+    'Hello',
+    '',
+  ])
+  expect(media.video.map((frame) => frame.composited)).toEqual([
+    false,
+    true,
+    true,
+    false,
+  ])
+})
+
+test('caption text stays fully opaque over a faded video frame', async () => {
+  vi.stubGlobal('OffscreenCanvas', FakeCanvas)
+
+  await stitchStudioVideos(
+    [{ blob: clip(), fadeOutSeconds: 0.002 }],
+    undefined,
+    undefined,
+    { captions: '00:00:00,003 --> 00:00:00,004\nEnd' }
+  )
+
+  expect(media.video[3]).toMatchObject({
+    fadeGain: 0.5,
+    captionText: 'End',
+    captionAlpha: [1],
+  })
+})
+
+test('caption preflight rejects malformed cues before export', async () => {
+  await expect(
+    preflightStudioVideos([clip()], undefined, {
+      captions: '00:02.000 --> 00:01.000\nBackwards',
+    })
+  ).rejects.toThrow('caption cue 1')
+})
+
+test('caption preflight rejects missing canvas support', async () => {
+  vi.stubGlobal(
+    'OffscreenCanvas',
+    class {
+      getContext() {
+        return null
+      }
+    }
+  )
+
+  await expect(
+    preflightStudioVideos([clip()], undefined, {
+      captions: '00:00.000 --> 00:00.004\nHello',
+    })
+  ).rejects.toThrow('2D canvas')
+})
 
 test('MP4 assembly refuses an empty or invalid clip before producing an output', async () => {
   await expect(stitchStudioVideos([])).rejects.toThrow('at least one video')
@@ -407,6 +506,52 @@ test('soundtrack preflight counts source bytes and enables audio output for sile
   expect(result.audioCodec).toBe('aac')
 })
 
+test('voiceover preflight counts bytes and enables audio for a silent video', async () => {
+  const video = clip()
+  const voiceover = clip({ audioSamples: new Float32Array(192) })
+
+  const result = await preflightStudioVideos([video], undefined, {
+    voiceover: { blob: voiceover, volume: 0.5 },
+  })
+
+  expect(result.totalBytes).toBe(video.size + voiceover.size)
+  expect(result.audioCodec).toBe('aac')
+})
+
+test('voiceover preflight rejects missing or undecodable audio', async () => {
+  await expect(
+    preflightStudioVideos([clip()], undefined, {
+      voiceover: { blob: clip(), volume: 1 },
+    })
+  ).rejects.toThrow('voiceover has no audio track')
+
+  await expect(
+    preflightStudioVideos([clip()], undefined, {
+      voiceover: {
+        blob: clip({
+          audioSamples: new Float32Array(192),
+          audioCanDecode: false,
+        }),
+        volume: 1,
+      },
+    })
+  ).rejects.toThrow('voiceover uses an audio codec this browser cannot decode')
+})
+
+test.each([-0.1, Number.NaN, Number.POSITIVE_INFINITY, 1.1])(
+  'voiceover preflight rejects invalid volume %s',
+  async (volume) => {
+    await expect(
+      preflightStudioVideos([clip()], undefined, {
+        voiceover: {
+          blob: clip({ audioSamples: new Float32Array(192) }),
+          volume,
+        },
+      })
+    ).rejects.toThrow('voiceover has an invalid volume')
+  }
+)
+
 test('soundtrack preflight rejects files without a decodable audio track', async () => {
   await expect(
     preflightStudioVideos([clip()], undefined, {
@@ -496,6 +641,31 @@ test('soundtrack mixes at volume with clip audio and ends without looping', asyn
   expect(media.audio[1][95]).toBe(0.125)
   expect(media.audio[1][96]).toBe(0)
   expect(media.audioRight[0][0]).toBe(0.375)
+})
+
+test('voiceover mixes with soundtrack and clip audio, then stops at its own end', async () => {
+  const first = clip({ audioSamples: new Float32Array(192).fill(0.25) })
+  const second = clip()
+  const soundtrack = clip({
+    audioSamples: new Float32Array(384).fill(0.25),
+    audioStart: 4,
+  })
+  const voiceover = clip({
+    audioSamples: new Float32Array(288).fill(0.5),
+    audioStart: 9,
+  })
+
+  await stitchStudioVideos([first, second], undefined, undefined, {
+    soundtrack: { blob: soundtrack, volume: 0.5 },
+    voiceover: { blob: voiceover, volume: 0.5 },
+  })
+
+  expect(media.audio).toHaveLength(2)
+  expect(media.audio[0][0]).toBe(0.625)
+  expect(media.audio[1][0]).toBe(0.375)
+  expect(media.audio[1][95]).toBe(0.375)
+  expect(media.audio[1][96]).toBe(0.125)
+  expect(media.audioRight[0][0]).toBe(0.625)
 })
 
 test('soundtrack follows the trimmed video timeline across clip boundaries', async () => {

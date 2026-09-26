@@ -55,6 +55,40 @@ const nodes: StudioCanvasNode[] = [
 ]
 
 describe('Studio canvas connections', () => {
+  test('a pinned completed text take supplies its own prompt without rerunning the source', () => {
+    const text = {
+      ...nodes[0],
+      data: {
+        ...nodes[0].data,
+        selectedTakeId: 'new',
+        outputText: 'New scene',
+        takes: [
+          {
+            id: 'old',
+            createdAt: '2026-09-26T00:00:00Z',
+            prompt: 'scene',
+            status: 'completed' as const,
+            outputText: 'Old scene',
+          },
+        ],
+      },
+    }
+    const video = { ...nodes[2], data: { ...nodes[2].data, prompt: '' } }
+    const edges = [
+      {
+        id: 'pinned',
+        source: 'text',
+        target: 'video',
+        data: { sourceTakeId: 'old' },
+      },
+    ]
+    expect(connectedGenerationInput([text, video], edges, 'video').prompt).toBe(
+      'Old scene'
+    )
+    expect(
+      planStudioExecution([text, video], edges, 'video').map((node) => node.id)
+    ).toEqual(['video'])
+  })
   test('plans only the ancestors of a target in dependency order', () => {
     const image = {
       ...nodes[1],

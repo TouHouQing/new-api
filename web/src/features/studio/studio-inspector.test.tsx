@@ -88,6 +88,46 @@ const video = (model: string): StudioCanvasNode => ({
 })
 
 describe('Studio model controls', () => {
+  test('a connected image version can be pinned without changing the source selection', async () => {
+    const onPinConnectionTake = vi.fn()
+    render(
+      <StudioInspector
+        node={video('会员套餐甲')}
+        models={[]}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+        connections={[
+          {
+            edgeId: 'image-video',
+            sourceTitle: 'Frame',
+            pinnedTakeId: undefined,
+            takes: [
+              {
+                id: 'old-image',
+                createdAt: '2026-09-26T00:00:00Z',
+                prompt: 'portrait',
+                status: 'completed',
+              },
+            ],
+          },
+        ]}
+        onPinConnectionTake={onPinConnectionTake}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('combobox', {
+        name: 'studio.connection.version: Frame',
+      })
+    )
+    await user.click(screen.getByRole('option', { name: 'old-image' }))
+    expect(onPinConnectionTake).toHaveBeenCalledWith('image-video', 'old-image')
+  })
   test('keeps invalid or secret metadata drafts out of saved project state', () => {
     const node = video('会员套餐甲')
     const onChange = vi.fn()

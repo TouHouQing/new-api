@@ -90,6 +90,9 @@ export function studioAssemblyFingerprint(project: StudioProject): string {
   return JSON.stringify([
     project.soundtrackMediaId,
     project.soundtrackVolume,
+    project.voiceoverMediaId,
+    project.voiceoverVolume,
+    project.captionsText,
     ...(project.shots || []).map((shot) => {
       const video = project.nodes.find((node) => node.id === shot.videoNodeId)
       return [

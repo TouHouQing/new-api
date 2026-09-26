@@ -20,15 +20,19 @@ import { describe, expect, test } from 'vitest'
 
 import {
   addStudioNode,
+  applyStudioAssetToAllShots,
   addStudioShot,
   addPlannedStudioShots,
   createStudioProject,
   retainStudioTake,
+  setStudioFinalVideoReference,
   invalidateStudioBranch,
   ensureStudioFinalVideo,
   moveStudioShot,
   markStudioDependentWaiting,
   pruneStudioShots,
+  pinStudioConnectionTake,
+  studioUnpinnedDependentTargets,
   recordStudioTake,
   reviseStudioTextOutput,
   removeStudioShot,
@@ -338,8 +342,262 @@ describe('Studio project editing', () => {
       project.edges
         .filter((edge) => edge.target === 'final-video')
         .map((edge) => edge.source)
-    ).toEqual(['v1', 'v3'])
+    ).toEqual(['v1'])
     expect(ensureStudioFinalVideo(project, 'another-id')).toBe(project)
+  })
+  test('a new final AI video samples three ordered references and lets creators choose more', () => {
+    let project = createStudioProject('Drama', 'p-final-refs')
+    for (const index of [1, 2, 3, 4]) {
+      project = addStudioShot(
+        project,
+        `shot-${index}`,
+        { text: `t${index}`, image: `i${index}`, video: `v${index}` },
+        `Shot ${index}`
+      )
+    }
+    project = ensureStudioFinalVideo(project, 'final')
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'final')
+        .map((edge) => edge.source)
+    ).toEqual(['v1', 'v2', 'v4'])
+    project = setStudioFinalVideoReference(project, 'shot-3', true)
+    expect(
+      project.edges.filter((edge) => edge.id === 'shot-3-final')
+    ).toHaveLength(1)
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'final')
+        .map((edge) => edge.source)
+    ).toEqual(['v1', 'v2', 'v3', 'v4'])
+    project = setStudioFinalVideoReference(project, 'shot-1', false)
+    expect(
+      project.edges
+        .filter((edge) => edge.target === 'final')
+        .map((edge) => edge.source)
+    ).toEqual(['v2', 'v3', 'v4'])
+  })
+  test('storyboard reordering and appending preserve pinned final references', () => {
+    let project = createStudioProject('Final', 'p-final-pins')
+    for (const index of [1, 2]) {
+      project = addStudioShot(
+        project,
+        `shot-${index}`,
+        {
+          text: `t${index}`,
+          image: `i${index}`,
+          video: `v${index}`,
+        },
+        `Shot ${index}`
+      )
+    }
+    project = recordStudioTake(project, 'v1', {
+      id: 'take-1',
+      createdAt: '2026-09-26T00:00:00Z',
+      prompt: 'Opening shot',
+      status: 'completed',
+      taskId: 'task-1',
+    })
+    project = ensureStudioFinalVideo(project, 'final')
+    project = pinStudioConnectionTake(project, 'shot-1-final', 'take-1')
+    project = moveStudioShot(project, 'shot-2', 'up')
+    project = addStudioShot(
+      project,
+      'shot-3',
+      {
+        text: 't3',
+        image: 'i3',
+        video: 'v3',
+      },
+      'Close'
+    )
+    expect(
+      project.edges.find((edge) => edge.id === 'shot-1-final')?.data
+        ?.sourceTakeId
+    ).toBe('take-1')
+  })
+  test('changing AI final references invalidates the prior generated result', () => {
+    let project = addStudioShot(
+      createStudioProject('Final', 'p-final-invalidate'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = ensureStudioFinalVideo(project, 'final')
+    project = updateStudioNode(project, 'final', {
+      status: 'completed',
+      taskId: 'old-final-task',
+    })
+    project = setStudioFinalVideoReference(project, 'shot-1', false)
+    expect(
+      project.nodes.find((node) => node.id === 'final')?.data
+    ).toMatchObject({
+      status: 'idle',
+      taskId: undefined,
+    })
+  })
+  test('removing a referenced shot invalidates the prior AI final result', () => {
+    let project = addStudioShot(
+      createStudioProject('Final', 'p-final-delete'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = ensureStudioFinalVideo(project, 'final')
+    project = updateStudioNode(project, 'final', {
+      status: 'completed',
+      taskId: 'old-final-task',
+    })
+    project = removeStudioShot(project, 'shot-1')
+    expect(
+      project.nodes.find((node) => node.id === 'final')?.data
+    ).toMatchObject({
+      status: 'idle',
+      taskId: undefined,
+    })
+  })
+  test('pinning an image version invalidates its target while later source selections leave it intact', () => {
+    let project = addStudioNode(
+      createStudioProject('Branches', 'p-pins'),
+      'image',
+      'image'
+    )
+    project = addStudioNode(project, 'video', 'video')
+    project.edges = [{ id: 'image-video', source: 'image', target: 'video' }]
+    project = recordStudioTake(project, 'image', {
+      id: 'old',
+      createdAt: '2026-09-26T00:00:00Z',
+      prompt: 'portrait',
+      status: 'completed',
+      mediaId: 'old-image',
+    })
+    project = recordStudioTake(project, 'image', {
+      id: 'new',
+      createdAt: '2026-09-26T00:01:00Z',
+      prompt: 'portrait',
+      status: 'completed',
+      mediaId: 'new-image',
+    })
+    project = updateStudioNode(project, 'video', {
+      status: 'completed',
+      taskId: 'old-video',
+    })
+    project = pinStudioConnectionTake(project, 'image-video', 'old')
+    expect(project.edges[0].data?.sourceTakeId).toBe('old')
+    expect(project.nodes.find((node) => node.id === 'video')?.data.status).toBe(
+      'idle'
+    )
+    expect(
+      project.nodes.find((node) => node.id === 'video')?.data.staleSourceTitle
+    ).toBe('Image 1')
+    project = updateStudioNode(project, 'video', {
+      status: 'completed',
+      taskId: 'pinned-video',
+    })
+    project = selectStudioTake(project, 'image', 'old')
+    expect(
+      project.nodes.find((node) => node.id === 'video')?.data
+    ).toMatchObject({
+      status: 'completed',
+      taskId: 'pinned-video',
+    })
+  })
+  test('regeneration targets exclude edges pinned to a completed take', () => {
+    let project = addStudioNode(
+      createStudioProject('Pinned', 'p-pinned'),
+      'image',
+      'source'
+    )
+    project = addStudioNode(project, 'video', 'pinned')
+    project = addStudioNode(project, 'video', 'following')
+    project.edges = [
+      {
+        id: 'pinned-edge',
+        source: 'source',
+        target: 'pinned',
+        data: { sourceTakeId: 'old' },
+      },
+      { id: 'following-edge', source: 'source', target: 'following' },
+    ]
+    expect(studioUnpinnedDependentTargets(project, 'source')).toEqual([
+      'following',
+    ])
+  })
+  test('a changed upstream result marks completed descendants stale until regeneration', () => {
+    let project = addStudioShot(
+      createStudioProject('Stale', 'p-stale'),
+      'shot',
+      { text: 'text', image: 'image', video: 'video' },
+      'Opening'
+    )
+    project = updateStudioNode(project, 'video', {
+      status: 'completed',
+      taskId: 'old-video',
+    })
+    project = invalidateStudioBranch(project, 'text')
+    expect(
+      project.nodes.find((node) => node.id === 'video')?.data
+    ).toMatchObject({
+      status: 'idle',
+      staleSourceTitle: 'Text 1',
+    })
+    project = updateStudioNode(project, 'video', { status: 'submitting' })
+    expect(
+      project.nodes.find((node) => node.id === 'video')?.data.staleSourceTitle
+    ).toBeUndefined()
+  })
+  test('a reusable character asset can be applied consistently to every storyboard shot', () => {
+    let project = createStudioProject('Series', 'p-series')
+    for (const index of [1, 2]) {
+      project = addStudioShot(
+        project,
+        `shot-${index}`,
+        { text: `t${index}`, image: `i${index}`, video: `v${index}` },
+        `Shot ${index}`
+      )
+    }
+    project.assets = [
+      { id: 'hero', kind: 'character', title: 'Mira', prompt: 'red scarf' },
+    ]
+    project = applyStudioAssetToAllShots(project, 'hero')
+    const unchanged = applyStudioAssetToAllShots(project, 'hero')
+    expect(unchanged).toBe(project)
+    expect(
+      project.nodes.every((node) => node.data.assetIds?.includes('hero'))
+    ).toBe(true)
+    project = applyStudioAssetToAllShots(project, 'hero')
+    expect(
+      project.nodes.every((node) => node.data.assetIds?.length === 1)
+    ).toBe(true)
+  })
+  test('applying an asset to full shot nodes leaves the project unchanged', () => {
+    let project = addStudioShot(
+      createStudioProject('Full', 'p-full'),
+      'shot-1',
+      {
+        text: 'text',
+        image: 'image',
+        video: 'video',
+      },
+      'Opening'
+    )
+    project.assets = [
+      { id: 'hero', kind: 'character', title: 'Mira', prompt: 'red scarf' },
+    ]
+    project = {
+      ...project,
+      nodes: project.nodes.map((node) => ({
+        ...node,
+        data: {
+          ...node.data,
+          assetIds: Array.from({ length: 32 }, (_, i) => `asset-${i}`),
+        },
+      })),
+    }
+    expect(() => applyStudioAssetToAllShots(project, 'hero')).toThrow(/32/)
+    expect(
+      project.nodes.every((node) => !node.data.assetIds?.includes('hero'))
+    ).toBe(true)
   })
   test('creates ordered shots backed by the existing text image video graph', () => {
     let project = createStudioProject('Drama', 'p1')

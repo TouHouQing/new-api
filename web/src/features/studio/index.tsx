@@ -79,6 +79,7 @@ import {
   connectedGenerationInput,
   isValidStudioConnection,
   planStudioExecution,
+  resolveStudioEdgeSource,
   type StudioCanvasNode,
   type StudioCanvasNodeData,
   type StudioTake,
@@ -103,6 +104,7 @@ import {
 import { StudioProviderSettings } from './provider-settings'
 import { StudioAssetLibrary } from './studio-asset-library'
 import { StudioAttempts } from './studio-attempts'
+import { compileStudioContinuityPrompt } from './studio-continuity'
 import {
   fetchStudioVideoCostPreview,
   studioCostDurationSeconds,
@@ -111,7 +113,6 @@ import {
 import {
   StudioExecutionCoordinator,
   studioNodeInputFingerprint,
-  studioPromptWithAssets,
   planStudioVideoBatch,
 } from './studio-execution'
 import { captureStudioLastFrame } from './studio-frame-grab'
@@ -128,6 +129,7 @@ import {
 } from './studio-video-preflight'
 import {
   addStudioNode,
+  applyStudioAssetToAllShots,
   addPlannedStudioShots,
   addStudioShot,
   createStudioProject,
@@ -135,13 +137,16 @@ import {
   invalidateStudioBranch,
   markStudioDependentWaiting,
   moveStudioShot,
+  pinStudioConnectionTake,
   pruneStudioShots,
   recordStudioTake,
   reviseStudioTextOutput,
   retainStudioTake,
   removeStudioShot,
   selectStudioTake,
+  setStudioFinalVideoReference,
   studioBranchNodeIds,
+  studioUnpinnedDependentTargets,
   updateStudioNode,
   updateStudioTake,
 } from './workspace'
@@ -156,7 +161,7 @@ type StudioMediaRef = {
   projectId: string
   nodeId: string
   mediaId: string
-  kind: 'node' | 'assembly' | 'soundtrack' | 'asset'
+  kind: 'node' | 'assembly' | 'soundtrack' | 'voiceover' | 'asset'
 }
 class StudioInputChangedError extends Error {}
 class StudioUpstreamWaitError extends Error {}
@@ -194,6 +199,7 @@ function projectStoredMediaIds(project: StudioProject): Set<string> {
   }
   if (project.assembledMediaId) ids.add(project.assembledMediaId)
   if (project.soundtrackMediaId) ids.add(project.soundtrackMediaId)
+  if (project.voiceoverMediaId) ids.add(project.voiceoverMediaId)
   return ids
 }
 
@@ -283,6 +289,9 @@ export function Studio() {
     () => new Map()
   )
   const [soundtrackPreviews, setSoundtrackPreviews] = useState<
+    Map<string, string>
+  >(() => new Map())
+  const [voiceoverPreviews, setVoiceoverPreviews] = useState<
     Map<string, string>
   >(() => new Map())
   const [assemblyPreflight, setAssemblyPreflight] = useState<{
@@ -496,6 +505,14 @@ export function Studio() {
         kind: 'soundtrack',
       })
     }
+    if (project.voiceoverMediaId) {
+      refs.push({
+        projectId: project.id,
+        nodeId: 'voiceover',
+        mediaId: project.voiceoverMediaId,
+        kind: 'voiceover',
+      })
+    }
     for (const asset of project.assets || []) {
       if (asset.mediaId) {
         refs.push({
@@ -600,6 +617,7 @@ export function Studio() {
     setRequestPreviews({})
     setAssemblyPreviews(new Map())
     setSoundtrackPreviews(new Map())
+    setVoiceoverPreviews(new Map())
     loadedMediaIds.current.clear()
     ownedUrls.current.forEach((url) => URL.revokeObjectURL(url))
     ownedUrls.current = []
@@ -760,6 +778,10 @@ export function Studio() {
             setSoundtrackPreviews((current) =>
               new Map(current).set(projectId, url)
             )
+          } else if (kind === 'voiceover') {
+            setVoiceoverPreviews((current) =>
+              new Map(current).set(projectId, url)
+            )
           } else {
             setPreviews((current) => ({
               ...current,
@@ -873,6 +895,7 @@ export function Studio() {
         if (asset.mediaId) ids.add(asset.mediaId)
       }
       if (source.soundtrackMediaId) ids.add(source.soundtrackMediaId)
+      if (source.voiceoverMediaId) ids.add(source.voiceoverMediaId)
       if (source.assembledMediaId) ids.add(source.assembledMediaId)
     }
     for (const mediaId of ids) {
@@ -1128,9 +1151,7 @@ export function Studio() {
         editNode(source.id, nodeId, patch)
       }
       const invalidateDependents = (nodeId: string) => {
-        const targets = source.edges
-          .filter((edge) => edge.source === nodeId)
-          .map((edge) => edge.target)
+        const targets = studioUnpinnedDependentTargets(source, nodeId)
         if (!targets.length) return
         for (const targetId of targets) discardBranchMedia(source, targetId)
         editProject(source.id, (project) =>
@@ -1158,11 +1179,27 @@ export function Studio() {
             source.edges,
             node.id
           )
-          const generationPrompt = studioPromptWithAssets(
-            input.prompt,
-            source,
-            node.data.assetIds
-          )
+          const previousShotNote = source.edges
+            .filter(
+              (edge) =>
+                edge.target === node.id && edge.targetHandle === 'extend_video'
+            )
+            .map((edge) => {
+              const parent = workingNodes.find(
+                (item) => item.id === edge.source
+              )
+              return parent
+                ? resolveStudioEdgeSource(parent, edge).data.prompt
+                : ''
+            })
+            .filter(Boolean)
+            .join('\n')
+          const generationPrompt = compileStudioContinuityPrompt({
+            prompt: input.prompt,
+            assets: source.assets,
+            assetIds: node.data.assetIds,
+            previousShotNote,
+          })
 
           if (node.data.kind === 'text') {
             const textOutputs = [
@@ -1267,9 +1304,14 @@ export function Studio() {
             const expected = fingerprint(node.id)
             const references = source.edges
               .filter((edge) => edge.target === node.id)
-              .map((edge) =>
-                workingNodes.find((item) => item.id === edge.source)
-              )
+              .map((edge) => {
+                const parent = workingNodes.find(
+                  (item) => item.id === edge.source
+                )
+                return parent
+                  ? resolveStudioEdgeSource(parent, edge)
+                  : undefined
+              })
               .filter((parent) => parent?.data.kind === 'image')
             if (references.length > 1) {
               throw new Error(t('studio.image.singleReference'))
@@ -1442,7 +1484,7 @@ export function Studio() {
           if (!group) throw new Error(t('studio.video.group.select'))
           const availableModels = await fetchStudioModels(group)
           if (!availableModels.includes(node.data.model)) {
-            throw new Error(t('studio.model.empty'))
+            throw new Error(t('studio.model.noLongerAvailable'))
           }
           if (activeUserId.current !== userId) return
           const model = buildStudioVideoModel(node.data.model, 'generic')
@@ -1452,7 +1494,9 @@ export function Studio() {
               const parent = workingNodes.find(
                 (item) => item.id === edge.source
               )
-              return parent ? [{ edge, parent }] : []
+              return parent
+                ? [{ edge, parent: resolveStudioEdgeSource(parent, edge) }]
+                : []
             })
           const images: string[] = []
           const videos: string[] = []
@@ -1464,6 +1508,7 @@ export function Studio() {
             url: string
             role: 'reference_video' | 'extend_video'
           }[] = []
+          const referenceFingerprint = fingerprint(node.id)
           for (const { edge, parent } of incoming) {
             if (parent.data.kind === 'image') {
               if (
@@ -1493,19 +1538,50 @@ export function Studio() {
               }
             }
             if (parent.data.kind === 'video') {
-              if (!parent.data.outputUrl) {
+              if (edge.targetHandle === 'extend_video') {
+                let clip =
+                  parent.data.mediaId && mediaStore
+                    ? await mediaStore.get(userId, parent.data.mediaId)
+                    : null
+                if (!clip) {
+                  const url = parent.data.taskId
+                    ? await getStudioVideoContentUrl(parent.data.taskId)
+                    : parent.data.outputUrl
+                  if (!url) throw new Error(t('studio.media.missing'))
+                  const response = await fetch(url, {
+                    credentials: 'same-origin',
+                  })
+                  if (!response.ok) {
+                    throw new Error(
+                      `media download failed (${response.status})`
+                    )
+                  }
+                  clip = await response.blob()
+                }
+                const frame = await captureStudioLastFrame(clip)
+                assertFresh(node.id, referenceFingerprint)
+                const frameUrl = await blobToDataUrl(frame)
+                assertFresh(node.id, referenceFingerprint)
+                imageReferences.push({
+                  url: frameUrl,
+                  role: 'first_frame',
+                })
+                continue
+              }
+              const videoUrl = parent.data.taskId
+                ? await getStudioVideoContentUrl(parent.data.taskId)
+                : parent.data.outputUrl
+              assertFresh(node.id, referenceFingerprint)
+              if (!videoUrl) {
                 throw new Error(t('studio.media.missing'))
               }
-              if (
-                edge.targetHandle === 'reference_video' ||
-                edge.targetHandle === 'extend_video'
-              ) {
+              if (edge.targetHandle === 'reference_video') {
                 videoReferences.push({
-                  url: parent.data.outputUrl,
+                  url: videoUrl,
                   role: edge.targetHandle,
                 })
               } else {
-                videos.push(parent.data.outputUrl)
+                videos.push(videoUrl)
               }
             }
           }
@@ -1525,6 +1601,15 @@ export function Studio() {
               })
             }
           }
+          const mediaAdapted =
+            imageReferences.some(
+              (reference) => reference.role === 'first_frame'
+            ) &&
+            (imageReferences.some(
+              (reference) => reference.role === 'reference_image'
+            ) ||
+              videoReferences.length > 0 ||
+              videos.length > 0)
           const request = applyStudioVideoPayloadPatch(
             buildStudioVideoRequest(model, {
               prompt: generationPrompt,
@@ -1563,6 +1648,7 @@ export function Studio() {
               group,
               request,
               costDuration,
+              mediaAdapted,
             },
             source.id,
             () => {
@@ -2090,6 +2176,53 @@ export function Studio() {
     }
   }
 
+  const uploadVoiceover = async (file: File) => {
+    if (!project || !mediaStore) {
+      setAssemblyError(t('studio.assembly.error.storage'))
+      return
+    }
+    if (!file.type.startsWith('audio/') || file.size > 100_000_000) {
+      setAssemblyError(t('studio.assembly.audioInvalid'))
+      return
+    }
+    const mediaId = newId()
+    try {
+      await mediaStore.put(userId, mediaId, file)
+      const oldId = project.voiceoverMediaId
+      editProject(project.id, (current) => ({
+        ...current,
+        voiceoverMediaId: mediaId,
+        updatedAt: new Date().toISOString(),
+      }))
+      if (oldId) {
+        void mediaStore.delete(userId, oldId)
+        loadedMediaIds.current.delete(
+          mediaLoadKey({
+            kind: 'voiceover',
+            projectId: project.id,
+            mediaId: oldId,
+          })
+        )
+      }
+      const previousUrl = voiceoverPreviews.get(project.id)
+      if (previousUrl?.startsWith('blob:')) {
+        URL.revokeObjectURL(previousUrl)
+        ownedUrls.current = ownedUrls.current.filter(
+          (url) => url !== previousUrl
+        )
+      }
+      const url = URL.createObjectURL(file)
+      ownedUrls.current.push(url)
+      loadedMediaIds.current.add(
+        mediaLoadKey({ kind: 'voiceover', projectId: project.id, mediaId })
+      )
+      setVoiceoverPreviews((current) => new Map(current).set(project.id, url))
+      setAssemblyError(undefined)
+    } catch (error) {
+      setAssemblyError(errorMessage(error))
+    }
+  }
+
   const assembleMp4 = async () => {
     if (!project || assemblyBusy) return
     if (!mediaStore) {
@@ -2134,14 +2267,36 @@ export function Studio() {
       if (sourceProject.soundtrackMediaId && !soundtrack) {
         throw new Error(t('studio.assembly.audioMissing'))
       }
-      const options = soundtrack
-        ? {
-            soundtrack: {
-              blob: soundtrack,
-              volume: sourceProject.soundtrackVolume ?? 1,
-            },
-          }
-        : undefined
+      const voiceover = sourceProject.voiceoverMediaId
+        ? await mediaStore.get(ownerId, sourceProject.voiceoverMediaId)
+        : null
+      if (sourceProject.voiceoverMediaId && !voiceover) {
+        throw new Error(t('studio.assembly.audioMissing'))
+      }
+      const options =
+        soundtrack || voiceover || sourceProject.captionsText
+          ? {
+              ...(soundtrack
+                ? {
+                    soundtrack: {
+                      blob: soundtrack,
+                      volume: sourceProject.soundtrackVolume ?? 1,
+                    },
+                  }
+                : {}),
+              ...(voiceover
+                ? {
+                    voiceover: {
+                      blob: voiceover,
+                      volume: sourceProject.voiceoverVolume ?? 1,
+                    },
+                  }
+                : {}),
+              ...(sourceProject.captionsText
+                ? { captions: sourceProject.captionsText }
+                : {}),
+            }
+          : undefined
       const { preflightStudioVideos, stitchStudioVideos } =
         await import('./studio-mp4')
       const preflight = await preflightStudioVideos(
@@ -2845,6 +3000,31 @@ export function Studio() {
                   return next
                 })
               }}
+              onApplyToShots={(assetId) => {
+                try {
+                  const next = applyStudioAssetToAllShots(project, assetId)
+                  if (next === project) return
+                  for (const shot of project.shots || []) {
+                    const shotNodes = new Set([
+                      shot.textNodeId,
+                      shot.imageNodeId,
+                      shot.videoNodeId,
+                    ])
+                    if (
+                      project.nodes.some(
+                        (node) =>
+                          shotNodes.has(node.id) &&
+                          !node.data.assetIds?.includes(assetId)
+                      )
+                    ) {
+                      discardBranchMedia(project, shot.textNodeId)
+                    }
+                  }
+                  editProject(project.id, () => next)
+                } catch (error) {
+                  setMessage(errorMessage(error))
+                }
+              }}
             />
           )}
           {view === 'storyboard' && (
@@ -2879,6 +3059,52 @@ export function Studio() {
                 preflight: assemblyPreflight,
                 soundtrackUrl: soundtrackPreviews.get(project.id),
                 soundtrackVolume: project.soundtrackVolume ?? 1,
+                voiceoverUrl: voiceoverPreviews.get(project.id),
+                voiceoverVolume: project.voiceoverVolume ?? 1,
+                onUploadVoiceover: (file) => void uploadVoiceover(file),
+                onVoiceoverVolumeChange: (volume) =>
+                  editProject(project.id, (current) => ({
+                    ...current,
+                    voiceoverVolume: volume,
+                    updatedAt: new Date().toISOString(),
+                  })),
+                onRemoveVoiceover: () => {
+                  const oldId = project.voiceoverMediaId
+                  if (oldId && mediaStore) {
+                    void mediaStore.delete(userId, oldId)
+                    loadedMediaIds.current.delete(
+                      mediaLoadKey({
+                        kind: 'voiceover',
+                        projectId: project.id,
+                        mediaId: oldId,
+                      })
+                    )
+                  }
+                  const oldUrl = voiceoverPreviews.get(project.id)
+                  if (oldUrl?.startsWith('blob:')) {
+                    URL.revokeObjectURL(oldUrl)
+                    ownedUrls.current = ownedUrls.current.filter(
+                      (url) => url !== oldUrl
+                    )
+                  }
+                  setVoiceoverPreviews((current) => {
+                    const next = new Map(current)
+                    next.delete(project.id)
+                    return next
+                  })
+                  editProject(project.id, (current) => ({
+                    ...current,
+                    voiceoverMediaId: undefined,
+                    updatedAt: new Date().toISOString(),
+                  }))
+                },
+                captionsText: project.captionsText || '',
+                onCaptionsChange: (captionsText) =>
+                  editProject(project.id, (current) => ({
+                    ...current,
+                    captionsText,
+                    updatedAt: new Date().toISOString(),
+                  })),
                 previewUrl: project.assembledMediaId
                   ? assemblyPreviews.get(project.id)
                   : undefined,
@@ -2932,6 +3158,14 @@ export function Studio() {
               }}
               onGenerateAll={() => void generateAllShots()}
               onCreateFinalVideo={createFinalVideo}
+              onSetFinalReference={(shotId, selected) => {
+                if (project.finalVideoNodeId) {
+                  discardBranchMedia(project, project.finalVideoNodeId)
+                }
+                editProject(project.id, (current) =>
+                  setStudioFinalVideoReference(current, shotId, selected)
+                )
+              }}
               onMoveShot={(shotId, direction) =>
                 editProject(project.id, (current) =>
                   moveStudioShot(current, shotId, direction)
@@ -2966,6 +3200,37 @@ export function Studio() {
           {selectedNode ? (
             <StudioInspector
               node={selectedNode}
+              connections={project.edges
+                .filter((edge) => edge.target === selectedNode.id)
+                .flatMap((edge) => {
+                  const source = project.nodes.find(
+                    (node) => node.id === edge.source
+                  )
+                  if (
+                    !source ||
+                    (!source.data.takes?.length && !edge.data?.sourceTakeId)
+                  ) {
+                    return []
+                  }
+                  return [
+                    {
+                      edgeId: edge.id,
+                      sourceTitle: source.data.title,
+                      pinnedTakeId: edge.data?.sourceTakeId,
+                      takes: source.data.takes || [],
+                    },
+                  ]
+                })}
+              onPinConnectionTake={(edgeId, takeId) => {
+                discardBranchMedia(project, selectedNode.id)
+                try {
+                  editProject(project.id, (current) =>
+                    pinStudioConnectionTake(current, edgeId, takeId)
+                  )
+                } catch (error) {
+                  setMessage(errorMessage(error))
+                }
+              }}
               models={
                 selectedNode.data.kind === 'video'
                   ? []

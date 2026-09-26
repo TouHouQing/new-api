@@ -82,6 +82,10 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
   const data = props.data
   const imageUrl =
     typeof data.previewUrl === 'string' ? data.previewUrl : data.outputUrl
+  const videoUrl =
+    typeof data.previewUrl === 'string' && data.previewUrl.trim()
+      ? data.previewUrl
+      : data.outputUrl
   const ports = PORTS[data.kind]
   const optional = OPTIONAL_PORTS[data.kind]
   const usedInputs = new Set(data.usedTargetHandles || [])
@@ -137,16 +141,34 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
             className='max-h-28 w-full rounded-md object-contain'
           />
         )}
-        {data.kind === 'video' && data.status === 'completed' && (
-          <div className='bg-muted rounded-md p-2 text-xs'>
-            {t('studio.node.videoReady')}
-          </div>
-        )}
+        {data.kind === 'video' &&
+          data.status === 'completed' &&
+          (videoUrl ? (
+            <video
+              aria-label={`${data.title} · ${t('studio.kind.video')}`}
+              src={videoUrl}
+              controls
+              playsInline
+              preload='metadata'
+              className='nodrag nopan bg-muted max-h-28 w-full rounded-md object-contain'
+            />
+          ) : (
+            <div className='bg-muted rounded-md p-2 text-xs'>
+              {t('studio.node.videoReady')}
+            </div>
+          ))}
         {data.status && data.status !== 'idle' && (
           <span className='text-muted-foreground text-xs'>
             {t(`studio.status.${data.status}`)}
             {typeof data.progress === 'number' ? ` · ${data.progress}%` : ''}
           </span>
+        )}
+        {data.staleSourceTitle && (
+          <p className='text-muted-foreground text-xs' role='status'>
+            {t('studio.stale.sourceChanged', {
+              source: data.staleSourceTitle,
+            })}
+          </p>
         )}
         {data.error && (
           <span className='text-destructive block text-xs'>{data.error}</span>

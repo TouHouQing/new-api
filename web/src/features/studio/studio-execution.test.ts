@@ -19,16 +19,64 @@ import { describe, expect, test, vi } from 'vitest'
 import {
   StudioExecutionCoordinator,
   planStudioVideoBatch,
+  studioNodeInputFingerprint,
   studioPromptWithAssets,
 } from './studio-execution'
 import {
   addStudioNode,
   addStudioShot,
   createStudioProject,
+  pinStudioConnectionTake,
+  recordStudioTake,
+  selectStudioTake,
   updateStudioNode,
 } from './workspace'
 
 describe('Studio shared execution', () => {
+  test('a pinned connection fingerprint ignores unrelated source take selections', () => {
+    let project = addStudioNode(
+      createStudioProject('Pins', 'pins'),
+      'text',
+      'source'
+    )
+    project = addStudioNode(project, 'video', 'target')
+    project.edges = [
+      { id: 'source-target', source: 'source', target: 'target' },
+    ]
+    for (const [id, outputText] of [
+      ['old', 'Old scene'],
+      ['new', 'New scene'],
+    ]) {
+      project = recordStudioTake(project, 'source', {
+        id,
+        createdAt: '2026-09-26T00:00:00Z',
+        prompt: 'scene',
+        status: 'completed',
+        outputText,
+      })
+    }
+    project = pinStudioConnectionTake(project, 'source-target', 'old')
+    const pinned = studioNodeInputFingerprint(project, 'target')
+    project = selectStudioTake(project, 'source', 'old')
+    expect(studioNodeInputFingerprint(project, 'target')).toBe(pinned)
+  })
+  test('a missing pinned take is represented in the fingerprint instead of crashing the workspace', () => {
+    let project = addStudioNode(
+      createStudioProject('Pins', 'missing-pin'),
+      'image',
+      'source'
+    )
+    project = addStudioNode(project, 'video', 'target')
+    project.edges = [
+      {
+        id: 'source-target',
+        source: 'source',
+        target: 'target',
+        data: { sourceTakeId: 'deleted-take' },
+      },
+    ]
+    expect(() => studioNodeInputFingerprint(project, 'target')).not.toThrow()
+  })
   test('batch cap counts dependent video tasks, not only shot cards', () => {
     let project = addStudioShot(
       createStudioProject('Two tasks', 'two'),

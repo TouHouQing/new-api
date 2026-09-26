@@ -33,6 +33,7 @@ import {
   fetchStudioProviderConfigs,
   fetchStudioAttempts,
   fetchStudioProviderModels,
+  fetchStudioModels,
   generateStudioImage,
   generateStudioText,
   getStudioVideoContentUrl,
@@ -115,7 +116,7 @@ vi.mock('./api', () => ({
     { id: 'default', description: 'Default' },
     { id: '特价sd', description: '所有sd模型都在这' },
   ],
-  fetchStudioModels: async () => ['MiniMax-H3', '会员套餐甲'],
+  fetchStudioModels: vi.fn(async () => ['MiniMax-H3', '会员套餐甲']),
   fetchStudioProviderConfigs: vi.fn(async () => ({})),
   fetchStudioAttempts: vi.fn(async () => []),
   fetchStudioProviderModels: vi.fn(),
@@ -150,6 +151,7 @@ vi.mock('./studio-project-bundle', () => ({
 beforeEach(() => {
   preflightTestState.autoConfirm = true
   vi.clearAllMocks()
+  vi.mocked(fetchStudioModels).mockResolvedValue(['MiniMax-H3', '会员套餐甲'])
   storedMedia.clear()
   localStorage.clear()
   useAuthStore.setState((state) => ({
@@ -166,6 +168,28 @@ afterEach(() => {
 })
 
 describe('Studio account isolation', () => {
+  test('a removed video model gives a reselect message before any billable request', async () => {
+    vi.mocked(fetchStudioModels).mockResolvedValue(['other-model'])
+    let project = addStudioNode(
+      createStudioProject('Changing channels', 'p-model-change'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'walking',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    expect(
+      await screen.findByText('studio.model.noLongerAvailable')
+    ).toBeTruthy()
+    expect(createStudioVideo).not.toHaveBeenCalled()
+  })
   test('never overwrites unreadable local project data with a blank project', async () => {
     localStorage.setItem(studioProjectsKey(12), '{broken project data')
     render(<Studio />)
@@ -1402,6 +1426,171 @@ describe('Studio account isolation', () => {
       )
     )
     expect(getStudioVideoContentUrl).toHaveBeenCalledWith('task-first')
+  })
+
+  test('an extend-video connection submits the previous last frame as a first frame', async () => {
+    vi.mocked(captureStudioLastFrame).mockResolvedValue(
+      new Blob(['png'], { type: 'image/png' })
+    )
+    vi.mocked(getStudioVideoContentUrl).mockResolvedValue(
+      'https://new.thqllm.com/api/task/first/content?sig=abc'
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-next')
+    storedMedia.set(
+      '12:previous-clip',
+      new Blob(['video'], { type: 'video/mp4' })
+    )
+    let project = createStudioProject('Continuation', 'p-extend')
+    project = addStudioNode(project, 'video', 'first')
+    project = addStudioNode(project, 'video', 'next')
+    project = updateStudioNode(project, 'first', {
+      status: 'completed',
+      taskId: 'task-first',
+      mediaId: 'previous-clip',
+    })
+    project = updateStudioNode(project, 'next', {
+      model: '会员套餐甲',
+      prompt: 'continue walking',
+    })
+    project.edges = [
+      {
+        id: 'continue',
+        source: 'first',
+        sourceHandle: 'video',
+        target: 'next',
+        targetHandle: 'extend_video',
+      },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 2' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          images: [expect.stringMatching(/^data:image\/png;base64,/)],
+          metadata: expect.not.objectContaining({
+            content: expect.arrayContaining([
+              expect.objectContaining({ type: 'video_url' }),
+            ]),
+          }),
+        }),
+        'default'
+      )
+    )
+    expect(captureStudioLastFrame).toHaveBeenCalledWith(expect.any(Blob))
+  })
+
+  test('a pinned image connection sends its version while another take is selected', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-pinned')
+    storedMedia.set('12:old-image', new Blob(['old'], { type: 'image/png' }))
+    storedMedia.set('12:new-image', new Blob(['new'], { type: 'image/png' }))
+    let project = createStudioProject('Pinned branch', 'p-pinned-branch')
+    project = addStudioNode(project, 'image', 'image')
+    project = addStudioNode(project, 'video', 'video')
+    project = recordStudioTake(project, 'image', {
+      id: 'old',
+      createdAt: '2026-09-26T00:00:00Z',
+      prompt: 'portrait',
+      status: 'completed',
+      mediaId: 'old-image',
+    })
+    project = recordStudioTake(project, 'image', {
+      id: 'new',
+      createdAt: '2026-09-26T00:01:00Z',
+      prompt: 'portrait',
+      status: 'completed',
+      mediaId: 'new-image',
+    })
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'camera push',
+    })
+    project.edges = [
+      {
+        id: 'pinned-image',
+        source: 'image',
+        target: 'video',
+        data: { sourceTakeId: 'old' },
+      },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 2' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          images: ['data:image/png;base64,b2xk'],
+        }),
+        'default'
+      )
+    )
+  })
+
+  test('a pinned video connection refreshes that take’s content URL before submission', async () => {
+    vi.mocked(getStudioVideoContentUrl).mockImplementation(
+      async (taskId) => `https://new.thqllm.com/task/${taskId}?fresh=1`
+    )
+    vi.mocked(createStudioVideo).mockResolvedValue('task-next')
+    let project = createStudioProject('Pinned clips', 'p-pinned-clips')
+    project = addStudioNode(project, 'video', 'source')
+    project = addStudioNode(project, 'video', 'target')
+    project = recordStudioTake(project, 'source', {
+      id: 'old',
+      createdAt: '2026-09-26T00:00:00Z',
+      prompt: 'opening',
+      status: 'completed',
+      taskId: 'task-old',
+      outputUrl: 'https://new.thqllm.com/task/task-old?expired=1',
+    })
+    project = recordStudioTake(project, 'source', {
+      id: 'new',
+      createdAt: '2026-09-26T00:01:00Z',
+      prompt: 'opening',
+      status: 'completed',
+      taskId: 'task-new',
+      outputUrl: 'https://new.thqllm.com/task/task-new?fresh=1',
+    })
+    project = updateStudioNode(project, 'target', {
+      model: '会员套餐甲',
+      prompt: 'continuation',
+    })
+    project.edges = [
+      {
+        id: 'pinned-video',
+        source: 'source',
+        target: 'target',
+        data: { sourceTakeId: 'old' },
+      },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 2' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() =>
+      expect(createStudioVideo).toHaveBeenCalledWith(
+        expect.objectContaining({
+          metadata: expect.objectContaining({
+            content: [
+              expect.objectContaining({
+                video_url: {
+                  url: 'https://new.thqllm.com/task/task-old?fresh=1',
+                },
+              }),
+            ],
+          }),
+        }),
+        'default'
+      )
+    )
+    expect(getStudioVideoContentUrl).toHaveBeenCalledWith('task-old')
   })
 
   test('runs text and image ancestors before submitting the connected video', async () => {

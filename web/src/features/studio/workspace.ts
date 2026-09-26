@@ -31,7 +31,9 @@ export function studioBranchNodeIds(
     if (!next || affected.has(next)) continue
     affected.add(next)
     for (const edge of project.edges) {
-      if (edge.source === next) pending.push(edge.target)
+      if (edge.source === next && !edge.data?.sourceTakeId) {
+        pending.push(edge.target)
+      }
     }
   }
   return affected
@@ -55,6 +57,7 @@ export function selectStudioTake(
             data: {
               ...item.data,
               selectedTakeId: take.id,
+              staleSourceTitle: undefined,
               status: take.status,
               progress: take.progress,
               outputText: take.outputText,
@@ -70,9 +73,56 @@ export function selectStudioTake(
     ),
   }
   for (const edge of project.edges) {
-    if (edge.source === nodeId) next = invalidateStudioBranch(next, edge.target)
+    if (edge.source === nodeId && !edge.data?.sourceTakeId) {
+      next = invalidateStudioBranch(next, edge.target)
+    }
   }
   return next
+}
+
+export function pinStudioConnectionTake(
+  project: StudioProject,
+  edgeId: string,
+  takeId?: string
+): StudioProject {
+  const edge = project.edges.find((item) => item.id === edgeId)
+  if (!edge) throw new Error('Studio connection is unavailable')
+  if (edge.data?.sourceTakeId === takeId) return project
+  if (takeId) {
+    const source = project.nodes.find((node) => node.id === edge.source)
+    if (
+      !source?.data.takes?.some(
+        (take) => take.id === takeId && take.status === 'completed'
+      )
+    ) {
+      throw new Error('Pinned source take is unavailable')
+    }
+  }
+  const next = {
+    ...project,
+    edges: project.edges.map((item) =>
+      item.id === edgeId
+        ? { ...item, data: takeId ? { sourceTakeId: takeId } : undefined }
+        : item
+    ),
+    updatedAt: new Date().toISOString(),
+  }
+  const sourceTitle = project.nodes.find((node) => node.id === edge.source)
+    ?.data.title
+  return invalidateStudioBranch(next, edge.target, sourceTitle)
+}
+
+export function studioUnpinnedDependentTargets(
+  project: StudioProject,
+  nodeId: string
+): string[] {
+  return [
+    ...new Set(
+      project.edges
+        .filter((edge) => edge.source === nodeId && !edge.data?.sourceTakeId)
+        .map((edge) => edge.target)
+    ),
+  ]
 }
 
 export function recordStudioTake(
@@ -215,9 +265,13 @@ export function updateStudioTake(
 
 export function invalidateStudioBranch(
   project: StudioProject,
-  nodeId: string
+  nodeId: string,
+  changedSourceTitle?: string
 ): StudioProject {
   const affected = studioBranchNodeIds(project, nodeId)
+  const sourceTitle =
+    changedSourceTitle ||
+    project.nodes.find((node) => node.id === nodeId)?.data.title
   return {
     ...project,
     updatedAt: new Date().toISOString(),
@@ -237,6 +291,14 @@ export function invalidateStudioBranch(
         ...node,
         data: {
           ...node.data,
+          staleSourceTitle:
+            sourceTitle &&
+            (node.data.status === 'completed' ||
+              Boolean(
+                node.data.mediaId || node.data.taskId || node.data.outputText
+              ))
+              ? sourceTitle
+              : undefined,
           status: 'idle',
           selectedTakeId: undefined,
           outputText: undefined,
@@ -343,6 +405,60 @@ export function addStudioShot(
   })
 }
 
+export function applyStudioAssetToAllShots(
+  project: StudioProject,
+  assetId: string
+): StudioProject {
+  if (!project.assets?.some((asset) => asset.id === assetId)) {
+    throw new Error('Studio asset is unavailable')
+  }
+  const shotNodeIds = new Set(
+    (project.shots || []).flatMap((shot) => [
+      shot.textNodeId,
+      shot.imageNodeId,
+      shot.videoNodeId,
+    ])
+  )
+  if (
+    project.nodes.some(
+      (node) =>
+        shotNodeIds.has(node.id) &&
+        !node.data.assetIds?.includes(assetId) &&
+        (node.data.assetIds?.length || 0) >= 32
+    )
+  ) {
+    throw new Error('A shot node has reached the 32 asset limit')
+  }
+  let next = project
+  for (const shot of project.shots || []) {
+    const ids = new Set([shot.textNodeId, shot.imageNodeId, shot.videoNodeId])
+    if (
+      next.nodes
+        .filter((node) => ids.has(node.id))
+        .every((node) => node.data.assetIds?.includes(assetId))
+    ) {
+      continue
+    }
+    next = invalidateStudioBranch(next, shot.textNodeId)
+    next = {
+      ...next,
+      updatedAt: new Date().toISOString(),
+      nodes: next.nodes.map((node) =>
+        ids.has(node.id) && !node.data.assetIds?.includes(assetId)
+          ? {
+              ...node,
+              data: {
+                ...node.data,
+                assetIds: [...(node.data.assetIds || []), assetId],
+              },
+            }
+          : node
+      ),
+    }
+  }
+  return next
+}
+
 export function addPlannedStudioShots(
   project: StudioProject,
   planned: Array<{
@@ -375,19 +491,78 @@ export function addPlannedStudioShots(
 function syncStudioFinalVideoEdges(project: StudioProject): StudioProject {
   const finalId = project.finalVideoNodeId
   if (!finalId) return project
+  const selectedShots = new Set(
+    project.edges
+      .filter((edge) => edge.target === finalId && edge.id.endsWith('-final'))
+      .map((edge) => edge.id.slice(0, -'-final'.length))
+  )
+  const previous = project.edges.filter(
+    (edge) => edge.target === finalId && edge.id.endsWith('-final')
+  )
+  const previousById = new Map(previous.map((edge) => [edge.id, edge]))
   const edges = project.edges.filter(
     (edge) => edge.target !== finalId || !edge.id.endsWith('-final')
   )
   edges.push(
-    ...(project.shots || []).map((shot) => ({
-      id: `${shot.id}-final`,
-      source: shot.videoNodeId,
-      target: finalId,
-      sourceHandle: 'video',
-      targetHandle: 'reference_video',
-    }))
+    ...(project.shots || [])
+      .filter((shot) => selectedShots.has(shot.id))
+      .map((shot) => ({
+        id: `${shot.id}-final`,
+        source: shot.videoNodeId,
+        target: finalId,
+        sourceHandle: 'video',
+        targetHandle: 'reference_video',
+        ...(previousById.get(`${shot.id}-final`)?.data
+          ? { data: previousById.get(`${shot.id}-final`)?.data }
+          : {}),
+      }))
   )
+  const next = edges.filter(
+    (edge) => edge.target === finalId && edge.id.endsWith('-final')
+  )
+  if (
+    previous.length === next.length &&
+    previous.every(
+      (edge, index) =>
+        edge.id === next[index].id && edge.source === next[index].source
+    )
+  ) {
+    return { ...project, edges }
+  }
   return invalidateStudioBranch({ ...project, edges }, finalId)
+}
+
+export function setStudioFinalVideoReference(
+  project: StudioProject,
+  shotId: string,
+  selected: boolean
+): StudioProject {
+  const finalId = project.finalVideoNodeId
+  const shot = project.shots?.find((item) => item.id === shotId)
+  if (!finalId || !shot) return project
+  const edgeId = `${shotId}-final`
+  const exists = project.edges.some((edge) => edge.id === edgeId)
+  if (exists === selected) return project
+  const edges = selected
+    ? [
+        ...project.edges,
+        {
+          id: edgeId,
+          source: shot.videoNodeId,
+          target: finalId,
+          sourceHandle: 'video',
+          targetHandle: 'reference_video',
+        },
+      ]
+    : project.edges.filter((edge) => edge.id !== edgeId)
+  return invalidateStudioBranch(
+    syncStudioFinalVideoEdges({
+      ...project,
+      edges,
+      updatedAt: new Date().toISOString(),
+    }),
+    finalId
+  )
 }
 
 export function ensureStudioFinalVideo(
@@ -397,9 +572,27 @@ export function ensureStudioFinalVideo(
 ): StudioProject {
   if (project.finalVideoNodeId) return project
   const next = addStudioNode(project, 'video', nodeId)
+  const shots = project.shots || []
+  const suggested = new Set([
+    0,
+    Math.floor((shots.length - 1) / 2),
+    shots.length - 1,
+  ])
   return syncStudioFinalVideoEdges({
     ...next,
     finalVideoNodeId: nodeId,
+    edges: [
+      ...next.edges,
+      ...shots
+        .filter((_, index) => suggested.has(index))
+        .map((shot) => ({
+          id: `${shot.id}-final`,
+          source: shot.videoNodeId,
+          target: nodeId,
+          sourceHandle: 'video',
+          targetHandle: 'reference_video',
+        })),
+    ],
     nodes: next.nodes.map((node) =>
       node.id === nodeId ? { ...node, data: { ...node.data, title } } : node
     ),
@@ -456,8 +649,12 @@ export function removeStudioShot(
 ): StudioProject {
   const shot = project.shots?.find((item) => item.id === shotId)
   if (!shot) return project
+  const finalId = project.finalVideoNodeId
+  const referenced = project.edges.some(
+    (edge) => edge.target === finalId && edge.id === `${shotId}-final`
+  )
   const removed = new Set([shot.textNodeId, shot.imageNodeId, shot.videoNodeId])
-  return syncStudioFinalVideoEdges({
+  const next = syncStudioFinalVideoEdges({
     ...project,
     nodes: project.nodes.filter((node) => !removed.has(node.id)),
     edges: project.edges.filter(
@@ -466,6 +663,7 @@ export function removeStudioShot(
     shots: project.shots?.filter((item) => item.id !== shotId),
     updatedAt: new Date().toISOString(),
   })
+  return referenced && finalId ? invalidateStudioBranch(next, finalId) : next
 }
 
 export function addStudioNode(
@@ -508,6 +706,9 @@ export function updateStudioNode(
     nodes: project.nodes.map((node) => {
       if (node.id !== nodeId) return node
       const data = { ...node.data, ...patch }
+      if (patch.status && patch.status !== 'idle') {
+        data.staleSourceTitle = undefined
+      }
       const promptChanged =
         patch.prompt !== undefined && patch.prompt !== node.data.prompt
       const modelChanged =

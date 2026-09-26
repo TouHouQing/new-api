@@ -31,6 +31,8 @@ import {
   type WrappedAudioBuffer,
 } from 'mediabunny'
 
+import { parseStudioCaptions, type StudioCaptionCue } from './studio-captions'
+
 export type StudioMp4Progress = {
   phase: 'probing' | 'audio' | 'video' | 'finalizing'
   percent: number
@@ -52,6 +54,9 @@ export type StudioMp4Clip =
 
 export type StudioMp4Options = {
   soundtrack?: { blob: Blob; volume?: number }
+  voiceover?: { blob: Blob; volume: number }
+  /** SRT or WebVTT text timed against the final assembled video. */
+  captions?: string
 }
 
 export type StudioMp4Preflight = {
@@ -81,9 +86,15 @@ type ProbedClip = {
   fadeOutSeconds: number
 }
 
-type FadeCanvas = {
+type VideoCanvas = {
   canvas: OffscreenCanvas | HTMLCanvasElement
   context: OffscreenCanvasRenderingContext2D | CanvasRenderingContext2D
+}
+
+type ExternalAudioTrack = {
+  label: 'soundtrack' | 'voiceover'
+  blob: Blob
+  volume: number
 }
 
 function ensureNotAborted(signal?: AbortSignal): void {
@@ -205,22 +216,42 @@ async function inspectStudioVideos(
   clips: ProbedClip[]
   bitrate: number
   preflight: StudioMp4Preflight
-  fadeCanvas: FadeCanvas | null
+  videoCanvas: VideoCanvas | null
+  captions: StudioCaptionCue[]
+  externalAudio: ExternalAudioTrack[]
 }> {
   if (!inputs.length) throw new Error('at least one video is required')
   ensureNotAborted(signal)
+  const captions = parseStudioCaptions(options?.captions ?? '')
   const soundtrack = options?.soundtrack
-  const soundtrackVolume = soundtrack?.volume ?? 1
-  if (
-    !Number.isFinite(soundtrackVolume) ||
-    soundtrackVolume < 0 ||
-    soundtrackVolume > 1
-  ) {
-    throw new Error('soundtrack has an invalid volume')
+  const voiceover = options?.voiceover
+  const externalAudio: ExternalAudioTrack[] = []
+  if (soundtrack) {
+    externalAudio.push({
+      label: 'soundtrack',
+      blob: soundtrack.blob,
+      volume: soundtrack.volume ?? 1,
+    })
+  }
+  if (voiceover) {
+    externalAudio.push({
+      label: 'voiceover',
+      blob: voiceover.blob,
+      volume: voiceover.volume,
+    })
+  }
+  for (const track of externalAudio) {
+    if (
+      !Number.isFinite(track.volume) ||
+      track.volume < 0 ||
+      track.volume > 1
+    ) {
+      throw new Error(`${track.label} has an invalid volume`)
+    }
   }
   const totalBytes = inputs.reduce(
     (sum, item) => sum + ('blob' in item ? item.blob.size : item.size),
-    soundtrack?.blob.size ?? 0
+    externalAudio.reduce((sum, track) => sum + track.blob.size, 0)
   )
   if (!Number.isSafeInteger(totalBytes) || totalBytes > MAX_INPUT_BYTES) {
     throw new Error('MP4 input exceeds the 512 MiB browser export limit')
@@ -243,19 +274,19 @@ async function inspectStudioVideos(
     }
   }
 
-  if (soundtrack) {
-    const input = openClip(soundtrack.blob)
+  for (const external of externalAudio) {
+    const input = openClip(external.blob)
     try {
       const audio = await input.getPrimaryAudioTrack()
-      if (!audio) throw new Error('soundtrack has no audio track')
-      if (soundtrackVolume > 0 && !(await audio.canDecode())) {
+      if (!audio) throw new Error(`${external.label} has no audio track`)
+      if (external.volume > 0 && !(await audio.canDecode())) {
         throw new Error(
-          'soundtrack uses an audio codec this browser cannot decode'
+          `${external.label} uses an audio codec this browser cannot decode`
         )
       }
       const start = await audio.getFirstTimestamp()
       if (!Number.isFinite(start)) {
-        throw new Error('soundtrack has an invalid audio timestamp')
+        throw new Error(`${external.label} has an invalid audio timestamp`)
       }
     } finally {
       input.dispose()
@@ -263,20 +294,20 @@ async function inspectStudioVideos(
   }
 
   const { width, height } = outputDimensions(clips[0])
-  const fadeCanvas = clips.some(
-    (clip) => clip.fadeInSeconds > 0 || clip.fadeOutSeconds > 0
-  )
-    ? createFadeCanvas(width, height)
-    : null
-  if (fadeCanvas) {
+  const videoCanvas =
+    captions.length > 0 ||
+    clips.some((clip) => clip.fadeInSeconds > 0 || clip.fadeOutSeconds > 0)
+      ? createVideoCanvas(width, height)
+      : null
+  if (videoCanvas) {
     try {
-      new VideoSample(fadeCanvas.canvas, {
+      new VideoSample(videoCanvas.canvas, {
         timestamp: 0,
         duration: 0.001,
       }).close()
     } catch {
       throw new Error(
-        'this browser cannot create canvas video frames for fades'
+        'this browser cannot create canvas video frames for fades or captions'
       )
     }
   }
@@ -288,7 +319,7 @@ async function inspectStudioVideos(
   }
   const hasAudio =
     clips.some((clip) => clip.hasAudio) ||
-    Boolean(soundtrack && soundtrackVolume > 0)
+    externalAudio.some((track) => track.volume > 0)
   const audioCodec = hasAudio
     ? await getFirstEncodableAudioCodec(['aac', 'mp3'], {
         numberOfChannels: 2,
@@ -312,7 +343,9 @@ async function inspectStudioVideos(
   return {
     clips,
     bitrate,
-    fadeCanvas,
+    videoCanvas,
+    captions,
+    externalAudio,
     preflight: {
       clipCount: clips.length,
       totalBytes,
@@ -326,7 +359,7 @@ async function inspectStudioVideos(
   }
 }
 
-function createFadeCanvas(width: number, height: number): FadeCanvas {
+function createVideoCanvas(width: number, height: number): VideoCanvas {
   if (typeof OffscreenCanvas !== 'undefined') {
     const canvas = new OffscreenCanvas(width, height)
     try {
@@ -346,7 +379,59 @@ function createFadeCanvas(width: number, height: number): FadeCanvas {
       // A browser without a working canvas cannot render fade frames.
     }
   }
-  throw new Error('this browser cannot render fades with a 2D canvas')
+  throw new Error(
+    'this browser cannot render fades or captions with a 2D canvas'
+  )
+}
+
+function drawCaptionText(
+  context: VideoCanvas['context'],
+  width: number,
+  height: number,
+  text: string
+): void {
+  const fontSize = Math.max(16, Math.round(height * 0.043))
+  const lineHeight = Math.round(fontSize * 1.25)
+  const padding = Math.round(fontSize * 0.4)
+  const maxWidth = width * 0.88
+  context.font = `600 ${fontSize}px sans-serif`
+  context.textAlign = 'center'
+  context.textBaseline = 'middle'
+
+  const lines: string[] = []
+  for (const rawLine of text.split('\n')) {
+    let line = ''
+    for (const character of rawLine) {
+      const next = line + character
+      if (line && context.measureText(next).width > maxWidth) {
+        lines.push(line.trimEnd())
+        line = character.trimStart()
+      } else {
+        line = next
+      }
+    }
+    lines.push(line)
+  }
+
+  const boxHeight = lines.length * lineHeight + padding * 2
+  const top = Math.max(0, height - Math.round(height * 0.05) - boxHeight)
+  context.globalAlpha = 0.7
+  context.fillStyle = 'black'
+  context.fillRect(
+    Math.round((width - maxWidth) / 2) - padding,
+    top,
+    Math.round(maxWidth) + padding * 2,
+    boxHeight
+  )
+  context.globalAlpha = 1
+  context.fillStyle = 'white'
+  for (const [index, line] of lines.entries()) {
+    context.fillText(
+      line,
+      width / 2,
+      top + padding + lineHeight * (index + 0.5)
+    )
+  }
 }
 
 function clipFadeGain(clip: ProbedClip, seconds: number): number {
@@ -423,25 +508,40 @@ async function writeAudio(
   source: AudioBufferSource,
   signal: AbortSignal | undefined,
   onProgress: ((progress: StudioMp4Progress) => void) | undefined,
-  soundtrack?: NonNullable<StudioMp4Options['soundtrack']>
+  externalAudio: ExternalAudioTrack[]
 ): Promise<void> {
   const rate = 48_000
-  const soundtrackInput =
-    soundtrack && (soundtrack.volume ?? 1) > 0
-      ? openClip(soundtrack.blob)
-      : null
-  let soundtrackBuffers: ReturnType<AudioBufferSink['buffers']> | undefined
-  let soundtrackBuffer: WrappedAudioBuffer | null = null
-  let soundtrackStart = 0
+  const externalReaders: {
+    input: Input
+    buffers: ReturnType<AudioBufferSink['buffers']>
+    buffer: WrappedAudioBuffer | null
+    start: number
+    volume: number
+  }[] = []
   let emittedSamples = 0
   try {
-    if (soundtrackInput) {
-      const track = await soundtrackInput.getPrimaryAudioTrack()
-      if (!track) throw new Error('soundtrack has no audio track')
-      soundtrackStart = await track.getFirstTimestamp()
-      soundtrackBuffers = new AudioBufferSink(track).buffers()
-      const first = await soundtrackBuffers.next()
-      soundtrackBuffer = first.done ? null : first.value
+    for (const external of externalAudio) {
+      if (external.volume === 0) continue
+      const input = openClip(external.blob)
+      let buffers: ReturnType<AudioBufferSink['buffers']> | undefined
+      try {
+        const track = await input.getPrimaryAudioTrack()
+        if (!track) throw new Error(`${external.label} has no audio track`)
+        const start = await track.getFirstTimestamp()
+        buffers = new AudioBufferSink(track).buffers()
+        const first = await buffers.next()
+        externalReaders.push({
+          input,
+          buffers,
+          buffer: first.done ? null : first.value,
+          start,
+          volume: external.volume,
+        })
+      } catch (error) {
+        await buffers?.return()
+        input.dispose()
+        throw error
+      }
     }
 
     for (const [index, clip] of clips.entries()) {
@@ -465,25 +565,27 @@ async function writeAudio(
         const ready = chunk
         if (!ready) return
         const chunkEnd = emittedSamples + ready.length
-        while (soundtrackBuffer && soundtrackBuffers) {
-          ensureNotAborted(signal)
-          const start = Math.round(
-            (soundtrackBuffer.timestamp - soundtrackStart) * rate
-          )
-          const end = start + Math.ceil(soundtrackBuffer.buffer.duration * rate)
-          if (start >= chunkEnd) break
-          if (end > emittedSamples) {
-            mixDecodedAudio(
-              ready,
-              soundtrackBuffer.buffer,
-              start,
-              emittedSamples,
-              soundtrack?.volume ?? 1
+        for (const reader of externalReaders) {
+          while (reader.buffer) {
+            ensureNotAborted(signal)
+            const start = Math.round(
+              (reader.buffer.timestamp - reader.start) * rate
             )
+            const end = start + Math.ceil(reader.buffer.buffer.duration * rate)
+            if (start >= chunkEnd) break
+            if (end > emittedSamples) {
+              mixDecodedAudio(
+                ready,
+                reader.buffer.buffer,
+                start,
+                emittedSamples,
+                reader.volume
+              )
+            }
+            if (end > chunkEnd) break
+            const next = await reader.buffers.next()
+            reader.buffer = next.done ? null : next.value
           }
-          if (end > chunkEnd) break
-          const next = await soundtrackBuffers.next()
-          soundtrackBuffer = next.done ? null : next.value
         }
         for (let channel = 0; channel < ready.numberOfChannels; channel++) {
           const data = ready.getChannelData(channel)
@@ -542,8 +644,10 @@ async function writeAudio(
     }
     source.close()
   } finally {
-    await soundtrackBuffers?.return()
-    soundtrackInput?.dispose()
+    for (const reader of externalReaders) {
+      await reader.buffers.return()
+      reader.input.dispose()
+    }
   }
 }
 
@@ -552,10 +656,12 @@ async function writeVideo(
   source: VideoSampleSource,
   signal: AbortSignal | undefined,
   onProgress: ((progress: StudioMp4Progress) => void) | undefined,
-  fadeCanvas: FadeCanvas | null
+  videoCanvas: VideoCanvas | null,
+  captions: StudioCaptionCue[]
 ): Promise<void> {
   let timeline = 0
   let lastTimestamp = -1
+  let captionIndex = 0
   for (const [index, clip] of clips.entries()) {
     ensureNotAborted(signal)
     onProgress?.({
@@ -590,19 +696,45 @@ async function writeVideo(
           sample.setTimestamp(timestamp)
           sample.setDuration(duration)
           const gain = clipFadeGain(clip, visibleStart - clip.start)
-          if (gain < 1 && fadeCanvas) {
-            const { canvas, context } = fadeCanvas
+          const captionTime = Math.round(timestamp * 1_000_000) / 1_000_000
+          while (
+            captionIndex < captions.length &&
+            captions[captionIndex].end <= captionTime
+          ) {
+            captionIndex++
+          }
+          const activeCaptions: string[] = []
+          for (
+            let cueIndex = captionIndex;
+            cueIndex < captions.length;
+            cueIndex++
+          ) {
+            const cue = captions[cueIndex]
+            if (cue.start > captionTime) break
+            if (cue.end > captionTime) activeCaptions.push(cue.text)
+          }
+          if ((gain < 1 || activeCaptions.length > 0) && videoCanvas) {
+            const { canvas, context } = videoCanvas
             context.globalAlpha = 1
+            context.clearRect(0, 0, canvas.width, canvas.height)
             context.fillStyle = 'black'
             context.fillRect(0, 0, canvas.width, canvas.height)
             context.globalAlpha = gain
             sample.drawWithFit(context, { fit: 'contain' })
             context.globalAlpha = 1
-            const faded = new VideoSample(canvas, { timestamp, duration })
+            if (activeCaptions.length) {
+              drawCaptionText(
+                context,
+                canvas.width,
+                canvas.height,
+                activeCaptions.join('\n')
+              )
+            }
+            const composited = new VideoSample(canvas, { timestamp, duration })
             try {
-              await source.add(faded, { keyFrame: frames === 0 })
+              await source.add(composited, { keyFrame: frames === 0 })
             } finally {
-              faded.close()
+              composited.close()
             }
           } else {
             await source.add(sample, { keyFrame: frames === 0 })
@@ -631,12 +763,8 @@ export async function stitchStudioVideos(
   signal?: AbortSignal,
   options?: StudioMp4Options
 ): Promise<Blob> {
-  const { clips, bitrate, preflight, fadeCanvas } = await inspectStudioVideos(
-    inputs,
-    signal,
-    onProgress,
-    options
-  )
+  const { clips, bitrate, preflight, videoCanvas, captions, externalAudio } =
+    await inspectStudioVideos(inputs, signal, onProgress, options)
   const { width, height, audioCodec } = preflight
 
   const target = new BufferTarget()
@@ -664,15 +792,16 @@ export async function stitchStudioVideos(
   try {
     await output.start()
     if (audioSource) {
-      await writeAudio(
-        clips,
-        audioSource,
-        signal,
-        onProgress,
-        options?.soundtrack
-      )
+      await writeAudio(clips, audioSource, signal, onProgress, externalAudio)
     }
-    await writeVideo(clips, videoSource, signal, onProgress, fadeCanvas)
+    await writeVideo(
+      clips,
+      videoSource,
+      signal,
+      onProgress,
+      videoCanvas,
+      captions
+    )
     ensureNotAborted(signal)
     onProgress?.({ phase: 'finalizing', percent: 97 })
     await output.finalize()

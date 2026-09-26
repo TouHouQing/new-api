@@ -86,3 +86,96 @@ test('batch overview identifies custom duration and explains per-request approva
     screen.getByRole('button', { name: 'studio.preflight.startBatch' })
   ).toBeTruthy()
 })
+
+test('mixed references show media previews and disclose a converted first frame', () => {
+  const request: StudioVideoRequest = {
+    model: 'rotating-alias',
+    prompt: 'Continue',
+    seconds: '5',
+    duration: 5,
+    metadata: {
+      content: [
+        {
+          type: 'image_url',
+          role: 'reference_image',
+          image_url: { url: 'data:image/png;base64,cG5n' },
+        },
+        {
+          type: 'video_url',
+          role: 'reference_video',
+          video_url: { url: 'https://cdn.example/previous.mp4' },
+        },
+      ],
+    },
+  }
+  render(
+    <StudioVideoPreflight
+      data={{
+        kind: 'video',
+        title: 'Next',
+        group: 'default',
+        request,
+        costDuration: null,
+        mediaAdapted: true,
+      }}
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />
+  )
+  expect(screen.getByText('studio.preflight.frameAdapted')).toBeTruthy()
+  expect(screen.getByRole('img', { name: 'reference_image' })).toHaveAttribute(
+    'src',
+    'data:image/png;base64,cG5n'
+  )
+  expect(screen.getByLabelText('reference_video')).toHaveAttribute(
+    'src',
+    'https://cdn.example/previous.mp4'
+  )
+})
+
+test('a malformed custom media patch cannot crash the request preview', () => {
+  const request = {
+    model: 'alias',
+    prompt: 'scene',
+    seconds: '5',
+    metadata: {
+      content: [null, { type: 'image_url', image_url: { url: 3 } }],
+    },
+  } as unknown as StudioVideoRequest
+  expect(() => inspectStudioVideoRequest(request)).not.toThrow()
+  expect(inspectStudioVideoRequest(request).media).toEqual([])
+})
+
+test('many reference videos show an advisory without blocking submission', () => {
+  const request: StudioVideoRequest = {
+    model: 'arbitrary-alias',
+    prompt: 'A sequence',
+    seconds: '5',
+    metadata: {
+      content: [1, 2, 3, 4].map((number) => ({
+        type: 'video_url',
+        role: 'reference_video',
+        video_url: { url: `https://cdn.example/${number}.mp4` },
+      })),
+    },
+  }
+  render(
+    <StudioVideoPreflight
+      data={{
+        kind: 'video',
+        title: 'Remix',
+        group: 'default',
+        request,
+        costDuration: null,
+      }}
+      onConfirm={vi.fn()}
+      onCancel={vi.fn()}
+    />
+  )
+  expect(
+    screen.getByText('studio.preflight.referenceCountWarning')
+  ).toBeTruthy()
+  expect(
+    screen.getByRole('button', { name: 'studio.preflight.confirm' })
+  ).toBeEnabled()
+})

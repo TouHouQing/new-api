@@ -19,6 +19,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 
 import type { StudioGroup, StudioShotDraft } from './api'
@@ -56,6 +57,7 @@ type Props = {
   onGenerateVideo: (nodeId: string) => void
   onGenerateAll: () => void
   onCreateFinalVideo: () => void
+  onSetFinalReference?: (shotId: string, selected: boolean) => void
   batchBusy?: boolean
   batchLimit?: number
   batchCost?:
@@ -88,6 +90,13 @@ type Props = {
     onDownload: () => void
     soundtrackUrl?: string
     soundtrackVolume?: number
+    voiceoverUrl?: string
+    voiceoverVolume?: number
+    onUploadVoiceover?: (file: File) => void
+    onRemoveVoiceover?: () => void
+    onVoiceoverVolumeChange?: (volume: number) => void
+    captionsText?: string
+    onCaptionsChange?: (value: string) => void
     preflight?: { totalDuration: number; estimatedOutputBytes: number }
     onUploadSoundtrack?: (file: File) => void
     onRemoveSoundtrack?: () => void
@@ -106,6 +115,11 @@ export function StudioStoryboard(props: Props) {
     finalVideo &&
     (props.previews[`${props.project.id}:${finalVideo.id}`] ||
       finalVideo.data.outputUrl)
+  const finalReferences = new Set(
+    props.project.edges
+      .filter((edge) => edge.target === finalVideo?.id)
+      .map((edge) => edge.source)
+  )
 
   return (
     <div className='h-full overflow-y-auto p-4'>
@@ -278,6 +292,13 @@ export function StudioStoryboard(props: Props) {
                       {textNode.data.error}
                     </p>
                   )}
+                  {textNode?.data.staleSourceTitle && (
+                    <p className='text-muted-foreground text-xs'>
+                      {t('studio.stale.sourceChanged', {
+                        source: textNode.data.staleSourceTitle,
+                      })}
+                    </p>
+                  )}
                   <Button
                     size='xs'
                     variant='outline'
@@ -304,6 +325,13 @@ export function StudioStoryboard(props: Props) {
                   {imageNode?.data.error && (
                     <p className='text-destructive text-xs'>
                       {imageNode.data.error}
+                    </p>
+                  )}
+                  {imageNode?.data.staleSourceTitle && (
+                    <p className='text-muted-foreground text-xs'>
+                      {t('studio.stale.sourceChanged', {
+                        source: imageNode.data.staleSourceTitle,
+                      })}
                     </p>
                   )}
                   <Button
@@ -384,6 +412,13 @@ export function StudioStoryboard(props: Props) {
                   {videoNode?.data.error && (
                     <p className='text-destructive text-xs'>
                       {videoNode.data.error}
+                    </p>
+                  )}
+                  {videoNode?.data.staleSourceTitle && (
+                    <p className='text-muted-foreground text-xs'>
+                      {t('studio.stale.sourceChanged', {
+                        source: videoNode.data.staleSourceTitle,
+                      })}
                     </p>
                   )}
                 </div>
@@ -519,6 +554,51 @@ export function StudioStoryboard(props: Props) {
               <p className='text-muted-foreground text-xs'>
                 {t('studio.final.aiBillable')}
               </p>
+              {finalVideo && (
+                <div className='flex flex-col gap-2 rounded-md border p-3'>
+                  <p className='text-sm font-medium'>
+                    {t('studio.final.referenceShots')}
+                  </p>
+                  <p className='text-muted-foreground text-xs'>
+                    {t('studio.final.referenceHint')}
+                  </p>
+                  <div className='flex flex-wrap gap-3'>
+                    {shots.map((shot) => {
+                      const videoNode = props.project.nodes.find(
+                        (node) => node.id === shot.videoNodeId
+                      )
+                      return (
+                        <label
+                          key={shot.id}
+                          className='flex items-center gap-2 text-xs'
+                        >
+                          <Checkbox
+                            aria-label={`${t('studio.final.referenceShot')}: ${shot.title}`}
+                            checked={finalReferences.has(shot.videoNodeId)}
+                            onCheckedChange={(checked) =>
+                              props.onSetFinalReference?.(
+                                shot.id,
+                                checked === true
+                              )
+                            }
+                          />
+                          <span>{shot.title}</span>
+                          {videoNode?.data.status !== 'completed' && (
+                            <span className='text-muted-foreground'>
+                              {t('studio.status.idle')}
+                            </span>
+                          )}
+                        </label>
+                      )
+                    })}
+                  </div>
+                  {finalReferences.size > 3 && (
+                    <p role='status' className='text-muted-foreground text-xs'>
+                      {t('studio.final.referenceWarning')}
+                    </p>
+                  )}
+                </div>
+              )}
               {finalPreview && (
                 <video
                   src={finalPreview}
@@ -545,6 +625,7 @@ export function StudioStoryboard(props: Props) {
                       size='sm'
                       disabled={
                         !finalVideo.data.model ||
+                        finalReferences.size === 0 ||
                         finalVideo.data.status === 'submitting' ||
                         finalVideo.data.status === 'queued' ||
                         finalVideo.data.status === 'processing'

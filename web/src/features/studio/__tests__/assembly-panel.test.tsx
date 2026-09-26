@@ -63,3 +63,60 @@ test('assembly panel offers a saved MP4 for preview and download', () => {
   )
   expect(onDownload).toHaveBeenCalledOnce()
 })
+
+test('assembly panel lets a creator edit timed captions before export', () => {
+  const onCaptionsChange = vi.fn()
+  render(
+    <StudioAssemblyPanel
+      busy={false}
+      progress={0}
+      captionsText=''
+      onCaptionsChange={onCaptionsChange}
+      onAssemble={vi.fn()}
+      onCancel={vi.fn()}
+      onDownload={vi.fn()}
+    />
+  )
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'studio.timeline.captions' }),
+    {
+      target: { value: '1\n00:00:00,000 --> 00:00:01,000\nHello' },
+    }
+  )
+  expect(onCaptionsChange).toHaveBeenCalledWith(
+    '1\n00:00:00,000 --> 00:00:01,000\nHello'
+  )
+})
+
+test('assembly panel lets a creator add narration beside the soundtrack', () => {
+  const onUploadVoiceover = vi.fn()
+  const onVoiceoverVolumeChange = vi.fn()
+  const onRemoveVoiceover = vi.fn()
+  render(
+    <StudioAssemblyPanel
+      busy={false}
+      progress={0}
+      voiceoverUrl='blob:voice'
+      voiceoverVolume={0.6}
+      onUploadVoiceover={onUploadVoiceover}
+      onVoiceoverVolumeChange={onVoiceoverVolumeChange}
+      onRemoveVoiceover={onRemoveVoiceover}
+      onAssemble={vi.fn()}
+      onCancel={vi.fn()}
+      onDownload={vi.fn()}
+    />
+  )
+  const file = new File(['voice'], 'narration.mp3', { type: 'audio/mpeg' })
+  fireEvent.change(screen.getByLabelText('studio.timeline.voiceover'), {
+    target: { files: [file] },
+  })
+  expect(onUploadVoiceover).toHaveBeenCalledWith(file)
+  fireEvent.change(screen.getByLabelText('studio.timeline.voiceoverVolume'), {
+    target: { value: '0.4' },
+  })
+  expect(onVoiceoverVolumeChange).toHaveBeenCalledWith(0.4)
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.timeline.removeVoiceover' })
+  )
+  expect(onRemoveVoiceover).toHaveBeenCalledOnce()
+})

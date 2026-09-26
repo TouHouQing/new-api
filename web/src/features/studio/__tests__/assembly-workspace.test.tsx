@@ -93,6 +93,115 @@ beforeEach(() => {
   }))
 })
 
+test('assembled MP4 receives the project caption track', async () => {
+  stored.set('12:clip-1', new Blob(['clip'], { type: 'video/mp4' }))
+  vi.mocked(stitchStudioVideos).mockResolvedValue(
+    new Blob(['joined'], { type: 'video/mp4' })
+  )
+  let project = addStudioShot(
+    createStudioProject('Subtitles', 'p-captions'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = updateStudioNode(project, 'v1', {
+    status: 'completed',
+    mediaId: 'clip-1',
+  })
+  project = {
+    ...project,
+    captionsText: '1\n00:00:00,000 --> 00:00:01,000\nHello',
+  }
+  saveStudioProjects(localStorage, 12, [project])
+  render(<Studio />)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'studio.assembly.create' })
+  )
+  await waitFor(() =>
+    expect(stitchStudioVideos).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(Function),
+      expect.any(AbortSignal),
+      expect.objectContaining({ captions: project.captionsText })
+    )
+  )
+})
+
+test('assembled MP4 mixes a saved voiceover with the clip audio', async () => {
+  stored.set('12:clip-1', new Blob(['clip'], { type: 'video/mp4' }))
+  stored.set('12:voice-1', new Blob(['voice'], { type: 'audio/mpeg' }))
+  vi.mocked(stitchStudioVideos).mockResolvedValue(
+    new Blob(['joined'], { type: 'video/mp4' })
+  )
+  let project = addStudioShot(
+    createStudioProject('Narrated', 'p-narrated'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = updateStudioNode(project, 'v1', {
+    status: 'completed',
+    mediaId: 'clip-1',
+  })
+  project = {
+    ...project,
+    voiceoverMediaId: 'voice-1',
+    voiceoverVolume: 0.5,
+  }
+  saveStudioProjects(localStorage, 12, [project])
+  render(<Studio />)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'studio.assembly.create' })
+  )
+  await waitFor(() =>
+    expect(stitchStudioVideos).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.any(Function),
+      expect.any(AbortSignal),
+      expect.objectContaining({
+        voiceover: {
+          blob: stored.get('12:voice-1'),
+          volume: 0.5,
+        },
+      })
+    )
+  )
+})
+
+test('a narration upload is saved locally and can be removed', async () => {
+  const project = addStudioShot(
+    createStudioProject('Narrated', 'p-upload-voice'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  saveStudioProjects(localStorage, 12, [project])
+  render(<Studio />)
+  const file = new File(['narration'], 'voice.mp3', { type: 'audio/mpeg' })
+  fireEvent.change(await screen.findByLabelText('studio.timeline.voiceover'), {
+    target: { files: [file] },
+  })
+  let mediaId = ''
+  await waitFor(() => {
+    const saved = JSON.parse(
+      localStorage.getItem(studioProjectsKey(12)) || '{}'
+    )
+    mediaId = saved.projects[0].voiceoverMediaId
+    expect(mediaId).toBeTruthy()
+    expect(stored.has(`12:${mediaId}`)).toBe(true)
+  })
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.timeline.removeVoiceover' })
+  )
+  await waitFor(() => {
+    const saved = JSON.parse(
+      localStorage.getItem(studioProjectsKey(12)) || '{}'
+    )
+    expect(saved.projects[0].voiceoverMediaId).toBeUndefined()
+    expect(stored.has(`12:${mediaId}`)).toBe(false)
+  })
+})
+
 test('clicking assemble exports ordered local clips and saves the MP4 for another visit', async () => {
   const first = new Blob(['first'], { type: 'video/mp4' })
   const second = new Blob(['second'], { type: 'video/mp4' })

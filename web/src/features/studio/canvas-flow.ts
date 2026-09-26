@@ -60,6 +60,7 @@ export type StudioCanvasNodeData = {
   mediaId?: string
   taskId?: string
   error?: string
+  staleSourceTitle?: string
   progress?: number
   seconds?: number
   imageSize?: string
@@ -74,7 +75,36 @@ export type StudioCanvasNodeData = {
 }
 
 export type StudioCanvasNode = Node<StudioCanvasNodeData, 'studio'>
-export type StudioCanvasEdge = Edge
+export type StudioCanvasEdge = Edge<{ sourceTakeId?: string }>
+
+/** Resolve a connection against its pinned result, if it has one. */
+export function resolveStudioEdgeSource(
+  source: StudioCanvasNode,
+  edge: StudioCanvasEdge
+): StudioCanvasNode {
+  const takeId = edge.data?.sourceTakeId
+  if (!takeId) return source
+  const take = source.data.takes?.find((item) => item.id === takeId)
+  if (!take || take.status !== 'completed') {
+    throw new Error('Pinned source take is unavailable')
+  }
+  return {
+    ...source,
+    data: {
+      ...source.data,
+      selectedTakeId: take.id,
+      model: take.model,
+      prompt: take.prompt,
+      status: take.status,
+      outputText: take.outputText,
+      outputImagePrompt: take.outputImagePrompt,
+      outputVideoPrompt: take.outputVideoPrompt,
+      outputUrl: take.outputUrl,
+      mediaId: take.mediaId,
+      taskId: take.taskId,
+    },
+  }
+}
 
 // Dependency traversal follows Node Banana's node execution model:
 // https://github.com/shrimbly/node-banana/blob/65746adfb0b581c91c0149f642d8b81c639ea8dc/src/store/utils/executionUtils.ts
@@ -97,7 +127,14 @@ export function planStudioExecution(
     if (!node) throw new Error('canvas connection source is missing')
     visiting.add(nodeId)
     for (const edge of edges) {
-      if (edge.target === nodeId) visit(edge.source)
+      if (edge.target !== nodeId) continue
+      if (edge.data?.sourceTakeId) {
+        const source = byId.get(edge.source)
+        if (!source) throw new Error('canvas connection source is missing')
+        resolveStudioEdgeSource(source, edge)
+        continue
+      }
+      visit(edge.source)
     }
     visiting.delete(nodeId)
     visited.add(nodeId)
@@ -228,7 +265,7 @@ export function connectedGenerationInput(
   const incoming = edges.filter((edge) => edge.target === targetId)
   const sources = incoming.flatMap((edge) => {
     const node = nodes.find((item) => item.id === edge.source)
-    return node ? [{ edge, node }] : []
+    return node ? [{ edge, node: resolveStudioEdgeSource(node, edge) }] : []
   })
   const imageSources = sources.filter(
     (source) => source.node.data.kind === 'image'

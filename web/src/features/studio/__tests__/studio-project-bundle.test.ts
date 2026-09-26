@@ -114,6 +114,25 @@ test('a ZIP round trip restores a soundtrack into the destination user namespace
   expect(await target.get(12, 'soundtrack-source')).toBeNull()
 })
 
+test('a ZIP round trip restores voiceover audio into the destination user namespace', async () => {
+  const source = createStudioMediaStore(new IDBFactory(), 'bundle-voice-source')
+  const target = createStudioMediaStore(new IDBFactory(), 'bundle-voice-target')
+  const project = {
+    ...createStudioProject('Narrated', 'original-project'),
+    voiceoverMediaId: 'voice-source',
+    voiceoverVolume: 0.7,
+  }
+  await source.put(12, 'voice-source', media('narration', 'audio/mpeg'))
+  const bundle = await exportStudioProjectBundle(project, 12, source)
+  const imported = await importStudioProjectBundle(bundle, 13, target)
+  expect(imported.voiceoverMediaId).toBeDefined()
+  expect(imported.voiceoverMediaId).not.toBe('voice-source')
+  expect(imported.voiceoverVolume).toBe(0.7)
+  expect(
+    await (await target.get(13, imported.voiceoverMediaId ?? ''))?.text()
+  ).toBe('narration')
+})
+
 test('exports an unnormalized legacy video task without losing its media mapping', async () => {
   const source = createStudioMediaStore(
     new IDBFactory(),

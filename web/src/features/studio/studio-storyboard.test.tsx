@@ -72,6 +72,45 @@ test('creates a final video and can select and generate it from the storyboard',
   expect(onGenerateVideo).toHaveBeenCalledWith('final')
 })
 
+test('a creator can choose which completed shots the final AI video references', () => {
+  let project = addStudioShot(
+    createStudioProject('Drama', 'p-references'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = ensureStudioFinalVideo(project, 'final')
+  const onSetFinalReference = vi.fn()
+  render(
+    <StudioStoryboard
+      project={project}
+      previews={{}}
+      onSelectNode={vi.fn()}
+      onGenerateVideo={vi.fn()}
+      onGenerateAll={vi.fn()}
+      onCreateFinalVideo={vi.fn()}
+      onSetFinalReference={onSetFinalReference}
+      onAddShot={vi.fn()}
+      onMoveShot={vi.fn()}
+      onRenameShot={vi.fn()}
+      onDeleteShot={vi.fn()}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
+    />
+  )
+  fireEvent.click(
+    screen.getByRole('checkbox', {
+      name: /studio.final.referenceShot: Opening/,
+    })
+  )
+  expect(onSetFinalReference).toHaveBeenCalledWith('shot-1', false)
+})
+
 test('a storyboard shot selects source nodes and generates through its video node', () => {
   let project = addStudioShot(
     createStudioProject('Drama', 'p1'),
@@ -127,6 +166,41 @@ test('a storyboard shot selects source nodes and generates through its video nod
     screen.getByRole('button', { name: 'studio.shot.generateAll' })
   )
   expect(onGenerateAll).toHaveBeenCalledOnce()
+})
+
+test('an invalidated storyboard clip shows why it needs regeneration', () => {
+  let project = addStudioShot(
+    createStudioProject('Changes', 'p-stale-shot'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = updateStudioNode(project, 'v1', {
+    status: 'idle',
+    staleSourceTitle: 'Text 1',
+  })
+  render(
+    <StudioStoryboard
+      project={project}
+      previews={{}}
+      onSelectNode={vi.fn()}
+      onGenerateVideo={vi.fn()}
+      onGenerateAll={vi.fn()}
+      onCreateFinalVideo={vi.fn()}
+      onAddShot={vi.fn()}
+      onMoveShot={vi.fn()}
+      onRenameShot={vi.fn()}
+      onDeleteShot={vi.fn()}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
+    />
+  )
+  expect(screen.getByText('studio.stale.sourceChanged')).toBeTruthy()
 })
 
 test('offers previous-shot last frame only when the previous video is completed', () => {

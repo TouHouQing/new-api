@@ -18,6 +18,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Dialog } from '@/components/dialog'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 
@@ -35,6 +36,7 @@ export type StudioVideoPreflightData =
       group: string
       request: StudioVideoRequest
       costDuration: number | null
+      mediaAdapted?: boolean
     }
   | {
       kind: 'batch'
@@ -161,6 +163,51 @@ export function StudioVideoPreflight(props: {
               {inspected.prompt}
             </p>
           </div>
+          {video.mediaAdapted && (
+            <Alert>
+              <AlertDescription>
+                {t('studio.preflight.frameAdapted')}
+              </AlertDescription>
+            </Alert>
+          )}
+          {inspected.roles.filter((role) => role === 'reference_video').length >
+            3 && (
+            <Alert>
+              <AlertDescription>
+                {t('studio.preflight.referenceCountWarning')}
+              </AlertDescription>
+            </Alert>
+          )}
+          {inspected.media.length > 0 && (
+            <div>
+              <h3 className='mb-1 text-sm font-medium'>
+                {t('studio.preflight.mediaPreview')}
+              </h3>
+              <div className='flex gap-2 overflow-x-auto pb-1'>
+                {inspected.media
+                  .slice(0, 8)
+                  .map((item) =>
+                    item.kind === 'image' ? (
+                      <img
+                        key={`${item.kind}-${item.role}-${item.url}`}
+                        src={item.url}
+                        alt={item.role}
+                        className='h-24 w-36 shrink-0 rounded-md border object-contain'
+                      />
+                    ) : (
+                      <video
+                        key={`${item.kind}-${item.role}-${item.url}`}
+                        src={item.url}
+                        aria-label={item.role}
+                        controls
+                        preload='none'
+                        className='h-24 w-36 shrink-0 rounded-md border object-contain'
+                      />
+                    )
+                  )}
+              </div>
+            </div>
+          )}
           <div>
             <h3 className='mb-1 text-sm font-medium'>
               {t('studio.preflight.request')}
