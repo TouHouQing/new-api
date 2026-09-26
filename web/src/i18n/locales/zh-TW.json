@@ -7108,6 +7108,7 @@
     "studio.delete.description": "所選節點或專案將從目前瀏覽器移除。",
     "studio.delete.confirm": "刪除",
     "studio.media.retry": "重試儲存素材",
+    "studio.bundle.mediaMissing": "部分已完成素材尚未儲存在目前瀏覽器。請先對相關圖片或影片點選「重試儲存素材」，再匯出完整專案包。",
     "studio.project.saveFailed": "無法在目前瀏覽器儲存專案，畫布變更尚未儲存"
   }
 }

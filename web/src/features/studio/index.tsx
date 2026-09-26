@@ -956,10 +956,14 @@ export function Studio() {
         throw new Error(t('studio.image.uploadType'))
       }
       if (file.size > 20_000_000) throw new Error(t('studio.image.uploadSize'))
-      if (node.data.mediaId) discardNodeMedia(source.id, node)
-      discardBranchMedia(source, node.id)
       const mediaId = newId()
       await mediaStore.put(userId, mediaId, file)
+      if (activeUserId.current !== userId) {
+        await mediaStore.delete(userId, mediaId)
+        return
+      }
+      if (node.data.mediaId) discardNodeMedia(source.id, node)
+      discardBranchMedia(source, node.id)
       loadedMediaIds.current.add(
         mediaLoadKey({ kind: 'node', projectId: source.id, mediaId })
       )
@@ -2802,7 +2806,11 @@ export function Studio() {
         extension = 'json'
       }
     } catch (error) {
-      setMessage(errorMessage(error))
+      setMessage(
+        error instanceof Error && error.message === 'studio.bundle.mediaMissing'
+          ? t('studio.bundle.mediaMissing')
+          : errorMessage(error)
+      )
       return
     }
     const url = URL.createObjectURL(blob)
@@ -2820,8 +2828,18 @@ export function Studio() {
         url = await getStudioVideoContentUrl(node.data.taskId)
       }
       if (!url) throw new Error(t('studio.media.missing'))
-      const mediaId = await saveMedia(userId, source.id, node.id, url)
-      editNode(source.id, node.id, { mediaId, error: undefined })
+      const mediaId = await saveMedia(userId, source.id, node.id, url, false)
+      editProject(source.id, (current) =>
+        node.data.selectedTakeId
+          ? updateStudioTake(current, node.id, node.data.selectedTakeId, {
+              mediaId,
+              error: undefined,
+            })
+          : updateStudioNode(current, node.id, {
+              mediaId,
+              error: undefined,
+            })
+      )
       setMessage(null)
     } catch (error) {
       setMessage(`${t('studio.storage.failed')}: ${errorMessage(error)}`)

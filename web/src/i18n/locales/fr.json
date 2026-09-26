@@ -7108,6 +7108,7 @@
     "studio.delete.description": "L’élément sélectionné sera supprimé de ce navigateur.",
     "studio.delete.confirm": "Supprimer",
     "studio.media.retry": "Réessayer l’enregistrement",
+    "studio.bundle.mediaMissing": "Certains médias terminés ne sont pas enregistrés dans ce navigateur. Réessayez de les enregistrer avant d’exporter le projet complet.",
     "studio.project.saveFailed": "Impossible d’enregistrer ce projet dans ce navigateur"
   }
 }

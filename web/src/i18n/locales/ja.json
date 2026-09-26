@@ -7108,6 +7108,7 @@
     "studio.delete.description": "選択した項目をこのブラウザーから削除します。",
     "studio.delete.confirm": "削除",
     "studio.media.retry": "メディア保存を再試行",
+    "studio.bundle.mediaMissing": "完成したメディアの一部がこのブラウザーに保存されていません。画像や動画の保存を再試行してから、完全なプロジェクトを書き出してください。",
     "studio.project.saveFailed": "このブラウザーにプロジェクトを保存できません。変更は未保存です"
   }
 }

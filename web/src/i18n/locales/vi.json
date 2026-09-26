@@ -7108,6 +7108,7 @@
     "studio.delete.description": "Mục đã chọn sẽ bị xóa khỏi trình duyệt này.",
     "studio.delete.confirm": "Xóa",
     "studio.media.retry": "Thử lưu lại tệp",
+    "studio.bundle.mediaMissing": "Một số tệp đã hoàn tất chưa được lưu trong trình duyệt này. Hãy thử lưu lại ảnh hoặc video liên quan trước khi xuất dự án đầy đủ.",
     "studio.project.saveFailed": "Không thể lưu dự án trong trình duyệt này"
   }
 }

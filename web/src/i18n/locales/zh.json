@@ -7108,6 +7108,7 @@
     "studio.delete.description": "所选节点或项目将从当前浏览器移除。",
     "studio.delete.confirm": "删除",
     "studio.media.retry": "重试保存素材",
+    "studio.bundle.mediaMissing": "部分已完成素材尚未保存在当前浏览器。请先对相关图片或视频点击“重试保存素材”，再导出完整项目包。",
     "studio.project.saveFailed": "无法在当前浏览器保存项目，画布改动尚未保存"
   }
 }

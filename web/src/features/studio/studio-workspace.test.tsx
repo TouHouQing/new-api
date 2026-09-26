@@ -42,7 +42,11 @@ import {
 } from './api'
 import type { StudioCanvasNode } from './canvas-flow'
 import { Studio } from './index'
-import { saveStudioProjects, studioProjectsKey } from './local-projects'
+import {
+  loadStudioProjects,
+  saveStudioProjects,
+  studioProjectsKey,
+} from './local-projects'
 import { studioNodeInputFingerprint } from './studio-execution'
 import { captureStudioLastFrame } from './studio-frame-grab'
 import { importStudioProjectBundle } from './studio-project-bundle'
@@ -133,11 +137,16 @@ vi.mock('./api', () => ({
   getStudioVideoContentUrl: vi.fn(),
 }))
 const storedMedia = new Map<string, Blob>()
+let rejectNextMediaPut = false
 vi.mock('./media-store', () => ({
   studioMediaStore: () => ({
     get: async (userId: number, mediaId: string) =>
       storedMedia.get(`${userId}:${mediaId}`) || null,
     put: async (userId: number, mediaId: string, blob: Blob) => {
+      if (rejectNextMediaPut) {
+        rejectNextMediaPut = false
+        throw new Error('image storage unavailable')
+      }
       storedMedia.set(`${userId}:${mediaId}`, blob)
     },
     delete: async (userId: number, mediaId: string) => {
@@ -152,6 +161,7 @@ vi.mock('./studio-project-bundle', () => ({
 }))
 
 beforeEach(() => {
+  rejectNextMediaPut = false
   preflightTestState.autoConfirm = true
   vi.clearAllMocks()
   vi.mocked(fetchStudioModels).mockResolvedValue(['MiniMax-H3', '会员套餐甲'])
@@ -172,6 +182,68 @@ afterEach(() => {
 })
 
 describe('Studio account isolation', () => {
+  test('keeps the previous manual image when its replacement cannot be stored', async () => {
+    storedMedia.set(
+      '12:original-image',
+      new Blob(['original'], { type: 'image/png' })
+    )
+    let project = addStudioNode(
+      createStudioProject('Manual', 'manual-project'),
+      'image',
+      'image'
+    )
+    project = updateStudioNode(project, 'image', {
+      mediaId: 'original-image',
+      status: 'completed',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Image 1' }))
+    rejectNextMediaPut = true
+    fireEvent.change(screen.getByLabelText('studio.image.local'), {
+      target: {
+        files: [new File(['replacement'], 'new.png', { type: 'image/png' })],
+      },
+    })
+    await screen.findByText('image storage unavailable')
+    expect(storedMedia.get('12:original-image')).toBeTruthy()
+    const saved = loadStudioProjects(localStorage, 12)[0]
+    expect(saved.nodes[0].data.mediaId).toBe('original-image')
+  })
+  test('retrying media storage repairs the selected image take for portable export', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(new Blob(['portrait'], { type: 'image/png' }), {
+            status: 200,
+          })
+      )
+    )
+    let project = addStudioNode(
+      createStudioProject('Variants', 'p-variants'),
+      'image',
+      'image'
+    )
+    project = recordStudioTake(project, 'image', {
+      id: 'take-remote',
+      createdAt: '2026-09-26T00:00:00Z',
+      prompt: 'portrait',
+      status: 'completed',
+      outputUrl: 'https://images.example/portrait.png',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Image 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.media.retry' })
+    )
+    await waitFor(() => {
+      const node = loadStudioProjects(localStorage, 12)[0].nodes[0]
+      expect(node.data.mediaId).toBeTruthy()
+      expect(node.data.takes?.[0].mediaId).toBe(node.data.mediaId)
+    })
+  })
   test('plain text mode asks the external model for an ordinary visual prompt', async () => {
     vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
       text: { kind: 'text', baseUrl: 'https://text.example/v1', hasKey: true },

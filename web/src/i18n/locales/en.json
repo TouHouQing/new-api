@@ -7108,6 +7108,7 @@
     "studio.delete.description": "This removes the selected node or project from this browser.",
     "studio.delete.confirm": "Delete",
     "studio.media.retry": "Retry media save",
+    "studio.bundle.mediaMissing": "Some completed media is not saved in this browser. Retry saving the affected image or video before exporting a portable project.",
     "studio.project.saveFailed": "Could not save this project in this browser"
   }
 }

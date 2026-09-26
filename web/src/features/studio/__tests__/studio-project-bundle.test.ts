@@ -174,6 +174,63 @@ test('export rejects a referenced media blob that is missing', async () => {
   ).rejects.toThrow('missing')
 })
 
+test('export refuses a completed image whose remote result was never saved locally', async () => {
+  const source = createStudioMediaStore(new IDBFactory(), 'bundle-remote-only')
+  const project = createStudioProject('Remote-only image', 'remote-project')
+  project.nodes = [
+    {
+      id: 'image',
+      type: 'studio',
+      position: { x: 0, y: 0 },
+      data: {
+        kind: 'image',
+        title: 'Frame',
+        prompt: 'portrait',
+        status: 'completed',
+        outputUrl: 'https://images.example/temporary-result.png',
+      },
+    },
+  ]
+  await expect(exportStudioProjectBundle(project, 12, source)).rejects.toThrow(
+    'studio.bundle.mediaMissing'
+  )
+})
+
+test('export refuses a missing historical take even when the selected image is local', async () => {
+  const source = createStudioMediaStore(
+    new IDBFactory(),
+    'bundle-take-remote-only'
+  )
+  const project = createStudioProject('Variants', 'variant-project')
+  project.nodes = [
+    {
+      id: 'image',
+      type: 'studio',
+      position: { x: 0, y: 0 },
+      data: {
+        kind: 'image',
+        title: 'Frame',
+        prompt: 'portrait',
+        status: 'completed',
+        mediaId: 'selected-local',
+        takes: [
+          {
+            id: 'older',
+            createdAt: '2026-09-26T00:00:00Z',
+            prompt: 'portrait',
+            status: 'completed',
+            outputUrl: 'https://images.example/older.png',
+          },
+        ],
+      },
+    },
+  ]
+  await source.put(12, 'selected-local', media('selected', 'image/png'))
+  await expect(exportStudioProjectBundle(project, 12, source)).rejects.toThrow(
+    'studio.bundle.mediaMissing'
+  )
+})
+
 test('a round trip restores take and asset media without retaining browser URLs', async () => {
   const source = createStudioMediaStore(
     new IDBFactory(),

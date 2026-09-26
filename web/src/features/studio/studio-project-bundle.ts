@@ -404,6 +404,25 @@ export async function exportStudioProjectBundle(
   mediaStore: StudioMediaStore
 ): Promise<Blob> {
   validateUserId(userId)
+  const remoteOnlyNode = project.nodes.find(
+    (node) =>
+      (node.data.kind === 'image' || node.data.kind === 'video') &&
+      ((node.data.status === 'completed' &&
+        Boolean(node.data.outputUrl || node.data.taskId) &&
+        !node.data.mediaId) ||
+        node.data.takes?.some(
+          (take) =>
+            take.status === 'completed' &&
+            Boolean(take.outputUrl || take.taskId) &&
+            !take.mediaId
+        ))
+  )
+  if (
+    remoteOnlyNode ||
+    project.assets?.some((asset) => asset.outputUrl && !asset.mediaId)
+  ) {
+    throw new Error('studio.bundle.mediaMissing')
+  }
   const safe = portableProject(project)
   const media: MediaEntry[] = []
   const blobs: Blob[] = []
