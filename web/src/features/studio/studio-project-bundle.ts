@@ -37,6 +37,8 @@ type BundleManifest = {
   nodeMedia: (string | null)[]
   takeMedia: (string | null)[][]
   assetMedia: (string | null)[]
+  assetVersionMedia?: (string | null)[][]
+  shotVoiceoverMedia?: (string | null)[]
   assembledMedia: string | null
   soundtrackMedia?: string | null
   voiceoverMedia?: string | null
@@ -351,6 +353,25 @@ function validateManifest(
   ) {
     invalidBundle()
   }
+  if (
+    manifest.assetVersionMedia !== undefined &&
+    (!Array.isArray(manifest.assetVersionMedia) ||
+      manifest.assetVersionMedia.length !== (project.assets?.length ?? 0) ||
+      manifest.assetVersionMedia.some(
+        (versions, index) =>
+          !Array.isArray(versions) ||
+          versions.length !== (project.assets?.[index].versions?.length ?? 0)
+      ))
+  ) {
+    invalidBundle()
+  }
+  if (
+    manifest.shotVoiceoverMedia !== undefined &&
+    (!Array.isArray(manifest.shotVoiceoverMedia) ||
+      manifest.shotVoiceoverMedia.length !== (project.shots?.length ?? 0))
+  ) {
+    invalidBundle()
+  }
   const paths = new Set<string>()
   for (let index = 0; index < manifest.media.length; index += 1) {
     const media = manifest.media[index]
@@ -381,6 +402,8 @@ function validateManifest(
     ...manifest.nodeMedia,
     ...manifest.takeMedia.flat(),
     ...manifest.assetMedia,
+    ...(manifest.assetVersionMedia?.flat() ?? []),
+    ...(manifest.shotVoiceoverMedia ?? []),
     manifest.assembledMedia,
     manifest.soundtrackMedia ?? null,
     manifest.voiceoverMedia ?? null,
@@ -419,7 +442,11 @@ export async function exportStudioProjectBundle(
   )
   if (
     remoteOnlyNode ||
-    project.assets?.some((asset) => asset.outputUrl && !asset.mediaId)
+    project.assets?.some(
+      (asset) =>
+        (asset.outputUrl && !asset.mediaId) ||
+        asset.versions?.some((version) => version.outputUrl && !version.mediaId)
+    )
   ) {
     throw new Error('studio.bundle.mediaMissing')
   }
@@ -466,8 +493,18 @@ export async function exportStudioProjectBundle(
     takeMedia.push(takes)
   }
   const assetMedia: (string | null)[] = []
+  const assetVersionMedia: (string | null)[][] = []
   for (const asset of project.assets ?? []) {
     assetMedia.push(await addMedia(asset.mediaId))
+    const versions: (string | null)[] = []
+    for (const version of asset.versions ?? []) {
+      versions.push(await addMedia(version.mediaId))
+    }
+    assetVersionMedia.push(versions)
+  }
+  const shotVoiceoverMedia: (string | null)[] = []
+  for (const shot of project.shots ?? []) {
+    shotVoiceoverMedia.push(await addMedia(shot.shotVoiceoverMediaId))
   }
   const assembledMedia = await addMedia(project.assembledMediaId)
   const soundtrackMedia = await addMedia(project.soundtrackMediaId)
@@ -480,6 +517,8 @@ export async function exportStudioProjectBundle(
     nodeMedia,
     takeMedia,
     assetMedia,
+    assetVersionMedia,
+    shotVoiceoverMedia,
     assembledMedia,
     soundtrackMedia,
     voiceoverMedia,
@@ -551,6 +590,18 @@ export async function importStudioProjectBundle(
       assets: manifest.project.assets?.map((asset, index) => ({
         ...asset,
         mediaId: resolveMedia(manifest.assetMedia[index]),
+        versions: asset.versions?.map((version, versionIndex) => ({
+          ...version,
+          mediaId: resolveMedia(
+            manifest.assetVersionMedia?.[index]?.[versionIndex] ?? null
+          ),
+        })),
+      })),
+      shots: manifest.project.shots?.map((shot, index) => ({
+        ...shot,
+        shotVoiceoverMediaId: resolveMedia(
+          manifest.shotVoiceoverMedia?.[index] ?? null
+        ),
       })),
       assembledMediaId: resolveMedia(manifest.assembledMedia),
       soundtrackMediaId: resolveMedia(manifest.soundtrackMedia ?? null),

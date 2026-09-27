@@ -292,6 +292,39 @@ export function StudioShotPlanner(props: {
                       />
                     </label>
                   ))}
+                  <label className='flex flex-col gap-1 text-xs'>
+                    {t('studio.shot.shotType')}
+                    <Input
+                      aria-label={t('studio.shot.shotType')}
+                      value={draft.shotType || ''}
+                      maxLength={200}
+                      onChange={(event) =>
+                        updateDraft(index, 'shotType', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className='flex flex-col gap-1 text-xs'>
+                    {t('studio.shot.camera')}
+                    <Input
+                      aria-label={t('studio.shot.camera')}
+                      value={draft.camera || ''}
+                      maxLength={2000}
+                      onChange={(event) =>
+                        updateDraft(index, 'camera', event.target.value)
+                      }
+                    />
+                  </label>
+                  <label className='flex flex-col gap-1 text-xs sm:col-span-2'>
+                    {t('studio.shot.dialogue')}
+                    <Textarea
+                      aria-label={t('studio.shot.dialogue')}
+                      value={draft.dialogue || ''}
+                      maxLength={30000}
+                      onChange={(event) =>
+                        updateDraft(index, 'dialogue', event.target.value)
+                      }
+                    />
+                  </label>
                 </div>
               ))}
               <Button
@@ -304,12 +337,29 @@ export function StudioShotPlanner(props: {
                 )}
                 onClick={() => {
                   const created = props.onConfirm(
-                    drafts.map(({ title, text, imagePrompt, videoPrompt }) => ({
-                      title,
-                      text,
-                      imagePrompt,
-                      videoPrompt,
-                    })),
+                    drafts.map(
+                      ({
+                        title,
+                        text,
+                        imagePrompt,
+                        videoPrompt,
+                        shotType,
+                        camera,
+                        dialogue,
+                      }) => ({
+                        title,
+                        text,
+                        imagePrompt,
+                        videoPrompt,
+                        ...(shotType?.trim()
+                          ? { shotType: shotType.trim() }
+                          : {}),
+                        ...(camera?.trim() ? { camera: camera.trim() } : {}),
+                        ...(dialogue?.trim()
+                          ? { dialogue: dialogue.trim() }
+                          : {}),
+                      })
+                    ),
                     prompt.trim(),
                     model || undefined
                   )

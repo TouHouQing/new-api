@@ -23,10 +23,23 @@ import { Button } from '@/components/ui/button'
 
 import { fetchStudioAttempts, type StudioAttempt } from './api'
 
+export type StudioLocalTask = {
+  projectId: string
+  projectTitle: string
+  nodeId: string
+  nodeTitle: string
+  taskId: string
+  model: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  progress?: number
+}
+
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   userId: number
+  localTasks?: StudioLocalTask[]
+  onOpenTask?: (projectId: string, nodeId: string) => void
 }
 
 export function StudioAttempts(props: Props) {
@@ -83,11 +96,49 @@ export function StudioAttempts(props: Props) {
     <Dialog
       open={props.open}
       onOpenChange={props.onOpenChange}
-      title={t('studio.attempt.title')}
+      title={t('studio.taskCenter.title')}
       description={t('studio.attempt.description')}
       contentClassName='sm:max-w-xl'
     >
-      <div className='space-y-3'>
+      <div className='flex flex-col gap-3'>
+        {Boolean(props.localTasks?.length) && (
+          <section className='flex flex-col gap-2'>
+            <h3 className='text-sm font-medium'>
+              {t('studio.taskCenter.localTasks')}
+            </h3>
+            <div className='max-h-48 overflow-y-auto'>
+              {props.localTasks?.map((task) => (
+                <div
+                  key={`${task.projectId}:${task.nodeId}:${task.taskId}`}
+                  className='flex items-center justify-between gap-2 border-b py-2 text-sm'
+                >
+                  <div className='min-w-0'>
+                    <p className='truncate'>
+                      {task.projectTitle} · {task.nodeTitle}
+                    </p>
+                    <p className='text-muted-foreground text-xs'>
+                      {task.model} · {t(`studio.status.${task.status}`)}
+                      {typeof task.progress === 'number'
+                        ? ` · ${task.progress}%`
+                        : ''}
+                    </p>
+                  </div>
+                  {props.onOpenTask && (
+                    <Button
+                      size='xs'
+                      variant='outline'
+                      onClick={() =>
+                        props.onOpenTask?.(task.projectId, task.nodeId)
+                      }
+                    >
+                      {t('studio.taskCenter.open')} {task.nodeTitle}
+                    </Button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
         <Button
           size='sm'
           variant='outline'

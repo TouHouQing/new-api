@@ -21,6 +21,36 @@ import { parseStudioStoryboardResponse } from './api'
 import { planLocalStudioShots } from './studio-shot-planning'
 
 describe('Studio shot planning', () => {
+  test('retains optional camera, shot type, and dialogue from a model storyboard', () => {
+    expect(
+      parseStudioStoryboardResponse({
+        success: true,
+        data: {
+          shots: [
+            {
+              title: 'Opening',
+              text: 'The lead arrives',
+              image_prompt: 'Station at dusk',
+              video_prompt: 'Camera pushes in',
+              shot_type: 'wide shot',
+              camera: 'dolly in',
+              dialogue: 'I am home',
+            },
+          ],
+        },
+      })
+    ).toEqual([
+      {
+        title: 'Opening',
+        text: 'The lead arrives',
+        imagePrompt: 'Station at dusk',
+        videoPrompt: 'Camera pushes in',
+        shotType: 'wide shot',
+        camera: 'dolly in',
+        dialogue: 'I am home',
+      },
+    ])
+  })
   test('splits pasted paragraphs into editable manual shots', () => {
     expect(
       planLocalStudioShots('Arrives at station.\n\nBoards a train.', 4)

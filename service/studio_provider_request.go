@@ -47,6 +47,9 @@ type StudioStoryboardShot struct {
 	Text        string `json:"text"`
 	ImagePrompt string `json:"image_prompt"`
 	VideoPrompt string `json:"video_prompt"`
+	ShotType    string `json:"shot_type,omitempty"`
+	Camera      string `json:"camera,omitempty"`
+	Dialogue    string `json:"dialogue,omitempty"`
 }
 
 type StudioImageRequest struct {
@@ -285,7 +288,7 @@ func GenerateStudioProviderStoryboard(ctx context.Context, provider *model.Studi
 	request := map[string]any{
 		"model": modelName,
 		"messages": []map[string]string{
-			{"role": "system", "content": fmt.Sprintf(`You write storyboard drafts for AI video creation. The user's input is a creative brief, not a chat message. Return exactly one valid JSON object with this shape: {"shots":[{"title":"short shot title","text":"visible scene description","image_prompt":"static first-frame composition, subjects, setting, lighting and style","video_prompt":"visible subject and camera motion over time"}]}. Create %d coherent shots in narrative order, preserving requested people, setting, style and action. Use the same language as the user's input for every field. Every field must be a nonempty string. Output JSON only: no Markdown, prose, questions, alternatives, tools, or API descriptions.`, count)},
+			{"role": "system", "content": fmt.Sprintf(`You write storyboard drafts for AI video creation. The user's input is a creative brief, not a chat message. Return exactly one valid JSON object with this shape: {"shots":[{"title":"short shot title","text":"visible scene description","image_prompt":"static first-frame composition, subjects, setting, lighting and style","video_prompt":"visible subject and camera motion over time","shot_type":"shot size or angle","camera":"camera direction","dialogue":"spoken words, or empty string"}]}. Create %d coherent shots in narrative order, preserving requested people, setting, style and action. Use the same language as the user's input for every field. The title, text, image_prompt and video_prompt fields must be nonempty strings. Dialogue may be empty. Output JSON only: no Markdown, prose, questions, alternatives, tools, or API descriptions.`, count)},
 			{"role": "user", "content": prompt},
 		},
 		"stream": false,
@@ -317,8 +320,12 @@ func GenerateStudioProviderStoryboard(ctx context.Context, provider *model.Studi
 		shot.Text = strings.TrimSpace(shot.Text)
 		shot.ImagePrompt = strings.TrimSpace(shot.ImagePrompt)
 		shot.VideoPrompt = strings.TrimSpace(shot.VideoPrompt)
+		shot.ShotType = strings.TrimSpace(shot.ShotType)
+		shot.Camera = strings.TrimSpace(shot.Camera)
+		shot.Dialogue = strings.TrimSpace(shot.Dialogue)
 		if shot.Title == "" || shot.Text == "" || shot.ImagePrompt == "" || shot.VideoPrompt == "" ||
-			len(shot.Title) > 200 || len(shot.Text) > 30000 || len(shot.ImagePrompt) > 30000 || len(shot.VideoPrompt) > 30000 {
+			len(shot.Title) > 200 || len(shot.Text) > 30000 || len(shot.ImagePrompt) > 30000 || len(shot.VideoPrompt) > 30000 ||
+			len(shot.ShotType) > 200 || len(shot.Camera) > 2000 || len(shot.Dialogue) > 30000 {
 			return nil, errors.New("text model did not return a usable storyboard; try another model or write shots manually")
 		}
 	}

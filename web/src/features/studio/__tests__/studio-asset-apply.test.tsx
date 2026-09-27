@@ -42,3 +42,42 @@ test('a reusable character can be applied to every storyboard shot', () => {
   )
   expect(onApplyToShots).toHaveBeenCalledWith('hero')
 })
+
+test('locking the current reference version is explicit and shows saved versions', () => {
+  const onCreateVersion = vi.fn()
+  const onUpdate = vi.fn()
+  render(
+    <StudioAssetLibrary
+      assets={[
+        {
+          id: 'hero',
+          kind: 'character',
+          title: 'Mira',
+          prompt: 'Blue coat',
+          versions: [
+            {
+              id: 'v1',
+              createdAt: '2026-09-26T00:00:00Z',
+              prompt: 'Red scarf',
+            },
+          ],
+        },
+      ]}
+      previews={{}}
+      projectId='film'
+      onAdd={vi.fn()}
+      onUpdate={onUpdate}
+      onUpload={vi.fn()}
+      onDelete={vi.fn()}
+      onCreateVersion={onCreateVersion}
+    />
+  )
+
+  expect(screen.getByText('Red scarf')).toBeTruthy()
+  expect(onCreateVersion).not.toHaveBeenCalled()
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Mira studio.asset.lockVersion' })
+  )
+  expect(onCreateVersion).toHaveBeenCalledWith('hero')
+  expect(onUpdate).not.toHaveBeenCalled()
+})

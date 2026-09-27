@@ -62,6 +62,13 @@ vi.mock('../media-store', () => ({
     get: getMedia,
     put: putMedia,
     delete: deleteMedia,
+    loadProjects: async () => null,
+    saveProjects: async () => {},
+    saveProjectsIfAbsent: async () => true,
+    putWithProjects: async (userId: number, mediaId: string, blob: Blob) =>
+      putMedia(userId, mediaId, blob),
+    deleteWithProjects: async (userId: number, mediaId: string) =>
+      deleteMedia(userId, mediaId),
   }),
 }))
 vi.mock('../studio-mp4', () => ({
@@ -129,6 +136,75 @@ test('assembled MP4 receives the project caption track', async () => {
       })
     )
   )
+})
+
+test('assembled MP4 receives voiceover and captions positioned within a shot', async () => {
+  stored.set('12:clip-1', new Blob(['clip'], { type: 'video/mp4' }))
+  stored.set('12:shot-voice', new Blob(['voice'], { type: 'audio/mpeg' }))
+  vi.mocked(stitchStudioVideos).mockResolvedValue(
+    new Blob(['joined'], { type: 'video/mp4' })
+  )
+  let project = addStudioShot(
+    createStudioProject('Dialogue', 'p-dialogue'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = updateStudioNode(project, 'v1', {
+    status: 'completed',
+    mediaId: 'clip-1',
+  })
+  const shots = project.shots
+  const shot = shots?.[0]
+  if (!shot) throw new Error('shot fixture is missing')
+  shots[0] = {
+    ...shot,
+    shotVoiceoverMediaId: 'shot-voice',
+    shotVoiceoverVolume: 0.6,
+    shotVoiceoverOffsetSeconds: 0.4,
+    shotCaptionText: 'Hello',
+    shotCaptionOffsetSeconds: 0.2,
+    shotCaptionDurationSeconds: 1.5,
+  }
+  saveStudioProjects(localStorage, 12, [project])
+  render(<Studio />)
+  fireEvent.click(
+    await screen.findByRole('button', { name: 'studio.assembly.create' })
+  )
+  await waitFor(() => expect(stitchStudioVideos).toHaveBeenCalled())
+  expect(vi.mocked(stitchStudioVideos).mock.calls[0][3]).toMatchObject({
+    shotVoiceovers: [{ clipIndex: 0, volume: 0.6, offsetSeconds: 0.4 }],
+    shotCaptions: [
+      { clipIndex: 0, text: 'Hello', offsetSeconds: 0.2, durationSeconds: 1.5 },
+    ],
+  })
+})
+
+test('uploading shot voiceover persists its local media reference', async () => {
+  const project = addStudioShot(
+    createStudioProject('Dialogue', 'p-shot-upload'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  saveStudioProjects(localStorage, 12, [project])
+  render(<Studio />)
+  fireEvent.change(
+    await screen.findByLabelText('Opening studio.timeline.shotVoiceover'),
+    {
+      target: {
+        files: [new File(['hello'], 'dialogue.mp3', { type: 'audio/mpeg' })],
+      },
+    }
+  )
+  await waitFor(() => {
+    const saved = JSON.parse(
+      localStorage.getItem(studioProjectsKey(12)) || '{}'
+    )
+    const mediaId = saved.projects?.[0]?.shots?.[0]?.shotVoiceoverMediaId
+    expect(mediaId).toBeTruthy()
+    expect(stored.get(`12:${mediaId}`)).toBeTruthy()
+  })
 })
 
 test('assembled MP4 mixes a saved voiceover with the clip audio', async () => {

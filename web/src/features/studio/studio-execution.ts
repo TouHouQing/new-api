@@ -20,6 +20,7 @@ import {
   type StudioCanvasNode,
 } from './canvas-flow'
 import type { StudioProject } from './local-projects'
+import { resolveStudioAssetReference } from './studio-continuity'
 
 const VIDEO_ACTIVE_STATES = new Set([
   'completed',
@@ -121,16 +122,29 @@ export function studioNodeInputFingerprint(
     data.imageQuality,
     data.imageCount,
     data.assetIds,
+    data.assetVersionIds,
     project.assets
       ?.filter((asset) => data.assetIds?.includes(asset.id))
-      .map((asset) => [
-        asset.id,
-        asset.kind,
-        asset.title,
-        asset.prompt,
-        asset.mediaId,
-        asset.outputUrl,
-      ]),
+      .map((asset) => {
+        let reference: ReturnType<typeof resolveStudioAssetReference>
+        try {
+          reference = resolveStudioAssetReference(
+            asset,
+            data.assetVersionIds?.[asset.id]
+          )
+        } catch {
+          reference = { prompt: '', mediaId: undefined, outputUrl: undefined }
+        }
+        return [
+          asset.id,
+          asset.kind,
+          asset.title,
+          data.assetVersionIds?.[asset.id],
+          reference.prompt,
+          reference.mediaId,
+          reference.outputUrl,
+        ]
+      }),
     sources,
   ])
 }

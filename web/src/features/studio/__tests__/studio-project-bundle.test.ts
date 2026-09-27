@@ -25,7 +25,7 @@ import {
   exportStudioProjectBundle,
   importStudioProjectBundle,
 } from '../studio-project-bundle'
-import { createStudioProject } from '../workspace'
+import { addStudioShot, createStudioProject } from '../workspace'
 
 const media = (value: string, type: string): Blob =>
   new NodeBlob([value], { type }) as unknown as Blob
@@ -133,6 +133,64 @@ test('a ZIP round trip restores voiceover audio into the destination user namesp
   ).toBe('narration')
 })
 
+test('a ZIP round trip retains pinned asset versions and shot voiceover media', async () => {
+  const source = createStudioMediaStore(
+    new IDBFactory(),
+    'bundle-shot-asset-source'
+  )
+  const target = createStudioMediaStore(
+    new IDBFactory(),
+    'bundle-shot-asset-target'
+  )
+  const project = addStudioShot(
+    createStudioProject('Episode', 'episode'),
+    'shot-1',
+    { text: 'text', image: 'image', video: 'video' },
+    'Opening'
+  )
+  const shot = project.shots?.[0]
+  if (!shot) throw new Error('shot fixture is missing')
+  shot.shotVoiceoverMediaId = 'voice-one'
+  project.assets = [
+    {
+      id: 'actor',
+      kind: 'character',
+      title: 'Lead',
+      prompt: 'red coat',
+      mediaId: 'actor-current',
+      versions: [
+        {
+          id: 'v1',
+          createdAt: '2026-09-26T00:00:00Z',
+          prompt: 'blue coat',
+          mediaId: 'actor-v1',
+        },
+      ],
+    },
+  ]
+  const video = project.nodes.find((node) => node.id === 'video')
+  if (!video) throw new Error('video fixture is missing')
+  video.data.assetIds = ['actor']
+  video.data.assetVersionIds = { actor: 'v1' }
+  await source.put(12, 'actor-current', media('red coat', 'image/png'))
+  await source.put(12, 'actor-v1', media('blue coat', 'image/png'))
+  await source.put(12, 'voice-one', media('dialogue', 'audio/mpeg'))
+
+  const bundle = await exportStudioProjectBundle(project, 12, source)
+  const imported = await importStudioProjectBundle(bundle, 13, target)
+  const versionId = imported.assets?.[0].versions?.[0].mediaId
+  const voiceId = imported.shots?.[0].shotVoiceoverMediaId
+  expect(versionId).toBeTruthy()
+  expect(voiceId).toBeTruthy()
+  expect(await (await target.get(13, versionId || ''))?.text()).toBe(
+    'blue coat'
+  )
+  expect(await (await target.get(13, voiceId || ''))?.text()).toBe('dialogue')
+  expect(
+    imported.nodes.find((node) => node.id === 'video')?.data.assetVersionIds
+  ).toEqual({ actor: 'v1' })
+})
+
 test('exports an unnormalized legacy video task without losing its media mapping', async () => {
   const source = createStudioMediaStore(
     new IDBFactory(),
@@ -189,6 +247,33 @@ test('export refuses a completed image whose remote result was never saved local
         status: 'completed',
         outputUrl: 'https://images.example/temporary-result.png',
       },
+    },
+  ]
+  await expect(exportStudioProjectBundle(project, 12, source)).rejects.toThrow(
+    'studio.bundle.mediaMissing'
+  )
+})
+
+test('export refuses an asset version whose remote image was never saved locally', async () => {
+  const source = createStudioMediaStore(
+    new IDBFactory(),
+    'bundle-version-remote-only'
+  )
+  const project = createStudioProject('Remote-only version', 'remote-version')
+  project.assets = [
+    {
+      id: 'actor',
+      kind: 'character',
+      title: 'Actor',
+      prompt: 'portrait',
+      versions: [
+        {
+          id: 'v1',
+          createdAt: '2026-09-26T00:00:00Z',
+          prompt: 'portrait',
+          outputUrl: 'https://example.com/portrait.png',
+        },
+      ],
     },
   ]
   await expect(exportStudioProjectBundle(project, 12, source)).rejects.toThrow(

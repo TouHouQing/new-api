@@ -50,6 +50,12 @@ export function selectStudioTake(
   let next: StudioProject = {
     ...project,
     updatedAt: new Date().toISOString(),
+    shots: project.shots?.map((shot) =>
+      node.data.selectedTakeId !== take.id &&
+      [shot.textNodeId, shot.imageNodeId, shot.videoNodeId].includes(nodeId)
+        ? { ...shot, reviewStatus: 'unreviewed' }
+        : shot
+    ),
     nodes: project.nodes.map((item) =>
       item.id === nodeId
         ? {
@@ -459,6 +465,134 @@ export function applyStudioAssetToAllShots(
   return next
 }
 
+export function setStudioShotAssets(
+  project: StudioProject,
+  shotId: string,
+  assetIds: readonly string[]
+): StudioProject {
+  const shot = project.shots?.find((item) => item.id === shotId)
+  if (!shot) throw new Error('Studio shot is unavailable')
+  const uniqueIds = [...new Set(assetIds)]
+  if (uniqueIds.length > 32) {
+    throw new Error('A shot has reached the 32 asset limit')
+  }
+  if (
+    uniqueIds.some((id) => !project.assets?.some((asset) => asset.id === id))
+  ) {
+    throw new Error('Studio asset is unavailable')
+  }
+  const ids = new Set([shot.textNodeId, shot.imageNodeId, shot.videoNodeId])
+  const changed = project.nodes.some(
+    (node) =>
+      ids.has(node.id) &&
+      (JSON.stringify(node.data.assetIds || []) !== JSON.stringify(uniqueIds) ||
+        Object.keys(node.data.assetVersionIds || {}).some(
+          (id) => !uniqueIds.includes(id)
+        ))
+  )
+  if (!changed) return project
+  const next = invalidateStudioBranch(project, shot.textNodeId)
+  return {
+    ...next,
+    updatedAt: new Date().toISOString(),
+    shots: next.shots?.map((item) =>
+      item.id === shotId ? { ...item, reviewStatus: 'unreviewed' } : item
+    ),
+    nodes: next.nodes.map((node) => {
+      if (!ids.has(node.id)) return node
+      const retainedVersions = Object.fromEntries(
+        Object.entries(node.data.assetVersionIds || {}).filter(([id]) =>
+          uniqueIds.includes(id)
+        )
+      )
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          assetIds: uniqueIds,
+          assetVersionIds: Object.keys(retainedVersions).length
+            ? retainedVersions
+            : undefined,
+        },
+      }
+    }),
+  }
+}
+
+export function pinStudioShotAssetVersion(
+  project: StudioProject,
+  shotId: string,
+  assetId: string,
+  versionId?: string
+): StudioProject {
+  const shot = project.shots?.find((item) => item.id === shotId)
+  if (!shot) throw new Error('Studio shot is unavailable')
+  const asset = project.assets?.find((item) => item.id === assetId)
+  if (!asset) throw new Error('Studio asset is unavailable')
+  if (
+    versionId &&
+    !asset.versions?.some((version) => version.id === versionId)
+  ) {
+    throw new Error('Studio asset version is unavailable')
+  }
+  const ids = new Set([shot.textNodeId, shot.imageNodeId, shot.videoNodeId])
+  const nodes = project.nodes.filter((node) => ids.has(node.id))
+  if (nodes.some((node) => !node.data.assetIds?.includes(assetId))) {
+    throw new Error('Studio asset is not selected for this shot')
+  }
+  if (
+    nodes.every((node) => node.data.assetVersionIds?.[assetId] === versionId)
+  ) {
+    return project
+  }
+  const next = invalidateStudioBranch(project, shot.textNodeId)
+  return {
+    ...next,
+    updatedAt: new Date().toISOString(),
+    shots: next.shots?.map((item) =>
+      item.id === shotId ? { ...item, reviewStatus: 'unreviewed' } : item
+    ),
+    nodes: next.nodes.map((node) => {
+      if (!ids.has(node.id)) return node
+      const versions = { ...node.data.assetVersionIds }
+      if (versionId) versions[assetId] = versionId
+      else delete versions[assetId]
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          assetVersionIds: Object.keys(versions).length ? versions : undefined,
+        },
+      }
+    }),
+  }
+}
+
+export function copyStudioShotReferences(
+  project: StudioProject,
+  sourceShotId: string,
+  targetShotId: string
+): StudioProject {
+  const source = project.shots?.find((shot) => shot.id === sourceShotId)
+  if (!source) throw new Error('Source Studio shot is unavailable')
+  const sourceNode = project.nodes.find((node) => node.id === source.textNodeId)
+  if (!sourceNode) throw new Error('Source Studio shot is unavailable')
+  let next = setStudioShotAssets(
+    project,
+    targetShotId,
+    sourceNode.data.assetIds || []
+  )
+  for (const assetId of sourceNode.data.assetIds || []) {
+    next = pinStudioShotAssetVersion(
+      next,
+      targetShotId,
+      assetId,
+      sourceNode.data.assetVersionIds?.[assetId]
+    )
+  }
+  return next
+}
+
 export function addPlannedStudioShots(
   project: StudioProject,
   planned: Array<{
@@ -473,6 +607,19 @@ export function addPlannedStudioShots(
   let next = project
   for (const { draft, shotId, ids, takeId } of planned) {
     next = addStudioShot(next, shotId, ids, draft.title)
+    next = {
+      ...next,
+      shots: next.shots?.map((shot) =>
+        shot.id === shotId
+          ? {
+              ...shot,
+              shotType: draft.shotType,
+              camera: draft.camera,
+              dialogue: draft.dialogue,
+            }
+          : shot
+      ),
+    }
     next = updateStudioNode(next, ids.text, { prompt: draft.text, model })
     next = recordStudioTake(next, ids.text, {
       id: takeId,

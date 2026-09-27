@@ -88,6 +88,42 @@ const video = (model: string): StudioCanvasNode => ({
 })
 
 describe('Studio model controls', () => {
+  test('a successful template for the selected group and alias can be applied', async () => {
+    const onApplyVideoTemplate = vi.fn()
+    const matching = {
+      model: '会员套餐甲',
+      group: 'default',
+      seconds: 12,
+      resolution: '720p',
+      ratio: '9:16',
+      savedAt: '2026-09-26T10:00:00Z',
+      channelId: 6,
+    }
+    render(
+      <StudioInspector
+        node={video('会员套餐甲')}
+        models={['会员套餐甲']}
+        videoGroups={[{ id: 'default', description: 'Default' }]}
+        videoGroup='default'
+        videoTemplates={[
+          matching,
+          { ...matching, group: 'other', channelId: 7 },
+        ]}
+        onApplyVideoTemplate={onApplyVideoTemplate}
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    )
+    const user = userEvent.setup()
+    await user.click(
+      screen.getByRole('combobox', { name: 'studio.video.templateTitle' })
+    )
+    await user.click(screen.getByRole('option', { name: /2026-09-26 10:00/ }))
+    expect(onApplyVideoTemplate).toHaveBeenCalledWith(matching)
+  })
   test('a text model can switch between structured shots and plain prompt writing', async () => {
     const onChange = vi.fn()
     render(

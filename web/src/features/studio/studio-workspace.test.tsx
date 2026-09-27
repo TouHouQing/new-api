@@ -137,9 +137,54 @@ vi.mock('./api', () => ({
   getStudioVideoContentUrl: vi.fn(),
 }))
 const storedMedia = new Map<string, Blob>()
+const storedProjects = new Map<
+  number,
+  ReturnType<typeof createStudioProject>[]
+>()
 let rejectNextMediaPut = false
+let rejectNextProjectSave = false
 vi.mock('./media-store', () => ({
   studioMediaStore: () => ({
+    loadProjects: async (userId: number) => storedProjects.get(userId) ?? null,
+    saveProjects: async (
+      userId: number,
+      projects: ReturnType<typeof createStudioProject>[]
+    ) => {
+      if (rejectNextProjectSave) {
+        rejectNextProjectSave = false
+        throw new DOMException('Quota exceeded', 'QuotaExceededError')
+      }
+      storedProjects.set(userId, JSON.parse(JSON.stringify(projects)))
+    },
+    saveProjectsIfAbsent: async (
+      userId: number,
+      projects: ReturnType<typeof createStudioProject>[]
+    ) => {
+      if (storedProjects.has(userId)) return false
+      storedProjects.set(userId, JSON.parse(JSON.stringify(projects)))
+      return true
+    },
+    putWithProjects: async (
+      userId: number,
+      mediaId: string,
+      blob: Blob,
+      projects: ReturnType<typeof createStudioProject>[]
+    ) => {
+      if (rejectNextMediaPut) {
+        rejectNextMediaPut = false
+        throw new Error('image storage unavailable')
+      }
+      storedMedia.set(`${userId}:${mediaId}`, blob)
+      storedProjects.set(userId, JSON.parse(JSON.stringify(projects)))
+    },
+    deleteWithProjects: async (
+      userId: number,
+      mediaId: string,
+      projects: ReturnType<typeof createStudioProject>[]
+    ) => {
+      storedMedia.delete(`${userId}:${mediaId}`)
+      storedProjects.set(userId, JSON.parse(JSON.stringify(projects)))
+    },
     get: async (userId: number, mediaId: string) =>
       storedMedia.get(`${userId}:${mediaId}`) || null,
     put: async (userId: number, mediaId: string, blob: Blob) => {
@@ -162,11 +207,13 @@ vi.mock('./studio-project-bundle', () => ({
 
 beforeEach(() => {
   rejectNextMediaPut = false
+  rejectNextProjectSave = false
   preflightTestState.autoConfirm = true
   vi.clearAllMocks()
   vi.mocked(fetchStudioModels).mockResolvedValue(['MiniMax-H3', '会员套餐甲'])
   vi.mocked(fetchStudioAttemptByRequest).mockResolvedValue(null)
   storedMedia.clear()
+  storedProjects.clear()
   localStorage.clear()
   useAuthStore.setState((state) => ({
     auth: {
@@ -182,6 +229,110 @@ afterEach(() => {
 })
 
 describe('Studio account isolation', () => {
+  test('a pinned character version supplies its original image to the video model', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-pinned-asset')
+    storedMedia.set(
+      '12:current-asset',
+      new Blob(['current'], { type: 'image/png' })
+    )
+    storedMedia.set(
+      '12:version-asset',
+      new Blob(['version'], { type: 'image/png' })
+    )
+    let project = addStudioNode(
+      createStudioProject('Character', 'p-character'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'She walks',
+      assetIds: ['actor'],
+      assetVersionIds: { actor: 'v1' },
+    })
+    project.assets = [
+      {
+        id: 'actor',
+        kind: 'character',
+        title: 'Lead',
+        prompt: 'red coat',
+        mediaId: 'current-asset',
+        versions: [
+          {
+            id: 'v1',
+            createdAt: '2026-09-26T00:00:00Z',
+            prompt: 'blue coat',
+            mediaId: 'version-asset',
+          },
+        ],
+      },
+    ]
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() => expect(createStudioVideo).toHaveBeenCalled())
+    const request = vi.mocked(createStudioVideo).mock.calls[0][0]
+    expect(request.prompt).toContain('blue coat')
+    expect(JSON.stringify(request)).toContain(btoa('version'))
+    expect(JSON.stringify(request)).not.toContain(btoa('current'))
+  })
+  test('a completed video records a reusable safe model template for its account', async () => {
+    vi.mocked(createStudioVideo).mockResolvedValue('task-template')
+    vi.mocked(getStudioVideoTask).mockResolvedValue({
+      status: 'completed',
+      progress: 100,
+      channelId: 8,
+    })
+    vi.mocked(getStudioVideoContentUrl).mockResolvedValue(
+      'https://cdn.example/clip.mp4'
+    )
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(
+        async () =>
+          new Response(new Blob(['clip'], { type: 'video/mp4' }), {
+            status: 200,
+          })
+      )
+    )
+    let project = addStudioNode(
+      createStudioProject('Template', 'p-template'),
+      'video',
+      'video'
+    )
+    project = updateStudioNode(project, 'video', {
+      model: '会员套餐甲',
+      prompt: 'A girl walks',
+      seconds: 12,
+      resolution: '720p',
+      payloadPatchJson: '{"mode":"standard"}',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Video 1' }))
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.generate' })
+    )
+    await waitFor(() => {
+      const raw =
+        localStorage.getItem('newapi:studio:video-templates:v1:user:12') || ''
+      expect(raw).toContain('会员套餐甲')
+      expect(raw).toContain('"channelId":8')
+      expect(raw).not.toContain('A girl walks')
+    })
+  })
+  test('loads the durable IndexedDB project snapshot ahead of an older localStorage mirror', async () => {
+    storedProjects.set(12, [createStudioProject('Durable project', 'durable')])
+    saveStudioProjects(localStorage, 12, [
+      createStudioProject('Old mirror', 'old'),
+    ])
+    render(<Studio />)
+    expect(await screen.findByText('Durable project')).toBeTruthy()
+    expect(screen.queryByText('Old mirror')).toBeNull()
+  })
   test('keeps the previous manual image when its replacement cannot be stored', async () => {
     storedMedia.set(
       '12:original-image',
@@ -577,9 +728,9 @@ describe('Studio account isolation', () => {
     await waitFor(() =>
       expect(storedMedia.has('12:imported-media')).toBe(false)
     )
-    expect(localStorage.getItem(studioProjectsKey(13))).not.toContain(
-      'Private project'
-    )
+    expect(
+      storedProjects.get(13)?.some((item) => item.title === 'Private project')
+    ).not.toBe(true)
   })
   test('stores image variants as selectable takes', async () => {
     vi.mocked(fetchStudioProviderConfigs).mockResolvedValue({
@@ -1571,7 +1722,7 @@ describe('Studio account isolation', () => {
     ])
     render(<Studio />)
     fireEvent.click(
-      await screen.findByRole('button', { name: 'studio.attempt.title' })
+      await screen.findByRole('button', { name: 'studio.taskCenter.title' })
     )
     expect(await screen.findByText('upstream_rejected')).toBeTruthy()
   })
@@ -2300,15 +2451,7 @@ describe('Studio account isolation', () => {
   })
 
   test('explains that the project is unsaved when browser storage is full', async () => {
-    const original = Storage.prototype.setItem
-    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(
-      function (this: Storage, key, value) {
-        if (key.startsWith('newapi:studio:projects')) {
-          throw new DOMException('Quota exceeded', 'QuotaExceededError')
-        }
-        return original.call(this, key, value)
-      }
-    )
+    rejectNextProjectSave = true
     render(<Studio />)
     expect((await screen.findByRole('alert')).textContent).toContain(
       'studio.project.saveFailed'

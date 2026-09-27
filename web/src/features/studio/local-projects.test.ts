@@ -33,6 +33,77 @@ import {
 beforeEach(() => localStorage.clear())
 
 describe('browser-local Studio projects', () => {
+  test('persists reviewed shots, shot audio, and locked asset versions', () => {
+    const project = addStudioShot(
+      createStudioProject('Episode', 'episode'),
+      'shot-1',
+      { text: 'text', image: 'image', video: 'video' },
+      'Opening'
+    )
+    const shots = project.shots
+    const shot = shots?.[0]
+    if (!shot) throw new Error('shot fixture is missing')
+    shots[0] = {
+      ...shot,
+      reviewStatus: 'approved',
+      reviewNote: 'Face and costume match',
+      shotType: 'close-up',
+      camera: 'slow dolly',
+      dialogue: 'Welcome home',
+      shotVoiceoverMediaId: 'voice-1',
+      shotVoiceoverVolume: 0.7,
+      shotVoiceoverOffsetSeconds: 0.3,
+      shotCaptionText: 'Welcome home',
+      shotCaptionOffsetSeconds: 0.2,
+      shotCaptionDurationSeconds: 2.5,
+    }
+    project.assets = [
+      {
+        id: 'actor',
+        kind: 'character',
+        title: 'Lead',
+        prompt: 'red coat',
+        mediaId: 'current',
+        versions: [
+          {
+            id: 'v1',
+            createdAt: '2026-09-26T00:00:00Z',
+            prompt: 'blue coat',
+            mediaId: 'version-image',
+          },
+        ],
+      },
+    ]
+    project.nodes = project.nodes.map((node) =>
+      node.id === 'video'
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              assetIds: ['actor'],
+              assetVersionIds: { actor: 'v1' },
+            },
+          }
+        : node
+    )
+    saveStudioProjects(localStorage, 12, [project])
+    const restored = loadStudioProjects(localStorage, 12)[0]
+    expect(restored.shots?.[0]).toMatchObject({
+      reviewStatus: 'approved',
+      shotVoiceoverMediaId: 'voice-1',
+      shotCaptionText: 'Welcome home',
+      shotType: 'close-up',
+    })
+    expect(restored.assets?.[0].versions?.[0].mediaId).toBe('version-image')
+    expect(
+      restored.nodes.find((node) => node.id === 'video')?.data.assetVersionIds
+    ).toEqual({ actor: 'v1' })
+    const portable = parseStudioProjectImport(
+      serializeStudioProjectExport(project)
+    )
+    expect(portable.assets?.[0].versions?.[0].mediaId).toBeUndefined()
+    expect(portable.shots?.[0].shotVoiceoverMediaId).toBeUndefined()
+  })
   test('persists an uncertain billable video submission for later reconciliation', () => {
     const project = addStudioNode(
       createStudioProject('Pending', 'p-pending'),

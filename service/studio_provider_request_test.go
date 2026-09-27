@@ -283,15 +283,21 @@ func TestStudioProviderStoryboardRequestsOneStructuredDraft(t *testing.T) {
 		assert.Contains(t, payload.Messages[0].Content, "title")
 		assert.Contains(t, payload.Messages[0].Content, "2")
 		assert.Contains(t, payload.Messages[0].Content, "same language")
+		assert.Contains(t, payload.Messages[0].Content, "shot_type")
+		assert.Contains(t, payload.Messages[0].Content, "camera")
+		assert.Contains(t, payload.Messages[0].Content, "dialogue")
 		assert.Contains(t, payload.Messages[1].Content, "黄昏的海边")
 		assert.NotContains(t, string(body), "sk-private-test")
-		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":[{"type":"text","text":"{\"shots\":[{\"title\":\"开场\",\"text\":\"海边\",\"image_prompt\":\"黄昏海景\",\"video_prompt\":\"镜头推进\"},"},{"type":"text","text":"{\"title\":\"特写\",\"text\":\"人物回头\",\"image_prompt\":\"人物侧脸\",\"video_prompt\":\"人物回头，镜头跟随\"}]}"}]},"finish_reason":"stop"}]}`), nil
+		return studioResponse(http.StatusOK, `{"choices":[{"message":{"content":[{"type":"text","text":"{\"shots\":[{\"title\":\"开场\",\"text\":\"海边\",\"image_prompt\":\"黄昏海景\",\"video_prompt\":\"镜头推进\",\"shot_type\":\"远景\",\"camera\":\"缓慢推进\",\"dialogue\":\"你好\"},"},{"type":"text","text":"{\"title\":\"特写\",\"text\":\"人物回头\",\"image_prompt\":\"人物侧脸\",\"video_prompt\":\"人物回头，镜头跟随\"}]}"}]},"finish_reason":"stop"}]}`), nil
 	})}
 	shots, err := GenerateStudioProviderStoryboard(context.Background(), provider, "gpt-text", "黄昏的海边", 2, client)
 	require.NoError(t, err)
 	require.Len(t, shots, 2)
 	assert.Equal(t, "开场", shots[0].Title)
 	assert.Equal(t, "镜头推进", shots[0].VideoPrompt)
+	assert.Equal(t, "远景", shots[0].ShotType)
+	assert.Equal(t, "缓慢推进", shots[0].Camera)
+	assert.Equal(t, "你好", shots[0].Dialogue)
 	assert.Equal(t, 1, calls)
 }
 

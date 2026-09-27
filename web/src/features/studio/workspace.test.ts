@@ -21,6 +21,7 @@ import { describe, expect, test } from 'vitest'
 import {
   addStudioNode,
   applyStudioAssetToAllShots,
+  copyStudioShotReferences,
   addStudioShot,
   addPlannedStudioShots,
   createStudioProject,
@@ -32,16 +33,191 @@ import {
   markStudioDependentWaiting,
   pruneStudioShots,
   pinStudioConnectionTake,
+  pinStudioShotAssetVersion,
   studioUnpinnedDependentTargets,
   recordStudioTake,
   reviseStudioTextOutput,
   removeStudioShot,
   selectStudioTake,
+  setStudioShotAssets,
   updateStudioTake,
   updateStudioNode,
 } from './workspace'
 
 describe('Studio project editing', () => {
+  test('selecting references for one shot updates its nodes and leaves other shots alone', () => {
+    let project = addStudioShot(
+      createStudioProject('Continuity', 'p-continuity'),
+      'first',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'First'
+    )
+    project = addStudioShot(
+      project,
+      'second',
+      { text: 't2', image: 'i2', video: 'v2' },
+      'Second'
+    )
+    project.assets = [
+      { id: 'hero', kind: 'character', title: 'Hero', prompt: 'Red coat' },
+    ]
+
+    const selected = setStudioShotAssets(project, 'first', ['hero'])
+
+    expect(
+      selected.nodes.filter((node) => ['t1', 'i1', 'v1'].includes(node.id))
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          data: expect.objectContaining({ assetIds: ['hero'] }),
+        }),
+        expect.objectContaining({
+          data: expect.objectContaining({ assetIds: ['hero'] }),
+        }),
+        expect.objectContaining({
+          data: expect.objectContaining({ assetIds: ['hero'] }),
+        }),
+      ])
+    )
+    expect(
+      selected.nodes.find((node) => node.id === 't2')?.data.assetIds
+    ).toBeUndefined()
+  })
+
+  test('copying previous shot references carries exact pinned versions to the next shot', () => {
+    let project = addStudioShot(
+      createStudioProject('Continuity', 'p-copy'),
+      'first',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'First'
+    )
+    project = addStudioShot(
+      project,
+      'second',
+      { text: 't2', image: 'i2', video: 'v2' },
+      'Second'
+    )
+    project.assets = [
+      {
+        id: 'hero',
+        kind: 'character',
+        title: 'Hero',
+        prompt: 'Current',
+        versions: [
+          {
+            id: 'hero-v1',
+            createdAt: '2026-09-26T00:00:00Z',
+            prompt: 'Red coat',
+          },
+        ],
+      },
+    ]
+    project = setStudioShotAssets(project, 'first', ['hero'])
+    project = pinStudioShotAssetVersion(project, 'first', 'hero', 'hero-v1')
+
+    const copied = copyStudioShotReferences(project, 'first', 'second')
+
+    for (const nodeId of ['t2', 'i2', 'v2']) {
+      expect(
+        copied.nodes.find((node) => node.id === nodeId)?.data
+      ).toMatchObject({
+        assetIds: ['hero'],
+        assetVersionIds: { hero: 'hero-v1' },
+      })
+    }
+  })
+
+  test('removing a reference also removes its pinned version', () => {
+    let project = addStudioShot(
+      createStudioProject('Continuity', 'p-remove'),
+      'first',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'First'
+    )
+    project.assets = [
+      {
+        id: 'hero',
+        kind: 'character',
+        title: 'Hero',
+        prompt: 'Current',
+        versions: [
+          {
+            id: 'hero-v1',
+            createdAt: '2026-09-26T00:00:00Z',
+            prompt: 'Red coat',
+          },
+        ],
+      },
+    ]
+    project = setStudioShotAssets(project, 'first', ['hero'])
+    project = pinStudioShotAssetVersion(project, 'first', 'hero', 'hero-v1')
+
+    const removed = setStudioShotAssets(project, 'first', [])
+
+    expect(
+      removed.nodes.find((node) => node.id === 't1')?.data.assetIds
+    ).toEqual([])
+    expect(
+      removed.nodes.find((node) => node.id === 't1')?.data.assetVersionIds
+    ).toBeUndefined()
+  })
+
+  test('choosing another take clears the shot approval for a fresh review', () => {
+    let project = addStudioShot(
+      createStudioProject('Review', 'p-review-take'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project = updateStudioNode(project, 'v1', {
+      selectedTakeId: 'old',
+      takes: [
+        {
+          id: 'old',
+          createdAt: '2026-09-26T00:00:00Z',
+          prompt: 'Old',
+          status: 'completed',
+        },
+        {
+          id: 'new',
+          createdAt: '2026-09-26T01:00:00Z',
+          prompt: 'New',
+          status: 'completed',
+        },
+      ],
+    })
+    project.shots = project.shots?.map((shot) => ({
+      ...shot,
+      reviewStatus: 'approved',
+      reviewNote: 'Prior performance',
+    }))
+
+    const selected = selectStudioTake(project, 'v1', 'new')
+
+    expect(selected.shots?.[0].reviewStatus).toBe('unreviewed')
+    expect(selected.shots?.[0].reviewNote).toBe('Prior performance')
+  })
+
+  test('changing shot references clears approval before the next review', () => {
+    let project = addStudioShot(
+      createStudioProject('Review', 'p-review-ref'),
+      'shot-1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project.assets = [
+      { id: 'hero', kind: 'character', title: 'Hero', prompt: 'Red coat' },
+    ]
+    project.shots = project.shots?.map((shot) => ({
+      ...shot,
+      reviewStatus: 'approved',
+    }))
+
+    const changed = setStudioShotAssets(project, 'shot-1', ['hero'])
+
+    expect(changed.shots?.[0].reviewStatus).toBe('unreviewed')
+  })
+
   test('confirmed storyboard drafts become connected shots with reusable text outputs', () => {
     const project = addPlannedStudioShots(
       createStudioProject('Script', 'p-script'),
@@ -55,6 +231,9 @@ describe('Studio project editing', () => {
             text: 'Woman enters the station',
             imagePrompt: 'Still station wide shot',
             videoPrompt: 'Camera follows her',
+            shotType: 'wide',
+            camera: 'tracking',
+            dialogue: 'Welcome back',
           },
         },
       ],
@@ -63,6 +242,11 @@ describe('Studio project editing', () => {
     )
     const text = project.nodes.find((node) => node.id === 'text')
     expect(project.shots?.[0].title).toBe('Station')
+    expect(project.shots?.[0]).toMatchObject({
+      shotType: 'wide',
+      camera: 'tracking',
+      dialogue: 'Welcome back',
+    })
     expect(project.edges).toHaveLength(3)
     expect(text?.data).toMatchObject({
       model: 'writer-model',

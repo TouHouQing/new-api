@@ -20,7 +20,28 @@ export type StudioContinuityPromptInput = {
   prompt: string
   assets?: readonly StudioAsset[]
   assetIds?: readonly string[]
+  assetVersionIds?: Readonly<Record<string, string>>
   previousShotNote?: string
+}
+
+export function resolveStudioAssetReference(
+  asset: StudioAsset,
+  versionId?: string
+): { prompt: string; mediaId?: string; outputUrl?: string } {
+  if (!versionId) {
+    return {
+      prompt: asset.prompt,
+      mediaId: asset.mediaId,
+      outputUrl: asset.outputUrl,
+    }
+  }
+  const version = asset.versions?.find((item) => item.id === versionId)
+  if (!version) throw new Error('Pinned Studio asset version is unavailable')
+  return {
+    prompt: version.prompt,
+    mediaId: version.mediaId,
+    outputUrl: version.outputUrl,
+  }
 }
 
 /** Adds selected project descriptions without rewriting the shot's own prompt. */
@@ -35,7 +56,11 @@ export function compileStudioContinuityPrompt(
   for (const asset of input.assets || []) {
     if (!selectedIds.has(asset.id) || seenIds.has(asset.id)) continue
     seenIds.add(asset.id)
-    const description = asset.prompt.trim()
+    const reference = resolveStudioAssetReference(
+      asset,
+      input.assetVersionIds?.[asset.id]
+    )
+    const description = reference.prompt.trim()
     const context = `${asset.kind}: ${asset.title.trim()}${description ? ` — ${description}` : ''}`
     const descriptionAlreadyWritten =
       description &&

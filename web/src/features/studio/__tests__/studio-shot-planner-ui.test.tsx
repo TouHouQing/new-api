@@ -58,6 +58,60 @@ test('manual brief stays as a reviewed draft until the user creates shots', () =
   )
 })
 
+test('manual planning lets a creator refine shot type camera and dialogue before creation', () => {
+  const onConfirm = vi.fn()
+  render(
+    <StudioShotPlanner
+      scopeKey='owner:structured'
+      models={[]}
+      onPlan={vi.fn()}
+      onConfirm={onConfirm}
+    />
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'studio.planner.title' }))
+  fireEvent.change(screen.getByLabelText('studio.planner.brief'), {
+    target: { value: 'A woman arrives' },
+  })
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.planner.preview' })
+  )
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'studio.shot.shotType' }),
+    {
+      target: { value: 'Closeup' },
+    }
+  )
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'studio.shot.camera' }),
+    {
+      target: { value: 'Handheld' },
+    }
+  )
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'studio.shot.dialogue' }),
+    {
+      target: { value: 'I am here.' },
+    }
+  )
+  fireEvent.click(screen.getByRole('button', { name: 'studio.planner.create' }))
+
+  expect(onConfirm).toHaveBeenCalledWith(
+    [
+      {
+        title: 'Shot 1',
+        text: 'A woman arrives',
+        imagePrompt: 'A woman arrives',
+        videoPrompt: 'A woman arrives',
+        shotType: 'Closeup',
+        camera: 'Handheld',
+        dialogue: 'I am here.',
+      },
+    ],
+    'A woman arrives',
+    undefined
+  )
+})
+
 test('a quick-start template fills an editable brief without creating shots', () => {
   const onConfirm = vi.fn()
   render(

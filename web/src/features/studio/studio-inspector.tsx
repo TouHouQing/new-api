@@ -56,6 +56,7 @@ import {
 } from './studio-cost'
 import { StudioTextResultEditor } from './studio-text-result-editor'
 import { StudioVideoModelPicker } from './studio-video-model-picker'
+import type { StudioVideoTemplate } from './studio-video-templates'
 
 type Props = {
   node: StudioCanvasNode
@@ -68,6 +69,8 @@ type Props = {
   previewUrl?: string
   onChange: (patch: Partial<StudioCanvasNodeData>) => void
   onGenerate: () => void
+  videoTemplates?: StudioVideoTemplate[]
+  onApplyVideoTemplate?: (template: StudioVideoTemplate) => void
   onUploadImage?: (file: File) => void
   onDelete: () => void
   onRetryMedia?: () => void
@@ -110,6 +113,11 @@ export function StudioInspector(props: Props) {
     setPayloadDraft(props.node.data.payloadPatchJson || '')
   }, [props.node.id, props.node.data.payloadPatchJson])
   const isVideo = props.node.data.kind === 'video'
+  const matchingTemplates = (props.videoTemplates || []).filter(
+    (template) =>
+      template.model === props.node.data.model &&
+      template.group === props.videoGroup
+  )
   const choices = props.models
   const selectedTake = props.node.data.takes?.find(
     (take) => take.id === props.node.data.selectedTakeId
@@ -267,6 +275,46 @@ export function StudioInspector(props: Props) {
             onChange={(event) => props.onChange({ title: event.target.value })}
           />
         </Field>
+        {isVideo &&
+          !props.node.data.pendingRequestId &&
+          matchingTemplates.length > 0 && (
+            <Field>
+              <FieldLabel>{t('studio.video.templateTitle')}</FieldLabel>
+              <Select
+                value={null}
+                onValueChange={(value) => {
+                  const template = matchingTemplates[Number(value)]
+                  if (template) props.onApplyVideoTemplate?.(template)
+                }}
+                items={matchingTemplates.map((template, index) => ({
+                  value: String(index),
+                  label: `${template.savedAt.slice(0, 16).replace('T', ' ')} · ${t('studio.video.templateChannel', { channel: template.channelId || '—' })}`,
+                }))}
+              >
+                <SelectTrigger aria-label={t('studio.video.templateTitle')}>
+                  <SelectValue placeholder={t('studio.video.templateSelect')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {matchingTemplates.map((template, index) => (
+                      <SelectItem
+                        key={`${template.savedAt}:${template.channelId || 0}`}
+                        value={String(index)}
+                      >
+                        {template.savedAt.slice(0, 16).replace('T', ' ')} ·{' '}
+                        {t('studio.video.templateChannel', {
+                          channel: template.channelId || '—',
+                        })}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <p className='text-muted-foreground text-xs'>
+                {t('studio.video.templateHint')}
+              </p>
+            </Field>
+          )}
         {props.connections?.map((connection) => (
           <Field key={connection.edgeId}>
             <FieldLabel>

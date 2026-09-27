@@ -26,7 +26,7 @@ export async function safeStudioVideoRequestSnapshot(
       role?: string | null
       mediaId?: string
     }>
-    assets?: Array<{ id: string; mediaId?: string }>
+    assets?: Array<{ id: string; versionId?: string; mediaId?: string }>
   }
 ): Promise<string> {
   const metadata = request.metadata || {}

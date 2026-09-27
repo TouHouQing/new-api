@@ -38,6 +38,12 @@ export type StudioTimelineShot = Pick<
   'id' | 'title' | 'trimStart' | 'trimEnd' | 'transition' | 'transitionSeconds'
 > & {
   plannedDurationSeconds?: number
+  shotVoiceoverUrl?: string
+  shotVoiceoverVolume?: number
+  shotVoiceoverOffsetSeconds?: number
+  shotCaptionText?: string
+  shotCaptionOffsetSeconds?: number
+  shotCaptionDurationSeconds?: number
   status?:
     | 'idle'
     | 'submitting'
@@ -82,6 +88,21 @@ type Props = {
     patch: Pick<
       StudioShot,
       'trimStart' | 'trimEnd' | 'transition' | 'transitionSeconds'
+    >
+  ) => void
+  onUploadShotVoiceover?: (shotId: string, file: File) => void
+  onRemoveShotVoiceover?: (shotId: string) => void
+  onUpdateShotAudioCaption?: (
+    shotId: string,
+    patch: Partial<
+      Pick<
+        StudioShot,
+        | 'shotVoiceoverVolume'
+        | 'shotVoiceoverOffsetSeconds'
+        | 'shotCaptionText'
+        | 'shotCaptionOffsetSeconds'
+        | 'shotCaptionDurationSeconds'
+      >
     >
   ) => void
 }
@@ -164,6 +185,16 @@ export function StudioAssemblyPanel(props: Props) {
                             <span className='w-full truncate text-left'>
                               {shot.title}
                             </span>
+                            {shot.shotVoiceoverUrl && (
+                              <span className='text-muted-foreground text-xs'>
+                                {t('studio.timeline.shotVoiceover')}
+                              </span>
+                            )}
+                            {shot.shotCaptionText?.trim() && (
+                              <span className='text-muted-foreground text-xs'>
+                                {t('studio.timeline.shotCaption')}
+                              </span>
+                            )}
                             {estimatedDuration !== undefined && (
                               <span className='text-muted-foreground text-xs'>
                                 {t('studio.timeline.estimatedDuration', {
@@ -421,6 +452,191 @@ export function StudioAssemblyPanel(props: Props) {
                       />
                     </Field>
                   )}
+              </div>
+            )}
+            {selectedShot && (
+              <div className='flex flex-col gap-3 border-t pt-3'>
+                <p className='text-sm font-medium'>{selectedShot.title}</p>
+                <Field>
+                  <FieldLabel htmlFor='studio-shot-voiceover'>
+                    {t('studio.timeline.shotVoiceover')}
+                  </FieldLabel>
+                  <Input
+                    id='studio-shot-voiceover'
+                    type='file'
+                    accept='audio/*'
+                    aria-label={`${selectedShot.title} ${t('studio.timeline.shotVoiceover')}`}
+                    disabled={props.busy}
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (file) {
+                        props.onUploadShotVoiceover?.(selectedShot.id, file)
+                      }
+                      event.target.value = ''
+                    }}
+                  />
+                </Field>
+                {selectedShot.shotVoiceoverUrl && (
+                  <div className='flex flex-col gap-2'>
+                    <audio
+                      aria-label={`${selectedShot.title} ${t('studio.timeline.shotVoiceover')} ${t('studio.assembly.preview')}`}
+                      src={selectedShot.shotVoiceoverUrl}
+                      controls
+                      className='w-full'
+                    />
+                    <div className='flex flex-wrap items-end gap-3'>
+                      <Field className='w-auto'>
+                        <FieldLabel htmlFor='studio-shot-voiceover-volume'>
+                          {t('studio.timeline.shotVoiceoverVolume')}
+                        </FieldLabel>
+                        <Input
+                          id='studio-shot-voiceover-volume'
+                          type='number'
+                          min={0}
+                          max={1}
+                          step={0.1}
+                          className='w-24'
+                          aria-label={`${selectedShot.title} ${t('studio.timeline.shotVoiceoverVolume')}`}
+                          disabled={props.busy}
+                          value={selectedShot.shotVoiceoverVolume ?? 1}
+                          onChange={(event) => {
+                            const value = Number(event.target.value)
+                            if (
+                              Number.isFinite(value) &&
+                              value >= 0 &&
+                              value <= 1
+                            ) {
+                              props.onUpdateShotAudioCaption?.(
+                                selectedShot.id,
+                                {
+                                  shotVoiceoverVolume: value,
+                                }
+                              )
+                            }
+                          }}
+                        />
+                      </Field>
+                      <Field className='w-auto'>
+                        <FieldLabel htmlFor='studio-shot-voiceover-offset'>
+                          {t('studio.timeline.startOffset')}
+                        </FieldLabel>
+                        <Input
+                          id='studio-shot-voiceover-offset'
+                          type='number'
+                          min={0}
+                          max={3600}
+                          step={0.1}
+                          className='w-24'
+                          aria-label={`${selectedShot.title} ${t('studio.timeline.shotVoiceover')} ${t('studio.timeline.startOffset')}`}
+                          disabled={props.busy}
+                          value={selectedShot.shotVoiceoverOffsetSeconds ?? 0}
+                          onChange={(event) => {
+                            const value = Number(event.target.value)
+                            if (
+                              Number.isFinite(value) &&
+                              value >= 0 &&
+                              value <= 3600
+                            ) {
+                              props.onUpdateShotAudioCaption?.(
+                                selectedShot.id,
+                                {
+                                  shotVoiceoverOffsetSeconds: value,
+                                }
+                              )
+                            }
+                          }}
+                        />
+                      </Field>
+                      <Button
+                        size='xs'
+                        variant='outline'
+                        disabled={props.busy}
+                        aria-label={`${selectedShot.title} ${t('studio.timeline.removeShotVoiceover')}`}
+                        onClick={() =>
+                          props.onRemoveShotVoiceover?.(selectedShot.id)
+                        }
+                      >
+                        {t('studio.timeline.removeShotVoiceover')}
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <Field>
+                  <FieldLabel htmlFor='studio-shot-caption'>
+                    {t('studio.timeline.shotCaption')}
+                  </FieldLabel>
+                  <Textarea
+                    id='studio-shot-caption'
+                    aria-label={`${selectedShot.title} ${t('studio.timeline.shotCaption')}`}
+                    value={selectedShot.shotCaptionText ?? ''}
+                    maxLength={100_000}
+                    rows={2}
+                    disabled={props.busy}
+                    onChange={(event) =>
+                      props.onUpdateShotAudioCaption?.(selectedShot.id, {
+                        shotCaptionText: event.target.value,
+                      })
+                    }
+                  />
+                </Field>
+                <div className='flex flex-wrap gap-3'>
+                  <Field className='w-auto'>
+                    <FieldLabel htmlFor='studio-shot-caption-offset'>
+                      {t('studio.timeline.startOffset')}
+                    </FieldLabel>
+                    <Input
+                      id='studio-shot-caption-offset'
+                      type='number'
+                      min={0}
+                      max={3600}
+                      step={0.1}
+                      className='w-24'
+                      aria-label={`${selectedShot.title} ${t('studio.timeline.shotCaption')} ${t('studio.timeline.startOffset')}`}
+                      disabled={props.busy}
+                      value={selectedShot.shotCaptionOffsetSeconds ?? 0}
+                      onChange={(event) => {
+                        const value = Number(event.target.value)
+                        if (
+                          Number.isFinite(value) &&
+                          value >= 0 &&
+                          value <= 3600
+                        ) {
+                          props.onUpdateShotAudioCaption?.(selectedShot.id, {
+                            shotCaptionOffsetSeconds: value,
+                          })
+                        }
+                      }}
+                    />
+                  </Field>
+                  <Field className='w-auto'>
+                    <FieldLabel htmlFor='studio-shot-caption-duration'>
+                      {t('studio.timeline.shotCaptionDuration')}
+                    </FieldLabel>
+                    <Input
+                      id='studio-shot-caption-duration'
+                      type='number'
+                      min={0.1}
+                      max={3600}
+                      step={0.1}
+                      className='w-24'
+                      aria-label={`${selectedShot.title} ${t('studio.timeline.shotCaptionDuration')}`}
+                      disabled={props.busy}
+                      value={selectedShot.shotCaptionDurationSeconds ?? ''}
+                      onChange={(event) => {
+                        const value = Number(event.target.value)
+                        if (
+                          event.target.value === '' ||
+                          (Number.isFinite(value) && value > 0 && value <= 3600)
+                        ) {
+                          props.onUpdateShotAudioCaption?.(selectedShot.id, {
+                            shotCaptionDurationSeconds:
+                              event.target.value === '' ? undefined : value,
+                          })
+                        }
+                      }}
+                    />
+                  </Field>
+                </div>
               </div>
             )}
           </div>

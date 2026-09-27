@@ -238,6 +238,119 @@ test('selecting a timeline shot edits that shot trim and transition through call
   })
 })
 
+test('selected shot edits its own voiceover and caption lanes', () => {
+  const onUploadShotVoiceover = vi.fn()
+  const onRemoveShotVoiceover = vi.fn()
+  const onUpdateShotAudioCaption = vi.fn()
+  render(
+    <StudioAssemblyPanel
+      busy={false}
+      progress={0}
+      timelineShots={[
+        { id: 'shot-1', title: 'Opening' },
+        {
+          id: 'shot-2',
+          title: 'Ending',
+          shotVoiceoverUrl: 'blob:ending',
+          shotVoiceoverVolume: 0.6,
+          shotVoiceoverOffsetSeconds: 1,
+          shotCaptionText: 'Goodbye',
+          shotCaptionOffsetSeconds: 0.5,
+          shotCaptionDurationSeconds: 2,
+        },
+      ]}
+      onUploadShotVoiceover={onUploadShotVoiceover}
+      onRemoveShotVoiceover={onRemoveShotVoiceover}
+      onUpdateShotAudioCaption={onUpdateShotAudioCaption}
+      onAssemble={vi.fn()}
+      onCancel={vi.fn()}
+      onDownload={vi.fn()}
+    />
+  )
+
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.timeline.selectShot: Ending' })
+  )
+  const file = new File(['narration'], 'ending.mp3', { type: 'audio/mpeg' })
+  fireEvent.change(
+    screen.getByLabelText('Ending studio.timeline.shotVoiceover'),
+    { target: { files: [file] } }
+  )
+  expect(onUploadShotVoiceover).toHaveBeenCalledWith('shot-2', file)
+  expect(
+    screen.getByLabelText(
+      'Ending studio.timeline.shotVoiceover studio.assembly.preview'
+    )
+  ).toHaveAttribute('src', 'blob:ending')
+  fireEvent.change(
+    screen.getByRole('spinbutton', {
+      name: 'Ending studio.timeline.shotVoiceoverVolume',
+    }),
+    { target: { value: '0.4' } }
+  )
+  expect(onUpdateShotAudioCaption).toHaveBeenCalledWith('shot-2', {
+    shotVoiceoverVolume: 0.4,
+  })
+  fireEvent.change(
+    screen.getByRole('spinbutton', {
+      name: 'Ending studio.timeline.shotVoiceover studio.timeline.startOffset',
+    }),
+    { target: { value: '1.5' } }
+  )
+  expect(onUpdateShotAudioCaption).toHaveBeenCalledWith('shot-2', {
+    shotVoiceoverOffsetSeconds: 1.5,
+  })
+  fireEvent.change(
+    screen.getByRole('textbox', { name: 'Ending studio.timeline.shotCaption' }),
+    { target: { value: 'The end' } }
+  )
+  expect(onUpdateShotAudioCaption).toHaveBeenCalledWith('shot-2', {
+    shotCaptionText: 'The end',
+  })
+  fireEvent.change(
+    screen.getByRole('spinbutton', {
+      name: 'Ending studio.timeline.shotCaptionDuration',
+    }),
+    { target: { value: '3' } }
+  )
+  expect(onUpdateShotAudioCaption).toHaveBeenCalledWith('shot-2', {
+    shotCaptionDurationSeconds: 3,
+  })
+  fireEvent.click(
+    screen.getByRole('button', {
+      name: 'Ending studio.timeline.removeShotVoiceover',
+    })
+  )
+  expect(onRemoveShotVoiceover).toHaveBeenCalledWith('shot-2')
+})
+
+test('timeline overview marks the shot that has local audio and captions', () => {
+  render(
+    <StudioAssemblyPanel
+      busy={false}
+      progress={0}
+      timelineShots={[
+        { id: 'shot-1', title: 'Opening' },
+        {
+          id: 'shot-2',
+          title: 'Ending',
+          shotVoiceoverUrl: 'blob:ending',
+          shotCaptionText: 'Goodbye',
+        },
+      ]}
+      onAssemble={vi.fn()}
+      onCancel={vi.fn()}
+      onDownload={vi.fn()}
+    />
+  )
+
+  const ending = screen.getByRole('button', {
+    name: 'studio.timeline.selectShot: Ending',
+  })
+  expect(ending).toHaveTextContent('studio.timeline.shotVoiceover')
+  expect(ending).toHaveTextContent('studio.timeline.shotCaption')
+})
+
 test('timeline reports invalid trim range and prevents invalid export', () => {
   render(
     <StudioAssemblyPanel

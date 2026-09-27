@@ -42,6 +42,7 @@ type Props = {
   onUpload: (assetId: string, file: File) => void
   onDelete: (assetId: string) => void
   onApplyToShots?: (assetId: string) => void
+  onCreateVersion?: (assetId: string) => void
 }
 
 export function StudioAssetLibrary(props: Props) {
@@ -151,6 +152,51 @@ export function StudioAssetLibrary(props: Props) {
                   event.target.value = ''
                 }}
               />
+              {props.onCreateVersion && (
+                <Button
+                  size='xs'
+                  variant='outline'
+                  aria-label={`${asset.title} ${t('studio.asset.lockVersion')}`}
+                  onClick={() => props.onCreateVersion?.(asset.id)}
+                >
+                  {t('studio.asset.lockVersion')}
+                </Button>
+              )}
+              {Boolean(asset.versions?.length) && (
+                <div className='flex flex-col gap-2 rounded-md border p-2'>
+                  <p className='text-muted-foreground text-xs'>
+                    {t('studio.asset.version')}
+                  </p>
+                  {asset.versions?.map((version, index) => {
+                    const versionPreview =
+                      props.previews[
+                        `${props.projectId}:asset:${asset.id}:version:${version.id}`
+                      ] || version.outputUrl
+                    return (
+                      <div
+                        key={version.id}
+                        className='flex items-start gap-2 text-xs'
+                      >
+                        {versionPreview && (
+                          <img
+                            src={versionPreview}
+                            alt={`${asset.title} ${t('studio.asset.version')} ${index + 1}`}
+                            className='size-12 rounded object-cover'
+                          />
+                        )}
+                        <div className='min-w-0'>
+                          <p className='font-medium'>
+                            {t('studio.asset.version')} {index + 1}
+                          </p>
+                          <p className='text-muted-foreground break-words'>
+                            {version.prompt}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
               <Button
                 size='xs'
                 variant='outline'

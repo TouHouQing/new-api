@@ -60,6 +60,20 @@ export type StudioMp4Options = {
   /** SRT or WebVTT text timed against the final assembled video. */
   captions?: string
   captionOffsetSeconds?: number
+  /** Each clipIndex points to an entry in the ordered inputs array. */
+  shotVoiceovers?: {
+    clipIndex: number
+    blob: Blob
+    volume?: number
+    offsetSeconds?: number
+  }[]
+  /** Plain text captions positioned relative to the start of a trimmed shot. */
+  shotCaptions?: {
+    clipIndex: number
+    text: string
+    offsetSeconds?: number
+    durationSeconds?: number
+  }[]
 }
 
 export type StudioMp4Preflight = {
@@ -95,10 +109,22 @@ type VideoCanvas = {
 }
 
 type ExternalAudioTrack = {
-  label: 'soundtrack' | 'voiceover'
+  label: string
   blob: Blob
   volume: number
   offsetSeconds: number
+  endSeconds?: number
+}
+
+/** Shot positions on the exported timeline, after source trims are applied. */
+function shotStartTimes(clips: ProbedClip[]): number[] {
+  const starts: number[] = []
+  let elapsed = 0
+  for (const clip of clips) {
+    starts.push(elapsed)
+    elapsed += clip.duration
+  }
+  return starts
 }
 
 function ensureNotAborted(signal?: AbortSignal): void {
@@ -270,7 +296,11 @@ async function inspectStudioVideos(
   }
   const totalBytes = inputs.reduce(
     (sum, item) => sum + ('blob' in item ? item.blob.size : item.size),
-    externalAudio.reduce((sum, track) => sum + track.blob.size, 0)
+    externalAudio.reduce((sum, track) => sum + track.blob.size, 0) +
+      (options?.shotVoiceovers ?? []).reduce(
+        (sum, shot) => sum + shot.blob.size,
+        0
+      )
   )
   if (!Number.isSafeInteger(totalBytes) || totalBytes > MAX_INPUT_BYTES) {
     throw new Error('MP4 input exceeds the 512 MiB browser export limit')
@@ -292,6 +322,56 @@ async function inspectStudioVideos(
       throw new Error('MP4 duration exceeds the one-hour browser export limit')
     }
   }
+
+  const shotStarts = shotStartTimes(clips)
+  for (const [index, shot] of (options?.shotVoiceovers ?? []).entries()) {
+    const label = `shot voiceover ${index + 1}`
+    const clip = clips[shot.clipIndex]
+    if (!Number.isInteger(shot.clipIndex) || !clip) {
+      throw new Error(`${label} has an invalid clip index`)
+    }
+    const offset = shot.offsetSeconds ?? 0
+    if (!Number.isFinite(offset) || offset < 0 || offset >= clip.duration) {
+      throw new Error(`${label} has an invalid offset`)
+    }
+    const volume = shot.volume ?? 1
+    if (!Number.isFinite(volume) || volume < 0 || volume > 1) {
+      throw new Error(`${label} has an invalid volume`)
+    }
+    externalAudio.push({
+      label,
+      blob: shot.blob,
+      volume,
+      offsetSeconds: shotStarts[shot.clipIndex] + offset,
+      endSeconds: shotStarts[shot.clipIndex] + clip.duration,
+    })
+  }
+  for (const [index, shot] of (options?.shotCaptions ?? []).entries()) {
+    const label = `shot caption ${index + 1}`
+    const clip = clips[shot.clipIndex]
+    if (!Number.isInteger(shot.clipIndex) || !clip) {
+      throw new Error(`${label} has an invalid clip index`)
+    }
+    const offset = shot.offsetSeconds ?? 0
+    if (!Number.isFinite(offset) || offset < 0 || offset >= clip.duration) {
+      throw new Error(`${label} has an invalid offset`)
+    }
+    const duration = shot.durationSeconds ?? clip.duration - offset
+    if (
+      !Number.isFinite(duration) ||
+      duration <= 0 ||
+      duration > clip.duration - offset
+    ) {
+      throw new Error(`${label} has an invalid duration`)
+    }
+    const text = shot.text.trim()
+    if (!text || text.length > 100_000) {
+      throw new Error(`${label} has invalid text`)
+    }
+    const start = shotStarts[shot.clipIndex] + offset
+    captions.push({ start, end: start + duration, text })
+  }
+  captions.sort((left, right) => left.start - right.start)
 
   for (const external of externalAudio) {
     const input = openClip(external.blob)
@@ -480,13 +560,15 @@ function mixDecodedAudio(
   sourceStartSample: number,
   targetStartSample: number,
   volume: number,
-  clip?: ProbedClip
+  clip?: ProbedClip,
+  endSample?: number
 ): void {
   const rate = 48_000
   const start = Math.max(targetStartSample, sourceStartSample)
   const end = Math.min(
     targetStartSample + target.length,
-    sourceStartSample + Math.ceil(source.duration * rate)
+    sourceStartSample + Math.ceil(source.duration * rate),
+    endSample ?? Number.POSITIVE_INFINITY
   )
   if (volume === 0 || end <= start) return
 
@@ -537,6 +619,7 @@ async function writeAudio(
     start: number
     volume: number
     offsetSamples: number
+    endSample?: number
   }[] = []
   let emittedSamples = 0
   try {
@@ -557,6 +640,10 @@ async function writeAudio(
           start,
           volume: external.volume,
           offsetSamples: Math.round(external.offsetSeconds * rate),
+          endSample:
+            external.endSeconds === undefined
+              ? undefined
+              : Math.round(external.endSeconds * rate),
         })
       } catch (error) {
         await buffers?.return()
@@ -600,7 +687,9 @@ async function writeAudio(
                 reader.buffer.buffer,
                 start,
                 emittedSamples,
-                reader.volume
+                reader.volume,
+                undefined,
+                reader.endSample
               )
             }
             if (end > chunkEnd) break

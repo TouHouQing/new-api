@@ -32,6 +32,9 @@ export type StudioShotDraft = {
   text: string
   imagePrompt: string
   videoPrompt: string
+  shotType?: string
+  camera?: string
+  dialogue?: string
 }
 export type StudioProviderConfig = {
   kind: StudioProviderKind
@@ -400,7 +403,13 @@ export function parseStudioStoryboardResponse(
       item.image_prompt.length > 30000 ||
       typeof item.video_prompt !== 'string' ||
       !item.video_prompt.trim() ||
-      item.video_prompt.length > 30000
+      item.video_prompt.length > 30000 ||
+      (item.shot_type !== undefined &&
+        (typeof item.shot_type !== 'string' || item.shot_type.length > 200)) ||
+      (item.camera !== undefined &&
+        (typeof item.camera !== 'string' || item.camera.length > 2000)) ||
+      (item.dialogue !== undefined &&
+        (typeof item.dialogue !== 'string' || item.dialogue.length > 30000))
     ) {
       throw new Error('Studio storyboard shot is invalid')
     }
@@ -409,6 +418,15 @@ export function parseStudioStoryboardResponse(
       text: item.text.trim(),
       imagePrompt: item.image_prompt.trim(),
       videoPrompt: item.video_prompt.trim(),
+      ...(typeof item.shot_type === 'string' && item.shot_type.trim()
+        ? { shotType: item.shot_type.trim() }
+        : {}),
+      ...(typeof item.camera === 'string' && item.camera.trim()
+        ? { camera: item.camera.trim() }
+        : {}),
+      ...(typeof item.dialogue === 'string' && item.dialogue.trim()
+        ? { dialogue: item.dialogue.trim() }
+        : {}),
     }
   })
 }

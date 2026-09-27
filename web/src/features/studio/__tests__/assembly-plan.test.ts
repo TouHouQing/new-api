@@ -164,6 +164,27 @@ describe('Studio MP4 assembly planning', () => {
     ).toBeUndefined()
   })
 
+  test('editing a shot voiceover or caption invalidates the assembled MP4', () => {
+    const project = addStudioShot(
+      createStudioProject('Dialogue', 'p-dialogue'),
+      's1',
+      { text: 't1', image: 'i1', video: 'v1' },
+      'Opening'
+    )
+    project.assembledMediaId = 'assembled'
+    const changed = {
+      ...project,
+      shots: project.shots?.map((shot) => ({
+        ...shot,
+        shotVoiceoverMediaId: 'voice-1',
+        shotCaptionText: 'Hello',
+      })),
+    }
+    expect(
+      reconcileStudioAssembly(project, changed).assembledMediaId
+    ).toBeUndefined()
+  })
+
   test('propagates optional shot trims and invalidates an export when a trim changes', () => {
     let project = addStudioShot(
       createStudioProject('Drama', 'p1'),

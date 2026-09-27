@@ -32,10 +32,12 @@ import type {
 import { StudioAssemblyPanel } from './studio-assembly-panel'
 import { StudioShotDefaults } from './studio-shot-defaults'
 import { StudioShotPlanner } from './studio-shot-planner'
+import { StudioShotReviewPanel } from './studio-shot-review-panel'
 
 type Props = {
   project: StudioProject
   previews: Record<string, string>
+  takePreviews?: Record<string, string>
   groups?: StudioGroup[]
   userGroup?: string
   textModels?: string[]
@@ -81,6 +83,22 @@ type Props = {
       | 'transitionSeconds'
     >
   ) => void
+  onUpdateShotReview?: (
+    shotId: string,
+    patch: Pick<StudioShot, 'reviewStatus' | 'reviewNote'>
+  ) => void
+  onUpdateShotDetails?: (
+    shotId: string,
+    patch: Pick<StudioShot, 'shotType' | 'camera' | 'dialogue'>
+  ) => void
+  onSelectTake?: (nodeId: string, takeId: string) => void
+  onSetShotAssets?: (shotId: string, assetIds: string[]) => void
+  onPinShotAssetVersion?: (
+    shotId: string,
+    assetId: string,
+    versionId?: string
+  ) => void
+  onReusePreviousShotReferences?: (shotId: string, sourceShotId: string) => void
   assembly: {
     busy: boolean
     progress: number
@@ -108,6 +126,21 @@ type Props = {
     onUploadSoundtrack?: (file: File) => void
     onRemoveSoundtrack?: () => void
     onSoundtrackVolumeChange?: (volume: number) => void
+    onUploadShotVoiceover?: (shotId: string, file: File) => void
+    onRemoveShotVoiceover?: (shotId: string) => void
+    onUpdateShotAudioCaption?: (
+      shotId: string,
+      patch: Partial<
+        Pick<
+          StudioShot,
+          | 'shotVoiceoverVolume'
+          | 'shotVoiceoverOffsetSeconds'
+          | 'shotCaptionText'
+          | 'shotCaptionOffsetSeconds'
+          | 'shotCaptionDurationSeconds'
+        >
+      >
+    ) => void
   }
 }
 
@@ -455,6 +488,22 @@ export function StudioStoryboard(props: Props) {
                   )}
                 </div>
               </CardContent>
+              <StudioShotReviewPanel
+                projectId={props.project.id}
+                shot={shot}
+                previousShot={shots[index - 1]}
+                videoNode={videoNode}
+                assets={props.project.assets || []}
+                selectedAssetIds={textNode?.data.assetIds || []}
+                pinnedVersionIds={textNode?.data.assetVersionIds || {}}
+                takePreviews={props.takePreviews}
+                onUpdateReview={props.onUpdateShotReview}
+                onUpdateDetails={props.onUpdateShotDetails}
+                onSelectTake={props.onSelectTake}
+                onSetAssets={props.onSetShotAssets}
+                onPinVersion={props.onPinShotAssetVersion}
+                onReusePrevious={props.onReusePreviousShotReferences}
+              />
               <div className='flex flex-wrap items-end gap-3 border-t px-4 pt-3'>
                 <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
                   {t('studio.timeline.trimStart')}
@@ -698,6 +747,15 @@ export function StudioStoryboard(props: Props) {
                 transitionSeconds: shot.transitionSeconds,
                 plannedDurationSeconds: video?.data.seconds,
                 status: video?.data.status,
+                shotVoiceoverUrl:
+                  props.previews[
+                    `${props.project.id}:shot:${shot.id}:voiceover`
+                  ],
+                shotVoiceoverVolume: shot.shotVoiceoverVolume,
+                shotVoiceoverOffsetSeconds: shot.shotVoiceoverOffsetSeconds,
+                shotCaptionText: shot.shotCaptionText,
+                shotCaptionOffsetSeconds: shot.shotCaptionOffsetSeconds,
+                shotCaptionDurationSeconds: shot.shotCaptionDurationSeconds,
               }
             })}
             onSelectTimelineShot={(shotId) => {

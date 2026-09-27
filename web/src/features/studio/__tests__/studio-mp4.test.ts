@@ -749,6 +749,88 @@ test('soundtrack follows the trimmed video timeline across clip boundaries', asy
   expect(media.audio[1][95]).toBeCloseTo(191 / 192)
 })
 
+test('a shot voiceover starts at its trimmed shot boundary plus its local offset', async () => {
+  const voiceover = clip({ audioSamples: new Float32Array(96).fill(0.5) })
+
+  await stitchStudioVideos(
+    [
+      { blob: clip(), trimStart: 0.001, trimEnd: 0.003 },
+      { blob: clip(), trimStart: 0.001, trimEnd: 0.004 },
+    ],
+    undefined,
+    undefined,
+    {
+      shotVoiceovers: [
+        { clipIndex: 1, blob: voiceover, volume: 0.5, offsetSeconds: 0.001 },
+      ],
+    }
+  )
+
+  expect(media.audio).toHaveLength(2)
+  expect(media.audio[0].every((sample) => sample === 0)).toBe(true)
+  expect(media.audio[1][47]).toBe(0)
+  expect(media.audio[1][48]).toBeCloseTo(0.25)
+})
+
+test('a shot voiceover stops at its shot end while global audio continues', async () => {
+  const voiceover = clip({ audioSamples: new Float32Array(384).fill(0.5) })
+  const soundtrack = clip({ audioSamples: new Float32Array(384).fill(0.1) })
+
+  await stitchStudioVideos([clip(), clip()], undefined, undefined, {
+    soundtrack: { blob: soundtrack },
+    shotVoiceovers: [{ clipIndex: 0, blob: voiceover }],
+  })
+
+  expect(media.audio[0][0]).toBeCloseTo(0.6)
+  expect(media.audio[1][0]).toBeCloseTo(0.1)
+})
+
+test('shot captions use trimmed shot starts and remain within their shot', async () => {
+  vi.stubGlobal('OffscreenCanvas', FakeCanvas)
+
+  await stitchStudioVideos(
+    [
+      { blob: clip(), trimStart: 0.001, trimEnd: 0.003 },
+      { blob: clip(), trimStart: 0.001, trimEnd: 0.004 },
+    ],
+    undefined,
+    undefined,
+    {
+      shotCaptions: [
+        { clipIndex: 1, text: 'Second shot', offsetSeconds: 0.001 },
+      ],
+    }
+  )
+
+  expect(media.video.map((frame) => frame.captionText)).toEqual([
+    '',
+    '',
+    '',
+    'Second shot',
+    'Second shot',
+  ])
+})
+
+test('shot lane preflight validates clip positions and local timing', async () => {
+  await expect(
+    preflightStudioVideos([clip()], undefined, {
+      shotVoiceovers: [{ clipIndex: 1, blob: clip() }],
+    })
+  ).rejects.toThrow('shot voiceover 1 has an invalid clip index')
+  await expect(
+    preflightStudioVideos([clip()], undefined, {
+      shotCaptions: [{ clipIndex: 0, text: 'Hello', offsetSeconds: 0.005 }],
+    })
+  ).rejects.toThrow('shot caption 1 has an invalid offset')
+  await expect(
+    preflightStudioVideos([clip()], undefined, {
+      shotCaptions: [
+        { clipIndex: 0, text: 'Hello', durationSeconds: Number.NaN },
+      ],
+    })
+  ).rejects.toThrow('shot caption 1 has an invalid duration')
+})
+
 test('mixed soundtrack and clip audio are clamped to the PCM range', async () => {
   const video = clip({ audioSamples: new Float32Array(192).fill(0.75) })
   const soundtrack = clip({ audioSamples: new Float32Array(192).fill(0.75) })

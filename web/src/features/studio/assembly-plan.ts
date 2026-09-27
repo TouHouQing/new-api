@@ -110,6 +110,12 @@ export function studioAssemblyFingerprint(project: StudioProject): string {
         shot.volume,
         shot.transition,
         shot.transitionSeconds,
+        shot.shotVoiceoverMediaId,
+        shot.shotVoiceoverVolume,
+        shot.shotVoiceoverOffsetSeconds,
+        shot.shotCaptionText,
+        shot.shotCaptionOffsetSeconds,
+        shot.shotCaptionDurationSeconds,
       ]
     }),
   ])

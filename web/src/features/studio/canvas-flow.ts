@@ -35,6 +35,7 @@ export type StudioTake = {
   outputVideoPrompt?: string
   clientRequestId?: string
   requestSnapshot?: string
+  templateSnapshot?: string
   chargedQuota?: number
   channelId?: number
   error?: string
@@ -61,6 +62,7 @@ export type StudioCanvasNodeData = {
   takes?: StudioTake[]
   selectedTakeId?: string
   assetIds?: string[]
+  assetVersionIds?: Record<string, string>
   outputUrl?: string
   mediaId?: string
   taskId?: string

@@ -61,6 +61,7 @@ const nodeDataSchema = z.strictObject({
         outputVideoPrompt: z.string().max(30000).optional(),
         clientRequestId: z.string().uuid().optional(),
         requestSnapshot: z.string().max(16_384).optional(),
+        templateSnapshot: z.string().max(16_384).optional(),
         chargedQuota: z.number().int().min(0).optional(),
         channelId: z.number().int().min(0).optional(),
         error: z.string().max(2000).optional(),
@@ -70,6 +71,9 @@ const nodeDataSchema = z.strictObject({
     .optional(),
   selectedTakeId: z.string().max(128).optional(),
   assetIds: z.array(z.string().max(128)).max(32).optional(),
+  assetVersionIds: z
+    .record(z.string().max(128), z.string().max(128))
+    .optional(),
   outputUrl: z.string().max(4096).optional(),
   mediaId: z.string().max(128).optional(),
   taskId: z.string().max(191).optional(),
@@ -181,6 +185,17 @@ const projectSchema = z.strictObject({
         volume: z.number().min(0).max(1).optional(),
         transition: z.enum(['cut', 'fade']).optional(),
         transitionSeconds: z.number().min(0.1).max(3).optional(),
+        reviewStatus: z.enum(['unreviewed', 'approved', 'retake']).optional(),
+        reviewNote: z.string().max(2000).optional(),
+        shotType: z.string().max(200).optional(),
+        camera: z.string().max(2000).optional(),
+        dialogue: z.string().max(30000).optional(),
+        shotVoiceoverMediaId: z.string().max(128).optional(),
+        shotVoiceoverVolume: z.number().min(0).max(1).optional(),
+        shotVoiceoverOffsetSeconds: z.number().min(0).max(3600).optional(),
+        shotCaptionText: z.string().max(30000).optional(),
+        shotCaptionOffsetSeconds: z.number().min(0).max(3600).optional(),
+        shotCaptionDurationSeconds: z.number().min(0).max(3600).optional(),
       })
     )
     .max(166)
@@ -194,6 +209,18 @@ const projectSchema = z.strictObject({
         prompt: z.string().max(10000),
         mediaId: z.string().max(128).optional(),
         outputUrl: z.string().max(4096).optional(),
+        versions: z
+          .array(
+            z.strictObject({
+              id: z.string().min(1).max(128),
+              createdAt: z.string().max(40),
+              prompt: z.string().max(10000),
+              mediaId: z.string().max(128).optional(),
+              outputUrl: z.string().max(4096).optional(),
+            })
+          )
+          .max(30)
+          .optional(),
       })
     )
     .max(200)
@@ -259,6 +286,25 @@ export type StudioShot = {
   volume?: number
   transition?: 'cut' | 'fade'
   transitionSeconds?: number
+  reviewStatus?: 'unreviewed' | 'approved' | 'retake'
+  reviewNote?: string
+  shotType?: string
+  camera?: string
+  dialogue?: string
+  shotVoiceoverMediaId?: string
+  shotVoiceoverVolume?: number
+  shotVoiceoverOffsetSeconds?: number
+  shotCaptionText?: string
+  shotCaptionOffsetSeconds?: number
+  shotCaptionDurationSeconds?: number
+}
+
+export type StudioAssetVersion = {
+  id: string
+  createdAt: string
+  prompt: string
+  mediaId?: string
+  outputUrl?: string
 }
 
 export type StudioAsset = {
@@ -268,6 +314,7 @@ export type StudioAsset = {
   prompt: string
   mediaId?: string
   outputUrl?: string
+  versions?: StudioAssetVersion[]
 }
 
 function normalizeStudioProject(project: StudioProject): StudioProject {
@@ -327,6 +374,10 @@ export function serializeStudioProjectExport(project: StudioProject): string {
   return JSON.stringify(
     {
       ...portable,
+      shots: safe.shots?.map((shot) => ({
+        ...shot,
+        shotVoiceoverMediaId: undefined,
+      })),
       nodes: safe.nodes.map((node) => {
         const data = { ...node.data }
         delete data.outputUrl
@@ -342,6 +393,11 @@ export function serializeStudioProjectExport(project: StudioProject): string {
         ...asset,
         mediaId: undefined,
         outputUrl: undefined,
+        versions: asset.versions?.map((version) => ({
+          ...version,
+          mediaId: undefined,
+          outputUrl: undefined,
+        })),
       })),
     },
     null,
@@ -375,6 +431,15 @@ export function parseStudioProjectImport(raw: string): StudioProject {
         ...asset,
         mediaId: undefined,
         outputUrl: undefined,
+        versions: asset.versions?.map((version) => ({
+          ...version,
+          mediaId: undefined,
+          outputUrl: undefined,
+        })),
+      })),
+      shots: project.shots?.map((shot) => ({
+        ...shot,
+        shotVoiceoverMediaId: undefined,
       })),
     }
   } catch {

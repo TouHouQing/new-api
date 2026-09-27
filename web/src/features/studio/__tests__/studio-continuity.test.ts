@@ -17,7 +17,10 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { describe, expect, test } from 'vitest'
 
 import type { StudioAsset } from '../local-projects'
-import { compileStudioContinuityPrompt } from '../studio-continuity'
+import {
+  compileStudioContinuityPrompt,
+  resolveStudioAssetReference,
+} from '../studio-continuity'
 
 const assets: StudioAsset[] = [
   { id: 'mira', kind: 'character', title: 'Mira', prompt: 'red silk scarf' },
@@ -26,6 +29,30 @@ const assets: StudioAsset[] = [
 ]
 
 describe('Studio continuity prompt', () => {
+  test('a pinned asset reference resolves immutable prompt and media', () => {
+    const asset: StudioAsset = {
+      id: 'hero',
+      kind: 'character',
+      title: 'Hero',
+      prompt: 'Blue coat',
+      mediaId: 'current',
+      versions: [
+        {
+          id: 'v1',
+          createdAt: '2026-09-26T00:00:00Z',
+          prompt: 'Red coat',
+          mediaId: 'archived',
+          outputUrl: 'https://example.test/archived.png',
+        },
+      ],
+    }
+
+    expect(resolveStudioAssetReference(asset, 'v1')).toEqual({
+      prompt: 'Red coat',
+      mediaId: 'archived',
+      outputUrl: 'https://example.test/archived.png',
+    })
+  })
   test('keeps the manual shot prompt and appends selected assets in project order', () => {
     expect(
       compileStudioContinuityPrompt({
@@ -91,5 +118,62 @@ describe('Studio continuity prompt', () => {
         previousShotNote: '   ',
       })
     ).toBe(prompt)
+  })
+
+  test('pinned asset versions use their saved description across shots', () => {
+    expect(
+      compileStudioContinuityPrompt({
+        prompt: 'The hero turns.',
+        assets: [
+          {
+            id: 'hero',
+            kind: 'character',
+            title: 'Hero',
+            prompt: 'Blue coat',
+            versions: [
+              {
+                id: 'v1',
+                createdAt: '2026-09-26T00:00:00Z',
+                prompt: 'Red coat',
+              },
+            ],
+          },
+        ],
+        assetIds: ['hero'],
+        assetVersionIds: { hero: 'v1' },
+      })
+    ).toBe('The hero turns.\n\ncharacter: Hero — Red coat')
+  })
+
+  test('missing pinned asset versions fail instead of silently using the current description', () => {
+    expect(() =>
+      compileStudioContinuityPrompt({
+        prompt: 'The hero turns.',
+        assets,
+        assetIds: ['mira'],
+        assetVersionIds: { mira: 'deleted-version' },
+      })
+    ).toThrow('Pinned Studio asset version is unavailable')
+  })
+
+  test('an intentionally empty pinned description does not fall through to the editable current draft', () => {
+    expect(
+      compileStudioContinuityPrompt({
+        prompt: 'The hero turns.',
+        assets: [
+          {
+            id: 'hero',
+            kind: 'character',
+            title: 'Hero',
+            prompt: 'Blue coat',
+            versions: [
+              { id: 'v1', createdAt: '2026-09-26T00:00:00Z', prompt: '' },
+            ],
+          },
+        ],
+        assetIds: ['hero'],
+        assetVersionIds: { hero: 'v1' },
+      })
+    ).toBe('The hero turns.\n\ncharacter: Hero')
   })
 })

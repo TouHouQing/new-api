@@ -14,7 +14,7 @@ Affero General Public License for more details.
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-import { render, screen } from '@testing-library/react'
+import { fireEvent, render, screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 
 import { fetchStudioAttempts } from './api'
@@ -41,4 +41,32 @@ test('shows a rejected video submission with its channel and safe error code', a
   expect(screen.getByText('upstream_rejected')).toBeTruthy()
   expect(screen.getByText(/studio\.attempt\.channel 73/)).toBeTruthy()
   expect(screen.queryByText(/sk-private/)).toBeNull()
+})
+
+test('task center opens an active project shot and shows its progress', async () => {
+  vi.mocked(fetchStudioAttempts).mockResolvedValue([])
+  const onOpenTask = vi.fn()
+  render(
+    <StudioAttempts
+      open
+      onOpenChange={vi.fn()}
+      userId={12}
+      localTasks={[
+        {
+          projectId: 'project-1',
+          projectTitle: 'Episode',
+          nodeId: 'video-1',
+          nodeTitle: 'Opening',
+          taskId: 'task-1',
+          model: 'model-alias',
+          status: 'processing',
+          progress: 42,
+        },
+      ]}
+      onOpenTask={onOpenTask}
+    />
+  )
+  fireEvent.click(await screen.findByRole('button', { name: /Opening/ }))
+  expect(screen.getByText(/42%/)).toBeTruthy()
+  expect(onOpenTask).toHaveBeenCalledWith('project-1', 'video-1')
 })
