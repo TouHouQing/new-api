@@ -3990,11 +3990,16 @@ export function Studio() {
               }}
               onAddShot={addShot}
               onSelectNode={setSelectedNodeId}
+              onGenerateNode={(nodeId) => {
+                const node = project.nodes.find((item) => item.id === nodeId)
+                if (node) void generate(node, project)
+              }}
               onGenerateVideo={(nodeId) => {
                 const node = project.nodes.find((item) => item.id === nodeId)
                 if (node) void generate(node, project)
               }}
               onGenerateAll={() => void generateAllShots()}
+              batchTargetCount={batchPlan.targets.length}
               onCreateFinalVideo={createFinalVideo}
               onSetFinalReference={(shotId, selected) => {
                 if (project.finalVideoNodeId) {

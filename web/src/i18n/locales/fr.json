@@ -6896,7 +6896,7 @@
     "studio.shot.editImage": "Modifier l’image",
     "studio.shot.editVideo": "Modifier la vidéo",
     "studio.shot.generateVideo": "Générer la vidéo",
-    "studio.shot.generateAll": "Générer tous les plans",
+    "studio.shot.generateAll": "Générer les plans en attente",
     "studio.shot.finalTitle": "Vidéo finale",
     "studio.shot.finalDescription": "Relie les vidéos des plans dans l’ordre du storyboard. Choisissez à droite un modèle du site compatible avec les références vidéo.",
     "studio.shot.createFinal": "Ajouter la vidéo finale",
@@ -7142,6 +7142,10 @@
     "studio.video.templateChannel": "Canal {{channel}}",
     "studio.video.templateHint": "Ces réglages ont déjà fonctionné. Le routage peut changer ; vérifiez la requête avant envoi.",
     "studio.video.templateSaveFailed": "Impossible d’enregistrer ces réglages dans ce navigateur.",
-    "studio.project.saveFailed": "Impossible d’enregistrer ce projet dans ce navigateur"
+    "studio.project.saveFailed": "Impossible d’enregistrer ce projet dans ce navigateur",
+    "studio.shot.generateText": "Générer le texte",
+    "studio.shot.generateImage": "Générer la première image",
+    "studio.shot.showDetails": "Afficher les détails du plan",
+    "studio.shot.hideDetails": "Masquer les détails du plan"
   }
 }

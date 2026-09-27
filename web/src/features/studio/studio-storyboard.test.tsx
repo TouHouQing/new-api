@@ -172,6 +172,116 @@ test('a storyboard shot selects source nodes and generates through its video nod
   expect(onGenerateAll).toHaveBeenCalledOnce()
 })
 
+test('a shot keeps detailed controls closed while its first frame can generate directly', () => {
+  let project = addStudioShot(
+    createStudioProject('Drama', 'p-guided-shot'),
+    'shot-1',
+    { text: 'text-1', image: 'image-1', video: 'video-1' },
+    'Opening'
+  )
+  project = updateStudioNode(project, 'image-1', {
+    model: 'image-model',
+    prompt: 'Opening frame',
+  })
+  project = updateStudioNode(project, 'text-1', {
+    model: 'text-model',
+    prompt: 'Opening narration',
+  })
+  const onGenerateNode = vi.fn()
+  render(
+    <StudioStoryboard
+      project={project}
+      previews={{}}
+      onSelectNode={vi.fn()}
+      onGenerateNode={onGenerateNode}
+      onGenerateVideo={vi.fn()}
+      onGenerateAll={vi.fn()}
+      onCreateFinalVideo={vi.fn()}
+      onAddShot={vi.fn()}
+      onMoveShot={vi.fn()}
+      onRenameShot={vi.fn()}
+      onDeleteShot={vi.fn()}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
+    />
+  )
+
+  expect(
+    screen.getByLabelText('Opening studio.review.status').textContent
+  ).toBe('studio.review.unreviewed')
+  expect(
+    screen.queryByRole('textbox', { name: 'Opening studio.review.note' })
+  ).toBeNull()
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.shot.generateImage' })
+  )
+  expect(onGenerateNode).toHaveBeenCalledWith('image-1')
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.shot.generateText' })
+  )
+  expect(onGenerateNode).toHaveBeenCalledWith('text-1')
+  const details = screen.getByRole('button', {
+    name: 'studio.shot.showDetails',
+  })
+  expect(details.getAttribute('aria-expanded')).toBe('false')
+  fireEvent.click(details)
+  expect(
+    screen.getByRole('textbox', { name: 'Opening studio.review.note' })
+  ).toBeTruthy()
+  expect(
+    screen
+      .getByRole('button', { name: 'studio.shot.hideDetails' })
+      .getAttribute('aria-expanded')
+  ).toBe('true')
+})
+
+test('a storyboard with no pending shots disables batch generation', () => {
+  let project = addStudioShot(
+    createStudioProject('Finished', 'p-finished'),
+    'shot-1',
+    { text: 'text-1', image: 'image-1', video: 'video-1' },
+    'Opening'
+  )
+  project = updateStudioNode(project, 'video-1', {
+    model: 'video-model',
+    status: 'completed',
+  })
+  render(
+    <StudioStoryboard
+      project={project}
+      previews={{}}
+      batchTargetCount={0}
+      onSelectNode={vi.fn()}
+      onGenerateVideo={vi.fn()}
+      onGenerateAll={vi.fn()}
+      onCreateFinalVideo={vi.fn()}
+      onAddShot={vi.fn()}
+      onMoveShot={vi.fn()}
+      onRenameShot={vi.fn()}
+      onDeleteShot={vi.fn()}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
+    />
+  )
+  expect(
+    (
+      screen.getByRole('button', {
+        name: 'studio.shot.generateAll',
+      }) as HTMLButtonElement
+    ).disabled
+  ).toBe(true)
+})
+
 test('the storyboard exposes known settled video spending', () => {
   let project = addStudioShot(
     createStudioProject('Costs', 'p-costs'),

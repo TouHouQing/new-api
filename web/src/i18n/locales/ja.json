@@ -6896,7 +6896,7 @@
     "studio.shot.editImage": "画像を編集",
     "studio.shot.editVideo": "動画を編集",
     "studio.shot.generateVideo": "動画を生成",
-    "studio.shot.generateAll": "全ショットを生成",
+    "studio.shot.generateAll": "未生成のショットを作成",
     "studio.shot.finalTitle": "完成動画",
     "studio.shot.finalDescription": "ショット動画を絵コンテ順に接続します。右側で動画参照に対応したサイトのモデルを選択してください。",
     "studio.shot.createFinal": "完成動画を追加",
@@ -7142,6 +7142,10 @@
     "studio.video.templateChannel": "チャネル {{channel}}",
     "studio.video.templateHint": "過去に成功した設定です。チャネルの経路は変わるため、送信前にリクエストを確認してください。",
     "studio.video.templateSaveFailed": "成功した設定をこのブラウザーに保存できません。",
-    "studio.project.saveFailed": "このブラウザーにプロジェクトを保存できません。変更は未保存です"
+    "studio.project.saveFailed": "このブラウザーにプロジェクトを保存できません。変更は未保存です",
+    "studio.shot.generateText": "テキストを生成",
+    "studio.shot.generateImage": "開始フレームを生成",
+    "studio.shot.showDetails": "ショットの詳細を表示",
+    "studio.shot.hideDetails": "ショットの詳細を閉じる"
   }
 }

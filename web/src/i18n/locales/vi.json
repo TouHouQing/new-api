@@ -6896,7 +6896,7 @@
     "studio.shot.editImage": "Sửa ảnh",
     "studio.shot.editVideo": "Sửa video",
     "studio.shot.generateVideo": "Tạo video",
-    "studio.shot.generateAll": "Tạo tất cả cảnh",
+    "studio.shot.generateAll": "Tạo các cảnh đang chờ",
     "studio.shot.finalTitle": "Video cuối",
     "studio.shot.finalDescription": "Kết nối video các cảnh theo thứ tự storyboard. Chọn mô hình của trang hỗ trợ video tham chiếu ở bên phải.",
     "studio.shot.createFinal": "Thêm video cuối",
@@ -7142,6 +7142,10 @@
     "studio.video.templateChannel": "Kênh {{channel}}",
     "studio.video.templateHint": "Cấu hình này từng hoạt động. Kênh có thể thay đổi; hãy kiểm tra yêu cầu trước khi gửi.",
     "studio.video.templateSaveFailed": "Không thể lưu cấu hình đã thành công trong trình duyệt này.",
-    "studio.project.saveFailed": "Không thể lưu dự án trong trình duyệt này"
+    "studio.project.saveFailed": "Không thể lưu dự án trong trình duyệt này",
+    "studio.shot.generateText": "Tạo văn bản",
+    "studio.shot.generateImage": "Tạo khung hình đầu",
+    "studio.shot.showDetails": "Hiện chi tiết cảnh quay",
+    "studio.shot.hideDetails": "Ẩn chi tiết cảnh quay"
   }
 }

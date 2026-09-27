@@ -17,9 +17,15 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import { formatQuotaWithCurrency } from '@/lib/currency'
 
@@ -57,11 +63,13 @@ type Props = {
   onUsePreviousFrame?: (shotId: string) => void
   frameBusyShotId?: string | null
   onSelectNode: (nodeId: string) => void
+  onGenerateNode?: (nodeId: string) => void
   onGenerateVideo: (nodeId: string) => void
   onGenerateAll: () => void
   onCreateFinalVideo: () => void
   onSetFinalReference?: (shotId: string, selected: boolean) => void
   batchBusy?: boolean
+  batchTargetCount?: number
   batchLimit?: number
   batchCost?:
     | { status: 'estimated'; estimatedUsd: number }
@@ -147,6 +155,7 @@ type Props = {
 export function StudioStoryboard(props: Props) {
   const { t } = useTranslation()
   const [editingShotId, setEditingShotId] = useState<string | null>(null)
+  const [expandedShotId, setExpandedShotId] = useState<string | null>(null)
   const shots = props.project.shots || []
   const finalVideo = props.project.nodes.find(
     (node) => node.id === props.project.finalVideoNodeId
@@ -194,6 +203,7 @@ export function StudioStoryboard(props: Props) {
             size='sm'
             disabled={
               props.batchBusy ||
+              props.batchTargetCount === 0 ||
               !shots.some((shot) =>
                 props.project.nodes.some(
                   (node) => node.id === shot.videoNodeId && node.data.model
@@ -308,6 +318,12 @@ export function StudioStoryboard(props: Props) {
                       {shot.title}
                     </CardTitle>
                   )}
+                  <Badge
+                    variant='secondary'
+                    aria-label={`${shot.title} ${t('studio.review.status')}`}
+                  >
+                    {t(`studio.review.${shot.reviewStatus || 'unreviewed'}`)}
+                  </Badge>
                 </div>
                 <div className='flex shrink-0 gap-1'>
                   <Button
@@ -364,13 +380,28 @@ export function StudioStoryboard(props: Props) {
                       })}
                     </p>
                   )}
-                  <Button
-                    size='xs'
-                    variant='outline'
-                    onClick={() => props.onSelectNode(shot.textNodeId)}
-                  >
-                    {t('studio.shot.editText')}
-                  </Button>
+                  <div className='flex flex-wrap gap-1'>
+                    <Button
+                      size='xs'
+                      variant='outline'
+                      onClick={() => props.onSelectNode(shot.textNodeId)}
+                    >
+                      {t('studio.shot.editText')}
+                    </Button>
+                    {props.onGenerateNode && textNode?.data.model && (
+                      <Button
+                        size='xs'
+                        disabled={[
+                          'submitting',
+                          'queued',
+                          'processing',
+                        ].includes(textNode.data.status || '')}
+                        onClick={() => props.onGenerateNode?.(shot.textNodeId)}
+                      >
+                        {t('studio.shot.generateText')}
+                      </Button>
+                    )}
+                  </div>
                 </div>
                 <div className='min-w-0 space-y-2 rounded-md border p-3'>
                   <p className='text-muted-foreground text-xs'>
@@ -399,13 +430,28 @@ export function StudioStoryboard(props: Props) {
                       })}
                     </p>
                   )}
-                  <Button
-                    size='xs'
-                    variant='outline'
-                    onClick={() => props.onSelectNode(shot.imageNodeId)}
-                  >
-                    {t('studio.shot.editImage')}
-                  </Button>
+                  <div className='flex flex-wrap gap-1'>
+                    <Button
+                      size='xs'
+                      variant='outline'
+                      onClick={() => props.onSelectNode(shot.imageNodeId)}
+                    >
+                      {t('studio.shot.editImage')}
+                    </Button>
+                    {props.onGenerateNode && imageNode?.data.model && (
+                      <Button
+                        size='xs'
+                        disabled={[
+                          'submitting',
+                          'queued',
+                          'processing',
+                        ].includes(imageNode.data.status || '')}
+                        onClick={() => props.onGenerateNode?.(shot.imageNodeId)}
+                      >
+                        {t('studio.shot.generateImage')}
+                      </Button>
+                    )}
+                  </div>
                   {index > 0 && props.onUsePreviousFrame && (
                     <Button
                       size='xs'
@@ -488,136 +534,165 @@ export function StudioStoryboard(props: Props) {
                   )}
                 </div>
               </CardContent>
-              <StudioShotReviewPanel
-                projectId={props.project.id}
-                shot={shot}
-                previousShot={shots[index - 1]}
-                videoNode={videoNode}
-                assets={props.project.assets || []}
-                selectedAssetIds={textNode?.data.assetIds || []}
-                pinnedVersionIds={textNode?.data.assetVersionIds || {}}
-                takePreviews={props.takePreviews}
-                onUpdateReview={props.onUpdateShotReview}
-                onUpdateDetails={props.onUpdateShotDetails}
-                onSelectTake={props.onSelectTake}
-                onSetAssets={props.onSetShotAssets}
-                onPinVersion={props.onPinShotAssetVersion}
-                onReusePrevious={props.onReusePreviousShotReferences}
-              />
-              <div className='flex flex-wrap items-end gap-3 border-t px-4 pt-3'>
-                <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
-                  {t('studio.timeline.trimStart')}
-                  <Input
-                    aria-label={`${shot.title} ${t('studio.timeline.trimStart')}`}
-                    type='number'
-                    min={0}
-                    step={0.1}
-                    className='w-24'
-                    value={shot.trimStart ?? 0}
-                    onChange={(event) => {
-                      const value = Number(event.target.value)
-                      if (value >= 0 && value <= 3600) {
-                        props.onUpdateShotEdit?.(shot.id, { trimStart: value })
-                      }
-                    }}
+              <Collapsible
+                open={expandedShotId === shot.id}
+                onOpenChange={(open) =>
+                  setExpandedShotId(open ? shot.id : null)
+                }
+              >
+                <CollapsibleTrigger
+                  render={
+                    <Button
+                      type='button'
+                      size='xs'
+                      variant='ghost'
+                      className='mx-4 mb-1'
+                    />
+                  }
+                >
+                  {expandedShotId === shot.id
+                    ? t('studio.shot.hideDetails')
+                    : t('studio.shot.showDetails')}
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <StudioShotReviewPanel
+                    projectId={props.project.id}
+                    shot={shot}
+                    previousShot={shots[index - 1]}
+                    videoNode={videoNode}
+                    assets={props.project.assets || []}
+                    selectedAssetIds={textNode?.data.assetIds || []}
+                    pinnedVersionIds={textNode?.data.assetVersionIds || {}}
+                    takePreviews={props.takePreviews}
+                    onUpdateReview={props.onUpdateShotReview}
+                    onUpdateDetails={props.onUpdateShotDetails}
+                    onSelectTake={props.onSelectTake}
+                    onSetAssets={props.onSetShotAssets}
+                    onPinVersion={props.onPinShotAssetVersion}
+                    onReusePrevious={props.onReusePreviousShotReferences}
                   />
-                </label>
-                <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
-                  {t('studio.timeline.trimEnd')}
-                  <Input
-                    aria-label={`${shot.title} ${t('studio.timeline.trimEnd')}`}
-                    type='number'
-                    min={0}
-                    step={0.1}
-                    className='w-24'
-                    value={shot.trimEnd ?? ''}
-                    placeholder={t('studio.timeline.fullClip')}
-                    onChange={(event) => {
-                      const value = Number(event.target.value)
-                      if (
-                        event.target.value === '' ||
-                        (value >= 0 && value <= 3600)
-                      ) {
-                        props.onUpdateShotEdit?.(shot.id, {
-                          trimEnd:
-                            event.target.value === '' ? undefined : value,
-                        })
-                      }
-                    }}
-                  />
-                </label>
-                <label className='flex items-center gap-2 text-xs'>
-                  <input
-                    type='checkbox'
-                    checked={Boolean(shot.muted)}
-                    onChange={(event) =>
-                      props.onUpdateShotEdit?.(shot.id, {
-                        muted: event.target.checked,
-                      })
-                    }
-                  />
-                  {t('studio.timeline.mute')}
-                </label>
-                <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
-                  {t('studio.timeline.volume')}
-                  <Input
-                    aria-label={`${shot.title} ${t('studio.timeline.volume')}`}
-                    type='number'
-                    min={0}
-                    max={1}
-                    step={0.1}
-                    className='w-24'
-                    disabled={shot.muted}
-                    value={shot.volume ?? 1}
-                    onChange={(event) => {
-                      const value = Number(event.target.value)
-                      if (value >= 0 && value <= 1) {
-                        props.onUpdateShotEdit?.(shot.id, { volume: value })
-                      }
-                    }}
-                  />
-                </label>
-                {index < shots.length - 1 && (
-                  <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
-                    {t('studio.timeline.transition')}
-                    <select
-                      aria-label={`${shot.title} ${t('studio.timeline.transition')}`}
-                      className='border-input bg-background h-8 rounded-md border px-2'
-                      value={shot.transition || 'cut'}
-                      onChange={(event) =>
-                        props.onUpdateShotEdit?.(shot.id, {
-                          transition: event.target.value as 'cut' | 'fade',
-                        })
-                      }
-                    >
-                      <option value='cut'>{t('studio.timeline.cut')}</option>
-                      <option value='fade'>{t('studio.timeline.fade')}</option>
-                    </select>
-                  </label>
-                )}
-                {index < shots.length - 1 && shot.transition === 'fade' && (
-                  <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
-                    {t('studio.timeline.transitionSeconds')}
-                    <Input
-                      aria-label={`${shot.title} ${t('studio.timeline.transitionSeconds')}`}
-                      type='number'
-                      min={0.1}
-                      max={3}
-                      step={0.1}
-                      className='w-24'
-                      value={shot.transitionSeconds ?? 0.5}
-                      onChange={(event) => {
-                        const value = Number(event.target.value)
-                        if (value >= 0.1 && value <= 3) {
+                  <div className='flex flex-wrap items-end gap-3 border-t px-4 pt-3'>
+                    <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                      {t('studio.timeline.trimStart')}
+                      <Input
+                        aria-label={`${shot.title} ${t('studio.timeline.trimStart')}`}
+                        type='number'
+                        min={0}
+                        step={0.1}
+                        className='w-24'
+                        value={shot.trimStart ?? 0}
+                        onChange={(event) => {
+                          const value = Number(event.target.value)
+                          if (value >= 0 && value <= 3600) {
+                            props.onUpdateShotEdit?.(shot.id, {
+                              trimStart: value,
+                            })
+                          }
+                        }}
+                      />
+                    </label>
+                    <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                      {t('studio.timeline.trimEnd')}
+                      <Input
+                        aria-label={`${shot.title} ${t('studio.timeline.trimEnd')}`}
+                        type='number'
+                        min={0}
+                        step={0.1}
+                        className='w-24'
+                        value={shot.trimEnd ?? ''}
+                        placeholder={t('studio.timeline.fullClip')}
+                        onChange={(event) => {
+                          const value = Number(event.target.value)
+                          if (
+                            event.target.value === '' ||
+                            (value >= 0 && value <= 3600)
+                          ) {
+                            props.onUpdateShotEdit?.(shot.id, {
+                              trimEnd:
+                                event.target.value === '' ? undefined : value,
+                            })
+                          }
+                        }}
+                      />
+                    </label>
+                    <label className='flex items-center gap-2 text-xs'>
+                      <input
+                        type='checkbox'
+                        checked={Boolean(shot.muted)}
+                        onChange={(event) =>
                           props.onUpdateShotEdit?.(shot.id, {
-                            transitionSeconds: value,
+                            muted: event.target.checked,
                           })
                         }
-                      }}
-                    />
-                  </label>
-                )}
-              </div>
+                      />
+                      {t('studio.timeline.mute')}
+                    </label>
+                    <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                      {t('studio.timeline.volume')}
+                      <Input
+                        aria-label={`${shot.title} ${t('studio.timeline.volume')}`}
+                        type='number'
+                        min={0}
+                        max={1}
+                        step={0.1}
+                        className='w-24'
+                        disabled={shot.muted}
+                        value={shot.volume ?? 1}
+                        onChange={(event) => {
+                          const value = Number(event.target.value)
+                          if (value >= 0 && value <= 1) {
+                            props.onUpdateShotEdit?.(shot.id, { volume: value })
+                          }
+                        }}
+                      />
+                    </label>
+                    {index < shots.length - 1 && (
+                      <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                        {t('studio.timeline.transition')}
+                        <select
+                          aria-label={`${shot.title} ${t('studio.timeline.transition')}`}
+                          className='border-input bg-background h-8 rounded-md border px-2'
+                          value={shot.transition || 'cut'}
+                          onChange={(event) =>
+                            props.onUpdateShotEdit?.(shot.id, {
+                              transition: event.target.value as 'cut' | 'fade',
+                            })
+                          }
+                        >
+                          <option value='cut'>
+                            {t('studio.timeline.cut')}
+                          </option>
+                          <option value='fade'>
+                            {t('studio.timeline.fade')}
+                          </option>
+                        </select>
+                      </label>
+                    )}
+                    {index < shots.length - 1 && shot.transition === 'fade' && (
+                      <label className='text-muted-foreground flex flex-col gap-1 text-xs'>
+                        {t('studio.timeline.transitionSeconds')}
+                        <Input
+                          aria-label={`${shot.title} ${t('studio.timeline.transitionSeconds')}`}
+                          type='number'
+                          min={0.1}
+                          max={3}
+                          step={0.1}
+                          className='w-24'
+                          value={shot.transitionSeconds ?? 0.5}
+                          onChange={(event) => {
+                            const value = Number(event.target.value)
+                            if (value >= 0.1 && value <= 3) {
+                              props.onUpdateShotEdit?.(shot.id, {
+                                transitionSeconds: value,
+                              })
+                            }
+                          }}
+                        />
+                      </label>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
             </Card>
           )
         })}

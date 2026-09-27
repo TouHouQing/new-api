@@ -6896,7 +6896,7 @@
     "studio.shot.editImage": "Edit image",
     "studio.shot.editVideo": "Edit video",
     "studio.shot.generateVideo": "Generate video",
-    "studio.shot.generateAll": "Generate all shots",
+    "studio.shot.generateAll": "Generate pending shots",
     "studio.shot.finalTitle": "Final video",
     "studio.shot.finalDescription": "Connects shot videos in storyboard order. Choose a site video model on the right that accepts video references.",
     "studio.shot.createFinal": "Add final video",
@@ -7142,6 +7142,10 @@
     "studio.video.templateChannel": "Channel {{channel}}",
     "studio.video.templateHint": "These settings worked previously. Channel routing may change; review the request before submitting.",
     "studio.video.templateSaveFailed": "Could not save the successful request settings in this browser.",
-    "studio.project.saveFailed": "Could not save this project in this browser"
+    "studio.project.saveFailed": "Could not save this project in this browser",
+    "studio.shot.generateText": "Generate text",
+    "studio.shot.generateImage": "Generate first frame",
+    "studio.shot.showDetails": "Show shot details",
+    "studio.shot.hideDetails": "Hide shot details"
   }
 }

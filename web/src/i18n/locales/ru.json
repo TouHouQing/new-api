@@ -6896,7 +6896,7 @@
     "studio.shot.editImage": "Изменить изображение",
     "studio.shot.editVideo": "Изменить видео",
     "studio.shot.generateVideo": "Создать видео",
-    "studio.shot.generateAll": "Создать все кадры",
+    "studio.shot.generateAll": "Создать ожидающие кадры",
     "studio.shot.finalTitle": "Итоговое видео",
     "studio.shot.finalDescription": "Соединяет видео кадров по порядку раскадровки. Справа выберите модель сайта с поддержкой видеообразцов.",
     "studio.shot.createFinal": "Добавить итоговое видео",
@@ -7142,6 +7142,10 @@
     "studio.video.templateChannel": "Канал {{channel}}",
     "studio.video.templateHint": "Эти настройки уже работали. Маршрутизация каналов может измениться; проверьте запрос перед отправкой.",
     "studio.video.templateSaveFailed": "Не удалось сохранить настройки в этом браузере.",
-    "studio.project.saveFailed": "Не удалось сохранить проект в этом браузере"
+    "studio.project.saveFailed": "Не удалось сохранить проект в этом браузере",
+    "studio.shot.generateText": "Создать текст",
+    "studio.shot.generateImage": "Создать первый кадр",
+    "studio.shot.showDetails": "Показать настройки кадра",
+    "studio.shot.hideDetails": "Скрыть настройки кадра"
   }
 }

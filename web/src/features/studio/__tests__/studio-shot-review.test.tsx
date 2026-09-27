@@ -81,6 +81,9 @@ test('review controls send explicit approval and note changes without generating
   const onUpdateShotReview = vi.fn()
   const onGenerateVideo = vi.fn()
   renderReview(project, { onUpdateShotReview, onGenerateVideo })
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.shot.showDetails' })
+  )
 
   fireEvent.click(
     screen.getByRole('button', { name: 'studio.review.approved' })
@@ -121,6 +124,9 @@ test('candidate gallery shows recent completed takes and requires an explicit ch
   const onSelectTake = vi.fn()
   const onGenerateVideo = vi.fn()
   renderReview(project, { onSelectTake, onGenerateVideo })
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.shot.showDetails' })
+  )
 
   expect(
     screen.getByRole('button', { name: 'studio.review.chooseTake 7' })
@@ -173,8 +179,14 @@ test('shot references can be selected, pinned, and reused from the previous shot
     onReusePreviousShotReferences,
   })
 
+  fireEvent.click(
+    screen.getAllByRole('button', { name: 'studio.shot.showDetails' })[0]
+  )
   fireEvent.click(screen.getByRole('checkbox', { name: /Opening Mira/ }))
   expect(onSetShotAssets).toHaveBeenCalledWith('shot-1', ['hero'])
+  fireEvent.click(
+    screen.getByRole('button', { name: 'studio.shot.showDetails' })
+  )
   fireEvent.click(
     screen.getByRole('button', { name: 'Closeup studio.shot.reusePrevious' })
   )
@@ -209,6 +221,9 @@ test('a selected shot reference can pin a saved version without generating', asy
   renderReview(project, { onPinShotAssetVersion, onGenerateVideo })
 
   const user = userEvent.setup()
+  await user.click(
+    screen.getByRole('button', { name: 'studio.shot.showDetails' })
+  )
   await user.click(
     screen.getByRole('combobox', { name: 'Opening Mira studio.asset.version' })
   )

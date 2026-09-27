@@ -6896,7 +6896,7 @@
     "studio.shot.editImage": "編輯圖片",
     "studio.shot.editVideo": "編輯影片",
     "studio.shot.generateVideo": "生成影片",
-    "studio.shot.generateAll": "生成全部分鏡",
+    "studio.shot.generateAll": "生成待完成分鏡",
     "studio.shot.finalTitle": "最終影片",
     "studio.shot.finalDescription": "依分鏡順序連接鏡頭影片。請在右側選擇支援影片參考的本站模型。",
     "studio.shot.createFinal": "新增最終影片",
@@ -7142,6 +7142,10 @@
     "studio.video.templateChannel": "渠道 {{channel}}",
     "studio.video.templateHint": "這是歷史成功設定。渠道路由可能變更，提交前仍請檢查請求內容。",
     "studio.video.templateSaveFailed": "無法在目前瀏覽器儲存歷史成功設定。",
-    "studio.project.saveFailed": "無法在目前瀏覽器儲存專案，畫布變更尚未儲存"
+    "studio.project.saveFailed": "無法在目前瀏覽器儲存專案，畫布變更尚未儲存",
+    "studio.shot.generateText": "生成文案",
+    "studio.shot.generateImage": "生成首幀",
+    "studio.shot.showDetails": "展開鏡頭設定",
+    "studio.shot.hideDetails": "收起鏡頭設定"
   }
 }
