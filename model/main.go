@@ -344,6 +344,8 @@ func migrateDB() error {
 		&PasskeyCredential{},
 		&Option{},
 		&LoginEncryptionKey{},
+		&StudioProvider{},
+		&StudioAttempt{},
 		&Redemption{},
 		&Ability{},
 		&Log{},

@@ -3,7 +3,6 @@ package controller
 import (
 	"net/http"
 
-	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
@@ -25,9 +24,17 @@ func GetGroups(c *gin.Context) {
 
 func GetUserGroups(c *gin.Context) {
 	usableGroups := make(map[string]map[string]any)
-	userGroup := ""
-	userId := c.GetInt("id")
-	userGroup, _ = model.GetUserGroup(userId, false)
+	// UserAuth already resolved the account and its group. Reusing that identity
+	// keeps the group picker consistent with relay permission checks, even when
+	// a separate user-group cache/database lookup would fail or lag behind.
+	userGroup := c.GetString("group")
+	if userGroup == "" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"success": false,
+			"message": "User group is unavailable",
+		})
+		return
+	}
 	userUsableGroups := service.GetUserUsableGroups(userGroup)
 	for groupName, _ := range ratio_setting.GetGroupRatioCopy() {
 		// UserUsableGroups contains the groups that the user can use

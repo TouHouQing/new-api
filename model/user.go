@@ -243,6 +243,7 @@ func generateDefaultSidebarConfigForRole(userRole int) string {
 	defaultConfig["chat"] = map[string]any{
 		"enabled":    true,
 		"playground": true,
+		"studio":     true,
 		"chat":       true,
 	}
 

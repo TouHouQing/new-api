@@ -29,6 +29,7 @@ import {
   MessageSquare,
   PlugZap,
   Radio,
+  Clapperboard,
   ServerCog,
   Settings,
   ShieldCheck,
@@ -61,6 +62,11 @@ export function useSidebarData(): SidebarData {
             title: t('Playground'),
             url: '/playground',
             icon: FlaskConical,
+          },
+          {
+            title: t('studio.title'),
+            url: '/studio',
+            icon: Clapperboard,
           },
           {
             title: t('Chat'),

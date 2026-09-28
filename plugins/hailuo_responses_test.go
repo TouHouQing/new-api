@@ -238,6 +238,19 @@ func TestHailuoH3BuildSubmitRequest(t *testing.T) {
 			wantAction: "image_to_video",
 		},
 		{
+			name: "studio mixed image and video references",
+			request: map[string]any{"prompt": "p", "seconds": "9", "duration": 9, "metadata": map[string]any{"content": []any{
+				map[string]any{"type": "image_url", "role": "reference_image", "image_url": map[string]any{"url": "img.png"}},
+				map[string]any{"type": "video_url", "role": "reference_video", "video_url": map[string]any{"url": "ref.mp4"}},
+			}}},
+			wantBody: `{"model":"MiniMax-H3","content":[
+				{"type":"text","text":"p"},
+				{"type":"image_url","role":"reference_image","image_url":{"url":"img.png"}},
+				{"type":"video_url","role":"reference_video","video_url":{"url":"ref.mp4"}}],
+				"resolution":"768P","duration":9,"ratio":"adaptive"}`,
+			wantAction: "image_to_video",
+		},
+		{
 			name: "content passthrough keeps an existing text item",
 			request: map[string]any{"prompt": "ignored", "metadata": map[string]any{"content": []any{
 				map[string]any{"type": "text", "text": "kept"},

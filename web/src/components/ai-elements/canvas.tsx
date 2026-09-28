@@ -16,23 +16,32 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { Background, ReactFlow, type ReactFlowProps } from '@xyflow/react'
+import {
+  Background,
+  ReactFlow,
+  type Edge,
+  type Node,
+  type ReactFlowProps,
+} from '@xyflow/react'
 import type { ReactNode } from 'react'
 
 import '@xyflow/react/dist/style.css'
 import { Controls } from './controls'
 
-type CanvasProps = ReactFlowProps & {
+type CanvasProps<N extends Node, E extends Edge> = ReactFlowProps<N, E> & {
   children?: ReactNode
 }
 
-export const Canvas = ({ children, ...props }: CanvasProps) => (
-  <ReactFlow
+export const Canvas = <N extends Node = Node, E extends Edge = Edge>({
+  children,
+  ...props
+}: CanvasProps<N, E>) => (
+  <ReactFlow<N, E>
     deleteKeyCode={['Backspace', 'Delete']}
     fitView
     panOnDrag={false}
     panOnScroll
-    selectionOnDrag={true}
+    selectionOnDrag
     zoomOnDoubleClick={false}
     {...props}
   >
