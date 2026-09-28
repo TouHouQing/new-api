@@ -41,10 +41,12 @@ test('keeps drag handles outside the node card visible and reachable', () => {
   )
 
   const card = screen.getByLabelText('Text 1')
-  expect(card.querySelectorAll('.react-flow__handle')).toHaveLength(2)
-  expect(card.querySelector('.react-flow__handle.source')).not.toHaveAttribute(
-    'data-handleid'
-  )
+  expect(
+    card.querySelectorAll('.react-flow__handle:not([aria-hidden="true"])')
+  ).toHaveLength(2)
+  expect(
+    card.querySelector('.react-flow__handle.source:not([aria-hidden="true"])')
+  ).not.toHaveAttribute('data-handleid')
   expect(card).toHaveClass('overflow-visible')
   expect(card).not.toHaveClass('overflow-hidden')
 })
@@ -95,5 +97,104 @@ test('keeps a connected specialized port visible when advanced options are close
     </ReactFlowProvider>
   )
   expect(screen.getByTitle('studio.port.videoPrompt')).toBeInTheDocument()
-  expect(document.querySelectorAll('.react-flow__handle')).toHaveLength(3)
+  expect(
+    document.querySelectorAll('.react-flow__handle:not([aria-hidden="true"])')
+  ).toHaveLength(3)
+})
+
+test('a connected video has one visible output while both saved handle IDs remain addressable', () => {
+  const props = {
+    id: 'video-1',
+    type: 'studio',
+    selected: false,
+    dragging: false,
+    isConnectable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
+    zIndex: 0,
+    data: {
+      kind: 'video',
+      title: 'Video 1',
+      prompt: '',
+      usedSourceHandles: ['video'],
+    },
+  } as NodeProps<StudioCanvasNode>
+  render(
+    <ReactFlowProvider>
+      <StudioNode {...props} />
+    </ReactFlowProvider>
+  )
+  const card = screen.getByLabelText('Video 1')
+  expect(
+    card.querySelectorAll(
+      '.react-flow__handle.source:not([aria-hidden="true"])'
+    )
+  ).toHaveLength(1)
+  expect(
+    card.querySelector('.react-flow__handle.source[data-handleid="video"]')
+  ).toBeTruthy()
+  expect(
+    card.querySelector('.react-flow__handle.source:not([data-handleid])')
+  ).toBeTruthy()
+})
+
+test('a final video shows its connected reference input and opens generic input on demand', () => {
+  const props = {
+    id: 'final',
+    type: 'studio',
+    selected: false,
+    dragging: false,
+    isConnectable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
+    zIndex: 0,
+    data: {
+      kind: 'video',
+      title: 'Final',
+      prompt: '',
+      usedTargetHandles: ['reference_video'],
+    },
+  } as NodeProps<StudioCanvasNode>
+  render(
+    <ReactFlowProvider>
+      <StudioNode {...props} />
+    </ReactFlowProvider>
+  )
+  const card = screen.getByLabelText('Final')
+  expect(
+    card.querySelectorAll(
+      '.react-flow__handle.target:not([aria-hidden="true"])'
+    )
+  ).toHaveLength(1)
+  expect(screen.getByTitle('studio.port.referenceVideo')).toBeTruthy()
+  expect(screen.queryByTitle('studio.port.input')).toBeNull()
+  fireEvent.click(screen.getByRole('button', { name: 'studio.port.advanced' }))
+  expect(screen.getByTitle('studio.port.input')).toBeTruthy()
+})
+
+test('a video with an older automatic input keeps that input visible beside named references', () => {
+  const props = {
+    id: 'final',
+    type: 'studio',
+    selected: false,
+    dragging: false,
+    isConnectable: true,
+    positionAbsoluteX: 0,
+    positionAbsoluteY: 0,
+    zIndex: 0,
+    data: {
+      kind: 'video',
+      title: 'Final',
+      prompt: '',
+      usedTargetHandles: ['reference_video'],
+      hasLegacyTargetHandle: true,
+    },
+  } as NodeProps<StudioCanvasNode>
+  render(
+    <ReactFlowProvider>
+      <StudioNode {...props} />
+    </ReactFlowProvider>
+  )
+  expect(screen.getByTitle('studio.port.input')).toBeTruthy()
+  expect(screen.getByTitle('studio.port.referenceVideo')).toBeTruthy()
 })

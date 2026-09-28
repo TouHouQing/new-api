@@ -85,6 +85,7 @@ export type StudioCanvasNodeData = {
   payloadPatchJson?: string
   usedSourceHandles?: string[]
   usedTargetHandles?: string[]
+  hasLegacyTargetHandle?: boolean
 }
 
 export type StudioCanvasNode = Node<StudioCanvasNodeData, 'studio'>
@@ -166,21 +167,36 @@ export function isValidStudioConnection(
   sourceHandle?: string | null,
   targetHandle?: string | null
 ): boolean {
+  if (sourceId === targetId) return false
+  const source = nodes.find((node) => node.id === sourceId)
+  const target = nodes.find((node) => node.id === targetId)
+  if (!source || !target) return false
+  const defaultSource = {
+    text: 'scene',
+    image: 'image',
+    video: 'video',
+  } as const
+  const defaultTargets = {
+    text: { text: 'brief', image: 'prompt', video: 'prompt' },
+    image: { image: 'reference_image', video: 'first_frame' },
+    video: { video: 'reference_video' },
+  } as const
+  const automaticTarget = (
+    defaultTargets[source.data.kind] as Record<string, string>
+  )[target.data.kind]
+  const sourceRole = sourceHandle || defaultSource[source.data.kind]
+  const targetRole = targetHandle || automaticTarget
   if (
-    sourceId === targetId ||
     edges.some(
       (edge) =>
         edge.source === sourceId &&
         edge.target === targetId &&
-        (edge.sourceHandle || null) === (sourceHandle || null) &&
-        (edge.targetHandle || null) === (targetHandle || null)
+        (edge.sourceHandle || defaultSource[source.data.kind]) === sourceRole &&
+        (edge.targetHandle || automaticTarget) === targetRole
     )
   ) {
     return false
   }
-  const source = nodes.find((node) => node.id === sourceId)
-  const target = nodes.find((node) => node.id === targetId)
-  if (!source || !target) return false
   if (
     source.data.kind === 'image' &&
     target.data.kind === 'image' &&
@@ -193,22 +209,6 @@ export function isValidStudioConnection(
     return false
   }
   if (sourceHandle || targetHandle) {
-    const defaultSource = {
-      text: 'scene',
-      image: 'image',
-      video: 'video',
-    } as const
-    const defaultTargets = {
-      text: { text: 'brief', image: 'prompt', video: 'prompt' },
-      image: { image: 'reference_image', video: 'first_frame' },
-      video: { video: 'reference_video' },
-    } as const
-    const sourceRole = sourceHandle || defaultSource[source.data.kind]
-    const targetRole =
-      targetHandle ||
-      (defaultTargets[source.data.kind] as Record<string, string>)[
-        target.data.kind
-      ]
     if (!targetRole) return false
     const typed = new Set([
       'text:scene:text:brief',

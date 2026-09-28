@@ -463,6 +463,9 @@ export function Studio() {
           usedTargetHandles: project.edges
             .filter((edge) => edge.target === node.id && edge.targetHandle)
             .map((edge) => edge.targetHandle as string),
+          hasLegacyTargetHandle: project.edges.some(
+            (edge) => edge.target === node.id && !edge.targetHandle
+          ),
         },
       })) ?? [],
     [project, previews]

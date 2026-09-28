@@ -55,6 +55,40 @@ const nodes: StudioCanvasNode[] = [
 ]
 
 describe('Studio canvas connections', () => {
+  test('named and automatic ports cannot create the same video reference twice', () => {
+    const final = { ...nodes[2], id: 'final' }
+    const graph = [...nodes, final]
+    const edges = [
+      {
+        id: 'reference',
+        source: 'video',
+        target: 'final',
+        sourceHandle: 'video',
+        targetHandle: 'reference_video',
+      },
+    ]
+    expect(
+      isValidStudioConnection(
+        graph,
+        edges,
+        'video',
+        'final',
+        undefined,
+        'reference_video'
+      )
+    ).toBe(false)
+    expect(isValidStudioConnection(graph, edges, 'video', 'final')).toBe(false)
+    expect(
+      isValidStudioConnection(
+        graph,
+        edges,
+        'video',
+        'final',
+        'video',
+        'native_extend'
+      )
+    ).toBe(true)
+  })
   test('a pinned completed text take supplies its own prompt without rerunning the source', () => {
     const text = {
       ...nodes[0],

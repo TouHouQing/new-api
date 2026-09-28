@@ -94,6 +94,9 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
   const optional = OPTIONAL_PORTS[data.kind]
   const usedInputs = new Set(data.usedTargetHandles || [])
   const usedOutputs = new Set(data.usedSourceHandles || [])
+  const primaryOutput = ports.outputs[0]
+  const showGenericInput =
+    advancedOpen || usedInputs.size === 0 || Boolean(data.hasLegacyTargetHandle)
   const visibleInputs = ports.inputs.filter(
     (port) =>
       usedInputs.has(port.id) ||
@@ -101,12 +104,14 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
   )
   const visibleOutputs = ports.outputs.filter(
     (port) =>
-      usedOutputs.has(port.id) ||
-      (advancedOpen &&
-        (optional.outputs as readonly string[]).includes(port.id))
+      port.id !== primaryOutput.id &&
+      (usedOutputs.has(port.id) ||
+        (advancedOpen &&
+          (optional.outputs as readonly string[]).includes(port.id)))
   )
   const portSignature = [
     advancedOpen,
+    showGenericInput,
     ...visibleInputs.map((port) => port.id),
     ...visibleOutputs.map((port) => port.id),
   ].join(':')
@@ -184,11 +189,18 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
             type='target'
             position={Position.Left}
             className={inputHandleClass}
-            style={{ left: -12, top: '50%' }}
-            aria-label={t('studio.port.input')}
-            title={t('studio.port.input')}
+            style={{
+              left: -12,
+              top: '50%',
+              opacity: showGenericInput ? 1 : 0,
+              pointerEvents: showGenericInput ? undefined : 'none',
+            }}
+            isConnectable={showGenericInput}
+            aria-hidden={showGenericInput ? undefined : true}
+            aria-label={showGenericInput ? t('studio.port.input') : undefined}
+            title={showGenericInput ? t('studio.port.input') : undefined}
           />
-          <span>{t('studio.port.input')}</span>
+          <span>{showGenericInput ? t('studio.port.input') : ''}</span>
           <span>{t(`studio.kind.${data.kind}`)}</span>
           <Handle
             type='source'
@@ -197,6 +209,21 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
             style={{ right: -12, top: '50%' }}
             aria-label={t('studio.port.output')}
             title={t('studio.port.output')}
+          />
+          {/* Saved named edges share the visible automatic output's anchor. */}
+          <Handle
+            id={primaryOutput.id}
+            type='source'
+            position={Position.Right}
+            className={outputHandleClass}
+            style={{
+              right: -12,
+              top: '50%',
+              opacity: 0,
+              pointerEvents: 'none',
+            }}
+            isConnectable={false}
+            aria-hidden='true'
           />
         </div>
         {Array.from(
