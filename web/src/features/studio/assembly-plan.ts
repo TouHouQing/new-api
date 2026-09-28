@@ -94,8 +94,6 @@ export function studioAssemblyFingerprint(project: StudioProject): string {
     project.voiceoverMediaId,
     project.voiceoverVolume,
     project.voiceoverOffsetSeconds,
-    project.captionsText,
-    project.captionOffsetSeconds,
     ...(project.shots || []).map((shot) => {
       const video = project.nodes.find((node) => node.id === shot.videoNodeId)
       return [

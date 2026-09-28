@@ -126,10 +126,6 @@ type Props = {
     onUploadVoiceover?: (file: File) => void
     onRemoveVoiceover?: () => void
     onVoiceoverVolumeChange?: (volume: number) => void
-    captionsText?: string
-    captionOffsetSeconds?: number
-    onCaptionOffsetChange?: (seconds: number) => void
-    onCaptionsChange?: (value: string) => void
     preflight?: { totalDuration: number; estimatedOutputBytes: number }
     onUploadSoundtrack?: (file: File) => void
     onRemoveSoundtrack?: () => void
@@ -741,7 +737,9 @@ export function StudioStoryboard(props: Props) {
                           <span>{shot.title}</span>
                           {videoNode?.data.status !== 'completed' && (
                             <span className='text-muted-foreground'>
-                              {t('studio.status.idle')}
+                              {t(
+                                `studio.status.${videoNode?.data.status || 'idle'}`
+                              )}
                             </span>
                           )}
                         </label>

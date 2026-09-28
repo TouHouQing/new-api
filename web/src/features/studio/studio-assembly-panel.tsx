@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Field, FieldDescription, FieldLabel } from '@/components/ui/field'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -72,10 +72,6 @@ type Props = {
   onUploadVoiceover?: (file: File) => void
   onRemoveVoiceover?: () => void
   onVoiceoverVolumeChange?: (volume: number) => void
-  captionsText?: string
-  captionOffsetSeconds?: number
-  onCaptionOffsetChange?: (seconds: number) => void
-  onCaptionsChange?: (value: string) => void
   preflight?: { totalDuration: number; estimatedOutputBytes: number }
   onUploadSoundtrack?: (file: File) => void
   onRemoveSoundtrack?: () => void
@@ -275,12 +271,6 @@ export function StudioAssemblyPanel(props: Props) {
                       active: Boolean(props.voiceoverUrl),
                       offset: props.voiceoverOffsetSeconds ?? 0,
                       onChange: props.onVoiceoverOffsetChange,
-                    },
-                    {
-                      key: 'studio.timeline.captions',
-                      active: Boolean(props.captionsText?.trim()),
-                      offset: props.captionOffsetSeconds ?? 0,
-                      onChange: props.onCaptionOffsetChange,
                     },
                   ] as const
                 ).map((lane) => (
@@ -734,23 +724,6 @@ export function StudioAssemblyPanel(props: Props) {
             </div>
           )}
         </div>
-        <Field>
-          <FieldLabel htmlFor='studio-captions'>
-            {t('studio.timeline.captions')}
-          </FieldLabel>
-          <Textarea
-            id='studio-captions'
-            value={props.captionsText || ''}
-            maxLength={100_000}
-            rows={5}
-            placeholder='1\n00:00:00,000 --> 00:00:02,000\n...'
-            disabled={props.busy}
-            onChange={(event) => props.onCaptionsChange?.(event.target.value)}
-          />
-          <FieldDescription>
-            {t('studio.timeline.captionsHint')}
-          </FieldDescription>
-        </Field>
         {props.preflight && (
           <p className='text-muted-foreground text-xs' role='status'>
             {t('studio.timeline.preflight', {

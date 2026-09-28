@@ -6915,8 +6915,6 @@
     "studio.timeline.voiceover": "旁白音訊",
     "studio.timeline.voiceoverVolume": "旁白音量",
     "studio.timeline.removeVoiceover": "移除旁白",
-    "studio.timeline.captions": "定時字幕（SRT 或 WebVTT）",
-    "studio.timeline.captionsHint": "貼上對應最終成片時間軸的字幕，匯出 MP4 時會直接壓入畫面。",
     "studio.timeline.overview": "時間線總覽",
     "studio.timeline.overviewHint": "鏡頭依序排列；秒數為請求時長估計，實際素材時長以影片為準。",
     "studio.timeline.shotTrack": "鏡頭軌",
@@ -7146,6 +7144,7 @@
     "studio.shot.generateText": "生成文案",
     "studio.shot.generateImage": "生成首幀",
     "studio.shot.showDetails": "展開鏡頭設定",
-    "studio.shot.hideDetails": "收起鏡頭設定"
+    "studio.shot.hideDetails": "收起鏡頭設定",
+    "studio.status.idle": "未生成"
   }
 }

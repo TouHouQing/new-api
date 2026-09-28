@@ -2984,11 +2984,7 @@ export function Studio() {
         ]
       })
       const options =
-        soundtrack ||
-        voiceover ||
-        sourceProject.captionsText ||
-        shotVoiceovers.length ||
-        shotCaptions.length
+        soundtrack || voiceover || shotVoiceovers.length || shotCaptions.length
           ? {
               ...(soundtrack
                 ? {
@@ -3008,13 +3004,6 @@ export function Studio() {
                     },
                     voiceoverOffsetSeconds:
                       sourceProject.voiceoverOffsetSeconds ?? 0,
-                  }
-                : {}),
-              ...(sourceProject.captionsText
-                ? {
-                    captions: sourceProject.captionsText,
-                    captionOffsetSeconds:
-                      sourceProject.captionOffsetSeconds ?? 0,
                   }
                 : {}),
               ...(shotVoiceovers.length ? { shotVoiceovers } : {}),
@@ -3917,20 +3906,6 @@ export function Studio() {
                     updatedAt: new Date().toISOString(),
                   }))
                 },
-                captionsText: project.captionsText || '',
-                captionOffsetSeconds: project.captionOffsetSeconds ?? 0,
-                onCaptionOffsetChange: (captionOffsetSeconds) =>
-                  editProject(project.id, (current) => ({
-                    ...current,
-                    captionOffsetSeconds,
-                    updatedAt: new Date().toISOString(),
-                  })),
-                onCaptionsChange: (captionsText) =>
-                  editProject(project.id, (current) => ({
-                    ...current,
-                    captionsText,
-                    updatedAt: new Date().toISOString(),
-                  })),
                 onUploadShotVoiceover: (shotId, file) =>
                   void uploadShotVoiceover(shotId, file),
                 onRemoveShotVoiceover: (shotId) =>

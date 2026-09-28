@@ -6915,8 +6915,6 @@
     "studio.timeline.voiceover": "ナレーション音声",
     "studio.timeline.voiceoverVolume": "ナレーション音量",
     "studio.timeline.removeVoiceover": "ナレーションを削除",
-    "studio.timeline.captions": "タイム字幕（SRT または WebVTT）",
-    "studio.timeline.captionsHint": "完成動画の時間軸に合わせた字幕を貼り付けます。書き出す MP4 に焼き込まれます。",
     "studio.timeline.overview": "タイムライン概要",
     "studio.timeline.overviewHint": "ショットは順番に並びます。秒数はリクエスト時の推定で、実際の長さは生成動画に従います。",
     "studio.timeline.shotTrack": "ショットトラック",
@@ -7146,6 +7144,7 @@
     "studio.shot.generateText": "テキストを生成",
     "studio.shot.generateImage": "開始フレームを生成",
     "studio.shot.showDetails": "ショットの詳細を表示",
-    "studio.shot.hideDetails": "ショットの詳細を閉じる"
+    "studio.shot.hideDetails": "ショットの詳細を閉じる",
+    "studio.status.idle": "未生成"
   }
 }

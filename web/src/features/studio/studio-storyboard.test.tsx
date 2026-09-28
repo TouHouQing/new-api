@@ -17,6 +17,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 import { fireEvent, render, screen } from '@testing-library/react'
 import { expect, test, vi } from 'vitest'
 
+import zh from '@/i18n/locales/zh.json'
+
 import { StudioStoryboard } from './studio-storyboard'
 import {
   addStudioShot,
@@ -70,6 +72,44 @@ test('creates a final video and can select and generate it from the storyboard',
     screen.getByRole('button', { name: 'studio.final.aiGenerate' })
   )
   expect(onGenerateVideo).toHaveBeenCalledWith('final')
+})
+
+test('final video references show their real clip status with a translated idle label', () => {
+  let project = addStudioShot(
+    createStudioProject('Drama', 'p-status'),
+    'shot-1',
+    { text: 't1', image: 'i1', video: 'v1' },
+    'Opening'
+  )
+  project = ensureStudioFinalVideo(project, 'final')
+  project = updateStudioNode(project, 'v1', { status: 'failed' })
+  render(
+    <StudioStoryboard
+      project={project}
+      previews={{}}
+      onSelectNode={vi.fn()}
+      onGenerateVideo={vi.fn()}
+      onGenerateAll={vi.fn()}
+      onCreateFinalVideo={vi.fn()}
+      onAddShot={vi.fn()}
+      onMoveShot={vi.fn()}
+      onRenameShot={vi.fn()}
+      onDeleteShot={vi.fn()}
+      assembly={{
+        busy: false,
+        progress: 0,
+        onAssemble: vi.fn(),
+        onCancel: vi.fn(),
+        onDownload: vi.fn(),
+      }}
+    />
+  )
+  expect(
+    screen
+      .getByRole('checkbox', { name: /studio.final.referenceShot: Opening/ })
+      .closest('label')
+  ).toHaveTextContent('studio.status.failed')
+  expect(zh.translation['studio.status.idle']).toBe('未生成')
 })
 
 test('a creator can choose which completed shots the final AI video references', () => {

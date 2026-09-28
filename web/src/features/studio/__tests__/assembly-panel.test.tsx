@@ -65,28 +65,19 @@ test('assembly panel offers a saved MP4 for preview and download', () => {
   expect(onDownload).toHaveBeenCalledOnce()
 })
 
-test('assembly panel lets a creator edit timed captions before export', () => {
-  const onCaptionsChange = vi.fn()
+test('assembly panel does not expose the timed SRT caption editor', () => {
   render(
     <StudioAssemblyPanel
       busy={false}
       progress={0}
-      captionsText=''
-      onCaptionsChange={onCaptionsChange}
       onAssemble={vi.fn()}
       onCancel={vi.fn()}
       onDownload={vi.fn()}
     />
   )
-  fireEvent.change(
-    screen.getByRole('textbox', { name: 'studio.timeline.captions' }),
-    {
-      target: { value: '1\n00:00:00,000 --> 00:00:01,000\nHello' },
-    }
-  )
-  expect(onCaptionsChange).toHaveBeenCalledWith(
-    '1\n00:00:00,000 --> 00:00:01,000\nHello'
-  )
+  expect(
+    screen.queryByRole('textbox', { name: 'studio.timeline.captions' })
+  ).toBeNull()
 })
 
 test('assembly panel lets a creator add narration beside the soundtrack', () => {
@@ -122,7 +113,7 @@ test('assembly panel lets a creator add narration beside the soundtrack', () => 
   expect(onRemoveVoiceover).toHaveBeenCalledOnce()
 })
 
-test('assembly timeline shows ordered shots and separate fixed-start audio and caption lanes', () => {
+test('assembly timeline shows ordered shots and separate fixed-start audio lanes', () => {
   render(
     <StudioAssemblyPanel
       busy={false}
@@ -133,7 +124,6 @@ test('assembly timeline shows ordered shots and separate fixed-start audio and c
       ]}
       soundtrackUrl='blob:music'
       voiceoverUrl='blob:voice'
-      captionsText='1\n00:00:00,000 --> 00:00:01,000\nHello'
       onAssemble={vi.fn()}
       onCancel={vi.fn()}
       onDownload={vi.fn()}
@@ -159,8 +149,8 @@ test('assembly timeline shows ordered shots and separate fixed-start audio and c
     screen.getByRole('group', { name: 'studio.timeline.voiceover' })
   ).toHaveTextContent('studio.timeline.startsAtZero')
   expect(
-    screen.getByRole('group', { name: 'studio.timeline.captions' })
-  ).toHaveTextContent('studio.timeline.startsAtZero')
+    screen.queryByRole('group', { name: 'studio.timeline.captions' })
+  ).toBeNull()
 })
 
 test('selecting a timeline shot edits that shot trim and transition through callbacks', async () => {
@@ -401,10 +391,9 @@ test('timeline clip overview identifies configured crop and fade between shots',
   expect(shotTrack).toHaveTextContent('studio.timeline.fadeDuration')
 })
 
-test('timeline places soundtrack, voiceover and captions at editable start times', () => {
+test('timeline places soundtrack and voiceover at editable start times', () => {
   const onSoundtrackOffsetChange = vi.fn()
   const onVoiceoverOffsetChange = vi.fn()
-  const onCaptionOffsetChange = vi.fn()
   render(
     <StudioAssemblyPanel
       busy={false}
@@ -416,9 +405,6 @@ test('timeline places soundtrack, voiceover and captions at editable start times
       voiceoverUrl='blob:voice'
       voiceoverOffsetSeconds={3}
       onVoiceoverOffsetChange={onVoiceoverOffsetChange}
-      captionsText='00:00:00,000 --> 00:00:01,000\nHello'
-      captionOffsetSeconds={4}
-      onCaptionOffsetChange={onCaptionOffsetChange}
       onAssemble={vi.fn()}
       onCancel={vi.fn()}
       onDownload={vi.fn()}
@@ -431,19 +417,13 @@ test('timeline places soundtrack, voiceover and captions at editable start times
   const voiceoverStart = screen.getByRole('spinbutton', {
     name: 'studio.timeline.voiceover studio.timeline.startOffset',
   })
-  const captionStart = screen.getByRole('spinbutton', {
-    name: 'studio.timeline.captions studio.timeline.startOffset',
-  })
   expect(soundtrackStart).toHaveValue(2)
   expect(voiceoverStart).toHaveValue(3)
-  expect(captionStart).toHaveValue(4)
 
   fireEvent.change(soundtrackStart, { target: { value: '1.5' } })
   fireEvent.change(voiceoverStart, { target: { value: '2.5' } })
-  fireEvent.change(captionStart, { target: { value: '3.5' } })
   expect(onSoundtrackOffsetChange).toHaveBeenCalledWith(1.5)
   expect(onVoiceoverOffsetChange).toHaveBeenCalledWith(2.5)
-  expect(onCaptionOffsetChange).toHaveBeenCalledWith(3.5)
 })
 
 test('timeline reorders shots with boundary-aware move controls', () => {

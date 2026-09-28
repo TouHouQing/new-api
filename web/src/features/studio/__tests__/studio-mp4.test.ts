@@ -297,50 +297,6 @@ class FakeCanvas {
   }
 }
 
-test('timed captions burn into frames on the assembled timeline across trimmed clips', async () => {
-  vi.stubGlobal('OffscreenCanvas', FakeCanvas)
-  const first = clip()
-  const second = clip()
-
-  await stitchStudioVideos(
-    [
-      { blob: first, trimStart: 0.001, trimEnd: 0.003 },
-      { blob: second, trimStart: 0.001, trimEnd: 0.003 },
-    ],
-    undefined,
-    undefined,
-    { captions: '1\n00:00:00,001 --> 00:00:00,003\nHello' }
-  )
-
-  expect(media.video.map((frame) => frame.captionText)).toEqual([
-    '',
-    'Hello',
-    'Hello',
-    '',
-  ])
-  expect(media.video.map((frame) => frame.composited)).toEqual([
-    false,
-    true,
-    true,
-    false,
-  ])
-})
-
-test('caption offset shifts burn-in cues on the final video timeline', async () => {
-  vi.stubGlobal('OffscreenCanvas', FakeCanvas)
-  await stitchStudioVideos([clip()], undefined, undefined, {
-    captions: '00:00:00,000 --> 00:00:00,001\nHello',
-    captionOffsetSeconds: 0.002,
-  })
-
-  expect(media.video.map((frame) => frame.captionText)).toEqual([
-    '',
-    '',
-    'Hello',
-    '',
-  ])
-})
-
 test('caption text stays fully opaque over a faded video frame', async () => {
   vi.stubGlobal('OffscreenCanvas', FakeCanvas)
 
@@ -348,7 +304,16 @@ test('caption text stays fully opaque over a faded video frame', async () => {
     [{ blob: clip(), fadeOutSeconds: 0.002 }],
     undefined,
     undefined,
-    { captions: '00:00:00,003 --> 00:00:00,004\nEnd' }
+    {
+      shotCaptions: [
+        {
+          clipIndex: 0,
+          text: 'End',
+          offsetSeconds: 0.003,
+          durationSeconds: 0.001,
+        },
+      ],
+    }
   )
 
   expect(media.video[3]).toMatchObject({
@@ -356,14 +321,6 @@ test('caption text stays fully opaque over a faded video frame', async () => {
     captionText: 'End',
     captionAlpha: [1],
   })
-})
-
-test('caption preflight rejects malformed cues before export', async () => {
-  await expect(
-    preflightStudioVideos([clip()], undefined, {
-      captions: '00:02.000 --> 00:01.000\nBackwards',
-    })
-  ).rejects.toThrow('caption cue 1')
 })
 
 test('caption preflight rejects missing canvas support', async () => {
@@ -378,7 +335,7 @@ test('caption preflight rejects missing canvas support', async () => {
 
   await expect(
     preflightStudioVideos([clip()], undefined, {
-      captions: '00:00.000 --> 00:00.004\nHello',
+      shotCaptions: [{ clipIndex: 0, text: 'Hello' }],
     })
   ).rejects.toThrow('2D canvas')
 })
@@ -718,7 +675,6 @@ test('soundtrack offset crossing a cut starts in the second clip', async () => {
 test.each([
   ['soundtrackOffsetSeconds', -0.1, 'soundtrack'],
   ['voiceoverOffsetSeconds', Number.NaN, 'voiceover'],
-  ['captionOffsetSeconds', 3600.1, 'caption'],
 ] as const)('preflight rejects invalid %s', async (key, value, label) => {
   await expect(
     preflightStudioVideos([clip()], undefined, { [key]: value })

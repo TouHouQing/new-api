@@ -6915,8 +6915,6 @@
     "studio.timeline.voiceover": "Voix off",
     "studio.timeline.voiceoverVolume": "Volume de la voix off",
     "studio.timeline.removeVoiceover": "Supprimer la voix off",
-    "studio.timeline.captions": "Sous-titres synchronisés (SRT ou WebVTT)",
-    "studio.timeline.captionsHint": "Collez les sous-titres calés sur la vidéo finale. Ils seront incrustés dans le MP4 exporté.",
     "studio.timeline.overview": "Vue de la chronologie",
     "studio.timeline.overviewHint": "Les plans sont ordonnés ; les durées sont des estimations de requête. Les fichiers générés déterminent la durée réelle.",
     "studio.timeline.shotTrack": "Piste des plans",
@@ -7146,6 +7144,7 @@
     "studio.shot.generateText": "Générer le texte",
     "studio.shot.generateImage": "Générer la première image",
     "studio.shot.showDetails": "Afficher les détails du plan",
-    "studio.shot.hideDetails": "Masquer les détails du plan"
+    "studio.shot.hideDetails": "Masquer les détails du plan",
+    "studio.status.idle": "Non généré"
   }
 }

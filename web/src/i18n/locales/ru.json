@@ -6915,8 +6915,6 @@
     "studio.timeline.voiceover": "Закадровый голос",
     "studio.timeline.voiceoverVolume": "Громкость голоса",
     "studio.timeline.removeVoiceover": "Удалить голос",
-    "studio.timeline.captions": "Синхронные субтитры (SRT или WebVTT)",
-    "studio.timeline.captionsHint": "Вставьте субтитры для итоговой временной шкалы. Они будут встроены в экспортируемый MP4.",
     "studio.timeline.overview": "Обзор таймлайна",
     "studio.timeline.overviewHint": "Кадры идут по порядку; длительность оценена по запросу. Фактическая длительность зависит от готового видео.",
     "studio.timeline.shotTrack": "Дорожка кадров",
@@ -7146,6 +7144,7 @@
     "studio.shot.generateText": "Создать текст",
     "studio.shot.generateImage": "Создать первый кадр",
     "studio.shot.showDetails": "Показать настройки кадра",
-    "studio.shot.hideDetails": "Скрыть настройки кадра"
+    "studio.shot.hideDetails": "Скрыть настройки кадра",
+    "studio.status.idle": "Не создано"
   }
 }

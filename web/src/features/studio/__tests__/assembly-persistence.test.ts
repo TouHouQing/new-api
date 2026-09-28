@@ -24,7 +24,7 @@ import {
 } from '../local-projects'
 import { createStudioProject } from '../workspace'
 
-test('caption text survives local reload and portable project export', () => {
+test('legacy timed-caption data remains readable in older project backups', () => {
   const project = {
     ...createStudioProject('Captions', 'p-captions'),
     captionsText: '1\n00:00:00,000 --> 00:00:01,000\nHello',

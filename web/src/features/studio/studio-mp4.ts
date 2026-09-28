@@ -31,7 +31,7 @@ import {
   type WrappedAudioBuffer,
 } from 'mediabunny'
 
-import { parseStudioCaptions, type StudioCaptionCue } from './studio-captions'
+type StudioCaptionCue = { start: number; end: number; text: string }
 
 export type StudioMp4Progress = {
   phase: 'probing' | 'audio' | 'video' | 'finalizing'
@@ -57,9 +57,6 @@ export type StudioMp4Options = {
   soundtrackOffsetSeconds?: number
   voiceover?: { blob: Blob; volume: number }
   voiceoverOffsetSeconds?: number
-  /** SRT or WebVTT text timed against the final assembled video. */
-  captions?: string
-  captionOffsetSeconds?: number
   /** Each clipIndex points to an entry in the ordered inputs array. */
   shotVoiceovers?: {
     clipIndex: number
@@ -255,17 +252,12 @@ async function inspectStudioVideos(
   for (const [label, offset] of [
     ['soundtrack', options?.soundtrackOffsetSeconds ?? 0],
     ['voiceover', options?.voiceoverOffsetSeconds ?? 0],
-    ['caption', options?.captionOffsetSeconds ?? 0],
   ] as const) {
     if (!Number.isFinite(offset) || offset < 0 || offset > MAX_TOTAL_DURATION) {
       throw new Error(`${label} offset must be between 0 and 3600 seconds`)
     }
   }
-  const captions = parseStudioCaptions(options?.captions ?? '').map((cue) => ({
-    ...cue,
-    start: cue.start + (options?.captionOffsetSeconds ?? 0),
-    end: cue.end + (options?.captionOffsetSeconds ?? 0),
-  }))
+  const captions: StudioCaptionCue[] = []
   const soundtrack = options?.soundtrack
   const voiceover = options?.voiceover
   const externalAudio: ExternalAudioTrack[] = []

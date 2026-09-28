@@ -6915,8 +6915,6 @@
     "studio.timeline.voiceover": "Âm thanh thuyết minh",
     "studio.timeline.voiceoverVolume": "Âm lượng thuyết minh",
     "studio.timeline.removeVoiceover": "Xóa thuyết minh",
-    "studio.timeline.captions": "Phụ đề theo thời gian (SRT hoặc WebVTT)",
-    "studio.timeline.captionsHint": "Dán phụ đề khớp với dòng thời gian video cuối. Phụ đề sẽ được ghi trực tiếp vào MP4 xuất ra.",
     "studio.timeline.overview": "Tổng quan dòng thời gian",
     "studio.timeline.overviewHint": "Các cảnh được sắp theo thứ tự; thời lượng là ước tính từ yêu cầu. Video tạo ra quyết định thời lượng thực.",
     "studio.timeline.shotTrack": "Rãnh cảnh",
@@ -7146,6 +7144,7 @@
     "studio.shot.generateText": "Tạo văn bản",
     "studio.shot.generateImage": "Tạo khung hình đầu",
     "studio.shot.showDetails": "Hiện chi tiết cảnh quay",
-    "studio.shot.hideDetails": "Ẩn chi tiết cảnh quay"
+    "studio.shot.hideDetails": "Ẩn chi tiết cảnh quay",
+    "studio.status.idle": "Chưa tạo"
   }
 }

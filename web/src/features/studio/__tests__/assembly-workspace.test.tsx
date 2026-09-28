@@ -100,7 +100,7 @@ beforeEach(() => {
   }))
 })
 
-test('assembled MP4 receives the project caption track', async () => {
+test('legacy timed SRT captions are ignored when assembling MP4', async () => {
   stored.set('12:clip-1', new Blob(['clip'], { type: 'video/mp4' }))
   vi.mocked(stitchStudioVideos).mockResolvedValue(
     new Blob(['joined'], { type: 'video/mp4' })
@@ -125,17 +125,9 @@ test('assembled MP4 receives the project caption track', async () => {
   fireEvent.click(
     await screen.findByRole('button', { name: 'studio.assembly.create' })
   )
-  await waitFor(() =>
-    expect(stitchStudioVideos).toHaveBeenCalledWith(
-      expect.any(Array),
-      expect.any(Function),
-      expect.any(AbortSignal),
-      expect.objectContaining({
-        captions: project.captionsText,
-        captionOffsetSeconds: 1.5,
-      })
-    )
-  )
+  await waitFor(() => expect(stitchStudioVideos).toHaveBeenCalled())
+  const options = vi.mocked(stitchStudioVideos).mock.calls[0]?.[3]
+  expect(options).toBeUndefined()
 })
 
 test('assembled MP4 receives voiceover and captions positioned within a shot', async () => {

@@ -155,6 +155,7 @@ const projectSchema = z.strictObject({
   voiceoverMediaId: z.string().min(1).max(128).optional(),
   voiceoverVolume: z.number().min(0).max(1).optional(),
   voiceoverOffsetSeconds: z.number().min(0).max(3600).optional(),
+  // Legacy SRT data stays readable in older projects but is no longer assembled.
   captionsText: z.string().max(100_000).optional(),
   captionOffsetSeconds: z.number().min(0).max(3600).optional(),
   defaults: z
@@ -256,6 +257,7 @@ export type StudioProject = {
   voiceoverMediaId?: string
   voiceoverVolume?: number
   voiceoverOffsetSeconds?: number
+  /** Legacy project data; ignored by current MP4 assembly. */
   captionsText?: string
   captionOffsetSeconds?: number
   defaults?: StudioProjectDefaults

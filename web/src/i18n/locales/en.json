@@ -6915,8 +6915,6 @@
     "studio.timeline.voiceover": "Narration audio",
     "studio.timeline.voiceoverVolume": "Narration volume",
     "studio.timeline.removeVoiceover": "Remove narration",
-    "studio.timeline.captions": "Timed captions (SRT or WebVTT)",
-    "studio.timeline.captionsHint": "Paste captions timed against the final assembled video. They will be burned into the exported MP4.",
     "studio.timeline.overview": "Timeline overview",
     "studio.timeline.overviewHint": "Shots are ordered; durations are request estimates. The generated files determine actual length.",
     "studio.timeline.shotTrack": "Shot track",
@@ -7146,6 +7144,7 @@
     "studio.shot.generateText": "Generate text",
     "studio.shot.generateImage": "Generate first frame",
     "studio.shot.showDetails": "Show shot details",
-    "studio.shot.hideDetails": "Hide shot details"
+    "studio.shot.hideDetails": "Hide shot details",
+    "studio.status.idle": "Not generated"
   }
 }

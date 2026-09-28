@@ -116,7 +116,7 @@ describe('Studio MP4 assembly planning', () => {
     ).toBeUndefined()
   })
 
-  test('editing caption cues invalidates an assembled MP4', () => {
+  test('legacy timed caption fields do not invalidate an assembled MP4', () => {
     const project = {
       ...createStudioProject('Captions', 'p-captions'),
       assembledMediaId: 'assembled',
@@ -127,20 +127,24 @@ describe('Studio MP4 assembly planning', () => {
         ...project,
         captionsText: '1\n00:00:00,000 --> 00:00:01,000\nHi',
       }).assembledMediaId
-    ).toBeUndefined()
+    ).toBe('assembled')
+    expect(
+      reconcileStudioAssembly(project, {
+        ...project,
+        captionOffsetSeconds: 2,
+      }).assembledMediaId
+    ).toBe('assembled')
   })
-  test('moving audio or captions invalidates a previously assembled MP4', () => {
+  test('moving audio invalidates a previously assembled MP4', () => {
     const project = {
       ...createStudioProject('Offsets', 'p-offsets'),
       assembledMediaId: 'assembled',
       soundtrackOffsetSeconds: 0,
       voiceoverOffsetSeconds: 0,
-      captionOffsetSeconds: 0,
     }
     for (const field of [
       'soundtrackOffsetSeconds',
       'voiceoverOffsetSeconds',
-      'captionOffsetSeconds',
     ] as const) {
       expect(
         reconcileStudioAssembly(project, { ...project, [field]: 2 })
