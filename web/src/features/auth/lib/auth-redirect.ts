@@ -20,6 +20,26 @@ import type { AuthUser } from '@/stores/auth-store'
 
 const allowedRedirectProtocols = new Set(['http:', 'https:'])
 
+export function authWorkspaceDestination(
+  storage?: Pick<Storage, 'getItem'>
+): '/studio' | '/dashboard' {
+  try {
+    return (storage || localStorage).getItem('preferred-workspace') === 'studio'
+      ? '/studio'
+      : '/dashboard'
+  } catch {
+    return '/dashboard'
+  }
+}
+
+export function rememberAuthWorkspace(workspace: 'studio' | 'dashboard'): void {
+  try {
+    localStorage.setItem('preferred-workspace', workspace)
+  } catch {
+    /* Explicit links still work when browser storage is disabled. */
+  }
+}
+
 export function getSavedLanguage(user: AuthUser): string | undefined {
   if (typeof user.language === 'string') {
     return user.language

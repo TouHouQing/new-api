@@ -16,39 +16,29 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
+import { isAxiosError } from 'axios'
+import { t as translate } from 'i18next'
+import { Film, ImagePlus, Type } from 'lucide-react'
 import {
-  addEdge,
-  applyEdgeChanges,
-  applyNodeChanges,
-  type Connection,
-  type EdgeChange,
-  type NodeChange,
-} from '@xyflow/react'
-import {
-  Download,
-  Film,
-  ImagePlus,
-  Plus,
-  Settings2,
-  Type,
-  Upload,
-} from 'lucide-react'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useMemo,
+  useRef,
+  useState,
+} from 'react'
 import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 
-import { Canvas } from '@/components/ai-elements/canvas'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { useAuthStore } from '@/stores/auth-store'
 
 import {
@@ -60,6 +50,7 @@ import {
   fetchStudioProviderConfigs,
   fetchStudioProviderModels,
   generateStudioImage,
+  generateStudioSpeech,
   generateStudioStoryboard,
   generateStudioText,
   getStudioVideoContentUrl,
@@ -77,12 +68,13 @@ import {
   reconcileStudioAssembly,
   StudioAssemblyError,
   studioAssemblyFingerprint,
+  studioAssemblyProjectFromCanvas,
 } from './assembly-plan'
 import {
   connectedGenerationInput,
-  isValidStudioConnection,
   planStudioExecution,
   resolveStudioEdgeSource,
+  studioNodeInputsChanged,
   type StudioCanvasNode,
   type StudioCanvasNodeData,
   type StudioTake,
@@ -96,6 +88,7 @@ import {
   studioProjectsKey,
   type StudioProject,
   type StudioShot,
+  type StudioAssetProfile,
 } from './local-projects'
 import { studioMediaStore } from './media-store'
 import {
@@ -110,17 +103,44 @@ import {
   type StudioStorageHealth,
 } from './project-storage'
 import { StudioProviderSettings } from './provider-settings'
+import {
+  studioAgentSnapshot,
+  useStudioAgentBridge,
+} from './studio-agent-bridge'
+import { StudioAgentPanel } from './studio-agent-panel'
+import { StudioAssemblyNodeInspector } from './studio-assembly-node-inspector'
 import { StudioAssetLibrary } from './studio-asset-library'
+import { StudioAssetProfileEditor } from './studio-asset-profile-editor'
 import { StudioAttempts, type StudioLocalTask } from './studio-attempts'
+import {
+  applyStudioCanvasOperations,
+  StudioCanvasHistory,
+  studioNodeBusy,
+  studioCanvasDocumentFingerprint,
+  type StudioCanvasOperation,
+} from './studio-canvas-commands'
+import { StudioCanvasEditor } from './studio-canvas-editor'
+import {
+  studioCloudRequest,
+  studioCloudMedia,
+  refreshStudioProjects,
+  type StudioCloudProject,
+  type StudioCloudJob,
+} from './studio-cloud'
+import { mergeStudioCloudDocument } from './studio-cloud-merge'
 import {
   compileStudioContinuityPrompt,
   resolveStudioAssetReference,
+  studioNodeAssetContext,
 } from './studio-continuity'
 import {
   fetchStudioVideoCostPreview,
   studioCostDurationSeconds,
   type StudioVideoCostPreview,
 } from './studio-cost'
+import { loadStudioEditingExample } from './studio-creation-demo'
+import { classifyStudioCreationModels } from './studio-creation-models'
+import { StudioCreationWorkspace } from './studio-creation-workspace'
 import {
   StudioExecutionCoordinator,
   studioNodeInputFingerprint,
@@ -128,11 +148,22 @@ import {
 } from './studio-execution'
 import { captureStudioLastFrame } from './studio-frame-grab'
 import { StudioInspector } from './studio-inspector'
-import { StudioNode } from './studio-node'
+import {
+  createStudioEditedNode,
+  studioEditedMediaTitle,
+} from './studio-media-editing'
+import { StudioMediaEditor } from './studio-media-editor'
+import {
+  studioProductionSchema,
+  studioProjectRenderPlan,
+} from './studio-production'
+import { StudioProductionPanel } from './studio-production-panel'
 import {
   exportStudioProjectBundle,
   importStudioProjectBundle,
 } from './studio-project-bundle'
+import { StudioProjectToolbar } from './studio-project-toolbar'
+import { StudioSaveRecovery } from './studio-save-recovery'
 import { StudioStoryboard } from './studio-storyboard'
 import {
   StudioTaskPollSchedule,
@@ -149,8 +180,8 @@ import {
   saveStudioVideoTemplate,
   type StudioVideoTemplate,
 } from './studio-video-templates'
+import { studioWorkflowProblem } from './studio-workflow-problem'
 import {
-  addStudioNode,
   applyStudioAssetToAllShots,
   addPlannedStudioShots,
   addStudioShot,
@@ -162,12 +193,12 @@ import {
   moveStudioShot,
   pinStudioConnectionTake,
   pinStudioShotAssetVersion,
-  pruneStudioShots,
   recordStudioTake,
   reviseStudioTextOutput,
   retainStudioTake,
-  removeStudioShot,
   selectStudioTake,
+  archiveStudioTake,
+  archivableStudioTakeIds,
   setStudioShotAssets,
   setStudioFinalVideoReference,
   studioBranchNodeIds,
@@ -200,10 +231,11 @@ class StudioInputChangedError extends Error {}
 class StudioUpstreamWaitError extends Error {}
 class StudioSubmissionCancelledError extends Error {}
 class StudioSubmissionUncertainError extends Error {}
-const nodeTypes = { studio: StudioNode }
 
 function errorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error)
+  const raw = error instanceof Error ? error.message : String(error)
+  const mapped = studioWorkflowProblem(raw)
+  return mapped.startsWith('The task failed.') ? raw : translate(mapped)
 }
 
 function newId(): string {
@@ -270,10 +302,46 @@ function resolveVideoGroup(
   )
 }
 
-export function Studio() {
+export function Studio(
+  options: {
+    workspace?: 'guided' | 'assets' | 'templates' | 'canvas' | 'storyboard'
+    project?: string
+    step?: import('./studio-creation').StudioCreationStep
+    onNavigate?: (
+      workspace: 'guided' | 'assets' | 'canvas' | 'storyboard',
+      project?: string,
+      replace?: boolean,
+      step?: import('./studio-creation').StudioCreationStep
+    ) => void
+  } = {}
+) {
+  const [productionOpen, setProductionOpen] = useState(false)
+  const [productionInitialTab, setProductionInitialTab] = useState<
+    'workflow' | 'media'
+  >('workflow')
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id ?? 0)
   const userGroup = useAuthStore((state) => state.auth.user?.group ?? '')
+  const generationAccess = useQuery({
+    queryKey: ['studio-cloud-capabilities', userId],
+    queryFn: () =>
+      studioCloudRequest<{
+        render_available: boolean
+        quota_per_unit: number
+        available_quota: number
+        generation_credit_available: boolean
+        storage_available?: boolean
+      }>('/capabilities'),
+    enabled: userId > 0,
+    refetchInterval: 30_000,
+  })
+  let generationBlockReason = 'Loading balance and service access'
+  if (generationAccess.data) {
+    generationBlockReason =
+      generationAccess.data.storage_available === false
+        ? 'Studio storage is unavailable. Restore free space or reconnect storage before generating.'
+        : 'Insufficient generation credit. Add credit or continue with free editing.'
+  }
   const [workspace, setWorkspace] = useState<WorkspaceState>({
     ownerId: 0,
     projects: [],
@@ -299,10 +367,43 @@ export function Studio() {
     Partial<Record<StudioProviderKind, string[]>>
   >({})
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [, refreshSaveStatus] = useState(0)
+  const [advancedTools, setAdvancedTools] = useState(false)
   const [attemptsOpen, setAttemptsOpen] = useState(false)
+  const [agentOpen, setAgentOpen] = useState(false)
+  const [agentGatewayModels, setAgentGatewayModels] = useState<
+    Record<string, string[]>
+  >({})
   const [settingsKind, setSettingsKind] = useState<StudioProviderKind>('text')
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
-  const [view, setView] = useState<'canvas' | 'storyboard' | 'assets'>('canvas')
+  const [view, setViewState] = useState<
+    'guided' | 'canvas' | 'storyboard' | 'assets'
+  >('guided')
+  const setView = (next: typeof view): void => {
+    setViewState(next)
+    options.onNavigate?.(next, activeProjectId.current)
+  }
+  const requestedWorkspace = options.workspace
+  useEffect(() => {
+    const requested = requestedWorkspace
+    if (requested === 'templates') {
+      setViewState('guided')
+      return
+    }
+    if (
+      requested === 'guided' ||
+      requested === 'assets' ||
+      requested === 'canvas' ||
+      requested === 'storyboard'
+    ) {
+      setViewState(requested)
+    }
+  }, [requestedWorkspace])
+  const nativeResults = useRef(
+    new Map<string, { targetId: string; projectId: string; select: boolean }>()
+  )
+  const canvasHistories = useRef(new Map<string, StudioCanvasHistory>())
+  const [, setCanvasHistoryEpoch] = useState(0)
   const [batchBusy, setBatchBusy] = useState(false)
   const [frameBusyShotId, setFrameBusyShotId] = useState<string | null>(null)
   const [batchLimit, setBatchLimit] = useState(5)
@@ -326,6 +427,7 @@ export function Studio() {
   const [assemblyProgress, setAssemblyProgress] = useState(0)
   const [assemblyError, setAssemblyError] = useState<string | undefined>()
   const [message, setMessage] = useState<string | null>(null)
+  const [saveFailure, setSaveFailure] = useState('')
   const [previews, setPreviews] = useState<Record<string, string>>({})
   const [requestPreviews, setRequestPreviews] = useState<
     Record<string, string>
@@ -351,7 +453,6 @@ export function Studio() {
     nodeId: string
   } | null>(null)
   const [selectedShotId, setSelectedShotId] = useState<string | null>(null)
-  const uploadRef = useRef<HTMLInputElement>(null)
   const ownedUrls = useRef<string[]>([])
   const assemblyRun = useRef<{
     ownerId: number
@@ -378,10 +479,35 @@ export function Studio() {
     [visible, workspace.projects]
   )
   const project = projects.find((item) => item.id === workspace.activeId)
+  const cloudConflicts = mediaStore?.saveConflicts?.() || []
   const activeProjectId = useRef(project?.id)
   activeProjectId.current = project?.id
   const projectsRef = useRef(projects)
   projectsRef.current = projects
+  const lastRouteProject = useRef(options.project)
+  const pendingRouteProject = useRef<string | undefined>(undefined)
+  if (lastRouteProject.current !== options.project) {
+    lastRouteProject.current = options.project
+    pendingRouteProject.current = options.project
+  }
+  useEffect(() => {
+    const requested = pendingRouteProject.current
+    if (!visible || !requested) return
+    if (
+      project?.id !== requested &&
+      projects.some((entry) => entry.id === requested)
+    ) {
+      setWorkspace((current) => ({ ...current, activeId: requested }))
+      return
+    }
+    pendingRouteProject.current = undefined
+  }, [visible, project?.id, projects, options.project])
+  useEffect(() => {
+    if (!visible || !project || pendingRouteProject.current) return
+    if (options.project !== project.id) {
+      options.onNavigate?.(view, project.id, true)
+    }
+  }, [visible, project, options, view])
   const settlePreflight = useCallback((approved: boolean) => {
     const pending = pendingPreflight.current
     if (!pending) return
@@ -452,25 +578,44 @@ export function Studio() {
   )
   const canvasNodes = useMemo(
     () =>
-      project?.nodes.map((node) => ({
-        ...node,
-        data: {
-          ...node.data,
-          previewUrl: previews[previewKey(project.id, node.id)],
-          usedSourceHandles: project.edges
-            .filter((edge) => edge.source === node.id && edge.sourceHandle)
-            .map((edge) => edge.sourceHandle as string),
-          usedTargetHandles: project.edges
-            .filter((edge) => edge.target === node.id && edge.targetHandle)
-            .map((edge) => edge.targetHandle as string),
-          hasLegacyTargetHandle: project.edges.some(
-            (edge) => edge.target === node.id && !edge.targetHandle
-          ),
-        },
-      })) ?? [],
-    [project, previews]
+      project?.nodes.map((node) => {
+        let previewUrl: string | undefined =
+          previews[previewKey(project.id, node.id)]
+        if (node.data.purpose === 'assembly') {
+          previewUrl =
+            node.data.status === 'completed' && node.data.mediaId
+              ? assemblyPreviews.get(project.id)
+              : undefined
+        }
+        return {
+          ...node,
+          data: {
+            ...node.data,
+            previewUrl,
+            usedSourceHandles: project.edges
+              .filter((edge) => edge.source === node.id && edge.sourceHandle)
+              .map((edge) => edge.sourceHandle as string),
+            usedTargetHandles: project.edges
+              .filter((edge) => edge.target === node.id && edge.targetHandle)
+              .map((edge) => edge.targetHandle as string),
+            hasLegacyTargetHandle: project.edges.some(
+              (edge) => edge.target === node.id && !edge.targetHandle
+            ),
+          },
+        }
+      }) ?? [],
+    [project, previews, assemblyPreviews]
   )
   const selectedNode = project?.nodes.find((node) => node.id === selectedNodeId)
+  const selectedAsset = project?.assets?.find(
+    (asset) => asset.id === selectedNode?.data.linkedAssetId
+  )
+  const canvasHistoryKey = `${userId}:${project?.id || ''}`
+  if (!canvasHistories.current.has(canvasHistoryKey)) {
+    canvasHistories.current.set(canvasHistoryKey, new StudioCanvasHistory())
+  }
+  const canvasHistory =
+    canvasHistories.current.get(canvasHistoryKey) || new StudioCanvasHistory()
   const selectedGroup =
     selectedNode?.data.kind === 'video'
       ? resolveVideoGroup(selectedNode.data.group, userGroup, videoGroups)
@@ -694,13 +839,24 @@ export function Studio() {
   useEffect(() => {
     taskPollSchedule.current = new StudioTaskPollSchedule()
   }, [userId])
+  const workspaceLabel = useEffectEvent((key: string) => t(key))
+  const restoreWorkspaceView = useEffectEvent((fallback: typeof view) => {
+    setViewState(
+      requestedWorkspace === 'templates'
+        ? 'guided'
+        : (requestedWorkspace ?? fallback)
+    )
+  })
 
   useEffect(() => {
     if (!userId) return
     let cancelled = false
+    setSaveFailure('')
     setUnreadableProjectData(null)
     setBackupDownloaded(false)
     setStorageHealth(null)
+    setProviderConfigs({})
+    setProviderModels({})
     setVideoTemplates(loadStudioVideoTemplates(localStorage, userId))
     void (async () => {
       let projects: StudioProject[] = []
@@ -721,7 +877,7 @@ export function Studio() {
           raw: error instanceof StudioProjectStorageError ? error.raw : '',
           error:
             error instanceof StudioProjectStorageError
-              ? t('studio.project.invalidLocalData')
+              ? workspaceLabel('studio.project.invalidLocalData')
               : errorMessage(error),
         })
         setWorkspace({
@@ -734,23 +890,44 @@ export function Studio() {
       }
       if (cancelled) return
       if (!projects.length) {
-        projects = [createStudioProject(t('studio.project.untitled'), newId())]
+        const fresh = createStudioProject(
+          workspaceLabel('studio.project.untitled'),
+          newId()
+        )
+        fresh.production = {
+          ...studioProductionSchema.parse({}),
+          guide: { step: 'story', goal: 'story' },
+        }
+        projects = [fresh]
       }
       setWorkspace({
         ownerId: userId,
         projects,
-        activeId: projects[0].id,
+        activeId:
+          projects.find(
+            (project) =>
+              project.id ===
+              new URLSearchParams(window.location.search).get('project')
+          )?.id || projects[0].id,
         ready: true,
       })
       setSelectedNodeId(null)
-      setView(
-        projects[0].shots?.length || projects[0].nodes.length === 0
-          ? 'storyboard'
-          : 'canvas'
-      )
+      const restoredProject =
+        projects.find(
+          (item) =>
+            item.id ===
+            new URLSearchParams(window.location.search).get('project')
+        ) || projects[0]
+      let restoredView: typeof view = 'canvas'
+      if (restoredProject.production?.guide) restoredView = 'guided'
+      else if (
+        restoredProject.shots?.length ||
+        restoredProject.nodes.length === 0
+      ) {
+        restoredView = 'storyboard'
+      }
+      restoreWorkspaceView(restoredView)
       setVideoGroups([])
-      setProviderConfigs({})
-      setProviderModels({})
       setSettingsOpen(false)
       setAttemptsOpen(false)
       setPreviews({})
@@ -768,47 +945,63 @@ export function Studio() {
         .catch((error) => {
           if (!cancelled) setMessage(errorMessage(error))
         })
-      void fetchStudioProviderConfigs()
-        .then(async (configs) => {
-          if (cancelled) return
-          setProviderConfigs(configs)
-          await Promise.all(
-            (['text', 'image'] as const).map(async (kind) => {
-              if (!configs[kind]?.hasKey) return
-              try {
-                const models = await fetchStudioProviderModels(kind)
-                if (!cancelled) {
-                  setProviderModels((current) => ({
-                    ...current,
-                    [kind]: models,
-                  }))
-                }
-              } catch (error) {
-                if (!cancelled) setMessage(errorMessage(error))
-              }
-            })
-          )
-        })
-        .catch((error) => {
-          if (!cancelled) setMessage(errorMessage(error))
-        })
     })()
     return () => {
       cancelled = true
       ownedUrls.current.forEach((url) => URL.revokeObjectURL(url))
       ownedUrls.current = []
     }
-  }, [userId, userGroup, t, mediaStore])
+  }, [userId, mediaStore])
+
+  useEffect(() => {
+    if (!userId) return
+    let cancelled = false
+    void fetchStudioProviderConfigs()
+      .then(async (configs) => {
+        if (cancelled) return
+        setProviderConfigs(configs)
+        await Promise.all(
+          (['text', 'image'] as const).map(async (kind) => {
+            try {
+              const models = configs[kind]?.hasKey
+                ? await fetchStudioProviderModels(kind)
+                : classifyStudioCreationModels(
+                    await fetchStudioModels(userGroup || 'default')
+                  )[kind]
+              if (!cancelled) {
+                setProviderModels((current) => ({
+                  ...current,
+                  [kind]: models,
+                }))
+              }
+            } catch (error) {
+              if (!cancelled) setMessage(errorMessage(error))
+            }
+          })
+        )
+      })
+      .catch((error) => {
+        if (!cancelled) setMessage(errorMessage(error))
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [userId, userGroup])
 
   const refreshProviderModels = useCallback(
     async (kind: StudioProviderKind) => {
       const ownerId = userId
-      const models = await fetchStudioProviderModels(kind)
+      const configs = await fetchStudioProviderConfigs()
+      const models = configs[kind]?.hasKey
+        ? await fetchStudioProviderModels(kind)
+        : classifyStudioCreationModels(
+            await fetchStudioModels(userGroup || 'default')
+          )[kind]
       if (activeUserId.current === ownerId) {
         setProviderModels((current) => ({ ...current, [kind]: models }))
       }
     },
-    [userId]
+    [userId, userGroup]
   )
 
   const saveProvider = useCallback(
@@ -830,27 +1023,40 @@ export function Studio() {
       if (activeUserId.current !== ownerId) return
       setProviderConfigs((current) => ({ ...current, [kind]: undefined }))
       setProviderModels((current) => ({ ...current, [kind]: [] }))
+      await refreshProviderModels(kind)
     },
-    [userId]
+    [userId, refreshProviderModels]
   )
 
   useEffect(() => {
     if (!visible) return
     if (mediaStore) {
-      void mediaStore
-        .saveProjects(userId, workspace.projects)
-        .then(() => {
-          try {
-            saveStudioProjects(localStorage, userId, workspace.projects)
-          } catch {
-            // IndexedDB is authoritative; the legacy mirror is best effort.
-          }
-        })
-        .catch((error) =>
-          setMessage(
-            `${t('studio.project.saveFailed')}: ${errorMessage(error)}`
-          )
-        )
+      if ('saveLocalProjects' in mediaStore) {
+        void mediaStore
+          .saveLocalProjects(userId, workspace.projects)
+          .catch((error) => setSaveFailure(errorMessage(error)))
+      }
+      const save = () => {
+        void mediaStore
+          .saveProjects(userId, workspace.projects)
+          .then(() => {
+            try {
+              saveStudioProjects(localStorage, userId, workspace.projects)
+            } catch {
+              // IndexedDB is authoritative; the legacy mirror is best effort.
+            }
+            if (activeUserId.current === userId) {
+              setSaveFailure('')
+              refreshSaveStatus((epoch) => epoch + 1)
+            }
+          })
+          .catch((error) => setSaveFailure(errorMessage(error)))
+      }
+      if ('saveLocalProjects' in mediaStore) {
+        const timer = setTimeout(save, 700)
+        return () => clearTimeout(timer)
+      }
+      save()
       return
     }
     try {
@@ -859,6 +1065,50 @@ export function Studio() {
       setMessage(`${t('studio.project.saveFailed')}: ${errorMessage(error)}`)
     }
   }, [visible, userId, workspace.projects, t, mediaStore])
+
+  useEffect(() => {
+    if (!visible || !mediaStore || !('syncProjects' in mediaStore)) return
+    let disposed = false
+    let pending = false
+    const timer = setInterval(() => {
+      if (pending || disposed) return
+      pending = true
+      const current = projectsRef.current
+      void mediaStore
+        .syncProjects(userId, current, () => projectsRef.current)
+        .then((synced) => {
+          if (
+            disposed ||
+            activeUserId.current !== userId ||
+            projectsRef.current !== current
+          ) {
+            return
+          }
+          if (JSON.stringify(synced) === JSON.stringify(current)) return
+          mediaStore.acceptSyncedProjects?.(userId, synced)
+          projectsRef.current = synced
+          setWorkspace((workspace) =>
+            workspace.ownerId === userId
+              ? { ...workspace, projects: synced }
+              : workspace
+          )
+        })
+        .catch((error) => {
+          if (!disposed) {
+            if (mediaStore.saveConflicts?.().length) {
+              setSaveFailure(errorMessage(error))
+            } else setMessage(errorMessage(error))
+          }
+        })
+        .finally(() => {
+          pending = false
+        })
+    }, 8000)
+    return () => {
+      disposed = true
+      clearInterval(timer)
+    }
+  }, [visible, userId, mediaStore])
 
   useEffect(() => {
     if (!visible || !mediaStore) return
@@ -965,11 +1215,36 @@ export function Studio() {
   }, [visible, userId, mediaRefsKey, mediaStore])
 
   const editProject = useCallback(
-    (projectId: string, edit: (project: StudioProject) => StudioProject) => {
+    (
+      projectId: string,
+      edit: (project: StudioProject) => StudioProject,
+      capture = true
+    ) => {
       if (activeUserId.current !== userId) return
+      if (mediaStore && 'cloudRecord' in mediaStore) {
+        const record = mediaStore.cloudRecord(projectId)
+        if (record && !['owner', 'editor'].includes(record.role)) {
+          setMessage(t('studio.production.readOnly'))
+          return
+        }
+      }
       const existing = projectsRef.current.find((item) => item.id === projectId)
       if (!existing) return
       const edited = reconcileStudioAssembly(existing, edit(existing))
+      if (
+        capture &&
+        studioCanvasDocumentFingerprint(existing) !==
+          studioCanvasDocumentFingerprint(edited)
+      ) {
+        const key = `${userId}:${projectId}`
+        let history = canvasHistories.current.get(key)
+        if (!history) {
+          history = new StudioCanvasHistory()
+          canvasHistories.current.set(key, history)
+        }
+        history.capture(existing)
+        setCanvasHistoryEpoch((epoch) => epoch + 1)
+      }
       projectsRef.current = projectsRef.current.map((item) =>
         item.id === projectId ? edited : item
       )
@@ -983,7 +1258,7 @@ export function Studio() {
         }
       })
     },
-    [userId]
+    [userId, mediaStore, t]
   )
 
   const editNode = useCallback(
@@ -999,12 +1274,111 @@ export function Studio() {
     [editProject]
   )
 
+  const editCanvasProject = useCallback(
+    (
+      projectId: string,
+      edit: (project: StudioProject) => StudioProject,
+      capture = true
+    ) => {
+      const previous = projectsRef.current.find((item) => item.id === projectId)
+      if (!previous || activeUserId.current !== userId) return
+      try {
+        const next = edit(previous)
+        if (next === previous) return
+        const key = `${userId}:${projectId}`
+        let history = canvasHistories.current.get(key)
+        if (!history) {
+          history = new StudioCanvasHistory()
+          canvasHistories.current.set(key, history)
+        }
+        if (capture) history.capture(previous)
+        const changedMedia = previous.nodes.filter((node) => {
+          const updated = next.nodes.find((item) => item.id === node.id)
+          return (
+            !updated ||
+            updated.data.mediaId !== node.data.mediaId ||
+            updated.data.selectedTakeId !== node.data.selectedTakeId
+          )
+        })
+        for (const node of changedMedia) {
+          if (node.data.mediaId) {
+            loadedMediaIds.current.delete(
+              mediaLoadKey({
+                kind: 'node',
+                projectId,
+                mediaId: node.data.mediaId,
+              })
+            )
+          }
+          const nextId = next.nodes.find((item) => item.id === node.id)?.data
+            .mediaId
+          if (nextId) {
+            loadedMediaIds.current.delete(
+              mediaLoadKey({ kind: 'node', projectId, mediaId: nextId })
+            )
+          }
+        }
+        if (changedMedia.length) {
+          setPreviews((current) => {
+            const previews = { ...current }
+            for (const node of changedMedia) {
+              delete previews[previewKey(projectId, node.id)]
+            }
+            return previews
+          })
+        }
+        editProject(projectId, () => next, false)
+        setCanvasHistoryEpoch((epoch) => epoch + 1)
+      } catch (error) {
+        setMessage(errorMessage(error))
+        throw error
+      }
+    },
+    [userId, editProject]
+  )
+
+  const storedMediaIsReferenced = useCallback(
+    (mediaId: string, excludingProjectId?: string) => {
+      if (
+        projectsRef.current.some(
+          (item) =>
+            item.id !== excludingProjectId &&
+            projectStoredMediaIds(item).has(mediaId)
+        )
+      ) {
+        return true
+      }
+      for (const [key, history] of canvasHistories.current) {
+        if (
+          !key.startsWith(`${userId}:`) ||
+          key === `${userId}:${excludingProjectId}`
+        ) {
+          continue
+        }
+        if (
+          history.retainedProjects.some((item) =>
+            projectStoredMediaIds(item).has(mediaId)
+          )
+        ) {
+          return true
+        }
+      }
+      return false
+    },
+    [userId]
+  )
+
   const discardNodeMedia = useCallback(
     (projectId: string, node: StudioCanvasNode) => {
       const retained = node.data.takes?.some(
         (take) => take.mediaId === node.data.mediaId
       )
-      if (node.data.mediaId && mediaStore && !retained) {
+      if (
+        node.data.mediaId &&
+        mediaStore &&
+        !retained &&
+        !storedMediaIsReferenced(node.data.mediaId)
+      ) {
         void mediaStore
           .delete(userId, node.data.mediaId)
           .catch((error) => setMessage(errorMessage(error)))
@@ -1021,7 +1395,7 @@ export function Studio() {
         return next
       })
     },
-    [mediaStore, previews, userId]
+    [mediaStore, previews, userId, storedMediaIsReferenced]
   )
 
   const discardBranchMedia = useCallback(
@@ -1062,6 +1436,11 @@ export function Studio() {
       }
     }
     if (!selected) {
+      for (const retained of canvasHistories.current.get(
+        `${userId}:${source.id}`
+      )?.retainedProjects || []) {
+        for (const mediaId of projectStoredMediaIds(retained)) ids.add(mediaId)
+      }
       for (const asset of source.assets || []) {
         if (asset.mediaId) ids.add(asset.mediaId)
         for (const version of asset.versions || []) {
@@ -1073,6 +1452,9 @@ export function Studio() {
       if (source.assembledMediaId) ids.add(source.assembledMediaId)
     }
     for (const mediaId of ids) {
+      if (storedMediaIsReferenced(mediaId, selected ? undefined : source.id)) {
+        continue
+      }
       void mediaStore
         .delete(userId, mediaId)
         .catch((error) => setMessage(errorMessage(error)))
@@ -1141,17 +1523,31 @@ export function Studio() {
       const mediaId = newId()
       const latest = projectsRef.current.find((item) => item.id === source.id)
       if (!latest?.nodes.some((item) => item.id === node.id)) return
-      const replacement = updateStudioNode(
-        invalidateStudioBranch(latest, node.id),
-        node.id,
-        {
-          model: undefined,
-          mediaId,
-          outputUrl: undefined,
-          status: 'completed',
-          error: undefined,
-        }
-      )
+      const affected = studioBranchNodeIds(latest, node.id)
+      if (
+        latest.nodes.some(
+          (item) => affected.has(item.id) && studioNodeBusy(item)
+        )
+      ) {
+        throw new Error(t('studio.canvas.taskBusy'))
+      }
+      const take: StudioTake = {
+        id: newId(),
+        createdAt: new Date().toISOString(),
+        prompt: node.data.prompt,
+        status: 'completed',
+        sourceMode: 'upload',
+        mediaId,
+      }
+      const replace = (current: StudioProject) =>
+        recordStudioTake(
+          updateStudioNode(invalidateStudioBranch(current, node.id), node.id, {
+            model: undefined,
+          }),
+          node.id,
+          take
+        )
+      const replacement = replace(latest)
       await mediaStore.putWithProjects(
         userId,
         mediaId,
@@ -1172,18 +1568,67 @@ export function Studio() {
         ...current,
         [previewKey(source.id, node.id)]: preview,
       }))
-      editProject(source.id, (current) =>
-        updateStudioNode(invalidateStudioBranch(current, node.id), node.id, {
-          model: undefined,
-          mediaId,
-          outputUrl: undefined,
-          status: 'completed',
-          error: undefined,
-        })
-      )
+      editProject(source.id, replace)
     },
     [mediaStore, userId, discardNodeMedia, discardBranchMedia, editProject, t]
   )
+
+  const uploadMediaNode = async (
+    node: StudioCanvasNode,
+    source: StudioProject,
+    file: File
+  ) => {
+    const mediaType = node.data.kind === 'audio' ? 'audio/' : 'video/'
+    if (
+      !mediaStore ||
+      !file.type.startsWith(mediaType) ||
+      file.size > 100_000_000
+    ) {
+      throw new Error(t('studio.media.uploadInvalid'))
+    }
+    if (studioNodeBusy(node)) throw new Error(t('studio.canvas.taskBusy'))
+    const mediaId = newId()
+    const latest = projectsRef.current.find((item) => item.id === source.id)
+    if (!latest?.nodes.some((item) => item.id === node.id)) return
+    const take: StudioTake = {
+      id: newId(),
+      createdAt: new Date().toISOString(),
+      prompt: node.data.prompt,
+      status: 'completed',
+      sourceMode: 'upload',
+      mediaId,
+    }
+    const replacement = recordStudioTake(
+      updateStudioNode(latest, node.id, { model: undefined }),
+      node.id,
+      take
+    )
+    await mediaStore.putWithProjects(
+      userId,
+      mediaId,
+      file,
+      projectsRef.current.map((item) =>
+        item.id === source.id ? replacement : item
+      )
+    )
+    if (activeUserId.current !== userId) return
+    editProject(source.id, (current) =>
+      recordStudioTake(
+        updateStudioNode(current, node.id, { model: undefined }),
+        node.id,
+        take
+      )
+    )
+    const preview = URL.createObjectURL(file)
+    ownedUrls.current.push(preview)
+    loadedMediaIds.current.add(
+      mediaLoadKey({ kind: 'node', projectId: source.id, mediaId })
+    )
+    setPreviews((current) => ({
+      ...current,
+      [previewKey(source.id, node.id)]: preview,
+    }))
+  }
 
   const capturePreviousShotFrame = async (shotId: string) => {
     if (!project || !mediaStore || frameBusyShotId) return
@@ -1264,14 +1709,50 @@ export function Studio() {
       retryPending = false
     ) => {
       if (!userId || workspace.ownerId !== userId) return
+      if (mediaStore && 'cloudRecord' in mediaStore) {
+        const record = mediaStore.cloudRecord(source.id)
+        if (record && !['owner', 'editor'].includes(record.role)) {
+          setMessage(t('studio.production.readOnly'))
+          return
+        }
+      }
+      if (
+        mediaStore &&
+        'cloudRecord' in mediaStore &&
+        target.data.model &&
+        (target.data.kind === 'text' ||
+          target.data.kind === 'image' ||
+          target.data.kind === 'video' ||
+          target.data.kind === 'audio') &&
+        target.data.purpose !== 'assembly'
+      ) {
+        const configs = await fetchStudioProviderConfigs()
+        const direct =
+          (target.data.kind === 'text' || target.data.kind === 'image') &&
+          configs[target.data.kind]?.hasKey
+        if (!direct) {
+          setSelectedNodeId(target.id)
+          setProductionOpen(true)
+          setMessage(
+            t(
+              'Review the platform generation budget and selected nodes before starting.'
+            )
+          )
+          return
+        }
+      }
       const runId = `${userId}:${source.id}:${target.id}:${studioNodeInputFingerprint(source, target.id)}`
       if (runningTargets.current.has(runId)) return
       runningTargets.current.add(runId)
       setMessage(null)
       let current = target
       let workingNodes = source.nodes
+      let workingAssets = source.assets
       const fingerprint = (nodeId: string) =>
-        studioNodeInputFingerprint({ ...source, nodes: workingNodes }, nodeId)
+        studioNodeInputFingerprint(
+          { ...source, nodes: workingNodes, assets: workingAssets },
+          nodeId
+        )
       const assertFresh = (nodeId: string, expected: string) => {
         const latest = projectsRef.current.find((item) => item.id === source.id)
         if (
@@ -1408,6 +1889,18 @@ export function Studio() {
         if (
           ordered.some(
             (node) =>
+              (node.data.model || node.data.kind === 'text') &&
+              (node.data.takes?.length || 0) >= 100 &&
+              (node.id === target.id || node.data.status !== 'completed') &&
+              !['queued', 'processing'].includes(node.data.status || '') &&
+              !node.data.pendingRequestId
+          )
+        ) {
+          throw new Error(t('studio.take.limit'))
+        }
+        if (
+          ordered.some(
+            (node) =>
               node.data.kind === 'video' &&
               node.data.pendingRequestId &&
               !(retryPending && node.id === target.id)
@@ -1423,7 +1916,14 @@ export function Studio() {
           const node = workingNodes.find((item) => item.id === planned.id)
           if (!node) throw new Error('canvas source node is missing')
           current = node
+          workingAssets = projectsRef.current.find(
+            (item) => item.id === source.id
+          )?.assets
           const selected = node.id === target.id
+          const assetContext = studioNodeAssetContext(
+            { ...source, nodes: workingNodes, assets: workingAssets },
+            node.id
+          )
           const input = connectedGenerationInput(
             workingNodes,
             source.edges,
@@ -1449,6 +1949,9 @@ export function Studio() {
           const generationPrompt = compileStudioContinuityPrompt({
             prompt: [
               input.prompt,
+              ...Object.entries(node.data.camera || {})
+                .filter(([, value]) => value?.trim())
+                .map(([key, value]) => `Camera ${key}: ${value}`),
               ...(source.shots || [])
                 .filter((shot) =>
                   [
@@ -1465,9 +1968,9 @@ export function Studio() {
             ]
               .filter(Boolean)
               .join('\n\n'),
-            assets: source.assets,
-            assetIds: node.data.assetIds,
-            assetVersionIds: node.data.assetVersionIds,
+            assets: assetContext.assets,
+            assetIds: assetContext.assetIds,
+            assetVersionIds: assetContext.assetVersionIds,
             previousShotNote,
           })
 
@@ -1491,6 +1994,15 @@ export function Studio() {
                 if (selected) throw new Error(t('studio.prompt.required'))
                 continue
               }
+              recordTake(node.id, {
+                id: newId(),
+                createdAt: new Date().toISOString(),
+                prompt: generationPrompt,
+                outputText: generationPrompt,
+                outputImagePrompt: undefined,
+                outputVideoPrompt: undefined,
+                status: 'completed',
+              })
               update(node.id, {
                 outputText: generationPrompt,
                 outputImagePrompt: undefined,
@@ -1498,6 +2010,7 @@ export function Studio() {
                 status: 'completed',
                 error: undefined,
               })
+              if (selected) invalidateDependents(node.id)
               continue
             }
             const textConfig = providerConfigs.text?.hasKey
@@ -1542,6 +2055,73 @@ export function Studio() {
               status: 'completed',
             })
             if (selected) invalidateDependents(node.id)
+            continue
+          }
+
+          if (node.data.kind === 'audio') {
+            if (
+              !selected &&
+              node.data.status === 'completed' &&
+              node.data.mediaId
+            ) {
+              continue
+            }
+            if (!node.data.model) {
+              if (!node.data.mediaId) {
+                throw new Error(t('studio.audio.uploadRequired'))
+              }
+              update(node.id, { status: 'completed', error: undefined })
+              continue
+            }
+            if (!mediaStore) throw new Error(t('studio.media.missing'))
+            const audioGroup = resolveVideoGroup(
+              node.data.group,
+              userGroup,
+              videoGroups
+            )
+            if (
+              !(await fetchStudioModels(audioGroup)).includes(node.data.model)
+            ) {
+              throw new Error(t('studio.model.empty'))
+            }
+            if (activeUserId.current !== userId) return
+            const audioModel = node.data.model
+            const expected = fingerprint(node.id)
+            update(node.id, { status: 'submitting', error: undefined })
+            const blob = await executionCoordinator.current.run(
+              `${userId}:${source.id}:${node.id}:${expected}`,
+              () =>
+                generateStudioSpeech(
+                  audioModel,
+                  input.prompt,
+                  node.data.voice || 'alloy',
+                  node.data.speed ?? 1,
+                  audioGroup
+                ),
+              { reuseCompleted: true, force: selected }
+            )
+            assertFresh(node.id, expected)
+            const mediaId = newId()
+            await mediaStore.put(userId, mediaId, blob)
+            assertFresh(node.id, expected)
+            recordTake(node.id, {
+              id: newId(),
+              createdAt: new Date().toISOString(),
+              model: node.data.model,
+              prompt: input.prompt,
+              status: 'completed',
+              mediaId,
+            })
+            const preview = URL.createObjectURL(blob)
+            ownedUrls.current.push(preview)
+            loadedMediaIds.current.add(
+              mediaLoadKey({ kind: 'node', projectId: source.id, mediaId })
+            )
+            setPreviews((previews) => ({
+              ...previews,
+              [previewKey(source.id, node.id)]: preview,
+            }))
+            update(node.id, { status: 'completed', mediaId })
             continue
           }
 
@@ -1606,8 +2186,13 @@ export function Studio() {
               }
               assertFresh(node.id, expected)
             }
-            for (const asset of source.assets || []) {
-              if (!node.data.assetIds?.includes(asset.id)) continue
+            for (const asset of workingAssets || []) {
+              if (
+                !node.data.assetIds?.includes(asset.id) &&
+                node.data.linkedAssetId !== asset.id
+              ) {
+                continue
+              }
               const reference = resolveStudioAssetReference(
                 asset,
                 node.data.assetVersionIds?.[asset.id]
@@ -1719,6 +2304,16 @@ export function Studio() {
           }
 
           if (
+            !node.data.model &&
+            node.data.status === 'completed' &&
+            node.data.mediaId
+          ) {
+            continue
+          }
+          if (node.data.purpose === 'assembly') {
+            throw new Error(t('studio.assembly.runFirst'))
+          }
+          if (
             !selected &&
             node.data.taskId &&
             (node.data.status === 'queued' || node.data.status === 'processing')
@@ -1799,7 +2394,7 @@ export function Studio() {
           const videos: string[] = []
           const imageReferences: {
             url: string
-            role: 'first_frame' | 'reference_image'
+            role: 'first_frame' | 'last_frame' | 'reference_image'
           }[] = []
           const videoReferences: {
             url: string
@@ -1824,6 +2419,7 @@ export function Studio() {
               if (!imageUrl) throw new Error(t('studio.media.missing'))
               if (
                 edge.targetHandle === 'first_frame' ||
+                edge.targetHandle === 'last_frame' ||
                 edge.targetHandle === 'reference_image'
               ) {
                 imageReferences.push({
@@ -1917,6 +2513,17 @@ export function Studio() {
             ) ||
               videoReferences.length > 0 ||
               videos.length > 0)
+          const keyframes: { url: string; time: number }[] = []
+          for (const frame of node.data.videoKeyframes || []) {
+            if (!mediaStore) throw new Error(t('studio.media.missing'))
+            const blob = await mediaStore.get(userId, frame.mediaId)
+            assertFresh(node.id, referenceFingerprint)
+            if (!blob || !blob.type.startsWith('image/')) {
+              throw new Error(t('studio.media.missing'))
+            }
+            keyframes.push({ url: await blobToDataUrl(blob), time: frame.time })
+            assertFresh(node.id, referenceFingerprint)
+          }
           const request = applyStudioVideoPayloadPatch(
             buildStudioVideoRequest(model, {
               prompt: generationPrompt,
@@ -1924,6 +2531,7 @@ export function Studio() {
               videoUrls: videos,
               imageReferences,
               videoReferences,
+              keyframes,
               seconds: node.data.seconds ?? model.defaultSeconds,
               resolution: node.data.resolution ?? '',
               ratio: node.data.ratio ?? '16:9',
@@ -2501,36 +3109,327 @@ export function Studio() {
     rememberSuccessfulTemplate,
   ])
 
+  useEffect(() => {
+    if (!agentOpen || !userId || !userGroup) return
+    let cancelled = false
+    const groups = [
+      ...new Set([userGroup, ...videoGroups.map((group) => group.id)]),
+    ].slice(0, 10)
+    void Promise.allSettled(
+      groups.map(
+        async (group) => [group, await fetchStudioModels(group)] as const
+      )
+    ).then((results) => {
+      if (!cancelled && activeUserId.current === userId) {
+        setAgentGatewayModels(
+          Object.fromEntries(
+            results.flatMap((result) =>
+              result.status === 'fulfilled' ? [result.value] : []
+            )
+          )
+        )
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [agentOpen, userId, userGroup, videoGroups])
+  useEffect(() => {
+    setAgentGatewayModels({})
+  }, [userId])
+
+  const agentBridge = useStudioAgentBridge({
+    userId,
+    beforeConnect: async () => {
+      if (mediaStore) await mediaStore.saveProjects(userId, projectsRef.current)
+    },
+    projectId: project?.id,
+    getSnapshot: () => {
+      const current = projectsRef.current.find(
+        (item) => item.id === activeProjectId.current
+      )
+      return current
+        ? studioAgentSnapshot(current, {
+            text: providerModels.text || [],
+            image: providerModels.image || [],
+            groups: videoGroups.map((group) => group.id),
+            gatewayByGroup: agentGatewayModels,
+          })
+        : null
+    },
+    onEdit: async (operations) => {
+      const current = projectsRef.current.find(
+        (item) => item.id === activeProjectId.current
+      )
+      if (!current) throw new Error('Studio workspace is unavailable')
+      const record = mediaStore?.cloudRecord(current.id)
+      if (record && !['owner', 'editor'].includes(record.role)) {
+        throw new Error(t('studio.production.readOnly'))
+      }
+      const before = new Set(current.nodes.map((node) => node.id))
+      const next = applyStudioCanvasOperations(
+        current,
+        operations,
+        undefined,
+        (key) => t(key)
+      )
+      editCanvasProject(current.id, () => next)
+      if (mediaStore) await mediaStore.saveProjects(userId, projectsRef.current)
+      else saveStudioProjects(localStorage, userId, projectsRef.current)
+      return {
+        projectId: current.id,
+        createdNodeIds: next.nodes
+          .filter((node) => !before.has(node.id))
+          .map((node) => node.id),
+      }
+    },
+    onRun: async (nodeId, options) => {
+      const current = projectsRef.current.find(
+        (item) => item.id === activeProjectId.current
+      )
+      const node = current?.nodes.find((item) => item.id === nodeId)
+      if (!current || !node) throw new Error('Studio node is unavailable')
+      if (studioNodeBusy(node)) throw new Error(t('studio.canvas.taskBusy'))
+      const kind = node.data.kind
+      const configs = await fetchStudioProviderConfigs()
+      const defaultModel =
+        node.data.model &&
+        (((kind === 'text' || kind === 'image') && !configs[kind]?.hasKey) ||
+          kind === 'video' ||
+          kind === 'audio') &&
+        node.data.purpose !== 'assembly'
+      if (defaultModel) {
+        if (!options.budget || !mediaStore) {
+          throw new Error(
+            'Platform generation requires an explicit quota budget; supply budget to studio_run_node or use studio_start_workflow'
+          )
+        }
+        await mediaStore.saveProjects(userId, projectsRef.current)
+        const path = `/projects/${encodeURIComponent(current.id)}`
+        const stored = await studioCloudRequest<StudioCloudProject>(path)
+        let job = await studioCloudRequest<StudioCloudJob>(
+          `${path}/jobs`,
+          'POST',
+          {
+            request_id: options.requestId,
+            kind: 'generate',
+            revision: stored.revision,
+            budget: options.budget,
+            node_ids: [nodeId],
+            confirm_generation: true,
+          }
+        )
+        const deadline = Date.now() + 20 * 60_000
+        while (
+          ['queued', 'running', 'waiting'].includes(job.status) &&
+          Date.now() < deadline
+        ) {
+          if (activeUserId.current !== userId) {
+            throw new Error(
+              'Studio account changed; the server workflow continues independently'
+            )
+          }
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 1000))
+          job = await studioCloudRequest<StudioCloudJob>(
+            `/jobs/${encodeURIComponent(job.id)}`
+          )
+        }
+        if (job.status !== 'succeeded') {
+          throw new Error(
+            `${job.error || job.status}; inspect workflow ${job.id} before retrying`
+          )
+        }
+        const restored = await mediaStore.syncProjects(
+          userId,
+          projectsRef.current
+        )
+        if (activeUserId.current !== userId) {
+          throw new Error('Studio account changed')
+        }
+        projectsRef.current = restored
+        setWorkspace((state) => ({ ...state, projects: restored }))
+        return { nodeId, status: 'completed', workflowId: job.id }
+      }
+      if (node.data.purpose === 'assembly') {
+        await assembleMp4(nodeId)
+        const result = projectsRef.current
+          .find((item) => item.id === current.id)
+          ?.nodes.find((item) => item.id === nodeId)
+        if (result?.data.status !== 'completed' || !result.data.mediaId) {
+          throw new Error(
+            result?.data.error || 'Studio assembly was not completed'
+          )
+        }
+        return { nodeId, status: 'completed', hasLocalMedia: true }
+      }
+      await generate(node, current)
+      const result = projectsRef.current
+        .find((item) => item.id === current.id)
+        ?.nodes.find((item) => item.id === nodeId)
+      if (
+        !result ||
+        result.data.status === 'failed' ||
+        result.data.status === 'idle'
+      ) {
+        throw new Error(
+          result?.data.error || 'Studio generation was not submitted'
+        )
+      }
+      return {
+        nodeId,
+        status: result.data.status,
+        taskId: result.data.taskId,
+        takeId: result.data.selectedTakeId,
+      }
+    },
+  })
+
   const addNode = (kind: StudioCanvasNodeData['kind']) => {
     if (!project) return
     const nodeId = newId()
-    editProject(project.id, (current) => addStudioNode(current, kind, nodeId))
+    editCanvasProject(project.id, (current) =>
+      applyStudioCanvasOperations(current, [
+        {
+          op: 'add_node',
+          nodeType: kind,
+          id: nodeId,
+          title: `${t(`studio.kind.${kind}`)} ${current.nodes.length + 1}`,
+        },
+      ])
+    )
     setSelectedNodeId(nodeId)
     setView('canvas')
   }
 
   const changeAsset = (
     assetId: string,
-    patch: { title?: string; prompt?: string; mediaId?: string }
+    patch: {
+      title?: string
+      prompt?: string
+      mediaId?: string
+      profile?: StudioAssetProfile
+    }
   ) => {
     if (!project) return
-    const affected = project.nodes.filter(
+    const assetProject = projectsRef.current.find(
+      (item) => item.id === project.id
+    )
+    if (!assetProject?.assets?.some((asset) => asset.id === assetId)) {
+      return false
+    }
+    const affected = assetProject.nodes.filter(
       (node) =>
-        node.data.assetIds?.includes(assetId) &&
+        (node.data.linkedAssetId === assetId ||
+          node.data.assetIds?.includes(assetId)) &&
         (patch.title !== undefined || !node.data.assetVersionIds?.[assetId])
     )
+    const affectedIds = new Set(
+      affected.flatMap((node) => [
+        ...studioBranchNodeIds(assetProject, node.id),
+      ])
+    )
+    if (
+      assetProject.nodes.some(
+        (node) => affectedIds.has(node.id) && studioNodeBusy(node)
+      )
+    ) {
+      setMessage(t('studio.canvas.taskBusy'))
+      return false
+    }
+    if (
+      patch.mediaId &&
+      assetProject.nodes.some(
+        (node) =>
+          node.data.linkedAssetId === assetId &&
+          (node.data.takes?.length || 0) >= 100
+      )
+    ) {
+      setMessage(t('studio.take.limit'))
+      return false
+    }
+    const takeId = newId()
     affected.forEach((node) => discardBranchMedia(project, node.id))
-    editProject(project.id, (current) => {
+    editCanvasProject(project.id, (current) => {
       let next: StudioProject = {
         ...current,
         assets: current.assets?.map((asset) =>
-          asset.id === assetId ? { ...asset, ...patch } : asset
+          asset.id === assetId
+            ? {
+                ...asset,
+                ...patch,
+                ...(patch.mediaId
+                  ? {
+                      outputUrl: undefined,
+                      versions:
+                        (asset.versions?.length || 0) < 30
+                          ? [
+                              ...(asset.versions || []),
+                              {
+                                id: takeId,
+                                createdAt: new Date().toISOString(),
+                                prompt: asset.prompt,
+                                profile: asset.profile,
+                                mediaId: patch.mediaId,
+                              },
+                            ]
+                          : asset.versions,
+                    }
+                  : {}),
+              }
+            : asset
+        ),
+        nodes: current.nodes.map((node) =>
+          node.data.linkedAssetId === assetId
+            ? {
+                ...node,
+                data: {
+                  ...node.data,
+                  ...(patch.title !== undefined ? { title: patch.title } : {}),
+                  ...(patch.prompt !== undefined
+                    ? { prompt: patch.prompt }
+                    : {}),
+                },
+              }
+            : node
         ),
         updatedAt: new Date().toISOString(),
       }
       for (const node of affected) next = invalidateStudioBranch(next, node.id)
+      if (patch.mediaId) {
+        next = {
+          ...next,
+          nodes: next.nodes.map((node) =>
+            node.data.linkedAssetId === assetId
+              ? {
+                  ...node,
+                  data: {
+                    ...node.data,
+                    model: undefined,
+                    sourceMode: 'upload',
+                    mediaId: patch.mediaId,
+                    outputUrl: undefined,
+                    status: 'completed',
+                    selectedTakeId: takeId,
+                    takes: [
+                      ...(node.data.takes || []),
+                      {
+                        id: takeId,
+                        createdAt: new Date().toISOString(),
+                        prompt: node.data.prompt,
+                        sourceMode: 'upload',
+                        status: 'completed',
+                        mediaId: patch.mediaId,
+                      },
+                    ],
+                  },
+                }
+              : node
+          ),
+        }
+      }
       return next
     })
+    return true
   }
 
   const uploadAssetImage = async (assetId: string, file: File) => {
@@ -2544,11 +3443,22 @@ export function Studio() {
     )?.mediaId
     const mediaId = newId()
     await mediaStore.put(userId, mediaId, file)
-    changeAsset(assetId, { mediaId })
+    if (
+      activeUserId.current !== userId ||
+      activeProjectId.current !== project.id ||
+      !changeAsset(assetId, { mediaId })
+    ) {
+      await mediaStore.delete(userId, mediaId)
+      return
+    }
     const oldVersionStillUsesMedia = project.assets
       ?.find((asset) => asset.id === assetId)
       ?.versions?.some((version) => version.mediaId === oldMediaId)
-    if (oldMediaId && !oldVersionStillUsesMedia) {
+    if (
+      oldMediaId &&
+      !oldVersionStillUsesMedia &&
+      !storedMediaIsReferenced(oldMediaId)
+    ) {
       void mediaStore.delete(userId, oldMediaId)
       loadedMediaIds.current.delete(
         mediaLoadKey({
@@ -2742,7 +3652,7 @@ export function Studio() {
         soundtrackMediaId: mediaId,
         updatedAt: new Date().toISOString(),
       }))
-      if (oldId) {
+      if (oldId && !storedMediaIsReferenced(oldId)) {
         void mediaStore.delete(userId, oldId)
         loadedMediaIds.current.delete(
           mediaLoadKey({
@@ -2789,7 +3699,7 @@ export function Studio() {
         voiceoverMediaId: mediaId,
         updatedAt: new Date().toISOString(),
       }))
-      if (oldId) {
+      if (oldId && !storedMediaIsReferenced(oldId)) {
         void mediaStore.delete(userId, oldId)
         loadedMediaIds.current.delete(
           mediaLoadKey({
@@ -2855,7 +3765,10 @@ export function Studio() {
         ),
         updatedAt: new Date().toISOString(),
       }))
-      if (shot.shotVoiceoverMediaId) {
+      if (
+        shot.shotVoiceoverMediaId &&
+        !storedMediaIsReferenced(shot.shotVoiceoverMediaId)
+      ) {
         void mediaStore.delete(userId, shot.shotVoiceoverMediaId)
       }
       setAssemblyError(undefined)
@@ -2869,7 +3782,6 @@ export function Studio() {
     const current = projectsRef.current.find((item) => item.id === project.id)
     const shot = current?.shots?.find((item) => item.id === shotId)
     if (!current || !shot?.shotVoiceoverMediaId) return
-    const mediaId = shot.shotVoiceoverMediaId
     const updated = {
       ...current,
       shots: current.shots?.map((item) =>
@@ -2878,9 +3790,8 @@ export function Studio() {
       updatedAt: new Date().toISOString(),
     }
     try {
-      await mediaStore.deleteWithProjects(
+      await mediaStore.saveProjects(
         userId,
-        mediaId,
         projectsRef.current.map((item) =>
           item.id === current.id ? updated : item
         )
@@ -2901,15 +3812,23 @@ export function Studio() {
     }
   }
 
-  const assembleMp4 = async () => {
+  const assembleMp4 = async (assemblyNodeId?: string) => {
     if (!project || assemblyBusy) return
+    if (
+      assemblyNodeId &&
+      (project.nodes.find((node) => node.id === assemblyNodeId)?.data.takes
+        ?.length || 0) >= 100
+    ) {
+      setAssemblyError(t('studio.take.limit'))
+      return
+    }
     if (!mediaStore) {
       setAssemblyError(t('studio.assembly.error.storage'))
       return
     }
     const ownerId = userId
-    const sourceProject = project
-    const fingerprint = studioAssemblyFingerprint(sourceProject)
+    let sourceProject = project
+    const fingerprint = studioAssemblyFingerprint(project)
     const controller = new AbortController()
     assemblyRun.current = { ownerId, projectId: sourceProject.id, controller }
     const isCurrent = () =>
@@ -2919,7 +3838,106 @@ export function Studio() {
     setAssemblyBusy(true)
     setAssemblyProgress(0)
     setAssemblyError(undefined)
+    if (assemblyNodeId) {
+      editNode(project.id, assemblyNodeId, {
+        status: 'processing',
+        progress: 0,
+        error: undefined,
+      })
+    }
     try {
+      if (assemblyNodeId) {
+        sourceProject = studioAssemblyProjectFromCanvas(project, assemblyNodeId)
+      }
+      if (
+        sourceProject.production?.timelineEdited ||
+        sourceProject.production?.audioTracks.length ||
+        sourceProject.production?.requireApproved ||
+        sourceProject.captionsText
+      ) {
+        await mediaStore.saveProjects(ownerId, projectsRef.current)
+        const path = `/projects/${encodeURIComponent(sourceProject.id)}`
+        const stored = await studioCloudRequest<StudioCloudProject>(
+          `${path}/materialize`,
+          'POST'
+        )
+        sourceProject = assemblyNodeId
+          ? studioAssemblyProjectFromCanvas(stored.document, assemblyNodeId)
+          : stored.document
+        const render = studioProjectRenderPlan(sourceProject)
+        if (assemblyNodeId) render.node_id = assemblyNodeId
+        let job = await studioCloudRequest<StudioCloudJob>(
+          `${path}/jobs`,
+          'POST',
+          {
+            request_id: newId(),
+            kind: 'render',
+            revision: stored.revision,
+            render,
+          }
+        )
+        while (['queued', 'running', 'waiting'].includes(job.status)) {
+          if (controller.signal.aborted) {
+            await studioCloudRequest(
+              `/jobs/${encodeURIComponent(job.id)}/control`,
+              'POST',
+              { action: 'cancel' }
+            )
+            throw new DOMException('Aborted', 'AbortError')
+          }
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 1000))
+          job = await studioCloudRequest<StudioCloudJob>(
+            `/jobs/${encodeURIComponent(job.id)}`
+          )
+          if (isCurrent()) setAssemblyProgress(job.progress)
+        }
+        if (job.status !== 'succeeded') {
+          throw new Error(job.error || t('studio.assembly.error.saveFailed'))
+        }
+        const result = job.result as { media_id?: string }
+        if (!result.media_id) {
+          throw new Error(t('studio.assembly.error.saveFailed'))
+        }
+        const blob = await studioCloudMedia(sourceProject.id, result.media_id)
+        if (!isCurrent() || controller.signal.aborted) return
+        const completed = await studioCloudRequest<StudioCloudProject>(path)
+        const serverTake = completed.document.nodes
+          .find((node) => node.id === render.node_id)
+          ?.data.takes?.find((take) => take.mediaId === result.media_id)
+        const latestProject = projectsRef.current.find(
+          (item) => item.id === sourceProject.id
+        )
+        if (
+          !latestProject ||
+          studioAssemblyFingerprint(latestProject) !== fingerprint
+        ) {
+          throw new Error(t('studio.assembly.changed'))
+        }
+        editProject(sourceProject.id, (current) => {
+          if (studioAssemblyFingerprint(current) !== fingerprint) return current
+          const alreadyStored = current.nodes
+            .find((node) => node.id === render.node_id)
+            ?.data.takes?.some((take) => take.id === serverTake?.id)
+          const updated =
+            serverTake && render.node_id && !alreadyStored
+              ? recordStudioTake(current, render.node_id, serverTake)
+              : current
+          return { ...updated, assembledMediaId: result.media_id }
+        })
+        const oldUrl = assemblyPreviews.get(sourceProject.id)
+        if (oldUrl?.startsWith('blob:')) URL.revokeObjectURL(oldUrl)
+        const url = URL.createObjectURL(blob)
+        ownedUrls.current.push(url)
+        setAssemblyPreviews((current) =>
+          new Map(current).set(sourceProject.id, url)
+        )
+        const anchor = document.createElement('a')
+        anchor.href = url
+        anchor.download = `studio-${sourceProject.id}.mp4`
+        anchor.click()
+        setAssemblyProgress(100)
+        return
+      }
       const clips = planStudioAssembly(sourceProject)
       const blobs = await loadStudioAssemblyBlobs(
         clips,
@@ -3030,6 +4048,11 @@ export function Studio() {
         (progress) => {
           if (isCurrent()) {
             setAssemblyProgress(progress.percent)
+            if (assemblyNodeId) {
+              editNode(project.id, assemblyNodeId, {
+                progress: progress.percent,
+              })
+            }
           }
         },
         controller.signal,
@@ -3131,6 +4154,17 @@ export function Studio() {
         await mediaStore.delete(ownerId, mediaId)
         throw new Error(t('studio.assembly.changed'))
       }
+      if (assemblyNodeId) {
+        editProject(sourceProject.id, (current) =>
+          recordStudioTake(current, assemblyNodeId, {
+            id: newId(),
+            createdAt: new Date().toISOString(),
+            prompt: 'Local MP4 assembly',
+            status: 'completed',
+            mediaId,
+          })
+        )
+      }
       const oldUrl = assemblyPreviews.get(sourceProject.id)
       if (oldUrl?.startsWith('blob:')) {
         URL.revokeObjectURL(oldUrl)
@@ -3159,8 +4193,26 @@ export function Studio() {
             ? `${t(`studio.assembly.error.${error.code}`)}${error.shotTitle ? `：${error.shotTitle}` : ''}`
             : errorMessage(error)
         setAssemblyError(detail)
+        if (assemblyNodeId) {
+          editNode(project.id, assemblyNodeId, {
+            status: 'failed',
+            error: detail,
+          })
+        }
       }
     } finally {
+      if (
+        assemblyNodeId &&
+        projectsRef.current
+          .find((item) => item.id === sourceProject.id)
+          ?.nodes.find((item) => item.id === assemblyNodeId)?.data.status ===
+          'processing'
+      ) {
+        editNode(sourceProject.id, assemblyNodeId, {
+          status: 'idle',
+          progress: undefined,
+        })
+      }
       if (assemblyRun.current?.controller === controller) {
         assemblyRun.current = null
       }
@@ -3176,13 +4228,19 @@ export function Studio() {
 
   const addProject = () => {
     const next = createStudioProject(t('studio.project.untitled'), newId())
+    next.production = {
+      ...studioProductionSchema.parse({}),
+      guide: { step: 'story', goal: 'story' },
+    }
+    const nextProjects = [...projectsRef.current, next]
+    projectsRef.current = nextProjects
     setWorkspace((current) => ({
       ...current,
-      projects: [...current.projects, next],
+      projects: nextProjects,
       activeId: next.id,
     }))
     setSelectedNodeId(null)
-    setView('storyboard')
+    setView('guided')
   }
 
   const exportProject = async () => {
@@ -3259,6 +4317,23 @@ export function Studio() {
           ...parseStudioProjectImport(await file.text()),
           id: newId(),
           updatedAt: new Date().toISOString(),
+        }
+      }
+      if (copy.production) {
+        copy = {
+          ...copy,
+          production: {
+            ...copy.production,
+            milestones: [],
+            assistant: copy.production.assistant
+              ? {
+                  ...copy.production.assistant,
+                  undoDocument: undefined,
+                  applied: false,
+                  proposalHash: undefined,
+                }
+              : undefined,
+          },
         }
       }
       let committed = false
@@ -3353,114 +4428,85 @@ export function Studio() {
   }
 
   const sectionLabel = {
+    guided: t('Guided video creation'),
     canvas: t('studio.canvas'),
     assets: t('studio.asset.title'),
     storyboard: t('studio.view.storyboard'),
   }[view]
+  const projectReadOnly =
+    !!mediaStore?.cloudRecord?.(project.id) &&
+    !['owner', 'editor'].includes(
+      mediaStore.cloudRecord?.(project.id)?.role || ''
+    )
 
   return (
-    <div className='bg-background flex min-h-full flex-none flex-col lg:h-full lg:min-h-[640px] lg:flex-1 lg:overflow-hidden'>
-      <header className='flex flex-wrap items-center gap-2 border-b px-4 py-3'>
-        <div className='mr-auto min-w-40'>
-          <h1 className='text-lg font-semibold tracking-tight'>
-            {t('studio.title')}
-          </h1>
-          <p className='text-muted-foreground text-xs'>
-            {t('studio.subtitle')}
-          </p>
-        </div>
-        <Select
-          value={project.id}
-          onValueChange={(value) => {
-            if (!value) return
-            setWorkspace((current) => ({ ...current, activeId: value }))
-            setSelectedNodeId(null)
-            const selectedProject = projects.find((item) => item.id === value)
-            setView(
-              selectedProject?.shots?.length ||
-                selectedProject?.nodes.length === 0
-                ? 'storyboard'
-                : 'canvas'
+    <div className='studio-workspace bg-background flex min-h-full max-w-full min-w-0 flex-none flex-col lg:h-full lg:min-h-[640px] lg:flex-1 lg:overflow-hidden'>
+      <StudioProjectToolbar
+        project={project}
+        projects={projects}
+        readOnly={
+          !!mediaStore?.cloudRecord?.(project.id) &&
+          !['owner', 'editor'].includes(
+            mediaStore.cloudRecord?.(project.id)?.role || ''
+          )
+        }
+        saved={mediaStore?.isProjectSaved?.(userId, project) === true}
+        saveProblem={
+          !!saveFailure ||
+          cloudConflicts.some((item) => item.projectId === project.id)
+        }
+        onSelect={(id) => {
+          setWorkspace((current) => ({ ...current, activeId: id }))
+          setSelectedNodeId(null)
+          setSelectedShotId(null)
+        }}
+        onTitle={(title) =>
+          editProject(project.id, (current) => ({
+            ...current,
+            title,
+            updatedAt: new Date().toISOString(),
+          }))
+        }
+        onNew={addProject}
+        onBackup={() => void exportProject()}
+        onImport={(file) => void importProject(file)}
+        onSettings={() => {
+          setSettingsKind('text')
+          setSettingsOpen(true)
+        }}
+        onTasks={() => setAttemptsOpen(true)}
+        onDelete={() => setDeleteTarget('project')}
+      />
+      {(saveFailure ||
+        cloudConflicts.some((item) => item.projectId === project.id)) && (
+        <StudioSaveRecovery
+          error={saveFailure}
+          conflict={cloudConflicts.find(
+            (item) => item.projectId === project.id
+          )}
+          onBackup={() => void exportProject()}
+          onRetry={async () => {
+            if (!mediaStore) return
+            await mediaStore.saveProjects(userId, projectsRef.current)
+            setSaveFailure('')
+            refreshSaveStatus((value) => value + 1)
+          }}
+          onResolve={async (choice) => {
+            if (!mediaStore) return
+            const restored = await mediaStore.resolveConflict(
+              userId,
+              project.id,
+              choice,
+              projectsRef.current
             )
-          }}
-          items={projects.map((item) => ({
-            value: item.id,
-            label: item.title,
-          }))}
-        >
-          <SelectTrigger
-            aria-label={t('studio.project.select')}
-            className='max-w-44'
-          >
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {projects.map((item) => (
-              <SelectItem key={item.id} value={item.id}>
-                {item.title}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Button variant='outline' size='sm' onClick={addProject}>
-          <Plus />
-          {t('studio.project.new')}
-        </Button>
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={() => void exportProject()}
-        >
-          <Download />
-          {t('studio.export')}
-        </Button>
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={() => uploadRef.current?.click()}
-        >
-          <Upload />
-          {t('studio.import')}
-        </Button>
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={() => {
-            setSettingsKind('text')
-            setSettingsOpen(true)
-          }}
-        >
-          <Settings2 />
-          {t('studio.provider.settings')}
-        </Button>
-        <Button
-          variant='outline'
-          size='sm'
-          onClick={() => setAttemptsOpen(true)}
-        >
-          {t('studio.taskCenter.title')}
-        </Button>
-        <Input
-          ref={uploadRef}
-          type='file'
-          accept='application/json,application/zip,.json,.zip'
-          className='hidden'
-          aria-label={t('studio.import')}
-          onChange={(event) => {
-            const file = event.target.files?.[0]
-            if (file) void importProject(file)
-            event.target.value = ''
+            if (activeUserId.current !== userId) return
+            projectsRef.current = restored
+            setWorkspace((current) => ({ ...current, projects: restored }))
+            setSaveFailure('')
           }}
         />
-        <Button
-          variant='ghost'
-          size='sm'
-          onClick={() => setDeleteTarget('project')}
-        >
-          {t('studio.project.delete')}
-        </Button>
-      </header>
-      {storageHealth && (
+      )}
+      {storageHealth && !mediaStore?.cloudRecord?.(project.id) && (
         <Alert role='status' className='mx-4 mt-2 w-auto'>
           <AlertDescription className='flex flex-wrap items-center gap-2'>
             <span>{t(`studio.storage.${storageHealth.backupWarning}`)}</span>
@@ -3492,7 +4538,18 @@ export function Studio() {
       )}
       <div className='flex flex-wrap gap-2 border-b px-4 py-2'>
         <Button
+          variant={view === 'guided' ? 'secondary' : 'outline'}
+          className={view === 'guided' && !advancedTools ? 'hidden' : undefined}
+          size='sm'
+          onClick={() => {
+            setView('guided')
+          }}
+        >
+          {t('Guided video creation')}
+        </Button>
+        <Button
           variant={view === 'storyboard' ? 'secondary' : 'outline'}
+          className={view === 'guided' && !advancedTools ? 'hidden' : undefined}
           size='sm'
           onClick={() => setView('storyboard')}
         >
@@ -3500,6 +4557,7 @@ export function Studio() {
         </Button>
         <Button
           variant={view === 'canvas' ? 'secondary' : 'outline'}
+          className={view === 'guided' && !advancedTools ? 'hidden' : undefined}
           size='sm'
           onClick={() => setView('canvas')}
         >
@@ -3507,177 +4565,262 @@ export function Studio() {
         </Button>
         <Button
           variant={view === 'assets' ? 'secondary' : 'outline'}
+          className={view === 'guided' && !advancedTools ? 'hidden' : undefined}
           size='sm'
           onClick={() => setView('assets')}
         >
           {t('studio.asset.title')}
         </Button>
         {view === 'canvas' && (
-          <Button variant='outline' size='sm' onClick={addShot}>
+          <Button
+            variant='outline'
+            size='sm'
+            disabled={projectReadOnly}
+            onClick={addShot}
+          >
             {t('studio.shot.add')}
           </Button>
         )}
-        <Button variant='secondary' size='sm' onClick={() => addNode('text')}>
-          <Type />
-          {t('studio.add.text')}
-        </Button>
-        <Button variant='secondary' size='sm' onClick={() => addNode('image')}>
-          <ImagePlus />
-          {t('studio.add.image')}
-        </Button>
-        <Button variant='secondary' size='sm' onClick={() => addNode('video')}>
-          <Film />
-          {t('studio.add.video')}
-        </Button>
-        <Input
-          className='ml-auto max-w-48'
-          aria-label={t('studio.project.name')}
-          value={project.title}
-          maxLength={200}
-          onChange={(event) =>
-            editProject(project.id, (current) => ({
-              ...current,
-              title: event.target.value,
-              updatedAt: new Date().toISOString(),
-            }))
-          }
-        />
+        <Collapsible
+          open={view !== 'guided' || advancedTools}
+          onOpenChange={setAdvancedTools}
+          className='flex flex-wrap gap-2'
+        >
+          {view === 'guided' && (
+            <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
+              {t('Advanced tools')}
+            </CollapsibleTrigger>
+          )}
+          <CollapsibleContent className='flex flex-wrap gap-2'>
+            <Button
+              variant='secondary'
+              size='sm'
+              onClick={() => addNode('text')}
+              disabled={projectReadOnly}
+            >
+              <Type />
+              {t('studio.add.text')}
+            </Button>
+            <Button
+              variant='secondary'
+              size='sm'
+              onClick={() => addNode('image')}
+              disabled={projectReadOnly}
+            >
+              <ImagePlus />
+              {t('studio.add.image')}
+            </Button>
+            <Button
+              variant='secondary'
+              size='sm'
+              onClick={() => addNode('video')}
+              disabled={projectReadOnly}
+            >
+              <Film />
+              {t('studio.add.video')}
+            </Button>
+            <Button
+              variant={agentBridge.session ? 'secondary' : 'outline'}
+              size='sm'
+              onClick={() => setAgentOpen(true)}
+            >
+              {t('studio.agent.title')}
+            </Button>
+            <Button
+              variant='secondary'
+              size='sm'
+              onClick={() => addNode('audio')}
+              disabled={projectReadOnly}
+            >
+              {t('studio.kind.audio')}
+            </Button>
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => {
+                if (!mediaStore) return
+                void mediaStore
+                  .saveProjects(userId, projectsRef.current)
+                  .then(() => setProductionOpen(true))
+                  .catch((error) => setMessage(errorMessage(error)))
+              }}
+            >
+              {t('studio.production.title')}
+            </Button>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
-      <div className='grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]'>
+      <div
+        className={
+          selectedNode && view !== 'guided'
+            ? 'grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]'
+            : 'grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1'
+        }
+      >
         <section
-          className='relative h-[420px] overflow-hidden lg:h-auto lg:min-h-[400px]'
+          className={
+            view === 'guided'
+              ? 'relative h-[70dvh] overflow-hidden lg:h-auto lg:min-h-[400px]'
+              : 'relative h-[420px] overflow-hidden lg:h-auto lg:min-h-[400px]'
+          }
           aria-label={sectionLabel}
         >
+          {view === 'guided' && (
+            <StudioCreationWorkspace
+              key={project.id}
+              open
+              onOpenChange={() => {}}
+              project={project}
+              userId={userId}
+              selectedNodeId={selectedNodeId}
+              onSelectNode={setSelectedNodeId}
+              initialStep={
+                options.step ||
+                (requestedWorkspace === 'templates' ? 'story' : undefined)
+              }
+              onStepChange={(step) =>
+                options.onNavigate?.('guided', project.id, false, step)
+              }
+              onSave={async () => {
+                if (!mediaStore) throw new Error(t('studio.project.saveFailed'))
+                await mediaStore.saveProjects(userId, projectsRef.current)
+              }}
+              onRefresh={async () => {
+                if (!mediaStore) return
+                const restored = await refreshStudioProjects(
+                  mediaStore,
+                  userId,
+                  () => projectsRef.current,
+                  () => activeUserId.current === userId
+                )
+                if (restored) {
+                  projectsRef.current = restored
+                  setWorkspace((current) => ({
+                    ...current,
+                    projects: restored,
+                  }))
+                }
+              }}
+              onUpdate={(updated) => {
+                editProject(project.id, (current) =>
+                  mergeStudioCloudDocument(project, updated, current, 'local')
+                )
+                // Only a local edit can move the guide. A restored cloud
+                // document must never replace the explicitly requested URL.
+                const step = updated.production?.guide?.step
+                if (
+                  step &&
+                  step !== project.production?.guide?.step &&
+                  step !== options.step
+                ) {
+                  options.onNavigate?.('guided', project.id, true, step)
+                }
+              }}
+              getMedia={async (id) =>
+                mediaStore ? mediaStore.get(userId, id) : null
+              }
+              onAssets={() => setView('assets')}
+              onCanvas={() => setView('canvas')}
+              onDemo={async () => {
+                if (!mediaStore) throw new Error(t('studio.project.saveFailed'))
+                const sourceId = project.id
+                const useEmptyProject =
+                  project.nodes.length === 0 && !project.shots?.length
+                const next = await loadStudioEditingExample(
+                  createStudioProject(
+                    useEmptyProject ? project.title : t('Free editing example'),
+                    useEmptyProject ? project.id : newId()
+                  ),
+                  (id, blob) => mediaStore.put(userId, id, blob),
+                  t
+                )
+                if (
+                  activeUserId.current !== userId ||
+                  activeProjectId.current !== sourceId
+                ) {
+                  return
+                }
+                const updated = useEmptyProject
+                  ? projectsRef.current.map((item) =>
+                      item.id === project.id ? next : item
+                    )
+                  : [...projectsRef.current, next]
+                await mediaStore.saveProjects(userId, updated)
+                projectsRef.current = updated
+                setSelectedNodeId(null)
+                setWorkspace((current) => ({
+                  ...current,
+                  projects: updated,
+                  activeId: next.id,
+                }))
+                setView('guided')
+              }}
+            />
+          )}
           {view === 'canvas' && (
-            <>
-              <Canvas
-                nodes={canvasNodes}
-                edges={project.edges}
-                nodeTypes={nodeTypes}
-                onNodeClick={(_, node) => setSelectedNodeId(node.id)}
-                onPaneClick={() => setSelectedNodeId(null)}
-                onNodesChange={(changes: NodeChange<StudioCanvasNode>[]) => {
-                  const removedIds = new Set(
-                    changes
-                      .filter((change) => change.type === 'remove')
-                      .map((change) => change.id)
-                  )
-                  const affectedTargets = project.edges
-                    .filter(
-                      (edge) =>
-                        removedIds.has(edge.source) &&
-                        !removedIds.has(edge.target)
-                    )
-                    .map((edge) => edge.target)
-                  for (const change of changes) {
-                    if (change.type === 'remove') {
-                      const removed = project.nodes.find(
-                        (node) => node.id === change.id
-                      )
-                      if (removed) {
-                        discardNodeMedia(project.id, removed)
-                        deleteStoredMedia(project, [removed.id])
-                      }
-                    }
-                  }
-                  for (const targetId of affectedTargets) {
-                    discardBranchMedia(project, targetId)
-                  }
-                  editProject(project.id, (current) => {
-                    let next = {
-                      ...current,
-                      nodes: applyNodeChanges(changes, current.nodes),
-                      edges: current.edges.filter(
-                        (edge) =>
-                          !removedIds.has(edge.source) &&
-                          !removedIds.has(edge.target)
-                      ),
-                      updatedAt: new Date().toISOString(),
-                    }
-                    for (const targetId of affectedTargets) {
-                      next = invalidateStudioBranch(next, targetId)
-                    }
-                    return pruneStudioShots(next)
-                  })
-                }}
-                onEdgesChange={(changes: EdgeChange[]) => {
-                  const targets = project.edges
-                    .filter((edge) =>
-                      changes.some(
-                        (change) =>
-                          change.type === 'remove' && change.id === edge.id
-                      )
-                    )
-                    .map((edge) => edge.target)
-                  for (const targetId of targets) {
-                    discardBranchMedia(project, targetId)
-                  }
-                  editProject(project.id, (current) => {
-                    let next = {
-                      ...current,
-                      edges: applyEdgeChanges(changes, current.edges),
-                      updatedAt: new Date().toISOString(),
-                    }
-                    for (const targetId of targets) {
-                      next = invalidateStudioBranch(next, targetId)
-                    }
-                    return next
-                  })
-                }}
-                onConnect={(connection: Connection) => {
-                  const sourceId = connection.source
-                  const targetId = connection.target
-                  if (!sourceId || !targetId) return
-                  if (
-                    !isValidStudioConnection(
-                      project.nodes,
-                      project.edges,
-                      sourceId,
-                      targetId,
-                      connection.sourceHandle,
-                      connection.targetHandle
-                    )
-                  ) {
-                    return
-                  }
-                  discardBranchMedia(project, targetId)
-                  editProject(project.id, (current) =>
-                    isValidStudioConnection(
-                      current.nodes,
-                      current.edges,
-                      sourceId,
-                      targetId,
-                      connection.sourceHandle,
-                      connection.targetHandle
-                    )
-                      ? invalidateStudioBranch(
-                          {
-                            ...current,
-                            edges: addEdge(connection, current.edges),
-                          },
-                          targetId
-                        )
-                      : current
-                  )
-                }}
-              />
-              {project.nodes.length > 0 && project.edges.length === 0 && (
-                <p className='text-muted-foreground bg-background/85 pointer-events-none absolute top-3 left-3 max-w-72 rounded-md border px-3 py-2 text-xs shadow-sm'>
-                  {t('studio.canvas.connectionHint')}
-                </p>
-              )}
-              {project.nodes.length === 0 && (
-                <div className='text-muted-foreground pointer-events-none absolute inset-0 flex items-center justify-center text-center text-sm'>
-                  <p>{t('studio.canvas.empty')}</p>
-                </div>
-              )}
-            </>
+            <StudioCanvasEditor
+              key={project.id}
+              readOnly={
+                !!mediaStore?.cloudRecord?.(project.id) &&
+                !['owner', 'editor'].includes(
+                  mediaStore.cloudRecord?.(project.id)?.role || ''
+                )
+              }
+              project={project}
+              nodes={canvasNodes}
+              history={canvasHistory}
+              onSelect={setSelectedNodeId}
+              onEdit={(edit, capture) => {
+                try {
+                  editCanvasProject(project.id, edit, capture)
+                } catch {
+                  /* The workspace displays the validation error. */
+                }
+              }}
+              onRun={(nodeId) => {
+                const node = projectsRef.current
+                  .find((item) => item.id === project.id)
+                  ?.nodes.find((item) => item.id === nodeId)
+                if (node?.data.purpose === 'assembly') {
+                  void assembleMp4(nodeId)
+                } else if (node) void generate(node, project)
+              }}
+              onError={setMessage}
+            />
           )}
           {view === 'assets' && (
             <StudioAssetLibrary
               assets={project.assets || []}
+              readOnly={
+                !!mediaStore?.cloudRecord?.(project.id) &&
+                !['owner', 'editor'].includes(
+                  mediaStore.cloudRecord?.(project.id)?.role || ''
+                )
+              }
               previews={previews}
               projectId={project.id}
+              onPlaceOnCanvas={(assetId) => {
+                const asset = project.assets?.find(
+                  (item) => item.id === assetId
+                )
+                if (!asset) return
+                const id = newId()
+                editCanvasProject(project.id, (current) =>
+                  applyStudioCanvasOperations(current, [
+                    {
+                      op: 'add_node',
+                      id,
+                      nodeType:
+                        asset.kind === 'location' ? 'scene' : asset.kind,
+                      assetId,
+                      title: asset.title,
+                      prompt: asset.prompt,
+                    },
+                  ])
+                )
+                setSelectedNodeId(id)
+                setView('canvas')
+              }}
               onAdd={(kind, title, prompt) =>
                 editProject(project.id, (current) => ({
                   ...current,
@@ -3714,6 +4857,7 @@ export function Studio() {
                               id: newId(),
                               createdAt: new Date().toISOString(),
                               prompt: item.prompt,
+                              profile: item.profile,
                               mediaId: item.mediaId,
                               outputUrl: item.outputUrl,
                             },
@@ -3730,11 +4874,32 @@ export function Studio() {
                 )
               }
               onDelete={(assetId) => {
+                const affectedIds = new Set(
+                  project.nodes
+                    .filter(
+                      (node) =>
+                        node.data.linkedAssetId === assetId ||
+                        node.data.assetIds?.includes(assetId)
+                    )
+                    .flatMap((node) => [
+                      ...studioBranchNodeIds(project, node.id),
+                    ])
+                )
+                if (
+                  project.nodes.some(
+                    (node) => affectedIds.has(node.id) && studioNodeBusy(node)
+                  )
+                ) {
+                  setMessage(t('studio.canvas.taskBusy'))
+                  return
+                }
                 const asset = project.assets?.find(
                   (item) => item.id === assetId
                 )
                 if (asset?.mediaId && mediaStore) {
-                  void mediaStore.delete(userId, asset.mediaId)
+                  if (!storedMediaIsReferenced(asset.mediaId)) {
+                    void mediaStore.delete(userId, asset.mediaId)
+                  }
                   loadedMediaIds.current.delete(
                     mediaLoadKey({
                       kind: 'asset',
@@ -3749,7 +4914,9 @@ export function Studio() {
                     version.mediaId !== asset?.mediaId &&
                     mediaStore
                   ) {
-                    void mediaStore.delete(userId, version.mediaId)
+                    if (!storedMediaIsReferenced(version.mediaId)) {
+                      void mediaStore.delete(userId, version.mediaId)
+                    }
                   }
                 }
                 const assetKey = previewKey(project.id, `asset:${assetId}`)
@@ -3765,8 +4932,10 @@ export function Studio() {
                   delete next[assetKey]
                   return next
                 })
-                const affected = project.nodes.filter((node) =>
-                  node.data.assetIds?.includes(assetId)
+                const affected = project.nodes.filter(
+                  (node) =>
+                    node.data.linkedAssetId === assetId ||
+                    node.data.assetIds?.includes(assetId)
                 )
                 affected.forEach((node) => discardBranchMedia(project, node.id))
                 editProject(project.id, (current) => {
@@ -3779,6 +4948,9 @@ export function Studio() {
                       ...node,
                       data: {
                         ...node.data,
+                        ...(node.data.linkedAssetId === assetId
+                          ? { linkedAssetId: undefined, purpose: undefined }
+                          : {}),
                         assetIds: node.data.assetIds?.filter(
                           (id) => id !== assetId
                         ),
@@ -3882,7 +5054,9 @@ export function Studio() {
                 onRemoveVoiceover: () => {
                   const oldId = project.voiceoverMediaId
                   if (oldId && mediaStore) {
-                    void mediaStore.delete(userId, oldId)
+                    if (!storedMediaIsReferenced(oldId)) {
+                      void mediaStore.delete(userId, oldId)
+                    }
                     loadedMediaIds.current.delete(
                       mediaLoadKey({
                         kind: 'voiceover',
@@ -3932,7 +5106,9 @@ export function Studio() {
                 onRemoveSoundtrack: () => {
                   const oldId = project.soundtrackMediaId
                   if (oldId && mediaStore) {
-                    void mediaStore.delete(userId, oldId)
+                    if (!storedMediaIsReferenced(oldId)) {
+                      void mediaStore.delete(userId, oldId)
+                    }
                     loadedMediaIds.current.delete(
                       mediaLoadKey({
                         kind: 'soundtrack',
@@ -3993,13 +5169,11 @@ export function Studio() {
                 )
               }
               onRenameShot={(shotId, title) =>
-                editProject(project.id, (current) => ({
-                  ...current,
-                  shots: current.shots?.map((shot) =>
-                    shot.id === shotId ? { ...shot, title } : shot
-                  ),
-                  updatedAt: new Date().toISOString(),
-                }))
+                editProject(project.id, (current) =>
+                  applyStudioCanvasOperations(current, [
+                    { op: 'update_shot', shotId, patch: { title } },
+                  ])
+                )
               }
               onUpdateShotReview={(shotId, patch) =>
                 editProject(project.id, (current) => ({
@@ -4109,179 +5283,543 @@ export function Studio() {
             />
           )}
         </section>
-        <aside className='min-h-[560px] border-t lg:min-h-0 lg:border-t-0 lg:border-l'>
-          {selectedNode ? (
-            <StudioInspector
-              node={selectedNode}
-              connections={project.edges
-                .filter((edge) => edge.target === selectedNode.id)
-                .flatMap((edge) => {
-                  const source = project.nodes.find(
-                    (node) => node.id === edge.source
-                  )
-                  if (
-                    !source ||
-                    (!source.data.takes?.length && !edge.data?.sourceTakeId)
-                  ) {
-                    return []
-                  }
-                  return [
-                    {
-                      edgeId: edge.id,
-                      sourceTitle: source.data.title,
-                      pinnedTakeId: edge.data?.sourceTakeId,
-                      takes: source.data.takes || [],
-                    },
-                  ]
-                })}
-              onPinConnectionTake={(edgeId, takeId) => {
-                discardBranchMedia(project, selectedNode.id)
-                try {
-                  editProject(project.id, (current) =>
-                    pinStudioConnectionTake(current, edgeId, takeId)
-                  )
-                } catch (error) {
-                  setMessage(errorMessage(error))
+        {selectedNode && view !== 'guided' && (
+          <aside className='min-h-[560px] border-t lg:min-h-0 lg:border-t-0 lg:border-l'>
+            {selectedNode.data.purpose === 'assembly' ? (
+              <StudioAssemblyNodeInspector
+                project={project}
+                readOnly={projectReadOnly}
+                nodeId={selectedNode.id}
+                busy={assemblyBusy}
+                progress={assemblyProgress}
+                error={assemblyError}
+                previewUrl={
+                  selectedNode.data.status === 'completed' &&
+                  selectedNode.data.mediaId
+                    ? assemblyPreviews.get(project.id)
+                    : undefined
                 }
-              }}
-              models={
-                selectedNode.data.kind === 'video'
-                  ? []
-                  : providerModels[selectedNode.data.kind] || []
-              }
-              videoGroups={videoGroups}
-              videoGroup={selectedGroup}
-              videoTemplates={videoTemplates}
-              onApplyVideoTemplate={(template) => {
-                discardBranchMedia(project, selectedNode.id)
-                editProject(project.id, (current) =>
-                  updateStudioNode(
-                    invalidateStudioBranch(current, selectedNode.id),
-                    selectedNode.id,
-                    {
-                      seconds: template.seconds,
-                      resolution: template.resolution,
-                      ratio: template.ratio,
-                      metadataJson: template.metadataJson || '',
-                      payloadPatchJson: template.payloadPatchJson || '',
-                    }
+                onEdit={(operations) =>
+                  editCanvasProject(project.id, (current) =>
+                    applyStudioCanvasOperations(current, operations)
                   )
-                )
-              }}
-              providerConfigured={
-                selectedNode.data.kind !== 'video' &&
-                Boolean(providerConfigs[selectedNode.data.kind]?.hasKey)
-              }
-              hasConnectedPrompt={Boolean(
-                connectedGenerationInput(
-                  project.nodes,
-                  project.edges,
-                  selectedNode.id
-                ).prompt.trim()
-              )}
-              onConfigureProvider={() => {
-                if (selectedNode.data.kind === 'video') return
-                setSettingsKind(selectedNode.data.kind)
-                setSettingsOpen(true)
-              }}
-              previewUrl={
-                previews[previewKey(project.id, selectedNode.id)] ||
-                selectedNode.data.outputUrl
-              }
-              requestPreview={
-                requestPreviews[previewKey(project.id, selectedNode.id)]
-              }
-              onChange={(patch) => {
-                const inputKeys = [
-                  'prompt',
-                  'model',
-                  'textMode',
-                  'group',
-                  'videoFamily',
-                  'seconds',
-                  'resolution',
-                  'ratio',
-                  'metadataJson',
-                  'payloadPatchJson',
-                  'imageSize',
-                  'imageQuality',
-                  'imageCount',
-                  'assetIds',
-                ] as const
-                const changed = inputKeys.some(
-                  (key) =>
-                    Object.hasOwn(patch, key) &&
-                    patch[key] !== selectedNode.data[key]
-                )
-                if (changed) {
-                  setRequestPreviews((current) => {
-                    const next = { ...current }
-                    delete next[previewKey(project.id, selectedNode.id)]
-                    return next
-                  })
+                }
+                onAssemble={() => void assembleMp4(selectedNode.id)}
+                onCancel={() => assemblyRun.current?.controller.abort()}
+                onDownload={downloadAssembly}
+                onStoryboard={() => setView('storyboard')}
+                onClose={() => setSelectedNodeId(null)}
+                onDelete={() => setDeleteTarget('node')}
+              />
+            ) : (
+              <StudioInspector
+                node={selectedNode}
+                readOnly={projectReadOnly}
+                generationAvailable={
+                  generationAccess.data?.storage_available !== false &&
+                  (Boolean(
+                    (selectedNode.data.kind === 'text' ||
+                      selectedNode.data.kind === 'image') &&
+                    providerConfigs[selectedNode.data.kind]?.hasKey
+                  ) ||
+                    generationAccess.data?.generation_credit_available === true)
+                }
+                generationBlockReason={generationBlockReason}
+                onOpenMediaTool={() => {
+                  setProductionInitialTab('media')
+                  setProductionOpen(true)
+                }}
+                project={project}
+                onUpdateProject={(updated) =>
+                  editProject(project.id, () => updated)
+                }
+                getMedia={async (id) =>
+                  mediaStore ? mediaStore.get(userId, id) : null
+                }
+                referenceSources={project.nodes
+                  .filter((node) => node.data.kind === 'image')
+                  .map((node) => ({ id: node.id, title: node.data.title }))}
+                onChangeFrameReference={(role, sourceId) => {
+                  const edges = project.edges.filter(
+                    (edge) =>
+                      edge.target === selectedNode.id &&
+                      (edge.targetHandle === role ||
+                        (role === 'first_frame' &&
+                          !edge.targetHandle &&
+                          project.nodes.find((node) => node.id === edge.source)
+                            ?.data.kind === 'image'))
+                  )
+                  const operations: StudioCanvasOperation[] = []
+                  if (edges.length) {
+                    operations.push({
+                      op: 'disconnect',
+                      edgeIds: edges.map((edge) => edge.id),
+                    })
+                  }
+                  if (sourceId) {
+                    operations.push({
+                      op: 'connect',
+                      source: sourceId,
+                      target: selectedNode.id,
+                      sourceHandle: 'image',
+                      targetHandle: role,
+                    })
+                  }
+                  if (operations.length) {
+                    editCanvasProject(project.id, (current) =>
+                      applyStudioCanvasOperations(current, operations)
+                    )
+                  }
+                }}
+                onRemoveConnection={(id) =>
+                  editCanvasProject(project.id, (current) =>
+                    applyStudioCanvasOperations(current, [
+                      { op: 'disconnect', edgeIds: [id] },
+                    ])
+                  )
+                }
+                mediaEditor={
+                  <StudioMediaEditor
+                    nodes={project.nodes}
+                    key={selectedNode.id}
+                    node={selectedNode}
+                    projectId={project.id}
+                    readOnly={Boolean(
+                      mediaStore &&
+                      'cloudRecord' in mediaStore &&
+                      !['owner', 'editor'].includes(
+                        mediaStore.cloudRecord(project.id)?.role || 'owner'
+                      )
+                    )}
+                    getMedia={async (id) =>
+                      mediaStore ? mediaStore.get(userId, id) : null
+                    }
+                    previewUrl={
+                      previews[previewKey(project.id, selectedNode.id)] ||
+                      selectedNode.data.outputUrl
+                    }
+                    onSource={(id) => {
+                      setSelectedNodeId(id)
+                      setView('canvas')
+                    }}
+                    onRefresh={async (job) => {
+                      if (!mediaStore) return
+                      const restored = await refreshStudioProjects(
+                        mediaStore,
+                        userId,
+                        () => projectsRef.current,
+                        () => activeUserId.current === userId
+                      )
+                      if (!restored || activeUserId.current !== userId) return
+                      const result = job && nativeResults.current.get(job.id)
+                      if (
+                        result &&
+                        result.projectId === project.id &&
+                        restored
+                          .find((entry) => entry.id === project.id)
+                          ?.nodes.some(
+                            (node) =>
+                              node.id === result.targetId && node.data.mediaId
+                          )
+                      ) {
+                        if (result.select) setSelectedNodeId(result.targetId)
+                        nativeResults.current.delete(job.id)
+                      }
+                      projectsRef.current = restored
+                      setWorkspace((current) => ({
+                        ...current,
+                        projects: restored,
+                      }))
+                    }}
+                    onCreate={async (
+                      action,
+                      edit,
+                      blob,
+                      layers,
+                      resultName,
+                      selectResult = true
+                    ) => {
+                      if (activeUserId.current !== userId) {
+                        throw new Error(t('studio.project.saveFailed'))
+                      }
+                      if (mediaStore && 'cloudRecord' in mediaStore) {
+                        const role = mediaStore.cloudRecord(project.id)?.role
+                        if (role && !['owner', 'editor'].includes(role)) {
+                          throw new Error(t('studio.production.readOnly'))
+                        }
+                      }
+                      if (!mediaStore || !selectedNode.data.mediaId) {
+                        throw new Error(t('studio.project.saveFailed'))
+                      }
+                      const targetId = newId()
+                      let next = createStudioEditedNode(
+                        project,
+                        selectedNode.id,
+                        targetId,
+                        action
+                      )
+                      if (layers) {
+                        next = updateStudioNode(next, targetId, {
+                          imageLayers: layers,
+                          title: studioEditedMediaTitle(
+                            project,
+                            selectedNode.id,
+                            t('Layer edit')
+                          ),
+                        })
+                      }
+                      if (resultName) {
+                        next = updateStudioNode(next, targetId, {
+                          title: studioEditedMediaTitle(
+                            project,
+                            selectedNode.id,
+                            resultName
+                          ),
+                        })
+                      }
+                      if (blob) {
+                        const mediaId = newId()
+                        await mediaStore.put(userId, mediaId, blob)
+                        next = recordStudioTake(next, targetId, {
+                          id: newId(),
+                          createdAt: new Date().toISOString(),
+                          status: 'completed',
+                          prompt: action,
+                          sourceMode: 'upload',
+                          mediaId,
+                          imageLayers: layers,
+                        })
+                      }
+                      if (activeUserId.current !== userId) {
+                        throw new Error(t('studio.project.saveFailed'))
+                      }
+                      const latest = projectsRef.current.find(
+                        (item) => item.id === project.id
+                      )
+                      const resultNode = next.nodes.find(
+                        (node) => node.id === targetId
+                      )
+                      if (
+                        !latest?.nodes.some(
+                          (node) => node.id === selectedNode.id
+                        ) ||
+                        !resultNode
+                      ) {
+                        throw new Error(t('Stored source media is unavailable'))
+                      }
+                      next = {
+                        ...latest,
+                        nodes: [...latest.nodes, resultNode],
+                        updatedAt: new Date().toISOString(),
+                      }
+                      const updated = projectsRef.current.map((item) =>
+                        item.id === project.id ? next : item
+                      )
+                      editCanvasProject(project.id, () => next)
+                      if (blob) {
+                        if (selectResult) setSelectedNodeId(targetId)
+                        await mediaStore.saveProjects(userId, updated)
+                        return
+                      }
+                      const requestId = newId()
+                      const created = await mediaStore.withSavedProjects(
+                        userId,
+                        updated,
+                        async () => {
+                          // Autosaves cannot advance the revision between this read and submission.
+                          for (let attempt = 0; attempt < 2; attempt++) {
+                            const stored =
+                              await studioCloudRequest<StudioCloudProject>(
+                                `/projects/${encodeURIComponent(project.id)}`
+                              )
+                            if (
+                              !stored.document.nodes.some(
+                                (node) =>
+                                  node.id === selectedNode.id &&
+                                  node.data.mediaId ===
+                                    selectedNode.data.mediaId
+                              ) ||
+                              !stored.document.nodes.some(
+                                (node) => node.id === targetId
+                              )
+                            ) {
+                              throw new Error(
+                                t('Stored source media is unavailable')
+                              )
+                            }
+                            try {
+                              return await studioCloudRequest<StudioCloudJob>(
+                                `/projects/${encodeURIComponent(project.id)}/jobs`,
+                                'POST',
+                                {
+                                  request_id: requestId,
+                                  kind: 'transform',
+                                  revision: stored.revision,
+                                  budget: 0,
+                                  operation: {
+                                    action,
+                                    node_id: targetId,
+                                    media_id: selectedNode.data.mediaId,
+                                    edit,
+                                  },
+                                }
+                              )
+                            } catch (error) {
+                              if (
+                                attempt ||
+                                !isAxiosError(error) ||
+                                error.response?.status !== 409
+                              ) {
+                                throw error
+                              }
+                            }
+                          }
+                        }
+                      )
+                      if (created) {
+                        nativeResults.current.set(created.id, {
+                          targetId,
+                          projectId: project.id,
+                          select: selectResult,
+                        })
+                      }
+                      return created
+                    }}
+                  />
+                }
+                onClose={() => setSelectedNodeId(null)}
+                assetEditor={
+                  selectedAsset && (
+                    <StudioAssetProfileEditor
+                      asset={selectedAsset}
+                      defaultOpen
+                      disabled={studioNodeBusy(selectedNode)}
+                      onChange={(profile) =>
+                        changeAsset(selectedAsset.id, { profile })
+                      }
+                      onReference={(mode) => {
+                        const instructions = {
+                          portrait:
+                            'Create a clean character portrait with the established appearance and costume, neutral background, soft studio lighting.',
+                          turnaround:
+                            'Create a character turnaround sheet with front, side and back views of the SAME character, identical clothing and proportions, neutral background.',
+                          expressions:
+                            'Create a facial expression sheet of the SAME character: neutral, happy, angry, sad and surprised. Keep identity, hairstyle and costume identical.',
+                          locationAngles:
+                            'Create a coherent location reference sheet with wide, medium and detail views. Keep architecture, time of day, lighting and materials consistent.',
+                        }
+                        editCanvasProject(project.id, (current) =>
+                          updateStudioNode(
+                            invalidateStudioBranch(current, selectedNode.id),
+                            selectedNode.id,
+                            { prompt: instructions[mode] }
+                          )
+                        )
+                      }}
+                    />
+                  )
+                }
+                connections={project.edges
+                  .filter((edge) => edge.target === selectedNode.id)
+                  .flatMap((edge) => {
+                    const source = project.nodes.find(
+                      (node) => node.id === edge.source
+                    )
+                    if (!source) {
+                      return []
+                    }
+                    return [
+                      {
+                        edgeId: edge.id,
+                        sourceId: source.id,
+                        role:
+                          edge.targetHandle ||
+                          {
+                            text: 'prompt',
+                            image: 'first_frame',
+                            video: 'reference_video',
+                            audio: 'reference',
+                          }[source.data.kind],
+                        sourceTitle: source.data.title,
+                        pinnedTakeId: edge.data?.sourceTakeId,
+                        takes: source.data.takes || [],
+                      },
+                    ]
+                  })}
+                onPinConnectionTake={(edgeId, takeId) => {
+                  discardBranchMedia(project, selectedNode.id)
+                  try {
+                    editProject(project.id, (current) =>
+                      pinStudioConnectionTake(current, edgeId, takeId)
+                    )
+                  } catch (error) {
+                    setMessage(errorMessage(error))
+                  }
+                }}
+                models={
+                  selectedNode.data.kind === 'video' ||
+                  selectedNode.data.kind === 'audio'
+                    ? []
+                    : providerModels[selectedNode.data.kind] || []
+                }
+                videoGroups={videoGroups}
+                videoGroup={selectedGroup}
+                videoTemplates={videoTemplates}
+                onApplyVideoTemplate={(template) => {
                   discardBranchMedia(project, selectedNode.id)
                   editProject(project.id, (current) =>
                     updateStudioNode(
                       invalidateStudioBranch(current, selectedNode.id),
                       selectedNode.id,
-                      patch
+                      {
+                        seconds: template.seconds,
+                        resolution: template.resolution,
+                        ratio: template.ratio,
+                        metadataJson: template.metadataJson || '',
+                        payloadPatchJson: template.payloadPatchJson || '',
+                      }
                     )
                   )
-                } else {
-                  editNode(project.id, selectedNode.id, patch)
+                }}
+                providerConfigured={
+                  selectedNode.data.kind !== 'video' &&
+                  selectedNode.data.kind !== 'audio' &&
+                  (Boolean(providerConfigs[selectedNode.data.kind]?.hasKey) ||
+                    Boolean(providerModels[selectedNode.data.kind]?.length))
                 }
-              }}
-              onGenerate={() => void generate(selectedNode, project)}
-              onReconcileSubmission={() =>
-                void reconcileVideoSubmission(selectedNode, project)
-              }
-              onAbandonSubmission={() =>
-                setAbandonSubmission({
-                  projectId: project.id,
-                  nodeId: selectedNode.id,
-                })
-              }
-              onSaveTextOutput={(output) => {
-                try {
-                  editProject(project.id, (current) =>
-                    reviseStudioTextOutput(
-                      current,
-                      selectedNode.id,
-                      newId(),
-                      output
-                    )
-                  )
-                  discardBranchMedia(project, selectedNode.id)
-                } catch (error) {
-                  setMessage(errorMessage(error))
-                }
-              }}
-              onUploadImage={(file) => {
-                void uploadImage(selectedNode, project, file).catch((error) =>
-                  setMessage(errorMessage(error))
-                )
-              }}
-              onDelete={() => setDeleteTarget('node')}
-              onRetryMedia={() => void retryMedia(selectedNode, project)}
-              availableAssets={project.assets}
-              onSelectTake={(takeId) => {
-                discardNodeMedia(project.id, selectedNode)
-                for (const edge of project.edges) {
-                  if (edge.source === selectedNode.id) {
-                    discardBranchMedia(project, edge.target)
+                hasConnectedPrompt={Boolean(
+                  connectedGenerationInput(
+                    project.nodes,
+                    project.edges,
+                    selectedNode.id
+                  ).prompt.trim()
+                )}
+                onConfigureProvider={() => {
+                  if (
+                    selectedNode.data.kind === 'video' ||
+                    selectedNode.data.kind === 'audio'
+                  ) {
+                    return
                   }
+                  setSettingsKind(selectedNode.data.kind)
+                  setSettingsOpen(true)
+                }}
+                previewUrl={
+                  previews[previewKey(project.id, selectedNode.id)] ||
+                  selectedNode.data.outputUrl
                 }
-                editProject(project.id, (current) =>
-                  selectStudioTake(current, selectedNode.id, takeId)
-                )
-              }}
-            />
-          ) : (
-            <div className='text-muted-foreground flex h-full items-center justify-center px-8 text-center text-sm'>
-              {t('studio.inspector.empty')}
-            </div>
-          )}
-        </aside>
+                requestPreview={
+                  requestPreviews[previewKey(project.id, selectedNode.id)]
+                }
+                onChange={(patch) => {
+                  const changed = studioNodeInputsChanged(
+                    selectedNode.data,
+                    patch
+                  )
+                  if (changed) {
+                    setRequestPreviews((current) => {
+                      const next = { ...current }
+                      delete next[previewKey(project.id, selectedNode.id)]
+                      return next
+                    })
+                    discardBranchMedia(project, selectedNode.id)
+                    editProject(project.id, (current) =>
+                      updateStudioNode(
+                        invalidateStudioBranch(current, selectedNode.id),
+                        selectedNode.id,
+                        patch
+                      )
+                    )
+                  } else {
+                    editNode(project.id, selectedNode.id, patch)
+                  }
+                }}
+                onGenerate={() => void generate(selectedNode, project)}
+                onReconcileSubmission={() =>
+                  void reconcileVideoSubmission(selectedNode, project)
+                }
+                onAbandonSubmission={() =>
+                  setAbandonSubmission({
+                    projectId: project.id,
+                    nodeId: selectedNode.id,
+                  })
+                }
+                onSaveTextOutput={(output) => {
+                  try {
+                    editProject(project.id, (current) =>
+                      reviseStudioTextOutput(
+                        current,
+                        selectedNode.id,
+                        newId(),
+                        output
+                      )
+                    )
+                    discardBranchMedia(project, selectedNode.id)
+                  } catch (error) {
+                    setMessage(errorMessage(error))
+                  }
+                }}
+                onUploadImage={(file) => {
+                  void uploadImage(selectedNode, project, file).catch((error) =>
+                    setMessage(errorMessage(error))
+                  )
+                }}
+                onUploadAudio={(file) => {
+                  void uploadMediaNode(selectedNode, project, file).catch(
+                    (error) => setMessage(errorMessage(error))
+                  )
+                }}
+                onUploadVideo={(file) => {
+                  void uploadMediaNode(selectedNode, project, file).catch(
+                    (error) => setMessage(errorMessage(error))
+                  )
+                }}
+                onUseAudio={(track) => {
+                  void (async () => {
+                    const blob =
+                      selectedNode.data.mediaId && mediaStore
+                        ? await mediaStore.get(
+                            userId,
+                            selectedNode.data.mediaId
+                          )
+                        : null
+                    if (!blob) throw new Error(t('studio.media.missing'))
+                    const file = new File(
+                      [blob],
+                      `${selectedNode.data.title}.mp3`,
+                      { type: blob.type || 'audio/mpeg' }
+                    )
+                    if (track === 'soundtrack') await uploadSoundtrack(file)
+                    else await uploadVoiceover(file)
+                  })().catch((error) => setMessage(errorMessage(error)))
+                }}
+                onDelete={() => setDeleteTarget('node')}
+                onRetryMedia={() => void retryMedia(selectedNode, project)}
+                availableAssets={project.assets}
+                onSelectTake={(takeId) => {
+                  discardNodeMedia(project.id, selectedNode)
+                  for (const edge of project.edges) {
+                    if (edge.source === selectedNode.id) {
+                      discardBranchMedia(project, edge.target)
+                    }
+                  }
+                  editProject(project.id, (current) =>
+                    selectStudioTake(current, selectedNode.id, takeId)
+                  )
+                }}
+                archivableTakeIds={archivableStudioTakeIds(
+                  project,
+                  selectedNode.id
+                )}
+                onArchiveTake={(takeId) =>
+                  editProject(project.id, (current) =>
+                    archiveStudioTake(current, selectedNode.id, takeId)
+                  )
+                }
+              />
+            )}
+          </aside>
+        )}
       </div>
       {preflightData && (
         <StudioVideoPreflight
@@ -4346,39 +5884,33 @@ export function Studio() {
                 const node = project.nodes.find((item) => item.id === id)
                 if (node) discardNodeMedia(project.id, node)
               }
-              deleteStoredMedia(project, [
-                shot.textNodeId,
-                shot.imageNodeId,
-                shot.videoNodeId,
-              ])
-              editProject(project.id, (current) =>
-                removeStudioShot(current, selectedShotId)
+              editCanvasProject(project.id, (current) =>
+                applyStudioCanvasOperations(current, [
+                  {
+                    op: 'remove_nodes',
+                    nodeIds: [
+                      shot.textNodeId,
+                      shot.imageNodeId,
+                      shot.videoNodeId,
+                    ],
+                  },
+                ])
               )
               setSelectedNodeId(null)
             }
           }
           if (deleteTarget === 'node' && selectedNode) {
-            discardNodeMedia(project.id, selectedNode)
-            deleteStoredMedia(project, [selectedNode.id])
-            editProject(project.id, (current) =>
-              pruneStudioShots({
-                ...current,
-                nodes: current.nodes.filter(
-                  (node) => node.id !== selectedNode.id
-                ),
-                edges: current.edges.filter(
-                  (edge) =>
-                    edge.source !== selectedNode.id &&
-                    edge.target !== selectedNode.id
-                ),
-                updatedAt: new Date().toISOString(),
-              })
+            editCanvasProject(project.id, (current) =>
+              applyStudioCanvasOperations(current, [
+                { op: 'remove_nodes', nodeIds: [selectedNode.id] },
+              ])
             )
             setSelectedNodeId(null)
           }
           if (deleteTarget === 'project') {
             project.nodes.forEach((node) => discardNodeMedia(project.id, node))
             deleteStoredMedia(project)
+            canvasHistories.current.delete(`${userId}:${project.id}`)
             setWorkspace((current) => {
               const remaining = current.projects.filter(
                 (item) => item.id !== project.id
@@ -4407,17 +5939,85 @@ export function Studio() {
         onRefresh={refreshProviderModels}
         onDelete={removeProvider}
       />
+      {productionOpen && (
+        <StudioProductionPanel
+          key={project.id}
+          initialTab={productionInitialTab}
+          open={productionOpen}
+          onOpenChange={setProductionOpen}
+          project={project}
+          userId={userId}
+          selectedNodeId={selectedNodeId}
+          onSelectNode={setSelectedNodeId}
+          onSave={async () => {
+            if (!mediaStore) throw new Error(t('studio.project.saveFailed'))
+            await mediaStore.saveProjects(userId, projectsRef.current)
+          }}
+          onRefresh={async () => {
+            if (!mediaStore) return
+            const restored = await refreshStudioProjects(
+              mediaStore,
+              userId,
+              () => projectsRef.current,
+              () => activeUserId.current === userId
+            )
+            if (!restored) return
+            projectsRef.current = restored
+            setWorkspace((current) => ({ ...current, projects: restored }))
+          }}
+          onUpdate={(updated) =>
+            editProject(project.id, (current) =>
+              mergeStudioCloudDocument(project, updated, current, 'local')
+            )
+          }
+          getMedia={async (id) =>
+            mediaStore ? mediaStore.get(userId, id) : null
+          }
+        />
+      )}
       <StudioAttempts
         open={attemptsOpen}
         onOpenChange={setAttemptsOpen}
         userId={userId}
         localTasks={localTasks}
+        projects={projects}
+        currentProjectId={project.id}
+        onOpenJob={(projectId, kind, nodeId, status) => {
+          setWorkspace((current) => ({ ...current, activeId: projectId }))
+          const taskProject = projects.find(
+            (project) => project.id === projectId
+          )
+          const taskNode = taskProject?.nodes.find((node) => node.id === nodeId)
+          setSelectedNodeId(taskNode?.id || null)
+          setAttemptsOpen(false)
+          if (['transform', 'graphics', 'previs'].includes(kind) && taskNode) {
+            setSelectedNodeId(
+              status === 'failed'
+                ? taskNode.data.derivedFrom?.nodeId || taskNode.id
+                : taskNode.id
+            )
+            options.onNavigate?.('canvas', projectId)
+            setView('canvas')
+            return
+          }
+          let step: import('./studio-creation').StudioCreationStep = 'edit'
+          if (kind === 'render' || kind === 'quality') step = 'deliver'
+          else if (kind === 'generate') step = 'visual'
+          else if (kind === 'media') step = 'voice'
+          options.onNavigate?.('guided', projectId, false, step)
+          setView('guided')
+        }}
         onOpenTask={(projectId, nodeId) => {
           setWorkspace((current) => ({ ...current, activeId: projectId }))
           setSelectedNodeId(nodeId)
           setView('canvas')
           setAttemptsOpen(false)
         }}
+      />
+      <StudioAgentPanel
+        open={agentOpen}
+        onOpenChange={setAgentOpen}
+        bridge={agentBridge}
       />
     </div>
   )

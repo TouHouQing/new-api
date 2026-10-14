@@ -1,0 +1,134 @@
+{
+  "baseline": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "54ecd2d1-0b3c-41a6-871d-ca836d8acbc5",
+    "elapsed_sec": 9.17,
+    "sha256": "5c1423c13b53a5613d89f6cf1cc389a392a4050f287065a4f9731ce6b29eeca4",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "camera-push": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, close up face, 50mm lens, intimate framing",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "926e5e72-8426-4831-ab27-27724995329f",
+    "elapsed_sec": 2.14,
+    "sha256": "5477553120201037a0ee3144602bf7e6f05ab4a6333392e8f51ef0f9510fb261",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "camera-orbit": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, three quarter view, lantern product at center, 35mm lens",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "4015b0c8-955d-42ab-b730-9bfde4cf97de",
+    "elapsed_sec": 2.09,
+    "sha256": "5dba013e7dd72502e5b07725d95738ea0ab0b108b4573fa81755ae64a7b0e8f6",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "camera-static": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, front facing medium close up, balanced still composition",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "045f49b9-d657-47b8-99e5-bc83745bbfb2",
+    "elapsed_sec": 4.09,
+    "sha256": "1266a96e70fb2692eceadecf64b965f1c6f6af20e7fc2ff12149afe980edd244",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "camera-follow": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, wide side view, fox walking beside the lantern, tracking composition",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "9a1fc3d1-8f1a-4d7a-a2e2-016c9914ed3d",
+    "elapsed_sec": 2.08,
+    "sha256": "acc438590c48f8e73586c3fd99f1d30a18ca7e5024b0a10de26647ca9b1d0203",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "lighting-soft": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, soft diffused daylight, gentle shadows",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "075347fb-1b87-4da0-a5a7-ec7cbe32cad1",
+    "elapsed_sec": 2.16,
+    "sha256": "8672502d2cce45a07e2d2c766018c29c423cc85396cbc268e79384f9d08b46c2",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "lighting-rim": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, warm rim light, dark background, cinematic contrast",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "a5d0681f-fa48-4bab-aa56-7fd0daebc225",
+    "elapsed_sec": 2.06,
+    "sha256": "aaca0c50a29a84203b3afaecff5b7c3d3afd259129e9279d93f6ee5077c885ed",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "lighting-product": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, large softbox lighting, clean neutral background, visible surface detail",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "2bdf432d-a570-4759-9690-85348f797938",
+    "elapsed_sec": 2.06,
+    "sha256": "eea6e276877e0788822b89a40a30c1aae9dbe69939556914b75ca50564910206",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "style-watercolor": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, watercolor illustration, subtle paper texture, muted warm palette",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "d56ec6a7-911e-4704-a2fa-f000ad3ea3ee",
+    "elapsed_sec": 2.08,
+    "sha256": "91a04f1bbee6f02d09147dd1bcfd367ccd5955b2c34b1f4ebe8a2048acef1796",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "style-cinema": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, natural cinematic color, realistic texture, restrained contrast",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "1438e1e7-a581-4847-be34-767242f4be11",
+    "elapsed_sec": 2.06,
+    "sha256": "98515b89d64fc5c2b7f7d88875af0d85d7fb7e8a3b229aace4c53caf39a0d7d3",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "effect-dust": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, subtle floating dust particles catching sunlight, unobstructed subject",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "dfcf9b93-6d18-4703-ab81-38050aa9181c",
+    "elapsed_sec": 2.23,
+    "sha256": "43edaed96acbe4bf297b4c4d6aa081115048c51ca6fd3c44a8aecf1ab8839224",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  },
+  "effect-rain": {
+    "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, gentle rain, subtle wet surface reflections, clearly visible subject",
+    "model": "FLUX.2 Klein 4B",
+    "seed": 47,
+    "width": 512,
+    "height": 320,
+    "prompt_id": "6f74696c-ade5-471c-802f-fe7003cd6686",
+    "elapsed_sec": 2.08,
+    "sha256": "c1a4aa1a25774a781a039cfe1453d7cff1a4e92756186b6d1809d2aa95f1d1be",
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+  }
+}

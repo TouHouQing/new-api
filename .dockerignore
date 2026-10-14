@@ -10,3 +10,14 @@ docs
 /web/node_modules
 /web/dist
 !THIRD-PARTY-LICENSES.md
+!integrations/studio-agent/skills/**/SKILL.md
+.playwright-cli
+**/__pycache__
+*.db
+*.db-shm
+*.db-wal
+*.log
+/logs
+/bin
+/output/
+/web/output/

@@ -21,6 +21,7 @@ import { ArrowRight } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import { rememberAuthWorkspace } from '@/features/auth/lib/auth-redirect'
 
 interface HeroButtonsProps {
   isAuthenticated: boolean
@@ -31,17 +32,40 @@ interface HeroButtonsProps {
  */
 export function HeroButtons({ isAuthenticated }: HeroButtonsProps) {
   const { t } = useTranslation()
+  const creativeEntry = (
+    <Button
+      size='lg'
+      render={<Link to={isAuthenticated ? '/studio' : '/sign-up'} />}
+      onClick={() => rememberAuthWorkspace('studio')}
+    >
+      {t('Start creating a video')} <ArrowRight className='ml-2 h-5 w-5' />
+    </Button>
+  )
   if (isAuthenticated) {
     return (
-      <Button size='lg' render={<Link to='/dashboard' />}>
-        {t('Go to Dashboard')} <ArrowRight className='ml-2 h-5 w-5' />
-      </Button>
+      <>
+        {creativeEntry}
+        <Button
+          size='lg'
+          variant='outline'
+          render={<Link to='/dashboard' />}
+          onClick={() => rememberAuthWorkspace('dashboard')}
+        >
+          {t('Go to Dashboard')} <ArrowRight className='ml-2 h-5 w-5' />
+        </Button>
+      </>
     )
   }
 
   return (
     <>
-      <Button size='lg' render={<Link to='/sign-up' />}>
+      {creativeEntry}
+      <Button
+        size='lg'
+        variant='outline'
+        render={<Link to='/sign-up' />}
+        onClick={() => rememberAuthWorkspace('dashboard')}
+      >
         {t('Get Started')}
         <ArrowRight className='ml-2 h-5 w-5' />
       </Button>

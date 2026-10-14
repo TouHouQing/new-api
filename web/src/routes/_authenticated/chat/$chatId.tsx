@@ -154,12 +154,32 @@ function ChatRouteComponent() {
   }
 
   return (
-    <iframe
-      src={iframeSrc}
-      key={iframeSrc}
-      className='h-full w-full border-0'
-      allow='camera; microphone'
-      title={`Chat preset: ${preset.name}`}
-    />
+    <div className='flex h-full flex-col'>
+      <div className='flex justify-end border-b p-2'>
+        <Button
+          variant='outline'
+          size='sm'
+          render={
+            <a
+              href={iframeSrc}
+              target='_blank'
+              rel='noopener noreferrer'
+              referrerPolicy='no-referrer'
+            />
+          }
+        >
+          {t('Open chat in a browser tab')}
+        </Button>
+      </div>
+      <iframe
+        sandbox='allow-scripts allow-forms allow-popups allow-downloads allow-presentation'
+        src={iframeSrc}
+        key={iframeSrc}
+        className='min-h-0 w-full flex-1 border-0'
+        allow='camera; microphone'
+        referrerPolicy='no-referrer'
+        title={`Chat preset: ${preset.name}`}
+      />
+    </div>
   )
 }

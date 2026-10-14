@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as authRouteRouteImport } from './routes/(auth)/route'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as PrivacyPolicyRouteImport } from './routes/privacy-policy'
+import { Route as StudioReviewRouteImport } from './routes/studio-review'
 import { Route as UserAgreementRouteImport } from './routes/user-agreement'
 import { Route as authForgotPasswordRouteImport } from './routes/(auth)/forgot-password'
 import { Route as authOauthRouteImport } from './routes/(auth)/oauth'
@@ -90,6 +91,11 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const PrivacyPolicyRoute = PrivacyPolicyRouteImport.update({
   id: '/privacy-policy',
   path: '/privacy-policy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StudioReviewRoute = StudioReviewRouteImport.update({
+  id: '/studio-review',
+  path: '/studio-review',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UserAgreementRoute = UserAgreementRouteImport.update({
@@ -432,6 +438,7 @@ const AuthenticatedSystemSettingsSiteSectionRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/studio-review': typeof StudioReviewRoute
   '/user-agreement': typeof UserAgreementRoute
   '/system-settings': typeof AuthenticatedSystemSettingsRouteRouteWithChildren
   '/forgot-password': typeof authForgotPasswordRoute
@@ -496,6 +503,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/studio-review': typeof StudioReviewRoute
   '/user-agreement': typeof UserAgreementRoute
   '/forgot-password': typeof authForgotPasswordRoute
   '/oauth': typeof authOauthRoute
@@ -562,6 +570,7 @@ export interface FileRoutesById {
   '/(auth)': typeof authRouteRouteWithChildren
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/privacy-policy': typeof PrivacyPolicyRoute
+  '/studio-review': typeof StudioReviewRoute
   '/user-agreement': typeof UserAgreementRoute
   '/_authenticated/system-settings': typeof AuthenticatedSystemSettingsRouteRouteWithChildren
   '/(auth)/forgot-password': typeof authForgotPasswordRoute
@@ -628,6 +637,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/privacy-policy'
+    | '/studio-review'
     | '/user-agreement'
     | '/system-settings'
     | '/forgot-password'
@@ -692,6 +702,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/privacy-policy'
+    | '/studio-review'
     | '/user-agreement'
     | '/forgot-password'
     | '/oauth'
@@ -757,6 +768,7 @@ export interface FileRouteTypes {
     | '/(auth)'
     | '/_authenticated'
     | '/privacy-policy'
+    | '/studio-review'
     | '/user-agreement'
     | '/_authenticated/system-settings'
     | '/(auth)/forgot-password'
@@ -824,6 +836,7 @@ export interface RootRouteChildren {
   authRouteRoute: typeof authRouteRouteWithChildren
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   PrivacyPolicyRoute: typeof PrivacyPolicyRoute
+  StudioReviewRoute: typeof StudioReviewRoute
   UserAgreementRoute: typeof UserAgreementRoute
   errors401Route: typeof errors401Route
   errors403Route: typeof errors403Route
@@ -866,6 +879,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy-policy'
       fullPath: '/privacy-policy'
       preLoaderRoute: typeof PrivacyPolicyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/studio-review': {
+      id: '/studio-review'
+      path: '/studio-review'
+      fullPath: '/studio-review'
+      preLoaderRoute: typeof StudioReviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/user-agreement': {
@@ -1442,6 +1462,7 @@ const rootRouteChildren: RootRouteChildren = {
   authRouteRoute: authRouteRouteWithChildren,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   PrivacyPolicyRoute: PrivacyPolicyRoute,
+  StudioReviewRoute: StudioReviewRoute,
   UserAgreementRoute: UserAgreementRoute,
   errors401Route: errors401Route,
   errors403Route: errors403Route,

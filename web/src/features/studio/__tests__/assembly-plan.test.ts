@@ -8,12 +8,31 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import { describe, expect, test } from 'vitest'
 
 import {
@@ -116,7 +135,7 @@ describe('Studio MP4 assembly planning', () => {
     ).toBeUndefined()
   })
 
-  test('legacy timed caption fields do not invalidate an assembled MP4', () => {
+  test('timed caption edits invalidate an assembled MP4', () => {
     const project = {
       ...createStudioProject('Captions', 'p-captions'),
       assembledMediaId: 'assembled',
@@ -127,13 +146,13 @@ describe('Studio MP4 assembly planning', () => {
         ...project,
         captionsText: '1\n00:00:00,000 --> 00:00:01,000\nHi',
       }).assembledMediaId
-    ).toBe('assembled')
+    ).toBeUndefined()
     expect(
       reconcileStudioAssembly(project, {
         ...project,
         captionOffsetSeconds: 2,
       }).assembledMediaId
-    ).toBe('assembled')
+    ).toBeUndefined()
   })
   test('moving audio invalidates a previously assembled MP4', () => {
     const project = {

@@ -8,16 +8,37 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import { Blob as NodeBlob } from 'node:buffer'
 
 import { IDBFactory } from 'fake-indexeddb'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, test, vi } from 'vitest'
+
+import { api } from '@/lib/api'
 
 import {
   StudioProjectStorageError,
@@ -25,6 +46,7 @@ import {
   type StudioProject,
 } from './local-projects'
 import { createStudioMediaStore } from './media-store'
+import { createStudioCloudStore, refreshStudioProjects } from './studio-cloud'
 
 const blob = (value: string): Blob =>
   new NodeBlob([value], { type: 'video/mp4' }) as unknown as Blob
@@ -38,7 +60,131 @@ const project = (title: string): StudioProject => ({
   updatedAt: '2026-09-26T00:00:00.000Z',
 })
 
+test('task refresh merges the existing draft and refuses to replace edits made while it is pending', async () => {
+  let current = [project('Unsubmitted lyrics')]
+  let finish: (projects: StudioProject[]) => void = () => {}
+  const store = {
+    loadProjects: vi.fn(async () => [project('Old server copy')]),
+    syncProjects: vi.fn(
+      (_userId: number, projects: StudioProject[]) =>
+        new Promise<StudioProject[]>((resolve) => {
+          expect(projects).toBe(current)
+          finish = resolve
+        })
+    ),
+  }
+  const pending = refreshStudioProjects(
+    store,
+    1,
+    () => current,
+    () => true
+  )
+  current = [project('New lyrics typed during refresh')]
+  finish([project('Completed take with earlier draft')])
+  expect(await pending).toBeNull()
+  expect(current[0].title).toBe('New lyrics typed during refresh')
+  expect(store.loadProjects).not.toHaveBeenCalled()
+})
+
+test('task refresh accepts merged results when the workspace and account still match', async () => {
+  const current = [project('Saved draft')]
+  const merged = [project('Completed task and saved draft')]
+  const store = {
+    loadProjects: vi.fn(async () => null),
+    syncProjects: vi.fn(async () => merged),
+  }
+  expect(
+    await refreshStudioProjects(
+      store,
+      1,
+      () => current,
+      () => true
+    )
+  ).toBe(merged)
+  expect(
+    await refreshStudioProjects(
+      store,
+      1,
+      () => current,
+      () => false
+    )
+  ).toBeNull()
+})
+
 describe('browser-local Studio media', () => {
+  test('cloud project edits reuse stored media without re-uploading cached bytes', async () => {
+    const local = createStudioMediaStore(
+      new IDBFactory(),
+      'studio-cloud-cached-media'
+    )
+    const document = {
+      ...project('Cloud'),
+      production: { reviews: [] },
+      nodes: [
+        {
+          id: 'clip',
+          type: 'studio',
+          position: { x: 0, y: 0 },
+          data: {
+            kind: 'video',
+            title: 'Clip',
+            prompt: '',
+            status: 'completed',
+            mediaId: 'source',
+          },
+        },
+      ],
+    }
+    await local.put(12, 'source', blob('cached server bytes'))
+    const record = {
+      id: document.id,
+      owner_id: 12,
+      revision: 1,
+      role: 'owner',
+      document,
+    }
+    const request = vi
+      .spyOn(api, 'request')
+      .mockResolvedValueOnce({ data: { success: true, data: [record] } })
+      .mockResolvedValueOnce({ data: { success: true, data: record } })
+      .mockResolvedValueOnce({
+        data: { success: true, data: { ...record, revision: 2 } },
+      })
+    const upload = vi.spyOn(api, 'put')
+    try {
+      const cloud = createStudioCloudStore(local)
+      const loaded = await cloud.loadProjects(12)
+      expect(loaded).toHaveLength(1)
+      if (!loaded) throw new Error('Expected the stored cloud project')
+      const production = loaded[0].production
+      if (!production) {
+        throw new Error('Expected normalized production defaults')
+      }
+      await cloud.saveProjects(12, [
+        {
+          ...loaded[0],
+          title: 'Human edit',
+          production: { ...production, width: 640 },
+        },
+      ])
+      expect(upload).not.toHaveBeenCalled()
+      expect(
+        request.mock.calls.some(([config]) => config.method === 'PUT')
+      ).toBe(true)
+      expect(request.mock.calls.at(-1)?.[0].data).toMatchObject({
+        document: { production: { width: 640 } },
+      })
+      await expect(
+        cloud.put(12, 'source', blob('replacement'))
+      ).rejects.toThrow('immutable')
+      expect(await (await local.get(12, 'source'))?.text()).toBe(
+        'cached server bytes'
+      )
+    } finally {
+      request.mockRestore()
+      upload.mockRestore()
+    }
+  })
   test('keeps image and video bytes separate for users sharing a browser', async () => {
     const store = createStudioMediaStore(new IDBFactory(), 'studio-media-test')
     await store.put(12, 'shot', blob('user twelve'))

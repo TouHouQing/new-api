@@ -19,10 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   fireEvent,
+  act,
   render as testingRender,
   screen,
   waitFor,
 } from '@testing-library/react'
+import i18n from 'i18next'
 import { useEffect, type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
@@ -61,8 +63,17 @@ import {
 
 function render(ui: ReactElement) {
   const client = new QueryClient({
-    defaultOptions: { queries: { retry: false } },
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
   })
+  client.setQueryData(
+    ['studio-cloud-capabilities', useAuthStore.getState().auth.user?.id ?? 0],
+    {
+      render_available: true,
+      quota_per_unit: 500000,
+      available_quota: 5000000,
+      generation_credit_available: true,
+    }
+  )
   return testingRender(
     <QueryClientProvider client={client}>{ui}</QueryClientProvider>
   )
@@ -229,6 +240,48 @@ afterEach(() => {
 })
 
 describe('Studio account isolation', () => {
+  test('changing language and account group preserves the active draft while refreshing models', async () => {
+    let project = addStudioNode(
+      createStudioProject('Locale draft', 'locale-draft'),
+      'text',
+      'draft-text'
+    )
+    project = updateStudioNode(project, 'draft-text', {
+      title: 'Active draft',
+      prompt: 'Original',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(await screen.findByRole('button', { name: 'Active draft' }))
+    fireEvent.change(screen.getByLabelText('studio.prompt'), {
+      target: { value: 'Keep this unsaved edit' },
+    })
+    try {
+      await act(async () => {
+        await i18n.changeLanguage('fr')
+        useAuthStore.setState((state) => ({
+          auth: {
+            ...state.auth,
+            user: { id: 12, username: 'one', role: 1, group: 'premium' },
+          },
+        }))
+      })
+      await waitFor(() =>
+        expect(fetchStudioModels).toHaveBeenCalledWith('premium')
+      )
+      expect(screen.getByLabelText('studio.prompt')).toHaveValue(
+        'Keep this unsaved edit'
+      )
+      expect(
+        screen.getByRole('combobox', { name: 'studio.project.select' })
+      ).toHaveTextContent('Locale draft')
+      expect(generateStudioText).not.toHaveBeenCalled()
+    } finally {
+      await act(async () => {
+        await i18n.changeLanguage('en')
+      })
+    }
+  })
   test('a pinned character version supplies its original image to the video model', async () => {
     vi.mocked(createStudioVideo).mockResolvedValue('task-pinned-asset')
     storedMedia.set(
@@ -429,9 +482,12 @@ describe('Studio account isolation', () => {
       )
     )
   })
-  test('a new empty project opens the guided storyboard first', async () => {
+  test('a new empty project opens the seven-step creation guide first', async () => {
     render(<Studio />)
-    expect(await screen.findByText('studio.shot.title')).toBeVisible()
+    expect(await screen.findByText('Make your first video')).toBeVisible()
+    expect(
+      screen.getByRole('textbox', { name: 'Tell your story' })
+    ).toBeVisible()
   })
   test('an ambiguous video timeout keeps its request ID and blocks a new submission', async () => {
     vi.mocked(createStudioVideo).mockRejectedValue(new Error('522 timeout'))
@@ -702,7 +758,7 @@ describe('Studio account isolation', () => {
       new Blob(['private'], { type: 'image/png' })
     )
     render(<Studio />)
-    fireEvent.change(await screen.findByLabelText('studio.import'), {
+    fireEvent.change(await screen.findByLabelText('Import a project backup'), {
       target: {
         files: [
           new File(['bundle'], 'project.zip', { type: 'application/zip' }),
@@ -1455,6 +1511,48 @@ describe('Studio account isolation', () => {
       )
     )
   })
+  test('saving manual text twice retains both outputs as selectable versions without inference', async () => {
+    let project = addStudioNode(
+      createStudioProject('Manual versions', 'manual-versions'),
+      'text',
+      'text'
+    )
+    project = updateStudioNode(project, 'text', {
+      title: 'Manual script',
+      prompt: 'First version',
+    })
+    saveStudioProjects(localStorage, 12, [project])
+    render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Manual script' })
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Save manual version' })
+    )
+    await waitFor(() =>
+      expect(
+        loadStudioProjects(localStorage, 12)[0].nodes[0].data.takes
+      ).toHaveLength(1)
+    )
+    fireEvent.change(screen.getByRole('textbox', { name: 'Draft block 1' }), {
+      target: { value: 'Second version' },
+    })
+    fireEvent.click(screen.getByRole('button', { name: 'Save manual version' }))
+    await waitFor(() =>
+      expect(
+        loadStudioProjects(localStorage, 12)[0].nodes[0].data.takes
+      ).toHaveLength(2)
+    )
+    const saved = loadStudioProjects(localStorage, 12)[0].nodes[0].data
+    expect(saved.takes?.map((take) => take.outputText)).toEqual([
+      'First version',
+      'Second version',
+    ])
+    expect(saved.selectedTakeId).toBe(saved.takes?.[1].id)
+    expect(generateStudioText).not.toHaveBeenCalled()
+    expect(generateStudioImage).not.toHaveBeenCalled()
+    expect(createStudioVideo).not.toHaveBeenCalled()
+  })
   test('generates a storyboard video from manual text without requiring an image', async () => {
     vi.mocked(createStudioVideo).mockResolvedValue('task-text-only')
     let project = addStudioShot(
@@ -1693,6 +1791,9 @@ describe('Studio account isolation', () => {
   })
   test('creates a storyboard shot within the current New API project', async () => {
     render(<Studio />)
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'studio.view.storyboard' })
+    )
     fireEvent.click(
       await screen.findByRole('button', { name: 'studio.shot.add' })
     )
@@ -2453,21 +2554,32 @@ describe('Studio account isolation', () => {
   test('explains that the project is unsaved when browser storage is full', async () => {
     rejectNextProjectSave = true
     render(<Studio />)
-    expect((await screen.findByRole('alert')).textContent).toContain(
-      'studio.project.saveFailed'
+    await waitFor(() =>
+      expect(
+        screen
+          .getAllByRole('alert')
+          .some((alert) =>
+            alert.textContent?.includes('studio.project.saveFailed')
+          )
+      ).toBe(true)
     )
   })
 
   test('keeps the first account project separate when another account signs in', async () => {
     render(<Studio />)
     fireEvent.click(
+      await screen.findByRole('button', { name: 'Advanced tools' })
+    )
+    fireEvent.click(
       await screen.findByRole('button', { name: 'studio.add.video' })
     )
-    expect(screen.getByTestId('canvas-nodes').textContent).toContain('Video 1')
+    expect(screen.getByTestId('canvas-nodes').textContent).toContain(
+      'studio.kind.video'
+    )
     await waitFor(() =>
       expect(
         localStorage.getItem('newapi:studio:projects:v1:user:12')
-      ).toContain('Video 1')
+      ).toContain('studio.kind.video')
     )
 
     useAuthStore.setState((state) => ({
@@ -2476,13 +2588,13 @@ describe('Studio account isolation', () => {
         user: { id: 13, username: 'two', role: 1, group: 'default' },
       },
     }))
-    await screen.findByText('studio.shot.title')
-    expect(screen.queryByText('Video 1')).toBeNull()
+    await screen.findByText('Make your first video')
+    expect(screen.queryByText('studio.kind.video')).toBeNull()
     expect(
       localStorage.getItem('newapi:studio:projects:v1:user:13')
-    ).not.toContain('Video 1')
+    ).not.toContain('studio.kind.video')
     expect(localStorage.getItem('newapi:studio:projects:v1:user:12')).toContain(
-      'Video 1'
+      'studio.kind.video'
     )
   })
 })

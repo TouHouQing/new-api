@@ -745,3 +745,26 @@ For commercial licensing, please contact support@quantumnous.com
     display: none;
   }
 }
+
+/* Studio controls fit narrow screens; the canvas retains its own viewport. */
+.studio-workspace [data-slot='select-trigger'] {
+  max-width: 100%;
+  min-width: 0;
+}
+.studio-workspace [data-slot='select-value'] {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.studio-workspace input,
+.studio-workspace textarea {
+  min-width: 0;
+  max-width: 100%;
+}
+.studio-workspace [data-slot='tabs-trigger'] {
+  white-space: normal;
+  min-width: 0;
+}
+.studio-workspace [data-slot='field'] {
+  min-width: 0;
+}

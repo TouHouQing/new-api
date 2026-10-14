@@ -16,7 +16,8 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { type TFunction } from 'i18next'
+import type { TFunction } from 'i18next'
+import { Film, Image, Layers, Settings } from 'lucide-react'
 
 import { SYSTEM_SETTINGS_VIEW } from '../config/system-settings.config'
 import type { NavGroup, SidebarView } from '../types'
@@ -30,7 +31,43 @@ import type { NavGroup, SidebarView } from '../types'
  *
  * Match priority is array order; the first matching `pathPattern` wins.
  */
-const SIDEBAR_VIEWS: readonly SidebarView[] = [SYSTEM_SETTINGS_VIEW]
+const STUDIO_VIEW: SidebarView = {
+  id: 'studio',
+  pathPattern: /^\/studio\/?$/,
+  parent: { to: '/dashboard/overview', label: 'Account and advanced settings' },
+  getNavGroups: (t) => [
+    {
+      id: 'video-creation',
+      title: t('Video creation'),
+      items: [
+        {
+          title: t('Guided video creation'),
+          icon: Film,
+          url: '/studio?workspace=guided',
+        },
+        {
+          title: t('studio.asset.title'),
+          icon: Image,
+          url: '/studio?workspace=assets',
+        },
+        {
+          title: t('Creative templates'),
+          icon: Layers,
+          url: '/studio?workspace=templates',
+        },
+        {
+          title: t('Advanced canvas'),
+          icon: Settings,
+          url: '/studio?workspace=canvas',
+        },
+      ],
+    },
+  ],
+}
+const SIDEBAR_VIEWS: readonly SidebarView[] = [
+  SYSTEM_SETTINGS_VIEW,
+  STUDIO_VIEW,
+]
 
 /**
  * Resolve the active nested view for the given path.

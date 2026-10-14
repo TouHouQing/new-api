@@ -33,13 +33,14 @@ import {
 export type RefreshOutcome =
   | { kind: 'authenticated'; bundle: AuthBundle }
   | { kind: 'anonymous' }
-  | { kind: 'transient_error'; error: unknown }
+  | { kind: 'transient_error'; error: unknown; retryAt?: number }
   | { kind: 'out_of_sync'; code?: string }
 
 export interface AuthRefreshHTTPResponse {
   status: number
   data?: unknown
   error?: unknown
+  retryAfterSeconds?: number
 }
 
 export interface AuthRefreshRuntime {
@@ -79,6 +80,8 @@ const authClient = axios.create({
 const refreshRaceDelays = [80, 200, 500] as const
 let refreshPromise: Promise<RefreshOutcome> | null = null
 let authEpoch = 0
+let refreshBlockedUntil = 0
+let lastSuccessfulRefresh = 0
 
 class AuthRefreshSupersededError extends Error {
   constructor() {
@@ -190,6 +193,8 @@ export function clearAuthentication(
 ): void {
   const sid = useAuthStore.getState().auth.session?.sid
   authEpoch += 1
+  lastSuccessfulRefresh = 0
+  refreshBlockedUntil = 0
   useAuthStore.getState().auth.reset(bootstrapState)
   if (synchronizeTabs && sid) {
     publishAuthSessionEvent('signed_out', sid)
@@ -260,6 +265,10 @@ export function createRefreshRunner(
       return {
         kind: 'transient_error',
         error: response.error ?? response.data,
+        retryAt:
+          response.status === 429
+            ? Date.now() + Math.max(1, response.retryAfterSeconds ?? 5) * 1000
+            : undefined,
       }
     }
 
@@ -276,6 +285,12 @@ export function createRefreshRunner(
 async function requestRefresh(
   expectedSID?: string
 ): Promise<AuthRefreshHTTPResponse> {
+  if (refreshBlockedUntil > Date.now()) {
+    return {
+      status: 429,
+      retryAfterSeconds: Math.ceil((refreshBlockedUntil - Date.now()) / 1000),
+    }
+  }
   try {
     const response = await authClient.post(
       '/api/user/auth/refresh',
@@ -284,10 +299,24 @@ async function requestRefresh(
         headers: expectedSID ? { 'X-Auth-Session': expectedSID } : undefined,
       }
     )
+    refreshBlockedUntil = 0
+    lastSuccessfulRefresh = Date.now()
     return { status: response.status, data: response.data }
   } catch (error: unknown) {
     if (!axios.isAxiosError(error)) return { status: 0, error }
+    let retryAfterSeconds: number | undefined
+    if (error.response?.status === 429) {
+      const hint = String(error.response.headers['retry-after'] || '')
+      const seconds = /^\d+$/.test(hint)
+        ? Number(hint)
+        : (Date.parse(hint) - Date.now()) / 1000
+      retryAfterSeconds = Number.isFinite(seconds)
+        ? Math.max(1, Math.min(3600, Math.ceil(seconds)))
+        : 5
+      refreshBlockedUntil = Date.now() + retryAfterSeconds * 1000
+    }
     return {
+      retryAfterSeconds,
       status: error.response?.status ?? 0,
       data: error.response?.data,
       error,
@@ -333,6 +362,10 @@ async function performRefreshWithBrowserLock(
 }
 
 export function refreshAuthentication(): Promise<RefreshOutcome> {
+  const bundle = currentValidAuthBundle()
+  if (bundle && Date.now() - lastSuccessfulRefresh < 2000) {
+    return Promise.resolve({ kind: 'authenticated', bundle })
+  }
   if (!refreshPromise) {
     const refreshEpoch = authEpoch
     refreshPromise = performRefreshWithBrowserLock(refreshEpoch).finally(() => {
@@ -447,4 +480,11 @@ export async function getFreshAuthHeaders(): Promise<Record<string, string>> {
     throw new Error(t('Request failed'), { cause: outcome.error })
   }
   throw new Error(t('Session expired!'))
+}
+
+export class AuthRecoveryError extends Error {
+  constructor(public readonly retryAt = Date.now() + 5000) {
+    super('Session recovery is temporarily unavailable')
+    this.name = 'AuthRecoveryError'
+  }
 }

@@ -35,39 +35,16 @@ import {
 import { Button } from '@/components/ui/button'
 
 import type { StudioCanvasNode } from './canvas-flow'
+import { studioDocumentForText } from './studio-document'
+import { StudioDocumentPreview } from './studio-document-editor'
+import { STUDIO_NODE_PORTS } from './studio-node-ports'
 
-const PORTS = {
-  text: {
-    inputs: [{ id: 'brief', label: 'studio.port.brief' }],
-    outputs: [
-      { id: 'scene', label: 'studio.port.scene' },
-      { id: 'image_prompt', label: 'studio.port.imagePrompt' },
-      { id: 'video_prompt', label: 'studio.port.videoPrompt' },
-    ],
-  },
-  image: {
-    inputs: [
-      { id: 'prompt', label: 'studio.port.prompt' },
-      { id: 'reference_image', label: 'studio.port.referenceImage' },
-    ],
-    outputs: [{ id: 'image', label: 'studio.port.image' }],
-  },
-  video: {
-    inputs: [
-      { id: 'prompt', label: 'studio.port.prompt' },
-      { id: 'first_frame', label: 'studio.port.firstFrame' },
-      { id: 'reference_image', label: 'studio.port.referenceImage' },
-      { id: 'reference_video', label: 'studio.port.referenceVideo' },
-      { id: 'extend_video', label: 'studio.port.extendVideo' },
-      { id: 'native_extend', label: 'studio.port.nativeExtend' },
-    ],
-    outputs: [{ id: 'video', label: 'studio.port.video' }],
-  },
-} as const
+const PORTS = STUDIO_NODE_PORTS
 
 const OPTIONAL_PORTS = {
   text: { inputs: [], outputs: ['image_prompt', 'video_prompt'] },
   image: { inputs: [], outputs: [] },
+  audio: { inputs: [], outputs: [] },
   video: {
     inputs: ['reference_image', 'extend_video', 'native_extend'],
     outputs: [],
@@ -90,8 +67,11 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
     typeof data.previewUrl === 'string' && data.previewUrl.trim()
       ? data.previewUrl
       : data.outputUrl
-  const ports = PORTS[data.kind]
-  const optional = OPTIONAL_PORTS[data.kind]
+  const ports = PORTS[data.purpose === 'assembly' ? 'assembly' : data.kind]
+  const optional =
+    data.purpose === 'assembly'
+      ? { inputs: ['clip', 'soundtrack', 'voiceover'], outputs: [] }
+      : OPTIONAL_PORTS[data.kind]
   const usedInputs = new Set(data.usedTargetHandles || [])
   const usedOutputs = new Set(data.usedSourceHandles || [])
   const primaryOutput = ports.outputs[0]
@@ -123,31 +103,78 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
       handles={{ target: false, source: false }}
       className='w-72 overflow-visible border-0'
       aria-label={data.title}
+      style={{
+        borderTop: data.labelColor ? `4px solid ${data.labelColor}` : undefined,
+      }}
     >
       <NodeHeader>
         <NodeTitle className='flex items-center justify-between gap-2 text-sm'>
           <span className='truncate'>{data.title}</span>
+          {!!data.rating && (
+            <span aria-label={t('Node rating')}>
+              {'★'.repeat(Number(data.rating))}
+            </span>
+          )}
           <span className='text-muted-foreground shrink-0 text-xs'>
-            {t(`studio.kind.${data.kind}`)}
+            {t(
+              data.purpose
+                ? `studio.catalog.${data.purpose}`
+                : `studio.kind.${data.kind}`
+            )}
+            {data.locked && (
+              <span className='ml-1' aria-label={t('studio.canvas.locked')}>
+                · {t('studio.canvas.locked')}
+              </span>
+            )}
           </span>
         </NodeTitle>
       </NodeHeader>
-      <NodeContent className='space-y-2'>
-        {(data.kind !== 'image' || data.model) && (
-          <p className='text-muted-foreground line-clamp-3 min-h-10 text-xs'>
-            {data.prompt || t('studio.node.emptyPrompt')}
-          </p>
-        )}
-        {data.outputText && (
-          <p className='bg-muted line-clamp-4 rounded-md p-2 text-xs whitespace-pre-wrap'>
-            {data.outputText}
-          </p>
-        )}
-        {data.kind === 'image' && imageUrl && (
-          <img
-            src={imageUrl}
-            alt={data.title}
-            className='max-h-28 w-full rounded-md object-contain'
+      <NodeContent
+        className='space-y-2'
+        hidden={data.presentationDensity === 'compact'}
+      >
+        {(data.kind !== 'image' || data.model) &&
+          (data.kind === 'text' && data.textDocument ? (
+            <div className='max-h-40 overflow-auto text-xs'>
+              <StudioDocumentPreview
+                value={studioDocumentForText(data.prompt, data.textDocument)}
+              />
+            </div>
+          ) : (
+            <p className='text-muted-foreground line-clamp-3 min-h-10 text-xs'>
+              {data.prompt || t('studio.node.emptyPrompt')}
+            </p>
+          ))}
+        {data.outputText &&
+          !(
+            data.kind === 'text' &&
+            data.textDocument &&
+            data.outputText === data.prompt
+          ) && (
+            <p className='bg-muted line-clamp-4 rounded-md p-2 text-xs whitespace-pre-wrap'>
+              {data.outputText}
+            </p>
+          )}
+        {data.kind === 'image' &&
+          imageUrl &&
+          (data.mediaId || data.outputUrl) && (
+            <img
+              src={imageUrl}
+              alt={data.title}
+              className={
+                data.presentationDensity === 'expanded'
+                  ? 'max-h-64 w-full rounded-md object-contain'
+                  : 'max-h-28 w-full rounded-md object-contain'
+              }
+            />
+          )}
+        {data.kind === 'audio' && data.status === 'completed' && videoUrl && (
+          <audio
+            aria-label={`${data.title} · ${t('studio.kind.audio')}`}
+            src={videoUrl}
+            controls
+            preload='metadata'
+            className='nodrag nopan w-full'
           />
         )}
         {data.kind === 'video' &&
@@ -159,7 +186,11 @@ export function StudioNode(props: NodeProps<StudioCanvasNode>) {
               controls
               playsInline
               preload='metadata'
-              className='nodrag nopan bg-muted max-h-28 w-full rounded-md object-contain'
+              className={
+                data.presentationDensity === 'expanded'
+                  ? 'nodrag nopan bg-muted max-h-64 w-full rounded-md object-contain'
+                  : 'nodrag nopan bg-muted max-h-28 w-full rounded-md object-contain'
+              }
             />
           ) : (
             <div className='bg-muted rounded-md p-2 text-xs'>

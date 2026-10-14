@@ -42,7 +42,7 @@ func (writer *studioAttemptResponseWriter) WriteString(value string) (int, error
 // failures that never become billable tasks still have a user-visible ID.
 func StudioAttemptAudit() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Request.Method != http.MethodPost || c.Request.URL.Path != "/pg/studio/videos" {
+		if c.Request.Method != http.MethodPost || (c.Request.URL.Path != "/pg/studio/videos" && !((c.Request.URL.Path == "/v1/videos" || c.Request.URL.Path == "/v1/tasks/studio-media") && c.GetBool("studio_workflow_relay"))) {
 			c.Next()
 			return
 		}

@@ -8,12 +8,31 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import { z } from 'zod'
 
 import type {
@@ -26,16 +45,110 @@ import {
   parseStudioVideoPayloadPatch,
   type StudioVideoFamily,
 } from './model-profiles'
+import {
+  studioCanvasFrameSchema,
+  type StudioCanvasFrame,
+} from './studio-canvas-frames'
+import { studioDocumentSchema } from './studio-document'
+import { studioImageLayersSchema } from './studio-image-layers'
+import {
+  studioProductionSchema,
+  type StudioProduction,
+} from './studio-production'
+
+export const studioAssetProfileSchema = z.strictObject({
+  subjectType: z.enum(['human', 'animal', 'object']).optional(),
+  appearance: z.string().max(2000).optional(),
+  wardrobe: z.string().max(2000).optional(),
+  personality: z.string().max(2000).optional(),
+  voice: z.string().max(2000).optional(),
+  age: z.string().max(2000).optional(),
+  body: z.string().max(2000).optional(),
+  face: z.string().max(2000).optional(),
+  hair: z.string().max(2000).optional(),
+  eyes: z.string().max(2000).optional(),
+  makeup: z.string().max(2000).optional(),
+  accessories: z.string().max(2000).optional(),
+  timeOfDay: z.string().max(2000).optional(),
+  atmosphere: z.string().max(2000).optional(),
+  lighting: z.string().max(2000).optional(),
+  palette: z.string().max(2000).optional(),
+  continuity: z.string().max(2000).optional(),
+  avoid: z.string().max(2000).optional(),
+})
 
 const nodeDataSchema = z.strictObject({
-  kind: z.enum(['text', 'image', 'video']),
+  textDocument: studioDocumentSchema.optional(),
+  labelColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/)
+    .optional(),
+  rating: z.number().int().min(0).max(5).optional(),
+  visualPresetIds: z.array(z.string().max(160)).max(32).optional(),
+  imageLayers: studioImageLayersSchema.optional(),
+  videoKeyframes: z
+    .array(
+      z.strictObject({
+        mediaId: z.string().min(1).max(128),
+        time: z.number().min(0).max(30),
+      })
+    )
+    .max(8)
+    .optional(),
+  assistantPlan: z.boolean().optional(),
+  assistantSkillId: z.string().max(80).optional(),
+  assistantScopeNodeIds: z.array(z.string().max(128)).max(100).optional(),
+  referenceControl: z.enum(['depth', 'edges']).optional(),
+  reworkRange: z
+    .strictObject({
+      sourceNodeId: z.string().max(128),
+      sourceMediaId: z.string().max(128),
+      start: z.number().min(0).max(3600),
+      end: z.number().min(0.01).max(3600),
+    })
+    .optional(),
+  reworkRegion: z
+    .strictObject({
+      sourceMediaId: z.string().max(128),
+      x: z.number().int().min(0).max(8192),
+      y: z.number().int().min(0).max(8192),
+      width: z.number().int().min(2).max(4096),
+      height: z.number().int().min(2).max(4096),
+    })
+    .optional(),
+  kind: z.enum(['text', 'image', 'video', 'audio']),
+  purpose: z
+    .enum(['note', 'script', 'character', 'scene', 'style', 'assembly'])
+    .optional(),
+  linkedAssetId: z.string().min(1).max(128).optional(),
+  locked: z.boolean().optional(),
+  sourceMode: z.literal('upload').optional(),
+  derivedFrom: z
+    .strictObject({
+      nodeId: z.string().max(128),
+      takeId: z.string().max(128).optional(),
+      mediaId: z.string().max(128),
+      action: z.string().max(100),
+    })
+    .optional(),
+  voice: z.string().max(100).optional(),
+  speed: z.number().min(0.25).max(4).optional(),
+  camera: z
+    .strictObject({
+      shotSize: z.string().max(200).optional(),
+      angle: z.string().max(200).optional(),
+      movement: z.string().max(200).optional(),
+      lens: z.string().max(200).optional(),
+      lighting: z.string().max(200).optional(),
+    })
+    .optional(),
   title: z.string().max(200),
   prompt: z.string().max(30000),
   model: z.string().max(200).optional(),
   textMode: z.enum(['shot', 'plain']).optional(),
   group: z.string().max(100).optional(),
   videoFamily: z
-    .enum(['generic', 'seedance-2', 'seedance-2.5', 'minimax-h3'])
+    .enum(['generic', 'seedance-2', 'seedance-2.5', 'minimax-h3', 'wan-vace'])
     .optional(),
   status: z
     .enum(['idle', 'submitting', 'queued', 'processing', 'completed', 'failed'])
@@ -48,7 +161,10 @@ const nodeDataSchema = z.strictObject({
       z.strictObject({
         id: z.string().min(1).max(128),
         createdAt: z.string().max(40),
+        imageLayers: studioImageLayersSchema.optional(),
+        sourceMode: z.literal('upload').optional(),
         model: z.string().max(200).optional(),
+        voice: z.string().max(100).optional(),
         group: z.string().max(100).optional(),
         prompt: z.string().max(30000),
         status: z.enum(['queued', 'processing', 'completed', 'failed']),
@@ -60,7 +176,17 @@ const nodeDataSchema = z.strictObject({
         outputImagePrompt: z.string().max(30000).optional(),
         outputVideoPrompt: z.string().max(30000).optional(),
         clientRequestId: z.string().uuid().optional(),
-        requestSnapshot: z.string().max(16_384).optional(),
+        requestSnapshot: z.string().max(65_536).optional(),
+        auxiliary: z
+          .array(
+            z.strictObject({
+              role: z.string().min(1).max(128),
+              mediaId: z.string().min(1).max(128),
+              mimeType: z.string().min(1).max(100),
+            })
+          )
+          .max(20)
+          .optional(),
         templateSnapshot: z.string().max(16_384).optional(),
         chargedQuota: z.number().int().min(0).optional(),
         channelId: z.number().int().min(0).optional(),
@@ -142,97 +268,154 @@ const edgeSchema = z.strictObject({
     .optional(),
   selected: z.boolean().optional(),
 })
-const projectSchema = z.strictObject({
-  id: z.string().min(1).max(128),
-  title: z.string().max(200),
-  nodes: z.array(nodeSchema).max(500),
-  edges: z.array(edgeSchema).max(1000),
-  finalVideoNodeId: z.string().min(1).max(128).optional(),
-  assembledMediaId: z.string().min(1).max(128).optional(),
-  soundtrackMediaId: z.string().min(1).max(128).optional(),
-  soundtrackVolume: z.number().min(0).max(1).optional(),
-  soundtrackOffsetSeconds: z.number().min(0).max(3600).optional(),
-  voiceoverMediaId: z.string().min(1).max(128).optional(),
-  voiceoverVolume: z.number().min(0).max(1).optional(),
-  voiceoverOffsetSeconds: z.number().min(0).max(3600).optional(),
-  // Legacy SRT data stays readable in older projects but is no longer assembled.
-  captionsText: z.string().max(100_000).optional(),
-  captionOffsetSeconds: z.number().min(0).max(3600).optional(),
-  defaults: z
-    .strictObject({
-      textModel: z.string().max(200).optional(),
-      imageModel: z.string().max(200).optional(),
-      videoGroup: z.string().max(100).optional(),
-      videoModel: z.string().max(200).optional(),
-      videoFamily: z
-        .enum(['generic', 'seedance-2', 'seedance-2.5', 'minimax-h3'])
-        .optional(),
-      seconds: z.number().int().min(1).max(3600).optional(),
-      resolution: z.string().max(100).optional(),
-      ratio: z.string().max(40).optional(),
-    })
-    .optional(),
-  shots: z
-    .array(
-      z.strictObject({
-        id: z.string().min(1).max(100),
-        title: z.string().max(200),
-        textNodeId: z.string().min(1).max(128),
-        imageNodeId: z.string().min(1).max(128),
-        videoNodeId: z.string().min(1).max(128),
-        trimStart: z.number().min(0).max(3600).optional(),
-        trimEnd: z.number().min(0).max(3600).optional(),
-        muted: z.boolean().optional(),
-        volume: z.number().min(0).max(1).optional(),
-        transition: z.enum(['cut', 'fade']).optional(),
-        transitionSeconds: z.number().min(0.1).max(3).optional(),
-        reviewStatus: z.enum(['unreviewed', 'approved', 'retake']).optional(),
-        reviewNote: z.string().max(2000).optional(),
-        shotType: z.string().max(200).optional(),
-        camera: z.string().max(2000).optional(),
-        dialogue: z.string().max(30000).optional(),
-        shotVoiceoverMediaId: z.string().max(128).optional(),
-        shotVoiceoverVolume: z.number().min(0).max(1).optional(),
-        shotVoiceoverOffsetSeconds: z.number().min(0).max(3600).optional(),
-        shotCaptionText: z.string().max(30000).optional(),
-        shotCaptionOffsetSeconds: z.number().min(0).max(3600).optional(),
-        shotCaptionDurationSeconds: z.number().min(0).max(3600).optional(),
-      })
-    )
-    .max(166)
-    .optional(),
-  assets: z
-    .array(
-      z.strictObject({
-        id: z.string().min(1).max(128),
-        kind: z.enum(['character', 'location', 'style']),
-        title: z.string().min(1).max(200),
-        prompt: z.string().max(10000),
-        mediaId: z.string().max(128).optional(),
-        outputUrl: z.string().max(4096).optional(),
-        versions: z
-          .array(
-            z.strictObject({
-              id: z.string().min(1).max(128),
-              createdAt: z.string().max(40),
-              prompt: z.string().max(10000),
-              mediaId: z.string().max(128).optional(),
-              outputUrl: z.string().max(4096).optional(),
-            })
-          )
-          .max(30)
+export const studioProjectSchema = z
+  .strictObject({
+    production: studioProductionSchema.optional(),
+    id: z.string().min(1).max(128),
+    title: z.string().max(200),
+    nodes: z.array(nodeSchema).max(500),
+    edges: z.array(edgeSchema).max(1000),
+    canvas: z
+      .strictObject({
+        frames: z.array(studioCanvasFrameSchema).max(100).optional(),
+        viewport: z
+          .strictObject({
+            x: z.number().finite(),
+            y: z.number().finite(),
+            zoom: z.number().min(0.1).max(4),
+          })
           .optional(),
+        snapToGrid: z.boolean().optional(),
+        showMinimap: z.boolean().optional(),
+        displayDensity: z.enum(['compact', 'normal', 'expanded']).optional(),
+        colorFilter: z
+          .string()
+          .regex(/^#[0-9a-fA-F]{6}$/)
+          .optional(),
+        minimumRating: z.number().int().min(0).max(5).optional(),
       })
-    )
-    .max(200)
-    .optional(),
-  createdAt: z.string().max(40),
-  updatedAt: z.string().max(40),
-})
+      .optional(),
+    finalVideoNodeId: z.string().min(1).max(128).optional(),
+    assembledMediaId: z.string().min(1).max(128).optional(),
+    soundtrackMediaId: z.string().min(1).max(128).optional(),
+    soundtrackVolume: z.number().min(0).max(1).optional(),
+    soundtrackOffsetSeconds: z.number().min(0).max(3600).optional(),
+    voiceoverMediaId: z.string().min(1).max(128).optional(),
+    voiceoverVolume: z.number().min(0).max(1).optional(),
+    voiceoverOffsetSeconds: z.number().min(0).max(3600).optional(),
+    // Legacy SRT data stays readable in older projects but is no longer assembled.
+    captionsText: z.string().max(100_000).optional(),
+    captionOffsetSeconds: z.number().min(0).max(3600).optional(),
+    defaults: z
+      .strictObject({
+        textModel: z.string().max(200).optional(),
+        imageModel: z.string().max(200).optional(),
+        videoGroup: z.string().max(100).optional(),
+        videoModel: z.string().max(200).optional(),
+        videoFamily: z
+          .enum([
+            'generic',
+            'seedance-2',
+            'seedance-2.5',
+            'minimax-h3',
+            'wan-vace',
+          ])
+          .optional(),
+        seconds: z.number().int().min(1).max(3600).optional(),
+        resolution: z.string().max(100).optional(),
+        ratio: z.string().max(40).optional(),
+      })
+      .optional(),
+    shots: z
+      .array(
+        z.strictObject({
+          id: z.string().min(1).max(100),
+          title: z.string().max(200),
+          textNodeId: z.string().min(1).max(128),
+          imageNodeId: z.string().min(1).max(128),
+          videoNodeId: z.string().min(1).max(128),
+          trimStart: z.number().min(0).max(3600).optional(),
+          trimEnd: z.number().min(0).max(3600).optional(),
+          muted: z.boolean().optional(),
+          volume: z.number().min(0).max(1).optional(),
+          transition: z.enum(['cut', 'fade']).optional(),
+          transitionSeconds: z.number().min(0.1).max(3).optional(),
+          reviewStatus: z.enum(['unreviewed', 'approved', 'retake']).optional(),
+          reviewNote: z.string().max(2000).optional(),
+          shotType: z.string().max(200).optional(),
+          camera: z.string().max(2000).optional(),
+          dialogue: z.string().max(30000).optional(),
+          shotVoiceoverMediaId: z.string().max(128).optional(),
+          shotVoiceoverVolume: z.number().min(0).max(1).optional(),
+          shotVoiceoverOffsetSeconds: z.number().min(0).max(3600).optional(),
+          shotCaptionText: z.string().max(30000).optional(),
+          shotCaptionOffsetSeconds: z.number().min(0).max(3600).optional(),
+          shotCaptionDurationSeconds: z.number().min(0).max(3600).optional(),
+        })
+      )
+      .max(166)
+      .optional(),
+    assets: z
+      .array(
+        z.strictObject({
+          id: z.string().min(1).max(128),
+          kind: z.enum(['character', 'location', 'style']),
+          title: z.string().min(1).max(200),
+          prompt: z.string().max(10000),
+          profile: studioAssetProfileSchema.optional(),
+          modelMediaId: z.string().max(128).optional(),
+          mediaId: z.string().max(128).optional(),
+          outputUrl: z.string().max(4096).optional(),
+          versions: z
+            .array(
+              z.strictObject({
+                id: z.string().min(1).max(128),
+                createdAt: z.string().max(40),
+                prompt: z.string().max(10000),
+                profile: studioAssetProfileSchema.optional(),
+                modelMediaId: z.string().max(128).optional(),
+                mediaId: z.string().max(128).optional(),
+                outputUrl: z.string().max(4096).optional(),
+              })
+            )
+            .max(30)
+            .optional(),
+        })
+      )
+      .max(200)
+      .optional(),
+    createdAt: z.string().max(40),
+    updatedAt: z.string().max(40),
+  })
+  .superRefine((project, context) => {
+    const ids = new Set(project.nodes.map((n) => n.id)),
+      frames = new Set<string>(),
+      members = new Set<string>()
+    for (const frame of project.canvas?.frames || []) {
+      if (ids.has(frame.id) || frames.has(frame.id)) {
+        context.addIssue({
+          code: 'custom',
+          message: 'Canvas group IDs must be unique',
+          path: ['canvas', 'frames'],
+        })
+      }
+      frames.add(frame.id)
+      for (const id of frame.nodeIds) {
+        if (!ids.has(id) || members.has(id)) {
+          context.addIssue({
+            code: 'custom',
+            message: 'Canvas group members must exist and belong to one group',
+            path: ['canvas', 'frames'],
+          })
+        }
+        members.add(id)
+      }
+    }
+  })
 
 const storedProjectsSchema = z.object({
   version: z.literal(1),
-  projects: z.array(projectSchema),
+  projects: z.array(studioProjectSchema),
 })
 export class StudioProjectStorageError extends Error {
   constructor(readonly raw: string) {
@@ -243,12 +426,22 @@ export class StudioProjectStorageError extends Error {
   }
 }
 export type StudioProject = {
+  production?: StudioProduction
   id: string
   title: string
   nodes: StudioCanvasNode[]
   edges: StudioCanvasEdge[]
   shots?: StudioShot[]
   assets?: StudioAsset[]
+  canvas?: {
+    frames?: StudioCanvasFrame[]
+    viewport?: { x: number; y: number; zoom: number }
+    snapToGrid?: boolean
+    showMinimap?: boolean
+    displayDensity?: 'compact' | 'normal' | 'expanded'
+    colorFilter?: string
+    minimumRating?: number
+  }
   finalVideoNodeId?: string
   assembledMediaId?: string
   soundtrackMediaId?: string
@@ -305,6 +498,8 @@ export type StudioAssetVersion = {
   id: string
   createdAt: string
   prompt: string
+  profile?: StudioAssetProfile
+  modelMediaId?: string
   mediaId?: string
   outputUrl?: string
 }
@@ -314,10 +509,14 @@ export type StudioAsset = {
   kind: 'character' | 'location' | 'style'
   title: string
   prompt: string
+  profile?: StudioAssetProfile
+  modelMediaId?: string
   mediaId?: string
   outputUrl?: string
   versions?: StudioAssetVersion[]
 }
+
+export type StudioAssetProfile = z.infer<typeof studioAssetProfileSchema>
 
 function normalizeStudioProject(project: StudioProject): StudioProject {
   return {
@@ -376,8 +575,20 @@ export function serializeStudioProjectExport(project: StudioProject): string {
   return JSON.stringify(
     {
       ...portable,
+      production: safe.production
+        ? {
+            ...safe.production,
+            audioTracks: [],
+            reviews: [],
+            props: safe.production.props.map((prop) => ({
+              ...prop,
+              mediaIds: [],
+            })),
+          }
+        : undefined,
       shots: safe.shots?.map((shot) => ({
         ...shot,
+        reviewStatus: 'unreviewed',
         shotVoiceoverMediaId: undefined,
       })),
       nodes: safe.nodes.map((node) => {
@@ -394,10 +605,12 @@ export function serializeStudioProjectExport(project: StudioProject): string {
       assets: safe.assets?.map((asset) => ({
         ...asset,
         mediaId: undefined,
+        modelMediaId: undefined,
         outputUrl: undefined,
         versions: asset.versions?.map((version) => ({
           ...version,
           mediaId: undefined,
+          modelMediaId: undefined,
           outputUrl: undefined,
         })),
       })),
@@ -408,13 +621,24 @@ export function serializeStudioProjectExport(project: StudioProject): string {
 }
 
 export function parseStudioProjectImport(raw: string): StudioProject {
-  if (raw.length > 2_000_000) throw new Error('project file is too large')
+  if (raw.length > 9_000_000) throw new Error('project file is too large')
   try {
     const project = normalizeStudioProject(
-      projectSchema.parse(JSON.parse(raw)) as StudioProject
+      studioProjectSchema.parse(JSON.parse(raw)) as StudioProject
     )
     return {
       ...project,
+      production: project.production
+        ? {
+            ...project.production,
+            audioTracks: [],
+            reviews: [],
+            props: project.production.props.map((prop) => ({
+              ...prop,
+              mediaIds: [],
+            })),
+          }
+        : undefined,
       assembledMediaId: undefined,
       soundtrackMediaId: undefined,
       voiceoverMediaId: undefined,
@@ -432,15 +656,18 @@ export function parseStudioProjectImport(raw: string): StudioProject {
       assets: project.assets?.map((asset) => ({
         ...asset,
         mediaId: undefined,
+        modelMediaId: undefined,
         outputUrl: undefined,
         versions: asset.versions?.map((version) => ({
           ...version,
           mediaId: undefined,
+          modelMediaId: undefined,
           outputUrl: undefined,
         })),
       })),
       shots: project.shots?.map((shot) => ({
         ...shot,
+        reviewStatus: 'unreviewed',
         shotVoiceoverMediaId: undefined,
       })),
     }

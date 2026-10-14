@@ -34,6 +34,23 @@ func SessionCookieOriginGuard() gin.HandlerFunc {
 	}
 }
 
+// Bearer clients have no browser Origin. When a browser supplies one, only the
+// existing dashboard origin/trusted-origin policy is accepted by the bridge.
+func StudioBridgeOriginGuard() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if len(c.Request.Header.Values("Origin")) == 0 {
+			c.Next()
+			return
+		}
+		origin, ok := requestBrowserOrigin(c.Request)
+		if !ok || !isAllowedSessionOrigin(c.Request, origin) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{"success": false, "message": "Studio request origin is not allowed"})
+			return
+		}
+		c.Next()
+	}
+}
+
 func requestBrowserOrigin(request *http.Request) (string, bool) {
 	originValues := request.Header.Values("Origin")
 	if len(originValues) > 1 {

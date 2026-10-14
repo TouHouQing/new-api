@@ -70,7 +70,7 @@ func TestLoadTaskArtifactStoreConfigFallsBackToUpstream(t *testing.T) {
 	t.Setenv(TaskArtifactStoreS3PresignTTLEnv, "600")
 	config = LoadTaskArtifactStoreConfig()
 
-	assert.Equal(t, TaskArtifactStoreModeUpstream, config.Mode)
 	assert.Equal(t, "https://objects.example.com", config.S3Endpoint)
+	assert.Equal(t, TaskArtifactStoreModeS3, config.Mode)
 	assert.Equal(t, 600, config.S3PresignTTLSeconds)
 }

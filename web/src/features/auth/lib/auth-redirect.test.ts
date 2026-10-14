@@ -20,9 +20,27 @@ import { describe, expect, test } from 'vitest'
 
 import type { AuthUser } from '@/stores/auth-store'
 
-import { getSavedLanguage, sanitizeAuthRedirect } from './auth-redirect'
+import {
+  getSavedLanguage,
+  sanitizeAuthRedirect,
+  authWorkspaceDestination,
+} from './auth-redirect'
 
 const origin = 'https://dashboard.example.com'
+
+test('the remembered workspace accepts only the creator choice and cannot become an external redirect', () => {
+  expect(authWorkspaceDestination({ getItem: () => 'studio' })).toBe('/studio')
+  expect(
+    authWorkspaceDestination({ getItem: () => 'https://attacker.example' })
+  ).toBe('/dashboard')
+  expect(
+    authWorkspaceDestination({
+      getItem: () => {
+        throw new Error('storage disabled')
+      },
+    })
+  ).toBe('/dashboard')
+})
 
 describe('authentication redirect validation', () => {
   test('preserves safe internal paths, search parameters, and fragments', () => {

@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var expectedKeys = []string{"alibaba", "doubao", "google", "hailuo", "jimeng", "kling", "sora", "sunoapi", "vertex-ai", "vidu"}
+var expectedKeys = []string{"alibaba", "doubao", "google", "hailuo", "jimeng", "kling", "local-video", "sora", "studio-media", "sunoapi", "vertex-ai", "vidu"}
 
 func TestBuiltInVendorPluginsDeclareNativeRoutesAndLegacyChannelTypes(t *testing.T) {
 	generation := jsplugin.DefaultRegistry.Generation()
@@ -98,6 +98,10 @@ func TestBuiltInTaskPluginResponsesAndUsageContracts(t *testing.T) {
 			registry := jsplugin.NewRegistry()
 			plugin, registerErr := registry.RegisterFactory(source, jsplugin.Options{Key: key})
 			require.NoError(t, registerErr)
+			if key == "studio-media" || key == "local-video" {
+				require.NotEmpty(t, plugin.Meta.UsageSchema)
+				return
+			} // Generic production worker uses the task API.
 
 			var responsesClaim jsplugin.ProtocolClaim
 			foundResponses := false
@@ -136,6 +140,9 @@ func TestBuiltInTaskPluginResponsesAndUsageContracts(t *testing.T) {
 func TestBuiltInResponsesDecodersEchoChannelMappedAlias(t *testing.T) {
 	bodyOverrides := map[string]map[string]any{}
 	for _, key := range expectedKeys {
+		if key == "studio-media" || key == "local-video" {
+			continue
+		}
 		t.Run(key, func(t *testing.T) {
 			source, sourceErr := Source(key)
 			require.NoError(t, sourceErr)

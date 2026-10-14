@@ -16,8 +16,14 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import i18next from 'i18next'
+
 import type { StudioShotDraft } from './api'
-import type { StudioCanvasNodeData, StudioTake } from './canvas-flow'
+import {
+  studioNodeInputsChanged,
+  type StudioCanvasNodeData,
+  type StudioTake,
+} from './canvas-flow'
 import type { StudioProject } from './local-projects'
 
 export function studioBranchNodeIds(
@@ -63,6 +69,8 @@ export function selectStudioTake(
             data: {
               ...item.data,
               selectedTakeId: take.id,
+              voice: take.voice || item.data.voice,
+              sourceMode: take.sourceMode,
               staleSourceTitle: undefined,
               status: take.status,
               progress: take.progress,
@@ -71,6 +79,15 @@ export function selectStudioTake(
               outputVideoPrompt: take.outputVideoPrompt,
               outputUrl: take.outputUrl,
               mediaId: take.mediaId,
+              imageLayers:
+                item.data.selectedTakeId === take.id
+                  ? item.data.imageLayers || take.imageLayers
+                  : take.imageLayers,
+              takes: item.data.takes?.map((stored) =>
+                stored.id === item.data.selectedTakeId && item.data.imageLayers
+                  ? { ...stored, imageLayers: item.data.imageLayers }
+                  : stored
+              ),
               taskId: take.taskId,
               error: take.error,
             },
@@ -81,6 +98,134 @@ export function selectStudioTake(
   for (const edge of project.edges) {
     if (edge.source === nodeId && !edge.data?.sourceTakeId) {
       next = invalidateStudioBranch(next, edge.target)
+    }
+  }
+  if (node.data.purpose === 'assembly') {
+    next = { ...next, assembledMediaId: take.mediaId }
+  }
+  return syncStudioLinkedAsset(next, nodeId)
+}
+
+export function archivableStudioTakeIds(
+  project: StudioProject,
+  nodeId: string
+): string[] {
+  const node = project.nodes.find((node) => node.id === nodeId)
+  return (node?.data.takes || [])
+    .filter(
+      (take) =>
+        ['completed', 'failed'].includes(take.status) &&
+        take.id !== node?.data.selectedTakeId &&
+        !project.edges.some(
+          (edge) =>
+            edge.source === nodeId && edge.data?.sourceTakeId === take.id
+        ) &&
+        !project.production?.timeline.some(
+          (clip) => clip.nodeId === nodeId && clip.takeId === take.id
+        ) &&
+        !project.nodes.some(
+          (derived) =>
+            derived.data.derivedFrom?.nodeId === nodeId &&
+            derived.data.derivedFrom?.takeId === take.id
+        )
+    )
+    .map((take) => take.id)
+}
+
+export function archiveStudioTake(
+  project: StudioProject,
+  nodeId: string,
+  takeId: string
+): StudioProject {
+  if (!archivableStudioTakeIds(project, nodeId).includes(takeId)) {
+    throw new Error('Selected or pinned Takes cannot be archived')
+  }
+  return {
+    ...project,
+    nodes: project.nodes.map((node) =>
+      node.id === nodeId
+        ? {
+            ...node,
+            data: {
+              ...node.data,
+              takes: node.data.takes?.filter((take) => take.id !== takeId),
+            },
+          }
+        : node
+    ),
+    updatedAt: new Date().toISOString(),
+  }
+}
+
+/** A character/location/style node publishes its selected image to the shared asset library. */
+export function syncStudioLinkedAsset(
+  project: StudioProject,
+  nodeId: string
+): StudioProject {
+  const node = project.nodes.find((item) => item.id === nodeId)
+  const assetId = node?.data.linkedAssetId
+  if (
+    !assetId ||
+    node.data.status !== 'completed' ||
+    (!node.data.mediaId && !node.data.outputUrl)
+  ) {
+    return project
+  }
+  const meshMediaId = node.data.takes
+    ?.find((take) => take.id === node.data.selectedTakeId)
+    ?.auxiliary?.find(
+      (item) => item.role === 'mesh' && item.mimeType === 'model/gltf-binary'
+    )?.mediaId
+  const previous = project.assets?.find((asset) => asset.id === assetId)
+  if (
+    !previous ||
+    (previous.mediaId === node.data.mediaId &&
+      previous.outputUrl === node.data.outputUrl &&
+      previous.modelMediaId === meshMediaId)
+  ) {
+    return project
+  }
+  const takeId = node.data.selectedTakeId
+  const versions = [...(previous.versions || [])]
+  if (
+    takeId &&
+    versions.length < 30 &&
+    !versions.some((version) => version.id === takeId)
+  ) {
+    versions.push({
+      id: takeId,
+      createdAt: new Date().toISOString(),
+      prompt: previous.prompt,
+      profile: previous.profile,
+      modelMediaId: meshMediaId,
+      mediaId: node.data.mediaId,
+      outputUrl: node.data.outputUrl,
+    })
+  }
+  const selectedVersion = versions.find((version) => version.id === takeId)
+  let next: StudioProject = {
+    ...project,
+    assets: project.assets?.map((asset) =>
+      asset.id === assetId
+        ? {
+            ...asset,
+            modelMediaId: meshMediaId,
+            mediaId: node.data.mediaId,
+            outputUrl: node.data.outputUrl,
+            prompt: selectedVersion?.prompt ?? asset.prompt,
+            profile: selectedVersion ? selectedVersion.profile : asset.profile,
+            versions,
+          }
+        : asset
+    ),
+  }
+  for (const target of project.nodes) {
+    if (
+      target.id !== nodeId &&
+      target.data.assetIds?.includes(assetId) &&
+      !target.data.assetVersionIds?.[assetId]
+    ) {
+      next = invalidateStudioBranch(next, target.id)
     }
   }
   return next
@@ -138,7 +283,11 @@ export function recordStudioTake(
 ): StudioProject {
   const node = project.nodes.find((item) => item.id === nodeId)
   if (!node) throw new Error('Studio node is unavailable')
-  const takes = node.data.takes || []
+  const takes = (node.data.takes || []).map((stored) =>
+    stored.id === node.data.selectedTakeId && node.data.imageLayers
+      ? { ...stored, imageLayers: node.data.imageLayers }
+      : stored
+  )
   if (takes.length >= 100) throw new Error('Studio take history is full')
   if (takes.some((item) => item.id === take.id)) {
     throw new Error('Studio take already exists')
@@ -283,13 +432,22 @@ export function invalidateStudioBranch(
     updatedAt: new Date().toISOString(),
     nodes: project.nodes.map((node) => {
       if (!affected.has(node.id)) return node
-      if (node.data.kind === 'image' && !node.data.model) {
+      if (
+        (node.data.kind === 'image' ||
+          node.data.kind === 'audio' ||
+          node.data.sourceMode === 'upload') &&
+        node.data.purpose !== 'assembly' &&
+        !node.data.model
+      ) {
         return {
           ...node,
           data: {
             ...node.data,
             error: undefined,
-            status: node.data.mediaId ? 'completed' : 'idle',
+            status:
+              node.data.mediaId || node.data.taskId || node.data.outputUrl
+                ? 'completed'
+                : 'idle',
           },
         }
       }
@@ -343,6 +501,27 @@ export function addStudioShot(
   let next = addStudioNode(project, 'text', ids.text)
   next = addStudioNode(next, 'image', ids.image)
   next = addStudioNode(next, 'video', ids.video)
+  const labels = { text: 'Text', image: 'Image', video: 'Video' }
+  next = {
+    ...next,
+    nodes: next.nodes.map((node) => {
+      if (![ids.text, ids.image, ids.video].includes(node.id)) return node
+      const kind = node.data.kind
+      const label = i18next.isInitialized
+        ? i18next.t(`studio.kind.${kind}`, {
+            defaultValue:
+              kind in labels ? labels[kind as keyof typeof labels] : kind,
+          })
+        : labels[kind as keyof typeof labels]
+      return {
+        ...node,
+        data: {
+          ...node.data,
+          title: kind === 'video' ? title.trim() : `${title.trim()} · ${label}`,
+        },
+      }
+    }),
+  }
   const defaults = project.defaults
   if (defaults) {
     next = {
@@ -766,6 +945,15 @@ export function moveStudioShot(
 }
 
 export function pruneStudioShots(project: StudioProject): StudioProject {
+  if (project.production) {
+    const nodes = new Set(project.nodes.map((node) => node.id))
+    const timeline = project.production.timeline.filter((clip) =>
+      nodes.has(clip.nodeId)
+    )
+    if (timeline.length !== project.production.timeline.length) {
+      project = { ...project, production: { ...project.production, timeline } }
+    }
+  }
   if (
     project.finalVideoNodeId &&
     !project.nodes.some((node) => node.id === project.finalVideoNodeId)
@@ -801,15 +989,17 @@ export function removeStudioShot(
     (edge) => edge.target === finalId && edge.id === `${shotId}-final`
   )
   const removed = new Set([shot.textNodeId, shot.imageNodeId, shot.videoNodeId])
-  const next = syncStudioFinalVideoEdges({
-    ...project,
-    nodes: project.nodes.filter((node) => !removed.has(node.id)),
-    edges: project.edges.filter(
-      (edge) => !removed.has(edge.source) && !removed.has(edge.target)
-    ),
-    shots: project.shots?.filter((item) => item.id !== shotId),
-    updatedAt: new Date().toISOString(),
-  })
+  const next = pruneStudioShots(
+    syncStudioFinalVideoEdges({
+      ...project,
+      nodes: project.nodes.filter((node) => !removed.has(node.id)),
+      edges: project.edges.filter(
+        (edge) => !removed.has(edge.source) && !removed.has(edge.target)
+      ),
+      shots: project.shots?.filter((item) => item.id !== shotId),
+      updatedAt: new Date().toISOString(),
+    })
+  )
   return referenced && finalId ? invalidateStudioBranch(next, finalId) : next
 }
 
@@ -819,7 +1009,16 @@ export function addStudioNode(
   id: string
 ): StudioProject {
   const index = project.nodes.length
-  const labels = { text: 'Text', image: 'Image', video: 'Video' }
+  if (project.nodes.length >= 500) throw new Error('Studio node limit reached')
+  if (project.nodes.some((node) => node.id === id)) {
+    throw new Error('Studio node already exists')
+  }
+  const labels = {
+    text: 'Text',
+    image: 'Image',
+    video: 'Video',
+    audio: 'Audio',
+  }
   return {
     ...project,
     updatedAt: new Date().toISOString(),
@@ -831,7 +1030,7 @@ export function addStudioNode(
         position: { x: (index % 3) * 340, y: Math.floor(index / 3) * 300 },
         data: {
           kind,
-          title: `${labels[kind]} ${index + 1}`,
+          title: `${i18next.isInitialized ? i18next.t(`studio.kind.${kind}`, { defaultValue: labels[kind] }) : labels[kind]} ${index + 1}`,
           prompt: '',
           status: 'idle',
           seconds: 5,
@@ -847,7 +1046,7 @@ export function updateStudioNode(
   nodeId: string,
   patch: Partial<StudioCanvasNodeData>
 ): StudioProject {
-  return {
+  const next: StudioProject = {
     ...project,
     updatedAt: new Date().toISOString(),
     nodes: project.nodes.map((node) => {
@@ -856,34 +1055,23 @@ export function updateStudioNode(
       if (patch.status && patch.status !== 'idle') {
         data.staleSourceTitle = undefined
       }
-      const promptChanged =
-        patch.prompt !== undefined && patch.prompt !== node.data.prompt
       const modelChanged =
         Object.hasOwn(patch, 'model') && patch.model !== node.data.model
-      const settingsChanged = (
-        [
-          'group',
-          'model',
-          'textMode',
-          'videoFamily',
-          'seconds',
-          'resolution',
-          'ratio',
-          'metadataJson',
-        ] as const
-      ).some(
-        (key) => Object.hasOwn(patch, key) && patch[key] !== node.data[key]
-      )
-      if (promptChanged || settingsChanged) {
+      const settingsChanged = studioNodeInputsChanged(node.data, patch)
+      if (settingsChanged) {
         delete data.error
         if (data.status === 'failed') data.status = 'idle'
       }
       if (
-        (promptChanged ||
-          modelChanged ||
-          (Object.hasOwn(patch, 'textMode') &&
-            patch.textMode !== node.data.textMode)) &&
-        !(node.data.kind === 'image' && !node.data.model && !modelChanged)
+        settingsChanged &&
+        !(
+          (node.data.kind === 'image' ||
+            node.data.kind === 'audio' ||
+            node.data.sourceMode === 'upload') &&
+          node.data.purpose !== 'assembly' &&
+          !node.data.model &&
+          !modelChanged
+        )
       ) {
         delete data.outputText
         delete data.outputImagePrompt
@@ -891,9 +1079,11 @@ export function updateStudioNode(
         delete data.outputUrl
         delete data.mediaId
         delete data.taskId
+        delete data.selectedTakeId
         data.status = 'idle'
       }
       return { ...node, data }
     }),
   }
+  return syncStudioLinkedAsset(next, nodeId)
 }

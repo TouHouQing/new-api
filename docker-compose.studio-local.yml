@@ -1,0 +1,80 @@
+name: new-api-studio-local
+services:
+  new-api:
+    image: new-api-studio:local
+    init: true
+    restart: unless-stopped
+    ports: ['127.0.0.1:13010:3000']
+    environment:
+      SQL_DSN: postgresql://studio:${POSTGRES_PASSWORD:?Set database password}@postgres:5432/studio
+      REDIS_CONN_STRING: redis://:${REDIS_PASSWORD:?Set Redis password}@redis:6379/0
+      SESSION_SECRET: ${SESSION_SECRET:?Set persistent session secret}
+      STUDIO_PROVIDER_ENCRYPTION_KEY: ${STUDIO_PROVIDER_ENCRYPTION_KEY:?Set persistent encryption key}
+      SESSION_COOKIE_SECURE: 'true'
+      SESSION_COOKIE_TRUSTED_URL: https://localhost:13443
+      TRUSTED_PROXIES: 172.29.88.0/24
+      STUDIO_STORAGE_DIR: /data/studio
+      STUDIO_STORE_TASK_ARTIFACTS: 'true'
+      STUDIO_S3_REFERENCE_MODE: data-url
+      STUDIO_LOCAL_AUDIO_ANALYSIS: 'true'
+      TASK_ARTIFACT_STORE_MODE: s3
+      TASK_ARTIFACT_STORE_S3_ENDPOINT: http://objects:8333
+      TASK_ARTIFACT_STORE_S3_BUCKET: studio
+      TASK_ARTIFACT_STORE_S3_REGION: us-east-1
+      TASK_ARTIFACT_STORE_S3_ACCESS_KEY: ${S3_ACCESS_KEY:?Set storage access key}
+      TASK_ARTIFACT_STORE_S3_SECRET_KEY: ${S3_SECRET_KEY:?Set storage secret}
+    volumes: ['${STUDIO_DATA_DIRECTORY:?Set data directory}/app:/data']
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      objects: { condition: service_started }
+    networks: [studio]
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: studio
+      POSTGRES_DB: studio
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set database password}
+    volumes: ['${STUDIO_DATA_DIRECTORY}/postgres:/var/lib/postgresql/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U studio -d studio']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    networks: [studio]
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?Set Redis password}']
+    volumes: ['${STUDIO_DATA_DIRECTORY}/redis:/data']
+    healthcheck:
+      test: ['CMD-SHELL', 'redis-cli -a "$$REDIS_PASSWORD" ping']
+      interval: 5s
+      timeout: 3s
+      retries: 12
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+    networks: [studio]
+  objects:
+    image: chrislusf/seaweedfs@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
+    restart: unless-stopped
+    command: ['server', '-dir=/data', '-s3', '-s3.port=8333', '-s3.config=/config/s3.json', '-volume.max=16', '-master.volumeSizeLimitMB=1024']
+    ports: ['127.0.0.1:18333:8333']
+    volumes:
+      - '${STUDIO_OBJECTS_DIRECTORY:-${STUDIO_DATA_DIRECTORY}/objects}:/data'
+      - '${STUDIO_CONFIG_DIRECTORY}/s3.json:/config/s3.json:ro'
+    networks: [studio]
+  https:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports: ['127.0.0.1:13443:443']
+    volumes:
+      - '${STUDIO_CONFIG_DIRECTORY}/Caddyfile:/etc/caddy/Caddyfile:ro'
+      - '${STUDIO_DATA_DIRECTORY}/caddy:/data'
+    depends_on: [new-api]
+    networks: [studio]
+networks:
+  studio:
+    ipam:
+      config: [{ subnet: 172.29.88.0/24 }]

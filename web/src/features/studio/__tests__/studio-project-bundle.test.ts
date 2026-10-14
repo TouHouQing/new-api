@@ -8,12 +8,31 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import { Blob as NodeBlob } from 'node:buffer'
 
 import { IDBFactory } from 'fake-indexeddb'
@@ -21,6 +40,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest'
 
 import type { StudioProject } from '../local-projects'
 import { createStudioMediaStore } from '../media-store'
+import { studioProductionSchema } from '../studio-production'
 import {
   exportStudioProjectBundle,
   importStudioProjectBundle,
@@ -470,4 +490,35 @@ test('empty projects still require a valid user namespace', async () => {
   await expect(importStudioProjectBundle(bundle, 0, store)).rejects.toThrow(
     'user ID'
   )
+})
+
+test('a production bundle copies audio tracks and prop references into the destination namespace', async () => {
+  const source = createStudioMediaStore(
+    new IDBFactory(),
+    'production-bundle-source'
+  )
+  const target = createStudioMediaStore(
+    new IDBFactory(),
+    'production-bundle-target'
+  )
+  const project = {
+    ...createStudioProject('Production', 'production'),
+    production: studioProductionSchema.parse({
+      audioTracks: [{ id: 'music', mediaId: 'music-source', volume: 0.4 }],
+      props: [
+        { id: 'box', title: 'Box', description: '', mediaIds: ['prop-source'] },
+      ],
+    }),
+  }
+  await source.put(12, 'music-source', media('music', 'audio/mpeg'))
+  await source.put(12, 'prop-source', media('prop', 'image/png'))
+  const bundle = await exportStudioProjectBundle(project, 12, source)
+  const imported = await importStudioProjectBundle(bundle, 13, target)
+  const musicId = imported.production?.audioTracks[0].mediaId || ''
+  const propId = imported.production?.props[0].mediaIds[0] || ''
+  expect(musicId).not.toBe('music-source')
+  expect(propId).not.toBe('prop-source')
+  expect(await (await target.get(13, musicId))?.text()).toBe('music')
+  expect(await (await target.get(13, propId))?.text()).toBe('prop')
+  expect(imported.production?.reviews).toEqual([])
 })

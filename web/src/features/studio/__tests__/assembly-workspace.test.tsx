@@ -8,20 +8,48 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import {
+  act,
+  fireEvent,
+  render as testingRender,
+  screen,
+  waitFor,
+} from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import type { ReactElement } from 'react'
 import { beforeEach, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
 
 import { Studio } from '../index'
 import { saveStudioProjects, studioProjectsKey } from '../local-projects'
+import { studioCloudRequest, studioCloudMedia } from '../studio-cloud'
 import { stitchStudioVideos } from '../studio-mp4'
 import {
   addStudioShot,
@@ -30,6 +58,20 @@ import {
 } from '../workspace'
 
 const stored = vi.hoisted(() => new Map<string, Blob>())
+function render(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  client.setQueryData(['studio-cloud-capabilities', 12], {
+    render_available: true,
+    quota_per_unit: 500000,
+    available_quota: 5000000,
+    generation_credit_available: true,
+  })
+  return testingRender(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>
+  )
+}
 const getMedia = vi.hoisted(() =>
   vi.fn(
     async (userId: number, mediaId: string) =>
@@ -48,6 +90,10 @@ const putMedia = vi.hoisted(() =>
 )
 
 vi.mock('@/components/ai-elements/canvas', () => ({ Canvas: () => <div /> }))
+vi.mock('../studio-cloud', () => ({
+  studioCloudRequest: vi.fn(),
+  studioCloudMedia: vi.fn(),
+}))
 vi.mock('../api', () => ({
   fetchStudioGroups: async () => [{ id: 'default', description: 'Default' }],
   fetchStudioModels: async () => ['video-model'],
@@ -100,7 +146,7 @@ beforeEach(() => {
   }))
 })
 
-test('legacy timed SRT captions are ignored when assembling MP4', async () => {
+test('timed SRT captions use the server renderer with their saved offset', async () => {
   stored.set('12:clip-1', new Blob(['clip'], { type: 'video/mp4' }))
   vi.mocked(stitchStudioVideos).mockResolvedValue(
     new Blob(['joined'], { type: 'video/mp4' })
@@ -121,13 +167,39 @@ test('legacy timed SRT captions are ignored when assembling MP4', async () => {
     captionOffsetSeconds: 1.5,
   }
   saveStudioProjects(localStorage, 12, [project])
+  const record = {
+    id: project.id,
+    revision: 1,
+    role: 'owner',
+    document: project,
+  }
+  vi.mocked(studioCloudRequest)
+    .mockResolvedValueOnce(record)
+    .mockResolvedValueOnce({
+      id: 'render',
+      status: 'succeeded',
+      progress: 100,
+      result: { media_id: 'final' },
+    })
+    .mockResolvedValueOnce(record)
+  vi.mocked(studioCloudMedia).mockResolvedValue(
+    new Blob(['joined'], { type: 'video/mp4' })
+  )
   render(<Studio />)
   fireEvent.click(
     await screen.findByRole('button', { name: 'studio.assembly.create' })
   )
-  await waitFor(() => expect(stitchStudioVideos).toHaveBeenCalled())
-  const options = vi.mocked(stitchStudioVideos).mock.calls[0]?.[3]
-  expect(options).toBeUndefined()
+  await waitFor(() =>
+    expect(studioCloudMedia).toHaveBeenCalledWith(project.id, 'final')
+  )
+  expect(stitchStudioVideos).not.toHaveBeenCalled()
+  expect(vi.mocked(studioCloudRequest).mock.calls[1]?.[2]).toMatchObject({
+    render: {
+      subtitles: project.captionsText,
+      subtitle_offset: 1.5,
+      package: true,
+    },
+  })
 })
 
 test('assembled MP4 receives voiceover and captions positioned within a shot', async () => {
@@ -242,7 +314,7 @@ test('assembled MP4 mixes a saved voiceover with the clip audio', async () => {
   )
 })
 
-test('a narration upload is saved locally and can be removed', async () => {
+test('removing narration detaches it and retains the bytes for undo', async () => {
   const project = addStudioShot(
     createStudioProject('Narrated', 'p-upload-voice'),
     'shot-1',
@@ -277,7 +349,7 @@ test('a narration upload is saved locally and can be removed', async () => {
       localStorage.getItem(studioProjectsKey(12)) || '{}'
     )
     expect(saved.projects[0].voiceoverMediaId).toBeUndefined()
-    expect(stored.has(`12:${mediaId}`)).toBe(false)
+    expect(stored.has(`12:${mediaId}`)).toBe(true)
   })
 })
 
@@ -646,8 +718,8 @@ test('an old account export cannot overwrite a newer account export state', asyn
   })
   await waitFor(() =>
     expect(
-      screen.getByRole('textbox', { name: 'studio.project.name' })
-    ).toHaveValue('Second')
+      screen.getByRole('combobox', { name: 'studio.project.select' })
+    ).toHaveTextContent('Second')
   )
   fireEvent.click(
     screen.getByRole('button', { name: 'studio.assembly.create' })
@@ -751,8 +823,8 @@ test('returning to a project retries an IndexedDB read canceled during a project
   await user.click(await screen.findByRole('option', { name: 'Other' }))
   await waitFor(() =>
     expect(
-      screen.getByRole('textbox', { name: 'studio.project.name' })
-    ).toHaveValue('Other')
+      screen.getByRole('combobox', { name: 'studio.project.select' })
+    ).toHaveTextContent('Other')
   )
   await act(async () => {
     releaseRead(stored.get('12:assembled') || null)

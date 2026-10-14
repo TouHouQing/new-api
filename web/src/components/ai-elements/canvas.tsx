@@ -30,10 +30,12 @@ import { Controls } from './controls'
 
 type CanvasProps<N extends Node, E extends Edge> = ReactFlowProps<N, E> & {
   children?: ReactNode
+  showControls?: boolean
 }
 
 export const Canvas = <N extends Node = Node, E extends Edge = Edge>({
   children,
+  showControls = true,
   ...props
 }: CanvasProps<N, E>) => (
   <ReactFlow<N, E>
@@ -46,7 +48,7 @@ export const Canvas = <N extends Node = Node, E extends Edge = Edge>({
     {...props}
   >
     <Background bgColor='var(--sidebar)' />
-    <Controls />
+    {showControls && <Controls />}
     {children}
   </ReactFlow>
 )

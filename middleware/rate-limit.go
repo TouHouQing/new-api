@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/logger"
@@ -178,6 +179,46 @@ func CriticalRateLimit() func(c *gin.Context) {
 	return defNext
 }
 
+// Refreshing a browser session is routine traffic, not a password attempt.
+// An IP ceiling bounds unauthenticated work; a separate session ceiling also
+// limits a stolen valid cookie across changing IPs. A cookie ID is never proof
+// of authentication: RefreshAuth still validates, rotates and checks replay.
+func AuthRefreshRateLimit() func(c *gin.Context) {
+	if !common.CriticalRateLimitEnable {
+		return defNext
+	}
+	maximum := max(1, min(10000, common.GetEnvOrDefault("AUTH_REFRESH_RATE_LIMIT", 60)))
+	duration := int64(max(1, min(600, common.GetEnvOrDefault("AUTH_REFRESH_RATE_LIMIT_DURATION", 60))))
+	ipLimit := rateLimitFactory(maximum*10, duration, "AUTH_REFRESH_IP")
+	inMemoryRateLimiter.Init(common.RateLimitKeyExpirationDuration)
+	return func(c *gin.Context) {
+		ipLimit(c)
+		if c.IsAborted() {
+			return
+		}
+		raw, _ := c.Cookie("new_api_refresh")
+		sid, _, ok := strings.Cut(raw, ".")
+		if !ok || len(sid) != 36 {
+			sid = "anonymous:" + c.ClientIP()
+		}
+		key := redisRateLimitNamespace + ":auth-refresh:" + sid
+		if common.RedisEnabled {
+			allowed, _, ttl, err := redisFixedWindowTake(c.Request.Context(), key, maximum, duration)
+			if err != nil {
+				c.AbortWithStatus(http.StatusServiceUnavailable)
+				return
+			}
+			if !allowed {
+				writeRateLimited(c, ttl)
+			}
+			return
+		}
+		if !inMemoryRateLimiter.Request(key, maximum, duration) {
+			writeRateLimited(c, duration)
+		}
+	}
+}
+
 func UserCriticalRateLimit(scope string) func(c *gin.Context) {
 	if !common.CriticalRateLimitEnable {
 		return defNext
@@ -187,6 +228,17 @@ func UserCriticalRateLimit(scope string) func(c *gin.Context) {
 		common.CriticalRateLimitDuration,
 		"UC:"+scope,
 	)
+}
+
+// Canvas autosaves and media imports are ordinary editor writes. They need a
+// separate window from password and credential operations (20 per 20 minutes).
+func StudioWriteRateLimit(scope string) func(c *gin.Context) {
+	if !common.CriticalRateLimitEnable {
+		return defNext
+	}
+	maximum := max(1, min(10000, common.GetEnvOrDefault("STUDIO_WRITE_RATE_LIMIT", 120)))
+	duration := int64(max(1, min(3600, common.GetEnvOrDefault("STUDIO_WRITE_RATE_LIMIT_DURATION", 60))))
+	return userRateLimitFactory(maximum, duration, "STUDIO:"+scope)
 }
 
 func DownloadRateLimit() func(c *gin.Context) {

@@ -8,21 +8,45 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import type { Edge, Node } from '@xyflow/react'
 
 import type { StudioVideoFamily } from './model-profiles'
+import type { StudioDocument } from './studio-document'
+import type { StudioImageLayers } from './studio-image-layers'
+import { STUDIO_TYPED_CONNECTIONS } from './studio-node-ports'
 
 export type StudioTake = {
+  voice?: string
   id: string
   createdAt: string
   model?: string
   textMode?: 'shot' | 'plain'
+  sourceMode?: 'upload'
   group?: string
   prompt: string
   status: 'queued' | 'processing' | 'completed' | 'failed'
@@ -35,6 +59,8 @@ export type StudioTake = {
   outputVideoPrompt?: string
   clientRequestId?: string
   requestSnapshot?: string
+  auxiliary?: { role: string; mediaId: string; mimeType: string }[]
+  imageLayers?: StudioImageLayers
   templateSnapshot?: string
   chargedQuota?: number
   channelId?: number
@@ -42,8 +68,51 @@ export type StudioTake = {
 }
 
 export type StudioCanvasNodeData = {
+  textDocument?: StudioDocument
+  labelColor?: string
+  rating?: number
+  visualPresetIds?: string[]
   [key: string]: unknown
-  kind: 'text' | 'image' | 'video'
+  kind: 'text' | 'image' | 'video' | 'audio'
+  imageLayers?: StudioImageLayers
+  videoKeyframes?: { mediaId: string; time: number }[]
+  assistantPlan?: boolean
+  assistantSkillId?: string
+  assistantScopeNodeIds?: string[]
+  referenceControl?: 'depth' | 'edges'
+  purpose?: 'note' | 'script' | 'character' | 'scene' | 'style' | 'assembly'
+  linkedAssetId?: string
+  reworkRegion?: {
+    sourceMediaId: string
+    x: number
+    y: number
+    width: number
+    height: number
+  }
+  reworkRange?: {
+    sourceNodeId: string
+    sourceMediaId: string
+    start: number
+    end: number
+  }
+  locked?: boolean
+  sourceMode?: 'upload'
+  derivedFrom?: {
+    nodeId: string
+    takeId?: string
+    mediaId: string
+    action: string
+  }
+  voice?: string
+  textMode?: 'shot' | 'plain'
+  speed?: number
+  camera?: {
+    shotSize?: string
+    angle?: string
+    movement?: string
+    lens?: string
+    lighting?: string
+  }
   title: string
   prompt: string
   model?: string
@@ -91,6 +160,44 @@ export type StudioCanvasNodeData = {
 export type StudioCanvasNode = Node<StudioCanvasNodeData, 'studio'>
 export type StudioCanvasEdge = Edge<{ sourceTakeId?: string }>
 
+export function studioNodeInputsChanged(
+  data: StudioCanvasNodeData,
+  patch: Partial<StudioCanvasNodeData>
+): boolean {
+  return (
+    [
+      'prompt',
+      'model',
+      'textMode',
+      'assistantPlan',
+      'assistantSkillId',
+      'assistantScopeNodeIds',
+      'group',
+      'videoFamily',
+      'seconds',
+      'resolution',
+      'ratio',
+      'metadataJson',
+      'referenceControl',
+      'payloadPatchJson',
+      'imageSize',
+      'imageQuality',
+      'imageCount',
+      'assetIds',
+      'assetVersionIds',
+      'camera',
+      'voice',
+      'speed',
+      'reworkRegion',
+      'reworkRange',
+    ] as const
+  ).some(
+    (key) =>
+      Object.hasOwn(patch, key) &&
+      JSON.stringify(patch[key]) !== JSON.stringify(data[key])
+  )
+}
+
 /** Resolve a connection against its pinned result, if it has one. */
 export function resolveStudioEdgeSource(
   source: StudioCanvasNode,
@@ -107,6 +214,7 @@ export function resolveStudioEdgeSource(
     data: {
       ...source.data,
       selectedTakeId: take.id,
+      voice: take.voice || source.data.voice,
       model: take.model,
       prompt: take.prompt,
       status: take.status,
@@ -175,24 +283,37 @@ export function isValidStudioConnection(
     text: 'scene',
     image: 'image',
     video: 'video',
+    audio: 'audio',
   } as const
   const defaultTargets = {
-    text: { text: 'brief', image: 'prompt', video: 'prompt' },
+    text: { text: 'brief', image: 'prompt', video: 'prompt', audio: 'text' },
     image: { image: 'reference_image', video: 'first_frame' },
     video: { video: 'reference_video' },
+    audio: {},
   } as const
   const automaticTarget = (
     defaultTargets[source.data.kind] as Record<string, string>
   )[target.data.kind]
   const sourceRole = sourceHandle || defaultSource[source.data.kind]
-  const targetRole = targetHandle || automaticTarget
+  let targetRole = targetHandle || automaticTarget
+  if (target.data.purpose === 'assembly') {
+    if (source.data.kind === 'video') targetRole = targetHandle || 'clip'
+    else if (source.data.kind === 'audio') {
+      targetRole = targetHandle || 'soundtrack'
+    } else return false
+    if (source.data.purpose === 'assembly') return false
+  }
+  let legacyTargetRole = automaticTarget
+  if (target.data.purpose === 'assembly') {
+    legacyTargetRole = source.data.kind === 'audio' ? 'soundtrack' : 'clip'
+  }
   if (
     edges.some(
       (edge) =>
         edge.source === sourceId &&
         edge.target === targetId &&
         (edge.sourceHandle || defaultSource[source.data.kind]) === sourceRole &&
-        (edge.targetHandle || automaticTarget) === targetRole
+        (edge.targetHandle || legacyTargetRole) === targetRole
     )
   ) {
     return false
@@ -208,38 +329,56 @@ export function isValidStudioConnection(
   ) {
     return false
   }
-  if (sourceHandle || targetHandle) {
+  if (sourceHandle || targetHandle || target.data.purpose === 'assembly') {
     if (!targetRole) return false
-    const typed = new Set([
-      'text:scene:text:brief',
-      'text:scene:image:prompt',
-      'text:image_prompt:image:prompt',
-      'text:scene:video:prompt',
-      'text:video_prompt:video:prompt',
-      'image:image:image:reference_image',
-      'image:image:video:first_frame',
-      'image:image:video:reference_image',
-      'video:video:video:reference_video',
-      'video:video:video:extend_video',
-      'video:video:video:native_extend',
-    ])
+    const typed = new Set<string>(STUDIO_TYPED_CONNECTIONS)
     const connection = `${source.data.kind}:${sourceRole}:${target.data.kind}:${targetRole}`
     if (!typed.has(connection)) return false
     if (
+      target.data.purpose !== 'assembly' &&
+      ['clip', 'soundtrack', 'voiceover'].includes(targetRole)
+    ) {
+      return false
+    }
+    if (
+      target.data.purpose === 'assembly' &&
+      !['clip', 'soundtrack', 'voiceover'].includes(targetRole)
+    ) {
+      return false
+    }
+    if (
       (targetHandle === 'first_frame' ||
+        targetHandle === 'last_frame' ||
         targetHandle === 'extend_video' ||
-        targetHandle === 'native_extend') &&
-      edges.some(
-        (edge) => edge.target === targetId && edge.targetHandle === targetHandle
-      )
+        targetHandle === 'native_extend' ||
+        targetRole === 'soundtrack' ||
+        targetRole === 'voiceover') &&
+      edges.some((edge) => {
+        if (edge.target !== targetId) return false
+        if (edge.targetHandle) return edge.targetHandle === targetRole
+        const parent = nodes.find((node) => node.id === edge.source)
+        if (!parent) return false
+        if (target.data.purpose === 'assembly') {
+          return (
+            (parent.data.kind === 'audio' ? 'soundtrack' : 'clip') ===
+            targetRole
+          )
+        }
+        return (
+          (defaultTargets[parent.data.kind] as Record<string, string>)[
+            target.data.kind
+          ] === targetRole
+        )
+      })
     ) {
       return false
     }
   } else {
     const allowed = {
-      text: ['text', 'image', 'video'],
+      text: ['text', 'image', 'video', 'audio'],
       image: ['image', 'video'],
       video: ['video'],
+      audio: [],
     } as const
     if (
       !(allowed[source.data.kind] as readonly string[]).includes(

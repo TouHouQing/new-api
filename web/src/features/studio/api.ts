@@ -8,12 +8,31 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import { getTaskArtifacts, getUserTaskLogs } from '@/features/usage-logs/api'
 import { api, getUserModels, type ApiRequestConfig } from '@/lib/api'
 
@@ -467,6 +486,47 @@ export async function generateStudioImage(
     buildStudioImageRequest(model, prompt, options)
   )
   return parseStudioImageResponse(response.data)
+}
+
+export async function generateStudioSpeech(
+  model: string,
+  input: string,
+  voice = 'alloy',
+  speed = 1,
+  group?: string
+): Promise<Blob> {
+  if (
+    !model.trim() ||
+    !input.trim() ||
+    input.length > 4096 ||
+    !Number.isFinite(speed) ||
+    speed < 0.25 ||
+    speed > 4
+  ) {
+    throw new Error('Studio speech input is invalid')
+  }
+  const response = await api.post<Blob>(
+    '/pg/studio/audio/speech',
+    { model, input, voice, speed, response_format: 'mp3' },
+    {
+      responseType: 'blob',
+      ...(group ? { headers: { 'X-Studio-Group': group } } : {}),
+    }
+  )
+  if (
+    !(response.data instanceof Blob) ||
+    response.data.size === 0 ||
+    response.data.size > 100_000_000
+  ) {
+    throw new Error('Studio speech returned no usable audio')
+  }
+  if (
+    response.data.type.includes('json') ||
+    response.data.type.startsWith('text/')
+  ) {
+    throw new Error('Studio speech returned an error instead of audio')
+  }
+  return response.data
 }
 
 export function buildStudioImageRequest(

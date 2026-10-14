@@ -199,7 +199,7 @@ describe('Studio project editing', () => {
   })
 
   test('changing shot references clears approval before the next review', () => {
-    let project = addStudioShot(
+    const project = addStudioShot(
       createStudioProject('Review', 'p-review-ref'),
       'shot-1',
       { text: 't1', image: 'i1', video: 'v1' },
@@ -723,7 +723,7 @@ describe('Studio project editing', () => {
       project.nodes.find((node) => node.id === 'video')?.data
     ).toMatchObject({
       status: 'idle',
-      staleSourceTitle: 'Text 1',
+      staleSourceTitle: 'Opening · Text',
     })
     project = updateStudioNode(project, 'video', { status: 'submitting' })
     expect(

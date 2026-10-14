@@ -1,0 +1,9 @@
+{
+  "title": "The Fox and the Blue Lantern",
+  "project": "new-api",
+  "attribution": "QuantumNous; tutorial editing and original procedural soundtrack",
+  "footage": "Local FLUX.2 Klein 4B image and Wan 2.2 TI2V 5B video generated for this project's acceptance testing; no third-party stock footage",
+  "editing": "Establishing view with a slow pan; a closer video view with the last frame held to fit the tutorial",
+  "music": "Original three-note arpeggio synthesized by create_editing_example.py",
+  "purpose": "Bundled free editing example; loading it calls no model and incurs no generation charge"
+}

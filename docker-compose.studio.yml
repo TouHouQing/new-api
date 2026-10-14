@@ -1,0 +1,28 @@
+# Build the Studio implementation in this checkout, including FFmpeg and CJK fonts.
+# Apply with: docker compose -f docker-compose.yml -f docker-compose.studio.yml up --build -d
+# SQL_DSN and REDIS_CONN_STRING must use the credentials supplied below.
+# STUDIO_PROVIDER_ENCRYPTION_KEY is a base64-encoded 32-byte random key.
+services:
+  new-api:
+    image: new-api-studio:local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    init: true
+    environment:
+      SQL_DSN: ${SQL_DSN:?Set the PostgreSQL connection string}
+      REDIS_CONN_STRING: ${REDIS_CONN_STRING:?Set the authenticated Redis connection string}
+      SESSION_SECRET: ${SESSION_SECRET:?Set a persistent session secret}
+      STUDIO_PROVIDER_ENCRYPTION_KEY: ${STUDIO_PROVIDER_ENCRYPTION_KEY:?Set a persistent Studio provider encryption key}
+      SESSION_COOKIE_SECURE: 'true'
+      SESSION_COOKIE_TRUSTED_URL: ${PUBLIC_ORIGIN:?Set the public HTTPS origin}
+      TRUSTED_PROXIES: ${TRUSTED_PROXIES:-none}
+      STUDIO_STORAGE_DIR: /data/studio
+      STUDIO_STORE_TASK_ARTIFACTS: 'true'
+      STUDIO_WRITE_RATE_LIMIT: ${STUDIO_WRITE_RATE_LIMIT:-120}
+      STUDIO_WRITE_RATE_LIMIT_DURATION: ${STUDIO_WRITE_RATE_LIMIT_DURATION:-60}
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set the database password}
+  redis:
+    command: ['redis-server', '--requirepass', '${REDIS_PASSWORD:?Set the Redis password}']

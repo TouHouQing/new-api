@@ -8,17 +8,37 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 export type StudioVideoFamily =
   | 'generic'
   | 'seedance-2'
   | 'seedance-2.5'
   | 'minimax-h3'
+  | 'wan-vace'
 
 export type StudioVideoModel = {
   id: string
@@ -37,8 +57,12 @@ export type StudioVideoInput = {
   imageUrl?: string
   imageUrls?: string[]
   videoUrls?: string[]
-  imageReferences?: { url: string; role: 'first_frame' | 'reference_image' }[]
+  imageReferences?: {
+    url: string
+    role: 'first_frame' | 'last_frame' | 'reference_image'
+  }[]
   videoReferences?: { url: string; role: 'reference_video' | 'extend_video' }[]
+  keyframes?: { url: string; time: number }[]
   metadata?: Record<string, unknown>
 }
 
@@ -61,6 +85,8 @@ export type StudioVideoRequest = {
         | 'last_frame'
         | 'reference_image'
         | 'reference_video'
+        | 'key_frame'
+      time?: number
       image_url?: { url: string }
       video_url?: { url: string }
     }>
@@ -258,7 +284,35 @@ export function buildStudioVideoModel(
   family: StudioVideoFamily
 ): StudioVideoModel {
   const normalized = id.toLowerCase()
+  if (normalized === 'wan2.1-vace-1.3b') {
+    return {
+      id,
+      family: 'wan-vace',
+      resolutions: [
+        '640x384',
+        '384x640',
+        '640x480',
+        '480x640',
+        '512x512',
+        '384x224',
+        '224x384',
+      ],
+      minSeconds: 1,
+      maxSeconds: 30,
+      defaultSeconds: 3,
+    }
+  }
   if (family === 'generic') {
+    if (normalized === 'wan2.2-ti2v-5b') {
+      return {
+        id,
+        family,
+        resolutions: ['640x384', '384x640', '512x512', '384x224', '224x384'],
+        minSeconds: 1,
+        maxSeconds: 10,
+        defaultSeconds: 5,
+      }
+    }
     return {
       id,
       family,
@@ -303,6 +357,8 @@ export function inferStudioVideoFamily(
   id: string
 ): StudioVideoFamily | undefined {
   const normalized = id.toLowerCase()
+  if (normalized === 'wan2.1-vace-1.3b') return 'wan-vace'
+  if (normalized === 'wan2.2-ti2v-5b') return 'generic'
   if (
     normalized.includes('sd2.5') ||
     /^doubao-seedance-2[-_.]5(?:-|$)/.test(normalized) ||
@@ -340,6 +396,9 @@ export function buildStudioVideoRequest(
 ): StudioVideoRequest {
   const prompt = input.prompt.trim()
   if (!prompt) throw new Error('prompt is required')
+  if (input.keyframes?.length && model.family !== 'wan-vace') {
+    throw new Error('The selected model does not support timed keyframes')
+  }
   if (
     !Number.isInteger(input.seconds) ||
     input.seconds < model.minSeconds ||
@@ -371,14 +430,88 @@ export function buildStudioVideoRequest(
         .map((reference) => reference.url)
     ),
   ]
+  const lastFrames = [
+    ...new Set(
+      (input.imageReferences || [])
+        .filter((reference) => reference.role === 'last_frame')
+        .map((reference) => reference.url)
+    ),
+  ]
+  if (lastFrames.length > 1 || (lastFrames.length > 0 && images.length > 1)) {
+    throw new Error('Each frame slot accepts one image')
+  }
+  if (lastFrames.length > 0 && model.family === 'generic') {
+    throw new Error(
+      'This model does not declare last-frame support; choose a compatible model or remove the last frame'
+    )
+  }
+  if (
+    ['wan2.2-ti2v-5b', 'wan2.1-vace-1.3b'].includes(model.id.toLowerCase()) &&
+    input.resolution &&
+    !model.resolutions.includes(input.resolution)
+  ) {
+    throw new Error('resolution is outside the selected model range')
+  }
+  if (
+    model.family !== 'wan-vace' &&
+    lastFrames.length > 0 &&
+    (referenceImages.length > 0 ||
+      (input.videoUrls?.length || 0) > 0 ||
+      (input.videoReferences?.length || 0) > 0)
+  ) {
+    throw new Error(
+      'First and last frame mode cannot be combined with reference mode'
+    )
+  }
   const videos = [
     ...new Set([
       ...(input.videoUrls || []),
       ...(input.videoReferences || []).map((reference) => reference.url),
     ]),
   ]
+  if (model.family === 'wan-vace') {
+    const frames = new Set<number>()
+    if ((input.keyframes?.length || 0) > 8) {
+      throw new Error('Use at most eight timed keyframes')
+    }
+    for (const key of input.keyframes || []) {
+      const frame = Math.round(key.time * 16)
+      if (
+        !Number.isFinite(key.time) ||
+        key.time < 0 ||
+        key.time > input.seconds ||
+        frames.has(frame)
+      ) {
+        throw new Error('Timed keyframes need distinct times within the shot')
+      }
+      if (
+        (frame === 0 && images.length) ||
+        (frame === Math.round(input.seconds * 16) && lastFrames.length)
+      ) {
+        throw new Error(
+          'Timed keyframes overlap a first or last frame reference'
+        )
+      }
+      frames.add(frame)
+    }
+    if (images.length > 1 || referenceImages.length > 1 || videos.length > 1) {
+      throw new Error('Each VACE reference slot accepts one source')
+    }
+    if (
+      input.videoReferences?.some(
+        (reference) => reference.role === 'extend_video'
+      )
+    ) {
+      throw new Error('Use an extracted last frame for local VACE continuation')
+    }
+  }
   if (
-    [...images, ...referenceImages]
+    [
+      ...images,
+      ...referenceImages,
+      ...lastFrames,
+      ...(input.keyframes || []).map((frame) => frame.url),
+    ]
       .filter((url) => url.startsWith('data:'))
       .reduce((total, url) => total + url.length, 0) > 30_000_000
   ) {
@@ -388,7 +521,7 @@ export function buildStudioVideoRequest(
     throw new Error('too many media references')
   }
 
-  for (const image of [...images, ...referenceImages]) {
+  for (const image of [...images, ...referenceImages, ...lastFrames]) {
     if (
       /^data:image\/(?:png|jpeg|webp|gif|bmp|tiff|heic|heif);base64,[A-Za-z0-9+/]+={0,2}$/i.test(
         image
@@ -405,6 +538,15 @@ export function buildStudioVideoRequest(
     throw new Error('a public image URL is required')
   }
   for (const video of videos) {
+    if (
+      model.family === 'wan-vace' &&
+      /^data:video\/(?:mp4|webm|quicktime);base64,[A-Za-z0-9+/]+={0,2}$/.test(
+        video
+      ) &&
+      video.length <= 30_000_000
+    ) {
+      continue
+    }
     try {
       if (new URL(video).protocol === 'https:') continue
     } catch {
@@ -433,17 +575,66 @@ export function buildStudioVideoRequest(
   ) {
     request.mode = 'extend'
   }
+  if (model.family === 'wan-vace') {
+    request.size = input.resolution || '640x384'
+    if (!input.resolution && input.ratio === '9:16') request.size = '384x640'
+    if (!input.resolution && input.ratio === '1:1') request.size = '512x512'
+    const content = [
+      ...(input.keyframes || []).map((key) => ({
+        type: 'image_url' as const,
+        role: 'key_frame' as const,
+        time: key.time,
+        image_url: { url: key.url },
+      })),
+      ...images.map((url) => ({
+        type: 'image_url' as const,
+        role: 'first_frame' as const,
+        image_url: { url },
+      })),
+      ...lastFrames.map((url) => ({
+        type: 'image_url' as const,
+        role: 'last_frame' as const,
+        image_url: { url },
+      })),
+      ...referenceImages.map((url) => ({
+        type: 'image_url' as const,
+        role: 'reference_image' as const,
+        image_url: { url },
+      })),
+      ...videos.map((url) => ({
+        type: 'video_url' as const,
+        role: 'reference_video' as const,
+        video_url: { url },
+      })),
+    ]
+    if (content.length) request.metadata.content = content
+    return request
+  }
   // Frame mode and reference mode cannot be mixed by Seedance or MiniMax H3.
   // Use reference images for mixed media and keep each URL in one field only.
   // New API's Doubao adapter combines `images` with `content`, while H3 treats
   // `content` as the complete media list.
   const mixedMedia =
     images.length > 0 && (referenceImages.length > 0 || videos.length > 0)
-  if (images.length && !mixedMedia) request.images = images
+  if (images.length && !mixedMedia && !lastFrames.length) {
+    request.images = images
+  }
   const contentImages = mixedMedia
     ? [...new Set([...images, ...referenceImages])]
     : referenceImages
   const content = [
+    ...(lastFrames.length
+      ? images.map((url) => ({
+          type: 'image_url' as const,
+          role: 'first_frame' as const,
+          image_url: { url },
+        }))
+      : []),
+    ...lastFrames.map((url) => ({
+      type: 'image_url' as const,
+      role: 'last_frame' as const,
+      image_url: { url },
+    })),
     ...contentImages.map((url) => ({
       type: 'image_url' as const,
       role: 'reference_image' as const,
@@ -456,5 +647,8 @@ export function buildStudioVideoRequest(
     })),
   ]
   if (content.length) request.metadata.content = content
+  if (model.id.toLowerCase() === 'wan2.2-ti2v-5b') {
+    request.size = input.resolution || '640x384'
+  }
   return request
 }

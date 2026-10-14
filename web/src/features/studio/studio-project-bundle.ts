@@ -8,19 +8,44 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import { nanoid } from 'nanoid'
 
 import {
   parseStudioProjectImport,
   serializeStudioProjectExport,
   type StudioProject,
+  studioProjectSchema,
 } from './local-projects'
+import {
+  studioDocumentMediaIds,
+  mapStudioMediaReferences,
+} from './studio-media-references'
+import { studioProductionSchema } from './studio-production'
 
 export type StudioMediaStore = {
   get(userId: number, mediaId: string): Promise<Blob | null>
@@ -30,6 +55,7 @@ export type StudioMediaStore = {
 
 type MediaEntry = { path: string; type: string; size: number }
 type BundleManifest = {
+  productionMedia?: Record<string, string>
   format: 'newapi-studio-project-bundle'
   version: 1
   project: StudioProject
@@ -46,7 +72,7 @@ type BundleManifest = {
 type ZipEntry = { path: string; blob: Blob; crc: number; offset: number }
 type ZipIndexEntry = { path: string; offset: number; size: number; crc: number }
 
-const MAX_PROJECT_BYTES = 2_000_000
+const MAX_PROJECT_BYTES = 9_000_000
 const MAX_MEDIA_BYTES = 512 * 1024 * 1024
 const MAX_BUNDLE_BYTES = 1024 * 1024 * 1024
 const MAX_MEDIA_ENTRIES = 1000
@@ -77,6 +103,9 @@ function portableProject(project: StudioProject): StudioProject {
   )
   return {
     ...validated,
+    production: project.production
+      ? studioProductionSchema.parse(project.production)
+      : undefined,
     assembledMediaId: undefined,
     soundtrackMediaId: undefined,
     voiceoverMediaId: undefined,
@@ -309,6 +338,17 @@ function validateManifest(
   if (!value || typeof value !== 'object') invalidBundle()
   const manifest = value as Partial<BundleManifest>
   if (
+    manifest.productionMedia !== undefined &&
+    (!manifest.productionMedia ||
+      typeof manifest.productionMedia !== 'object' ||
+      Array.isArray(manifest.productionMedia) ||
+      Object.keys(manifest.productionMedia).some(
+        (id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id)
+      ))
+  ) {
+    invalidBundle()
+  }
+  if (
     manifest.format !== 'newapi-studio-project-bundle' ||
     manifest.version !== 1 ||
     !Array.isArray(manifest.media) ||
@@ -399,6 +439,7 @@ function validateManifest(
     }
   }
   const references = [
+    ...Object.values(manifest.productionMedia || {}),
     ...manifest.nodeMedia,
     ...manifest.takeMedia.flat(),
     ...manifest.assetMedia,
@@ -509,6 +550,11 @@ export async function exportStudioProjectBundle(
   const assembledMedia = await addMedia(project.assembledMediaId)
   const soundtrackMedia = await addMedia(project.soundtrackMediaId)
   const voiceoverMedia = await addMedia(project.voiceoverMediaId)
+  const productionMedia: Record<string, string> = Object.create(null)
+  for (const id of studioDocumentMediaIds(project.production)) {
+    const path = await addMedia(id)
+    if (path) productionMedia[id] = path
+  }
   const manifest: BundleManifest = {
     format: 'newapi-studio-project-bundle',
     version: 1,
@@ -522,6 +568,7 @@ export async function exportStudioProjectBundle(
     assembledMedia,
     soundtrackMedia,
     voiceoverMedia,
+    productionMedia,
   }
   const json = JSON.stringify(manifest)
   const projectBlob = new Blob([json], { type: 'application/json' })
@@ -572,7 +619,7 @@ export async function importStudioProjectBundle(
     }
     const resolveMedia = (path: string | null): string | undefined =>
       path ? mediaIds.get(path) : undefined
-    return {
+    const imported: StudioProject = {
       ...manifest.project,
       id: nanoid(),
       updatedAt: new Date().toISOString(),
@@ -599,6 +646,7 @@ export async function importStudioProjectBundle(
       })),
       shots: manifest.project.shots?.map((shot, index) => ({
         ...shot,
+        reviewStatus: 'unreviewed',
         shotVoiceoverMediaId: resolveMedia(
           manifest.shotVoiceoverMedia?.[index] ?? null
         ),
@@ -606,7 +654,16 @@ export async function importStudioProjectBundle(
       assembledMediaId: resolveMedia(manifest.assembledMedia),
       soundtrackMediaId: resolveMedia(manifest.soundtrackMedia ?? null),
       voiceoverMediaId: resolveMedia(manifest.voiceoverMedia ?? null),
+      production: manifest.project.production
+        ? {
+            ...mapStudioMediaReferences(manifest.project.production, (id) =>
+              resolveMedia(manifest.productionMedia?.[id] || null)
+            ),
+            reviews: [],
+          }
+        : undefined,
     }
+    return studioProjectSchema.parse(imported) as StudioProject
   } catch (error) {
     await Promise.allSettled(
       saved.map((mediaId) => mediaStore.delete(userId, mediaId))

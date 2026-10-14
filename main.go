@@ -206,6 +206,7 @@ func main() {
 		BuildFS:   buildFS,
 		IndexPage: indexPage,
 	})
+	service.StartStudioWorkflowRunner()
 	var port = os.Getenv("PORT")
 	if port == "" {
 		port = strconv.Itoa(*common.Port)

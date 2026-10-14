@@ -1,4 +1,3 @@
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 /*
 Copyright (C) 2023-2026 QuantumNous
 
@@ -17,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import {
   fireEvent,
   render as testingRender,
@@ -88,6 +88,128 @@ const video = (model: string): StudioCanvasNode => ({
 })
 
 describe('Studio model controls', () => {
+  test('read-only node fields and mutations are disabled while its inspector can be closed', () => {
+    render(
+      <StudioInspector
+        node={video('MiniMax-H3')}
+        models={[]}
+        videoGroups={[]}
+        videoGroup='default'
+        providerConfigured
+        readOnly
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={vi.fn()}
+        onDelete={vi.fn()}
+        onClose={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole('textbox', { name: 'studio.node.title' })
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'studio.deleteNode' })
+    ).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'studio.inspector.close' })
+    ).toBeEnabled()
+    expect(screen.getByText('Read-only project')).toBeVisible()
+  })
+
+  test('unavailable generation credit blocks inference but leaves manual notes usable', () => {
+    const onGenerate = vi.fn()
+    const node = video('MiniMax-H3')
+    const mounted = render(
+      <StudioInspector
+        node={node}
+        models={[]}
+        videoGroups={[]}
+        videoGroup='default'
+        providerConfigured
+        generationAvailable={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={onGenerate}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole('button', { name: 'studio.generate' })
+    ).toBeDisabled()
+    expect(
+      screen.getByText(
+        'Insufficient generation credit. Add credit or continue with free editing.'
+      )
+    ).toBeVisible()
+    mounted.unmount()
+    render(
+      <StudioInspector
+        node={{
+          ...node,
+          data: {
+            kind: 'text',
+            title: 'Note',
+            prompt: 'Draft',
+            purpose: 'note',
+          },
+        }}
+        models={[]}
+        videoGroups={[]}
+        videoGroup='default'
+        providerConfigured={false}
+        generationAvailable={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={onGenerate}
+        onDelete={vi.fn()}
+      />
+    )
+    expect(
+      screen.getByRole('button', { name: 'Save manual version' })
+    ).toBeEnabled()
+  })
+
+  test('a song node opens its production settings instead of calling speech synthesis', async () => {
+    const onGenerate = vi.fn()
+    const onOpenMediaTool = vi.fn()
+    const audio: StudioCanvasNode = {
+      id: 'song',
+      type: 'studio',
+      position: { x: 0, y: 0 },
+      data: {
+        kind: 'audio',
+        title: 'Song',
+        prompt: 'My song',
+        model: 'studio-music',
+        status: 'completed',
+        mediaId: 'song-media',
+      },
+    }
+    render(
+      <StudioInspector
+        node={audio}
+        models={[]}
+        videoGroups={[]}
+        videoGroup='default'
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={onGenerate}
+        onOpenMediaTool={onOpenMediaTool}
+        onDelete={vi.fn()}
+      />
+    )
+    await userEvent.setup().click(
+      screen.getByRole('button', {
+        name: 'Continue editing audio production',
+      })
+    )
+    expect(onOpenMediaTool).toHaveBeenCalledOnce()
+    expect(onGenerate).not.toHaveBeenCalled()
+    expect(
+      screen.queryByRole('combobox', { name: 'studio.audio.model' })
+    ).not.toBeInTheDocument()
+  })
   test('a successful template for the selected group and alias can be applied', async () => {
     const onApplyVideoTemplate = vi.fn()
     const matching = {
@@ -194,7 +316,7 @@ describe('Studio model controls', () => {
         name: 'studio.connection.version: Frame',
       })
     )
-    await user.click(screen.getByRole('option', { name: 'old-image' }))
+    await user.click(screen.getByRole('option', { name: 'Take 1' }))
     expect(onPinConnectionTake).toHaveBeenCalledWith('image-video', 'old-image')
   })
   test('keeps invalid or secret metadata drafts out of saved project state', () => {
@@ -542,6 +664,59 @@ describe('Studio model controls', () => {
     expect(screen.getByText('studio.source.manual')).toBeTruthy()
     screen.getByRole('button', { name: 'studio.provider.settings' }).click()
     expect(onConfigureProvider).toHaveBeenCalledOnce()
+  })
+
+  test('labels manual text saving as a version instead of model generation', () => {
+    const node = video('')
+    node.data.kind = 'text'
+    node.data.model = ''
+    node.data.prompt = 'My handwritten scene'
+    const onGenerate = vi.fn()
+    render(
+      <StudioInspector
+        node={node}
+        models={[]}
+        videoGroups={[]}
+        videoGroup=''
+        providerConfigured={false}
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={onGenerate}
+        onDelete={vi.fn()}
+      />
+    )
+    fireEvent.click(screen.getByRole('button', { name: 'Save manual version' }))
+    expect(onGenerate).toHaveBeenCalledOnce()
+    expect(screen.queryByRole('button', { name: 'studio.generate' })).toBeNull()
+  })
+
+  test('an image tool with no prompt opens its production operation instead of image generation', () => {
+    const node = video('studio-image-bg-remove')
+    node.data.kind = 'image'
+    node.data.prompt = ''
+    const onGenerate = vi.fn()
+    const onOpenMediaTool = vi.fn()
+    render(
+      <StudioInspector
+        node={node}
+        models={[]}
+        videoGroups={[]}
+        videoGroup=''
+        providerConfigured
+        onConfigureProvider={vi.fn()}
+        onChange={vi.fn()}
+        onGenerate={onGenerate}
+        onOpenMediaTool={onOpenMediaTool}
+        onDelete={vi.fn()}
+      />
+    )
+    const button = screen.getByRole('button', {
+      name: 'Continue editing media production',
+    })
+    expect(button).toBeEnabled()
+    fireEvent.click(button)
+    expect(onOpenMediaTool).toHaveBeenCalledOnce()
+    expect(onGenerate).not.toHaveBeenCalled()
   })
 
   test('shows the two downstream prompts produced by an AI text node', () => {

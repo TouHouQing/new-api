@@ -1,0 +1,6 @@
+FROM new-api-studio:tests
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 python3-venv chromium \
+    && rm -rf /var/lib/apt/lists/*
+RUN python3 -m venv /opt/studio-editorial \
+    && /opt/studio-editorial/bin/pip install --no-cache-dir opentimelineio==0.18.1 otio-fcp-adapter==1.0.0 otio-fcpx-xml-adapter==1.0.0

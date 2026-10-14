@@ -1,0 +1,56 @@
+{
+  "python": "3.12",
+  "chatterbox_code": "5de7a54aa4e5e2baadb0182dde554908b48b85c2",
+  "musetalk_code": "0a89dec45a0192b824e3cf4daf96c239440c5ed8",
+  "huggingface_snapshots": {
+    "Comfy-Org/ace_step_1.5_ComfyUI_files": "6707deb277e9e0907fd9c14ce6b6f1d695c6a3fc",
+    "ResembleAI/chatterbox": "5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18",
+    "Systran/faster-whisper-tiny": "d90ca5fe260221311c53c58e660288d3deb8d356",
+    "laion/clap-htsat-unfused": "8fa0f1c",
+    "Systran/faster-whisper-small": "536b0662742c02347bc0e980a01041f333bce120",
+    "depth-anything/Depth-Anything-V2-Small-hf": "32d03942121d29edb49de4e2cc15831558af3f36",
+    "stabilityai/TripoSR": "5b521936b01fbe1890f6f9baed0254ab6351c04a"
+  },
+  "engines": {
+    "speech": "Chatterbox English/Multilingual V2 CPU",
+    "transcription": "Whisper small int8 CPU, local files only; PyAV 16.1.0",
+    "music_and_effects": "ACE-Step 1.5 turbo, native AuraFlow sampling, 30-second source and strongest continuous requested window; review drafts",
+    "audio_reference": "CLAP HTSAT relative scene classification, Whisper speech transcription and librosa beat estimate; Qwen summarizes measured evidence",
+    "vace": "Wan 2.1 VACE 1.3B native ComfyUI conditioning; endpoint, character and motion references may coexist",
+    "lip_sync": "MuseTalk 1.5, SD VAE, Whisper tiny",
+    "image_tools": "U2NetP foreground, Real-ESRGAN x4plus, FLUX.2 Klein 4B durable reference generation, learned TripoSR reconstruction",
+    "depth_video": "Depth Anything V2 Small CPU, per-frame relative inverse depth, native VACE 50-step depth-conditioned restyle"
+  },
+  "bounds": {
+    "speech_characters": 3000,
+    "music_seconds": 30,
+    "lip_sync_seconds": 30,
+    "lip_sync_visible_faces": 1,
+    "wan_seconds": 10,
+    "wan_reference": "Wan 2.2: one first-frame image; VACE: one image per first/last/character slot and one movement video",
+    "vace_seconds": 30,
+    "vace_sizes": [
+      "640x384",
+      "384x640",
+      "640x480",
+      "480x640",
+      "512x512",
+      "384x224",
+      "224x384"
+    ],
+    "native_sound_presets": [
+      "rain",
+      "wind",
+      "footsteps",
+      "whoosh",
+      "impact",
+      "notification"
+    ],
+    "text_context": 8192,
+    "text_output_tokens": 8192,
+    "vace_timed_keyframes": 8,
+    "vace_long_source": "30 seconds in one native prompt; lower 384x224 or 224x384 resolution after ten seconds",
+    "graphic_export_dimension": 4096
+  },
+  "triposr_code": "107cefdc244c39106fa830359024f6a2f1c78871"
+}

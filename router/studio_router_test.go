@@ -1,6 +1,9 @@
 package router
 
 import (
+	"bytes"
+	"mime"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -20,6 +23,39 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestStudioWorkflowRelayCollectsFlushedBodiesBeforeSettlement(t *testing.T) {
+	engine := gin.New()
+	settled := false
+	engine.GET("/result", func(c *gin.Context) {
+		response := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}}
+		service.IOCopyBytesGracefully(c, response, []byte(`{"result":"retained"}`))
+		settled = true
+	})
+	writer := &studioRelayRecorder{header: make(http.Header)}
+	require.NotPanics(t, func() { engine.ServeHTTP(writer, httptest.NewRequest(http.MethodGet, "/result", nil)) })
+	assert.True(t, settled, "a flush must not interrupt billing settlement")
+	assert.Equal(t, http.StatusOK, writer.status)
+	assert.JSONEq(t, `{"result":"retained"}`, writer.body.String())
+}
+
+func TestStudioTranscriptionPreservesAudioFormatForDurationAndUpstreamParsing(t *testing.T) {
+	for _, input := range []struct{ mimeType, filename string }{{"audio/wav", "audio.wav"}, {"audio/mpeg", "audio.mp3"}, {"audio/flac", "audio.flac"}} {
+		t.Run(input.mimeType, func(t *testing.T) {
+			body, contentType, err := studioTranscriptionMultipart(input.mimeType, strings.NewReader("audio-bytes"), map[string]any{"model": "whisper-local"})
+			require.NoError(t, err)
+			_, parameters, err := mime.ParseMediaType(contentType)
+			require.NoError(t, err)
+			reader := multipart.NewReader(bytes.NewReader(body), parameters["boundary"])
+			part, err := reader.NextPart()
+			require.NoError(t, err)
+			assert.Equal(t, input.filename, part.FileName())
+			assert.Equal(t, input.mimeType, part.Header.Get("Content-Type"))
+		})
+	}
+	_, _, err := studioTranscriptionMultipart("application/octet-stream", strings.NewReader("unknown"), nil)
+	assert.Error(t, err)
+}
 
 func TestStudioRoutesRequireDashboardAuthentication(t *testing.T) {
 	gin.SetMode(gin.TestMode)

@@ -8,18 +8,38 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import {
   loadStudioProjects,
   saveStudioProjects,
   studioProjectsKey,
   type StudioProject,
 } from './local-projects'
+import { createStudioCloudStore } from './studio-cloud'
 
 type StoredMedia = { key: string; blob: Blob }
 type StoredProjects = { key: string; raw: string }
@@ -160,8 +180,12 @@ export function createStudioMediaStore(factory: IDBFactory, name: string) {
         })
       })
     },
-    async loadProjects(userId: number): Promise<StudioProject[] | null> {
-      const key = studioProjectsKey(userId)
+    async loadProjects(
+      userId: number,
+      slot: 'draft' | 'cloud-baseline' = 'draft'
+    ): Promise<StudioProject[] | null> {
+      const key =
+        studioProjectsKey(userId) + (slot === 'draft' ? '' : ':cloud-baseline')
       const database = await open()
       return new Promise<StudioProject[] | null>((resolve, reject) => {
         const transaction = database.transaction('projects', 'readonly')
@@ -192,9 +216,11 @@ export function createStudioMediaStore(factory: IDBFactory, name: string) {
     },
     async saveProjects(
       userId: number,
-      projects: StudioProject[]
+      projects: StudioProject[],
+      slot: 'draft' | 'cloud-baseline' = 'draft'
     ): Promise<void> {
-      const key = studioProjectsKey(userId)
+      const key =
+        studioProjectsKey(userId) + (slot === 'draft' ? '' : ':cloud-baseline')
       const raw = serializeProjects(userId, projects)
       await enqueueWrite(() =>
         write('projects', (transaction) => {
@@ -299,5 +325,7 @@ export function studioMediaStore() {
   if (typeof indexedDB === 'undefined') {
     throw new Error('browser media storage is unavailable')
   }
-  return createStudioMediaStore(indexedDB, 'newapi-studio-media-v1')
+  return createStudioCloudStore(
+    createStudioMediaStore(indexedDB, 'newapi-studio-media-v1')
+  )
 }

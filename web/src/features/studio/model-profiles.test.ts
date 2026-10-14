@@ -8,12 +8,31 @@ License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
 Affero General Public License for more details.
 
 You should have received a copy of the GNU Affero General Public License
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 */
+
 import { describe, expect, test } from 'vitest'
 
 import {
@@ -33,6 +52,97 @@ function videoModel(id: string) {
 }
 
 describe('Studio video models', () => {
+  test('local VACE retains all four reference roles together and rejects oversized slots', () => {
+    const model = videoModel('wan2.1-vace-1.3b')
+    const input = {
+      prompt: 'A character moves gently',
+      seconds: 2,
+      resolution: '640x480',
+      ratio: '4:3',
+    }
+    expect(model.maxSeconds).toBe(30)
+    const endpoints = buildStudioVideoRequest(model, {
+      ...input,
+      imageReferences: [
+        { role: 'first_frame', url: 'https://example.com/first.png' },
+        { role: 'last_frame', url: 'https://example.com/last.png' },
+      ],
+    })
+    expect(endpoints.metadata.content?.map((item) => item.role)).toEqual([
+      'first_frame',
+      'last_frame',
+    ])
+    const motion = buildStudioVideoRequest(model, {
+      ...input,
+      imageReferences: [
+        { role: 'reference_image', url: 'https://example.com/character.png' },
+      ],
+      videoUrls: ['data:video/mp4;base64,YWJj'],
+    })
+    expect(motion.size).toBe('640x480')
+    expect(motion.metadata.content?.map((item) => item.role)).toEqual([
+      'reference_image',
+      'reference_video',
+    ])
+    expect(() =>
+      buildStudioVideoRequest(model, { ...input, seconds: 31 })
+    ).toThrow('duration')
+    expect(() =>
+      buildStudioVideoRequest(model, { ...input, resolution: '720p' })
+    ).toThrow('resolution')
+    const combined = buildStudioVideoRequest(model, {
+      ...input,
+      imageReferences: [
+        { role: 'first_frame', url: 'https://example.com/first.png' },
+        { role: 'last_frame', url: 'https://example.com/last.png' },
+        { role: 'reference_image', url: 'https://example.com/character.png' },
+      ],
+      videoUrls: ['https://example.com/move.mp4'],
+    })
+    expect(combined.metadata.content?.map((item) => item.role)).toEqual([
+      'first_frame',
+      'last_frame',
+      'reference_image',
+      'reference_video',
+    ])
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        ...input,
+        videoUrls: [
+          'https://example.com/one.mp4',
+          'https://example.com/two.mp4',
+        ],
+      })
+    ).toThrow('one source')
+  })
+  test('the bundled local Wan adapter rejects unsupported duration and frame sizes before submission', () => {
+    const model = buildStudioVideoModel('wan2.2-ti2v-5b', 'generic')
+    expect(selectStudioVideoModels(['wan2.2-ti2v-5b'])[0]?.maxSeconds).toBe(10)
+    expect(
+      buildStudioVideoRequest(model, {
+        prompt: 'A cat walking',
+        seconds: 3,
+        resolution: '640x384',
+        ratio: '16:9',
+      }).size
+    ).toBe('640x384')
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'A cat walking',
+        seconds: 15,
+        resolution: '640x384',
+        ratio: '16:9',
+      })
+    ).toThrow('duration')
+    expect(() =>
+      buildStudioVideoRequest(model, {
+        prompt: 'A cat walking',
+        seconds: 3,
+        resolution: '4k',
+        ratio: '16:9',
+      })
+    ).toThrow('resolution')
+  })
   test('chooses the same media encoding for changing model aliases and legacy family values', () => {
     const input = {
       prompt: 'continue the scene',

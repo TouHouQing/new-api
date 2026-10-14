@@ -324,3 +324,23 @@ describe('authentication session coordination', () => {
     )
   })
 })
+
+test('a rate-limited refresh reports its retry time without clearing the current session', async () => {
+  let cleared = false
+  const outcome = await createRefreshRunner({
+    request: async () => ({ status: 429, retryAfterSeconds: 191 }),
+    getExpectedSID: () => bundle.session.sid,
+    parseBundle: () => null,
+    acceptBundle: () => {},
+    clear: () => {
+      cleared = true
+    },
+    markTransient: () => {},
+    wait: async () => {},
+  })()
+  expect(outcome.kind).toBe('transient_error')
+  if (outcome.kind === 'transient_error') {
+    expect(outcome.retryAt).toBeGreaterThan(Date.now() + 190000)
+  }
+  expect(cleared).toBe(false)
+})

@@ -8,6 +8,27 @@ Transitive dependencies should be audited before a final external release.
 
 ## Dependency Inventory
 
+### Studio media runtime additions
+
+| Dependency | Pinned version | License | Distribution |
+|---|---|---|---|
+| ag-psd | 31.0.2 | MIT | Browser image-layer and PSD exporter |
+| OpenTimelineIO | 0.18.1 | Apache-2.0 | Production container and editorial runtime |
+| otio-fcp-adapter | 1.0.0 | Apache-2.0 | Production container and editorial runtime |
+| otio-fcpx-xml-adapter | 1.0.0 | Apache-2.0 | Production container and editorial runtime |
+| rembg | 2.0.67 | MIT | Local image worker |
+| demucs | 4.0.1 | MIT | Local audio worker |
+| psd-tools | 1.23.0 | MIT | Local PSD verification |
+| trimesh | 4.12.2 | MIT | Local generated-mesh exporter |
+| faster-whisper | 1.2.1 | MIT | Local speech recognizer |
+| transformers | 5.2.0 | Apache-2.0 | Local model runtime |
+| Chatterbox | 5de7a54aa4e5e2baadb0182dde554908b48b85c2 | MIT | Local speech worker; preserves installed upstream notices |
+| TripoSR | 107cefdc244c39106fa830359024f6a2f1c78871 | MIT | Local source cache; the installer retains the complete upstream LICENSE |
+
+The pinned local installers verify existing files and preserve upstream source notices. Model weights are installed separately from the application image. Their publishers and exact revisions are recorded in `scripts/studio-local/models-lock.json` and installation receipts. Sources include [TripoSR](https://github.com/VAST-AI-Research/TripoSR), [U2NetP distributed by rembg](https://github.com/danielgatis/rembg/releases/tag/v0.0.0), [Real-ESRGAN x4plus](https://github.com/xinntao/Real-ESRGAN/releases/tag/v0.1.0), [Depth Anything V2 Small](https://huggingface.co/depth-anything/Depth-Anything-V2-Small-hf), and [Whisper Small](https://huggingface.co/Systran/faster-whisper-small). Python package installations retain their `.dist-info` license files. Standalone editable motion-graphics packages include the complete project AGPL license and need no remote scripts.
+
+### Existing dependency inventory
+
 | Area        | Scope       | Ecosystem | Dependency                                            | Version                              | License                                            |
 |-------------|-------------|-----------|-------------------------------------------------------|--------------------------------------|----------------------------------------------------|
 | backend     | production  | Go        | `github.com/Calcium-Ion/go-epay`                      | `v0.0.4`                             | Proprietary/Internal - owned by project maintainer |

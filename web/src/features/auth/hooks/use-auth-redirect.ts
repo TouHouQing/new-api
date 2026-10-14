@@ -23,6 +23,7 @@ import { useCallback, useEffect, useRef } from 'react'
 import {
   getSavedLanguage,
   sanitizeAuthRedirect,
+  authWorkspaceDestination,
 } from '@/features/auth/lib/auth-redirect'
 import { applyAuthBundle, isAuthBundle } from '@/lib/api'
 import { AuthOperationError } from '@/lib/secure-verification'
@@ -64,7 +65,8 @@ export function useAuthRedirect() {
       }
 
       const targetPath =
-        sanitizeAuthRedirect(redirectTo, window.location.origin) ?? '/dashboard'
+        sanitizeAuthRedirect(redirectTo, window.location.origin) ??
+        authWorkspaceDestination()
       await navigate({ href: targetPath, replace: true })
     },
     [navigate, sessionID]

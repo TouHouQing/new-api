@@ -73,6 +73,36 @@ func TestRedisIPRateLimiterThresholdTTLAndNamespace(t *testing.T) {
 	assert.True(t, redisServer.Exists(legacyKey), "the v2 counter must not touch an old list key")
 }
 
+func TestStudioEditorWriteWindowSupportsAutosaveAndIsolatesUsers(t *testing.T) {
+	previousCritical, previousRedis := common.CriticalRateLimitEnable, common.RedisEnabled
+	common.CriticalRateLimitEnable = true
+	t.Cleanup(func() { common.CriticalRateLimitEnable, common.RedisEnabled = previousCritical, previousRedis })
+	t.Setenv("STUDIO_WRITE_RATE_LIMIT", "25")
+	t.Setenv("STUDIO_WRITE_RATE_LIMIT_DURATION", "60")
+	for _, mode := range []string{"memory", "redis"} {
+		t.Run(mode, func(t *testing.T) {
+			common.RedisEnabled = false
+			if mode == "redis" {
+				useRateLimitMiniRedis(t)
+			}
+			router := gin.New()
+			userID := 1
+			router.Use(func(c *gin.Context) { c.Set("id", userID) })
+			router.GET("/save", StudioWriteRateLimit(t.Name()), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+			router.GET("/media", StudioWriteRateLimit(t.Name()+"-media"), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+			for range 25 {
+				assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/save", "192.0.2.10:12345").Code)
+			}
+			limited := performRateLimitRequest(router, "/save", "192.0.2.10:12345")
+			assert.Equal(t, http.StatusTooManyRequests, limited.Code)
+			assert.Equal(t, "60", limited.Header().Get("Retry-After"))
+			assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/media", "192.0.2.10:12345").Code)
+			userID = 2
+			assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/save", "192.0.2.10:12345").Code)
+		})
+	}
+}
+
 func TestRedisUserRateLimiterUsesSharedFixedWindow(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	redisServer, _ := useRateLimitMiniRedis(t)
@@ -222,4 +252,25 @@ func TestRedisFailurePolicies(t *testing.T) {
 	assert.Equal(t, http.StatusInternalServerError, userResponse.Code)
 	assert.Empty(t, userResponse.Body.String())
 	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/email", "192.0.2.62:12345").Code)
+}
+
+func TestRefreshTrafficCannotConsumeLoginAttempts(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	previous := common.CriticalRateLimitEnable
+	common.CriticalRateLimitEnable = true
+	t.Cleanup(func() { common.CriticalRateLimitEnable = previous })
+	useRateLimitMiniRedis(t)
+	t.Setenv("AUTH_REFRESH_RATE_LIMIT", "3")
+	router := gin.New()
+	require.NoError(t, router.SetTrustedProxies(nil))
+	router.GET("/refresh", AuthRefreshRateLimit(), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	router.GET("/login", rateLimitFactory(1, 60, "CT"), func(c *gin.Context) { c.Status(http.StatusNoContent) })
+	for range 3 {
+		assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/refresh", "192.0.2.112:1234").Code)
+	}
+	limited := performRateLimitRequest(router, "/refresh", "192.0.2.112:1234")
+	assert.Equal(t, http.StatusTooManyRequests, limited.Code)
+	assert.Equal(t, "60", limited.Header().Get("Retry-After"))
+	assert.Equal(t, http.StatusNoContent, performRateLimitRequest(router, "/login", "192.0.2.112:1234").Code)
+	assert.Equal(t, http.StatusTooManyRequests, performRateLimitRequest(router, "/login", "192.0.2.112:1234").Code)
 }

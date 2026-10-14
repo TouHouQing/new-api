@@ -48,8 +48,7 @@ const headerExtensions = new Set([
   '.ts',
   '.tsx',
 ])
-const protectedHeaderPattern =
-  /^\/\*\nCopyright \(C\)[\s\S]*?QuantumNous[\s\S]*?\*\/\n+/
+const protectedHeaderPattern = /^\/\*[\s\S]*?\*\/(?:\r?\n)+/
 
 function extensionOf(path) {
   const index = path.lastIndexOf('.')
@@ -97,7 +96,7 @@ function stripProtectedHeaders(files) {
 
     const content = readFileSync(file, 'utf8')
     const match = content.match(protectedHeaderPattern)
-    if (!match) {
+    if (!match || !/Copyright/i.test(match[0])) {
       continue
     }
 

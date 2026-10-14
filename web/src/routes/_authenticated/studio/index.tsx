@@ -17,12 +17,22 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { createFileRoute, redirect } from '@tanstack/react-router'
+import { z } from 'zod'
 
 import { Main } from '@/components/layout'
 import { Studio } from '@/features/studio'
 import { isSidebarModuleEnabled } from '@/lib/nav-modules'
 
 export const Route = createFileRoute('/_authenticated/studio/')({
+  validateSearch: z.object({
+    step: z
+      .enum(['story', 'shots', 'assets', 'visual', 'voice', 'edit', 'deliver'])
+      .optional(),
+    project: z.string().max(128).optional(),
+    workspace: z
+      .enum(['guided', 'assets', 'templates', 'canvas', 'storyboard'])
+      .optional(),
+  }),
   beforeLoad: () => {
     if (!isSidebarModuleEnabled('chat', 'studio')) {
       throw redirect({ to: '/dashboard' })
@@ -32,9 +42,18 @@ export const Route = createFileRoute('/_authenticated/studio/')({
 })
 
 function StudioPage() {
+  const search = Route.useSearch()
+  const navigate = Route.useNavigate()
   return (
     <Main className='overflow-y-auto p-0 lg:overflow-hidden'>
-      <Studio />
+      <Studio
+        workspace={search.workspace}
+        project={search.project}
+        step={search.step}
+        onNavigate={(workspace, project, replace, step) => {
+          void navigate({ search: { workspace, project, step }, replace })
+        }}
+      />
     </Main>
   )
 }
