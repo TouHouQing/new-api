@@ -23,7 +23,12 @@ import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
-import { studioProductionSchema } from './studio-production'
+import type { StudioProject } from './local-projects'
+import { StudioClipTrimHandles } from './studio-clip-trim-handles'
+import {
+  studioProductionSchema,
+  splitStudioTimelineClip,
+} from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
 import {
   parseStudioSubtitleCues,
@@ -151,9 +156,55 @@ export function StudioTimelineTracks() {
   const total = schedule.at(-1)?.end || 1
   const production =
     props.project.production || studioProductionSchema.parse({})
+  type EditSnapshot = Pick<
+    StudioProject,
+    | 'shots'
+    | 'captionsText'
+    | 'soundtrackOffsetSeconds'
+    | 'voiceoverOffsetSeconds'
+  > & {
+    timeline: typeof timeline
+    audioTracks: typeof production.audioTracks
+    dialogueCues: typeof production.dialogueCues
+  }
+  const [undo, setUndo] = useState<EditSnapshot[]>([])
+  useEffect(() => {
+    setUndo([])
+    setPlayhead(0)
+  }, [props.project.id])
+  const [playhead, setPlayhead] = useState(0)
+  useEffect(() => {
+    const update = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{ projectId: string; seconds: number }>
+      ).detail
+      if (detail.projectId === props.project.id) setPlayhead(detail.seconds)
+    }
+    window.addEventListener('studio-timeline-position', update)
+    return () => window.removeEventListener('studio-timeline-position', update)
+  }, [props.project.id])
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
-  const save = (next: typeof production) =>
+  const remember = () =>
+    setUndo((history) => [
+      ...history.slice(-19),
+      {
+        timeline,
+        audioTracks: production.audioTracks,
+        dialogueCues: production.dialogueCues,
+        shots: props.project.shots,
+        captionsText: props.project.captionsText,
+        soundtrackOffsetSeconds: props.project.soundtrackOffsetSeconds,
+        voiceoverOffsetSeconds: props.project.voiceoverOffsetSeconds,
+      },
+    ])
+  const save = (next: typeof production) => {
+    remember()
     props.onUpdate({ ...props.project, production: next })
+  }
+  const saveProject = (next: StudioProject) => {
+    remember()
+    props.onUpdate(next)
+  }
   const seek = (seconds: number) =>
     window.dispatchEvent(
       new CustomEvent('studio-timeline-seek', {
@@ -185,11 +236,11 @@ export function StudioTimelineTracks() {
       return
     }
     if (id === 'soundtrack') {
-      props.onUpdate({ ...props.project, soundtrackOffsetSeconds: offset })
+      saveProject({ ...props.project, soundtrackOffsetSeconds: offset })
       return
     }
     if (id === 'voiceover') {
-      props.onUpdate({ ...props.project, voiceoverOffsetSeconds: offset })
+      saveProject({ ...props.project, voiceoverOffsetSeconds: offset })
       return
     }
     for (const item of schedule) {
@@ -197,7 +248,7 @@ export function StudioTimelineTracks() {
         Math.max(0, Math.min(item.duration - 0.01, offset - item.start)) +
         item.sourceOffset
       if (id === `voice-${item.clip.id}` && item.shot) {
-        props.onUpdate({
+        saveProject({
           ...props.project,
           shots: props.project.shots?.map((shot) =>
             shot.id === item.shot?.id
@@ -260,7 +311,7 @@ export function StudioTimelineTracks() {
       0,
       Math.min(3600 - (cue.end - cue.start), start - captionOffset)
     )
-    props.onUpdate({
+    saveProject({
       ...props.project,
       captionsText: serializeStudioSubtitleCues(
         subtitles.map((current, i) =>
@@ -282,6 +333,73 @@ export function StudioTimelineTracks() {
         )}
       </p>
       {scheduleError && <p role='alert'>{t(scheduleError)}</p>}
+      <div className='flex flex-wrap gap-2'>
+        <Button
+          size='xs'
+          variant='outline'
+          disabled={!writable || !undo.length}
+          onClick={() => {
+            const previous = undo.at(-1)
+            if (!previous) return
+            const {
+              timeline: priorTimeline,
+              audioTracks,
+              dialogueCues,
+              ...projectFields
+            } = previous
+            props.onUpdate({
+              ...props.project,
+              ...projectFields,
+              production: {
+                ...production,
+                timelineEdited: true,
+                timeline: priorTimeline,
+                audioTracks,
+                dialogueCues,
+              },
+            })
+            setUndo(undo.slice(0, -1))
+          }}
+        >
+          {t('Undo timeline edit')}
+        </Button>
+        <Button
+          size='xs'
+          variant='outline'
+          disabled={
+            !writable ||
+            !schedule.some(
+              (item) =>
+                item.clip.id === selectedClip &&
+                playhead > item.start + 0.04 &&
+                playhead < item.end - 0.04
+            )
+          }
+          onClick={() => {
+            const item = schedule.find((item) => item.clip.id === selectedClip)
+            if (!item) return
+            const source = props.project.nodes.find(
+              (node) => node.id === item.clip.nodeId
+            )
+            const split = splitStudioTimelineClip(
+              {
+                ...item.clip,
+                takeId: item.clip.takeId || source?.data.selectedTakeId,
+              },
+              item.clip.trimStart + (playhead - item.start) * item.clip.speed
+            )
+            save({
+              ...production,
+              timelineEdited: true,
+              timeline: timeline.flatMap((clip) =>
+                clip.id === item.clip.id ? split : [clip]
+              ),
+            })
+          }}
+        >
+          {t('Split at playhead')}
+        </Button>
+      </div>
       <div className='text-muted-foreground flex justify-between text-xs'>
         {[0, total / 4, total / 2, (total * 3) / 4, total].map((time) => (
           <span key={time}>{formatNumber(time, locale)}s</span>
@@ -291,48 +409,76 @@ export function StudioTimelineTracks() {
       <div
         className='bg-muted relative h-12 rounded'
         aria-label={t('Video clip order')}
+        data-video-track
       >
         {schedule.map((item) => (
-          <Button
+          <div
             key={item.clip.id}
-            aria-pressed={selectedClip === item.clip.id}
-            size='sm'
-            variant={selectedClip === item.clip.id ? 'secondary' : 'outline'}
-            className='absolute top-1 h-10 min-w-0 overflow-hidden px-1 text-xs'
+            className='absolute top-0 h-12'
             style={{
               left: `${(item.start / total) * 100}%`,
               width: `${(item.duration / total) * 100}%`,
             }}
-            draggable={!!writable}
-            onDragStart={(event) =>
-              event.dataTransfer.setData('studio-clip', item.clip.id)
-            }
-            onDragOver={(event) => event.preventDefault()}
-            onDrop={(event) => {
-              event.preventDefault()
-              if (!writable) return
-              const id = event.dataTransfer.getData('studio-clip')
-              const moved = timeline.find((clip) => clip.id === id)
-              if (!moved || id === item.clip.id) return
-              const next = timeline.filter((clip) => clip.id !== id)
-              next.splice(
-                next.findIndex((clip) => clip.id === item.clip.id),
-                0,
-                moved
-              )
-              save({ ...production, timelineEdited: true, timeline: next })
-            }}
-            onClick={() => {
-              setSelectedClip(item.clip.id)
-              props.onSelectNode?.(item.clip.nodeId)
-              seek(item.start)
-            }}
           >
-            {
-              props.project.nodes.find((node) => node.id === item.clip.nodeId)
-                ?.data.title
-            }
-          </Button>
+            <Button
+              aria-pressed={selectedClip === item.clip.id}
+              size='sm'
+              variant={selectedClip === item.clip.id ? 'secondary' : 'outline'}
+              className='relative top-1 h-10 w-full min-w-0 overflow-hidden px-3 text-xs'
+              draggable={!!writable}
+              onDragStart={(event) =>
+                event.dataTransfer.setData('studio-clip', item.clip.id)
+              }
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault()
+                if (!writable) return
+                const id = event.dataTransfer.getData('studio-clip')
+                const moved = timeline.find((clip) => clip.id === id)
+                if (!moved || id === item.clip.id) return
+                const next = timeline.filter((clip) => clip.id !== id)
+                next.splice(
+                  next.findIndex((clip) => clip.id === item.clip.id),
+                  0,
+                  moved
+                )
+                save({ ...production, timelineEdited: true, timeline: next })
+              }}
+              onClick={() => {
+                setSelectedClip(item.clip.id)
+                props.onSelectNode?.(item.clip.nodeId)
+                seek(item.start)
+              }}
+            >
+              {
+                props.project.nodes.find((node) => node.id === item.clip.nodeId)
+                  ?.data.title
+              }
+            </Button>
+            {writable && selectedClip === item.clip.id && (
+              <StudioClipTrimHandles
+                clip={item.clip}
+                available={
+                  audioDurations[item.mediaId] ||
+                  props.project.nodes.find(
+                    (node) => node.id === item.clip.nodeId
+                  )?.data.seconds ||
+                  item.clip.trimEnd ||
+                  5
+                }
+                filmSeconds={total}
+                onTrim={(patch) =>
+                  save({
+                    ...production,
+                    timelineEdited: true,
+                    timeline: timeline.map((clip) =>
+                      clip.id === item.clip.id ? { ...clip, ...patch } : clip
+                    ),
+                  })
+                }
+              />
+            )}
+          </div>
         ))}
       </div>
       <p className='text-xs font-medium'>{t('Caption track')}</p>

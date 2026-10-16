@@ -501,6 +501,18 @@ export function addStudioShot(
   let next = addStudioNode(project, 'text', ids.text)
   next = addStudioNode(next, 'image', ids.image)
   next = addStudioNode(next, 'video', ids.video)
+  let frameRatio = '16:9'
+  if (
+    project.production &&
+    project.production.height > project.production.width
+  ) {
+    frameRatio = '9:16'
+  } else if (
+    project.production &&
+    project.production.height === project.production.width
+  ) {
+    frameRatio = '1:1'
+  }
   const labels = { text: 'Text', image: 'Image', video: 'Video' }
   next = {
     ...next,
@@ -518,6 +530,9 @@ export function addStudioShot(
         data: {
           ...node.data,
           title: kind === 'video' ? title.trim() : `${title.trim()} · ${label}`,
+          ...(kind === 'video' && project.production
+            ? { ratio: frameRatio }
+            : {}),
         },
       }
     }),
@@ -549,7 +564,7 @@ export function addStudioShot(
               videoFamily: undefined,
               seconds: defaults.seconds ?? node.data.seconds,
               resolution: defaults.resolution,
-              ratio: defaults.ratio,
+              ratio: defaults.ratio || node.data.ratio,
             },
           }
         }

@@ -34,12 +34,15 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
+import { StudioBriefGuide } from './studio-brief-guide'
 import { studioPlanStoryDraft } from './studio-creation'
 import { studioCreationTemplate } from './studio-creation-templates'
+import { studioCreativeBriefText } from './studio-creative-plan'
 import { StudioMediaImport } from './studio-media-import'
 import { studioProductionSchema } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
 import { StudioStoryPlanner } from './studio-story-planner'
+import { StudioTemplateLibrary } from './studio-template-library'
 import { studioWorkflowProblem } from './studio-workflow-problem'
 
 export function StudioCreationBrief(props: {
@@ -53,7 +56,12 @@ export function StudioCreationBrief(props: {
   const [duration, setDuration] = useState(
     String(production.targetDuration || 30)
   )
+  useEffect(
+    () => setDuration(String(production.targetDuration || 30)),
+    [production.targetDuration]
+  )
   const [busy, setBusy] = useState(false)
+  const [templates, setTemplates] = useState(false)
   const [error, setError] = useState('')
   const [replacement, setReplacement] = useState<'manual' | 'template' | null>(
     null
@@ -84,7 +92,7 @@ export function StudioCreationBrief(props: {
             )
           : studioPlanStoryDraft(
               workspace.project,
-              production.brief || '',
+              studioCreativeBriefText(workspace.project, t),
               Number(duration),
               t('studio.shot.defaultName')
             )
@@ -161,7 +169,16 @@ export function StudioCreationBrief(props: {
           )}
         </p>
       </Field>
+      <StudioBriefGuide />
       <StudioStoryPlanner disabled={!durationValid} />
+      {templates && (
+        <StudioTemplateLibrary
+          project={workspace.project}
+          readOnly={!writable}
+          onClose={() => setTemplates(false)}
+          onApply={workspace.onApplyRecipe || workspace.onUpdate}
+        />
+      )}
       <p className='text-muted-foreground text-sm'>
         {t(`studio.creation.goalHelp.${production.guide?.goal || 'story'}`)}
       </p>
@@ -235,11 +252,26 @@ export function StudioCreationBrief(props: {
             value={shape}
             onValueChange={(value) => {
               if (value === 'vertical') {
-                update({ width: 1080, height: 1920, deliveryPreset: 'shorts' })
+                update({
+                  width: 1080,
+                  height: 1920,
+                  deliveryPreset: 'shorts',
+                  exportSizeMode: 'custom',
+                })
               } else if (value === 'square') {
-                update({ width: 1080, height: 1080, deliveryPreset: 'custom' })
+                update({
+                  width: 1080,
+                  height: 1080,
+                  deliveryPreset: 'custom',
+                  exportSizeMode: 'custom',
+                })
               } else if (value === 'wide') {
-                update({ width: 1920, height: 1080, deliveryPreset: 'youtube' })
+                update({
+                  width: 1920,
+                  height: 1080,
+                  deliveryPreset: 'youtube',
+                  exportSizeMode: 'custom',
+                })
               }
             }}
             items={[
@@ -275,7 +307,7 @@ export function StudioCreationBrief(props: {
         <Button
           variant='outline'
           disabled={!writable || !durationValid}
-          onClick={() => requestDraft('template')}
+          onClick={() => setTemplates(true)}
         >
           {t('Load a complete creative template')}
         </Button>

@@ -32,7 +32,7 @@ import { useStudioProductionContext } from './studio-production-context'
 
 export function StudioWorkspaceCaptions() {
   const { t } = useTranslation()
-  const { props, timeline, writable, setSelectedClip } =
+  const { props, timeline, writable, setSelectedClip, clip, updateClip } =
     useStudioProductionContext()
   const [durations, setDurations] = useState<Record<string, number>>({})
   useEffect(() => {
@@ -64,16 +64,35 @@ export function StudioWorkspaceCaptions() {
       <h3 className='font-medium'>
         {t('Timeline captions')} · {rows.length}
       </h3>
+      {clip && (
+        <Field>
+          <FieldLabel htmlFor='production-caption'>
+            {t('studio.production.caption')}
+          </FieldLabel>
+          <Textarea
+            id='production-caption'
+            aria-label={t('studio.production.caption')}
+            disabled={!writable}
+            value={clip.caption}
+            maxLength={2000}
+            onChange={(event) => updateClip({ caption: event.target.value })}
+          />
+        </Field>
+      )}
       {rows
-        .filter((row) => row.source !== 'srt')
-        .map((row) => (
+        .filter(
+          (row) =>
+            row.source !== 'srt' &&
+            !(row.source === 'clip' && row.clipId === clip?.id)
+        )
+        .map((row, rowIndex) => (
           <Field key={row.id}>
             <FieldLabel>
               {t(row.source === 'clip' ? 'Clip caption' : 'Dialogue caption')} ·{' '}
               {row.start.toFixed(2)}–{row.end.toFixed(2)}s
             </FieldLabel>
             <Textarea
-              aria-label={`${t('Caption text')} ${row.id}`}
+              aria-label={`${t('Caption text')} ${rowIndex + 1} · ${row.start.toFixed(2)}s`}
               disabled={!writable}
               value={row.text}
               maxLength={2000}

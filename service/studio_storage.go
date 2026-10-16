@@ -51,10 +51,18 @@ func StudioMediaReferences(document map[string]any) map[string]bool {
 					if id, ok := value.(string); ok && id != "" {
 						ids[id] = true
 					}
-				} else if key == "mediaIds" || key == "referenceMediaIds" {
+				} else if key == "mediaIds" || key == "referenceMediaIds" || key == "musicMediaIds" {
 					if values, ok := value.([]any); ok {
 						for _, value := range values {
 							if id, ok := value.(string); ok {
+								ids[id] = true
+							}
+						}
+					}
+				} else if key == "approvedKeyImages" {
+					if images, ok := value.(map[string]any); ok {
+						for _, value := range images {
+							if id, ok := value.(string); ok && id != "" {
 								ids[id] = true
 							}
 						}

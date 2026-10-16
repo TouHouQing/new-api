@@ -105,11 +105,35 @@ export function applyStudioRecommendedModels(
       model = node.data.model || defaults.videoModel
     }
     if (model) {
+      let imageSize = '1024x576',
+        videoSize = '640x384'
+      if (
+        project.production &&
+        project.production.height > project.production.width
+      ) {
+        imageSize = '576x1024'
+      } else if (
+        project.production &&
+        project.production.height === project.production.width
+      ) {
+        imageSize = '1024x1024'
+      }
+      if (node.data.ratio === '9:16') videoSize = '384x640'
+      else if (node.data.ratio === '1:1') videoSize = '512x512'
       next = updateStudioNode(next, node.id, {
         model,
+        ...(node.data.kind === 'image' &&
+        model === 'flux.2-klein-4b' &&
+        !node.data.imageSize &&
+        project.production
+          ? { imageSize }
+          : {}),
         ...(node.data.kind === 'video'
           ? {
               group,
+              ...(model === 'wan2.2-ti2v-5b' && !node.data.resolution
+                ? { resolution: videoSize }
+                : {}),
               seconds: quick
                 ? Math.min(node.data.seconds || 3, 3)
                 : node.data.seconds,

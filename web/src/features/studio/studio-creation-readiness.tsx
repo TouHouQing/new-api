@@ -21,6 +21,7 @@ import { studioProjectTimeline } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
 
 export function StudioCreationReadiness(props: {
+  expanded?: boolean
   onStep: (step: StudioCreationStep) => void
 }) {
   const { t } = useTranslation()
@@ -93,10 +94,19 @@ export function StudioCreationReadiness(props: {
   const goal = project.production?.guide?.goal || 'story'
   if (goal === 'product') {
     checks.push({
-      label: 'Confirm product references and the closing call to action',
+      label: 'Add brand details and a closing invitation',
       ready:
-        !!project.production?.props.length && !!project.shots?.at(-1)?.dialogue,
-      step: 'shots',
+        !!(
+          project.production?.brandKit?.name ||
+          project.production?.creativeBrief?.subject ||
+          project.production?.props.length
+        ) &&
+        !!(
+          project.production?.brandKit?.callToAction ||
+          project.production?.creativeBrief?.callToAction ||
+          project.shots?.at(-1)?.dialogue
+        ),
+      step: 'edit',
     })
   }
   if (goal === 'explain') {
@@ -137,7 +147,7 @@ export function StudioCreationReadiness(props: {
       ['queued', 'running', 'waiting'].includes(job.status)
     ).length || 0
   return (
-    <Collapsible className='mb-3'>
+    <Collapsible className='mb-3' defaultOpen={props.expanded}>
       <CollapsibleTrigger render={<Button variant='outline' size='sm' />}>
         {t('Creation checklist')} ·{' '}
         {t('{{count}} items need attention', { count: missing })}

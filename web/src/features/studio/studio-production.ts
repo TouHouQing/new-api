@@ -21,6 +21,7 @@ import { z } from 'zod'
 import { studioAssemblyProjectFromCanvas } from './assembly-plan'
 import { resolveStudioEdgeSource } from './canvas-flow'
 import type { StudioProject } from './local-projects'
+import { studioBrandGraphics } from './studio-brand-kit'
 import { studioMediaDraftSchema } from './studio-media-draft'
 import { studioMotionGraphicSchema } from './studio-motion-schema'
 import { studioPrevisSchema } from './studio-previs'
@@ -100,6 +101,63 @@ export const studioSeriesVersionSchema = z.strictObject({
 })
 export type StudioSeriesVersion = z.infer<typeof studioSeriesVersionSchema>
 export const studioProductionSchema = z.strictObject({
+  creativeBrief: z
+    .strictObject({
+      recipeId: z.string().max(80).default(''),
+      subject: z.string().max(300).default(''),
+      audience: z.string().max(300).default(''),
+      benefit: z.string().max(1000).default(''),
+      callToAction: z.string().max(500).default(''),
+    })
+    .optional(),
+  brandKit: z
+    .strictObject({
+      name: z.string().max(120).default(''),
+      address: z.string().max(300).default(''),
+      callToAction: z.string().max(300).default(''),
+      color: z
+        .string()
+        .regex(/^#[0-9a-fA-F]{6}$/)
+        .default('#ffffff'),
+      logoMediaId: z.string().max(128).default(''),
+      endSeconds: z.number().min(0.5).max(15).default(2),
+      font: z.enum(['sans', 'serif']).optional(),
+    })
+    .optional(),
+  audioMix: z
+    .strictObject({
+      voicePriority: z.boolean().default(false),
+      musicGain: z.number().min(0).max(1).default(0.2),
+      fadeOut: z.number().min(0).max(10).default(1),
+      normalize: z.boolean().default(false),
+      musicMediaIds: z.array(z.string().max(128)).max(100).default([]),
+    })
+    .optional(),
+  approvedKeyImages: z
+    .record(z.string().max(128), z.string().max(128))
+    .default({}),
+  generationStage: z.enum(['draft', 'final']).optional(),
+  finalResolutions: z
+    .record(z.string().max(128), z.string().max(100))
+    .default({}),
+  framing: z
+    .strictObject({
+      focusX: z.number().min(0).max(1).default(0.5),
+      focusY: z.number().min(0).max(1).default(0.5),
+      safeArea: z.boolean().default(true),
+    })
+    .optional(),
+  exportSizeMode: z.enum(['source', 'custom']).optional(),
+  directionIntents: z
+    .record(
+      z.string().max(128),
+      z.strictObject({
+        framing: z.enum(['closeup', 'wider']).optional(),
+        motion: z.enum(['push']).optional(),
+        keepIdentity: z.boolean().default(false),
+      })
+    )
+    .default({}),
   captionDraft: z
     .array(
       z.strictObject({
@@ -441,13 +499,32 @@ export function studioProjectRenderPlan(project: StudioProject, draft = false) {
       voiceover_volume: shot?.shotVoiceoverVolume ?? 1,
     }
   })
-  const audio = production.audioTracks.map((track) => ({
-    media_id: track.mediaId,
-    start: track.start,
-    offset: track.offset,
-    volume: track.volume,
-    duration: track.duration,
-  }))
+  const audio = production.audioTracks.map((track) => {
+    let role: string | undefined
+    if (production.audioMix) {
+      role = 'voice'
+      if (
+        project.nodes.some(
+          (node) =>
+            node.data.mediaId === track.mediaId &&
+            node.data.model === 'studio-sound-effects'
+        )
+      ) {
+        role = 'effect'
+      }
+      if (production.audioMix.musicMediaIds.includes(track.mediaId)) {
+        role = 'music'
+      }
+    }
+    return {
+      media_id: track.mediaId,
+      start: track.start,
+      offset: track.offset,
+      volume: track.volume,
+      duration: track.duration,
+      role,
+    }
+  })
   if (project.soundtrackMediaId) {
     audio.push({
       media_id: project.soundtrackMediaId,
@@ -455,6 +532,7 @@ export function studioProjectRenderPlan(project: StudioProject, draft = false) {
       offset: project.soundtrackOffsetSeconds || 0,
       volume: project.soundtrackVolume ?? 1,
       duration: undefined,
+      role: production.audioMix ? 'music' : undefined,
     })
   }
   if (project.voiceoverMediaId) {
@@ -464,11 +542,39 @@ export function studioProjectRenderPlan(project: StudioProject, draft = false) {
       offset: project.voiceoverOffsetSeconds || 0,
       volume: project.voiceoverVolume ?? 1,
       duration: undefined,
+      role: production.audioMix ? 'voice' : undefined,
     })
   }
   return {
     fit: production.fit,
-    motion_graphics: production.motionGraphics,
+    motion_graphics: [
+      ...production.motionGraphics,
+      ...studioBrandGraphics(
+        project,
+        clips.reduce(
+          (total, clip) =>
+            total +
+            ((clip.end ??
+              project.nodes.find((node) => node.id === clip.node_id)?.data
+                .seconds ??
+              5) -
+              clip.start) /
+              clip.speed,
+          0
+        )
+      ),
+    ],
+    crop_x: production.framing?.focusX ?? 0.5,
+    crop_y: production.framing?.focusY ?? 0.5,
+    safe_area: production.framing?.safeArea ?? false,
+    audio_mix: production.audioMix
+      ? {
+          voicePriority: production.audioMix.voicePriority,
+          musicGain: production.audioMix.musicGain,
+          fadeOut: production.audioMix.fadeOut,
+          normalize: production.audioMix.normalize,
+        }
+      : undefined,
     watermark: production.watermark,
     node_id: draft ? '' : assembly?.id || '',
     width: production.width,
@@ -554,6 +660,9 @@ export function studioRenderMatchesProject(
     saved.fit ||= 'letterbox'
     saved.motion_graphics ||= []
     saved.watermark ||= ''
+    saved.crop_x ??= 0.5
+    saved.crop_y ??= 0.5
+    saved.safe_area ??= false
     return (
       JSON.stringify(normalize(current)) === JSON.stringify(normalize(saved)) &&
       JSON.stringify(normalize(project.production?.dialogueCues || [])) ===
@@ -576,7 +685,48 @@ export function splitStudioTimelineClip(
     throw new Error('Split must be inside the clip trim range')
   }
   return [
-    { ...clip, trimEnd: seconds },
-    { ...clip, id: crypto.randomUUID(), trimStart: seconds },
+    {
+      ...clip,
+      trimEnd: seconds,
+      fadeOut: 0,
+      caption:
+        clip.captionOffset < (seconds - clip.trimStart) / clip.speed
+          ? clip.caption
+          : '',
+      captionDuration: Math.max(
+        0,
+        Math.min(
+          clip.captionDuration || Infinity,
+          (seconds - clip.trimStart) / clip.speed - clip.captionOffset
+        )
+      ),
+    },
+    {
+      ...clip,
+      id: crypto.randomUUID(),
+      trimStart: seconds,
+      fadeIn: 0,
+      caption:
+        clip.captionDuration &&
+        clip.captionOffset + clip.captionDuration <=
+          (seconds - clip.trimStart) / clip.speed
+          ? ''
+          : clip.caption,
+      captionOffset: Math.max(
+        0,
+        clip.captionOffset - (seconds - clip.trimStart) / clip.speed
+      ),
+      captionDuration: clip.captionDuration
+        ? Math.max(
+            0,
+            clip.captionOffset +
+              clip.captionDuration -
+              Math.max(
+                clip.captionOffset,
+                (seconds - clip.trimStart) / clip.speed
+              )
+          )
+        : 0,
+    },
   ]
 }

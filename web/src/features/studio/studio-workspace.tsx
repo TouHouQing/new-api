@@ -49,6 +49,7 @@ import {
 } from './studio-creation'
 import { StudioCreationBrief } from './studio-creation-brief'
 import { StudioCreationReadiness } from './studio-creation-readiness'
+import { StudioFilmChecks, StudioDialogueTiming } from './studio-film-finish'
 import { studioProductionSchema } from './studio-production'
 import { StudioProductionContext } from './studio-production-context'
 import {
@@ -66,6 +67,7 @@ import { StudioProductionVersionsTab } from './studio-production-versions-tab'
 import { StudioProductionWorkflowTab } from './studio-production-workflow-tab'
 import { StudioProjectAssistant } from './studio-project-assistant'
 import { StudioScreenplayEditor } from './studio-screenplay-editor'
+import { StudioStoryboardOverview } from './studio-storyboard-overview'
 import { StudioTimelinePreview } from './studio-timeline-preview'
 import { StudioWorkspaceAssets } from './studio-workspace-assets'
 import {
@@ -125,6 +127,20 @@ export function StudioCreationWorkspace(props: Props) {
       props.selectedNodeId || ''
     )
   )
+  const selectedMedia = props.project.nodes.find(
+    (node) => node.id === props.selectedNodeId
+  )
+  const completedVideo =
+    selectedMedia?.data.kind === 'video' && !!selectedMedia.data.mediaId
+  const completedImage =
+    selectedMedia?.data.kind === 'image' && !!selectedMedia.data.mediaId
+  let generationLabel = 'Generate selected footage'
+  if (controller.selectedNodes.length === 1) {
+    generationLabel = 'Try this shot first'
+  }
+  if (selectedMedia?.data.kind === 'image') {
+    generationLabel = 'Make the key image'
+  }
   const selectShot = (id: string) => {
     props.onSelectNode?.(id)
     const node = props.project.nodes.find((node) => node.id === id)
@@ -322,7 +338,7 @@ export function StudioCreationWorkspace(props: Props) {
         data-stage={step}
       >
         <header className='flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2'>
-          <div className='mr-auto min-w-0'>
+          <div className='sr-only'>
             <h2 className='truncate font-semibold'>{props.project.title}</h2>
             <p className='text-muted-foreground text-xs'>
               {t('studio.production.title')} ·{' '}
@@ -338,11 +354,7 @@ export function StudioCreationWorkspace(props: Props) {
           >
             {t('Creative assistant')}
           </Button>
-          <Button
-            size='sm'
-            variant='outline'
-            onClick={() => setTool('members')}
-          >
+          <Button size='sm' variant='outline' onClick={() => setTool('share')}>
             {t('Share project')}
           </Button>
           <DropdownMenu>
@@ -465,9 +477,12 @@ export function StudioCreationWorkspace(props: Props) {
                     {t('Improve the story with AI')}
                   </Button>
                 </div>
+                <StudioStoryboardOverview />
                 <StudioScreenplayEditor onValidityChange={setScreenplayValid} />
+                <StudioDialogueTiming />
               </TabsContent>
               <TabsContent value='visual' className='mt-0'>
+                <StudioStoryboardOverview />
                 <div className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]'>
                   <div className='min-w-0 self-start xl:sticky xl:top-0'>
                     <StudioWorkspaceShot
@@ -505,7 +520,8 @@ export function StudioCreationWorkspace(props: Props) {
                         {t('Whole film checks')}
                       </CollapsibleTrigger>
                       <CollapsibleContent>
-                        <StudioCreationReadiness onStep={setStep} />
+                        <StudioFilmChecks onStep={setStep} />
+                        <StudioCreationReadiness onStep={setStep} expanded />
                       </CollapsibleContent>
                     </Collapsible>
                     <Button
@@ -589,26 +605,32 @@ export function StudioCreationWorkspace(props: Props) {
             <div className='flex min-w-0 gap-2'>
               <Button
                 size='sm'
-                variant='outline'
+                variant={completedVideo ? 'default' : 'outline'}
                 disabled={!progress.edit}
                 onClick={() => setStep('edit')}
               >
                 {t('Edit completed footage')}
               </Button>
-              {controller.selectedNodes.length > 0 && (
+              {completedImage && selectedShot && (
                 <Button
                   size='sm'
-                  aria-label={t('Review and generate selected footage')}
-                  disabled={runDisabled}
-                  onClick={() => runButton.current?.click()}
+                  onClick={() => selectShot(selectedShot.videoNodeId)}
                 >
-                  {t(
-                    controller.selectedNodes.length === 1
-                      ? 'Try this shot first'
-                      : 'Generate selected footage'
-                  )}
+                  {t('Continue to video')}
                 </Button>
               )}
+              {controller.selectedNodes.length > 0 &&
+                !completedImage &&
+                !completedVideo && (
+                  <Button
+                    size='sm'
+                    aria-label={t('Review and generate selected footage')}
+                    disabled={runDisabled}
+                    onClick={() => runButton.current?.click()}
+                  >
+                    {t(generationLabel)}
+                  </Button>
+                )}
             </div>
           )}
           {step === 'edit' && (
@@ -663,6 +685,22 @@ export function StudioCreationWorkspace(props: Props) {
                 {tool === 'review' && <StudioProductionReviewTab />}
                 {tool === 'versions' && <StudioProductionVersionsTab />}
                 {tool === 'members' && <StudioProductionMembersTab />}
+                {tool === 'share' && (
+                  <div className='space-y-4'>
+                    <p>
+                      {t(
+                        'Choose whether someone should watch the film or help edit the project.'
+                      )}
+                    </p>
+                    <StudioProductionDeliveryTab inline sharingOnly />
+                    <Button
+                      variant='outline'
+                      onClick={() => setTool('members')}
+                    >
+                      {t('Invite someone to edit')}
+                    </Button>
+                  </div>
+                )}
                 {tool === 'planning' && (
                   <StudioProductionPlanTab value='planning' />
                 )}

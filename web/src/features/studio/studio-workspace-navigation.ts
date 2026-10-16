@@ -38,6 +38,7 @@ export const STUDIO_WORKSPACE_TOOLS = [
   'review',
   'versions',
   'members',
+  'share',
   'planning',
 ] as const
 export type StudioWorkspaceTool = (typeof STUDIO_WORKSPACE_TOOLS)[number]

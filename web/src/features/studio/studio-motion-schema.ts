@@ -31,6 +31,7 @@ export const studioMotionGraphicSchema = z
     x: z.number().min(0).max(1),
     y: z.number().min(0).max(1),
     font_size: z.number().int().min(12).max(300),
+    font_family: z.enum(['sans', 'serif']).optional(),
     color: z.string().regex(/^#[0-9a-fA-F]{6}$/),
     animation: z.enum(['fade', 'slide', 'pulse', 'bounce', 'rotate', 'morph']),
     bpm: z.number().int().min(30).max(240),

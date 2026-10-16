@@ -24,10 +24,20 @@ export function studioDocumentMediaIds(document: unknown): Set<string> {
       if (/MediaId$|^mediaId$/.test(key) && typeof item === 'string' && item) {
         ids.add(item)
       } else if (
-        (key === 'mediaIds' || key === 'referenceMediaIds') &&
+        (key === 'mediaIds' ||
+          key === 'referenceMediaIds' ||
+          key === 'musicMediaIds') &&
         Array.isArray(item)
       ) {
         item.forEach((id) => {
+          if (typeof id === 'string' && id) ids.add(id)
+        })
+      } else if (
+        key === 'approvedKeyImages' &&
+        item &&
+        typeof item === 'object'
+      ) {
+        Object.values(item).forEach((id) => {
           if (typeof id === 'string' && id) ids.add(id)
         })
       } else if (item && typeof item === 'object') visit(item)
@@ -50,7 +60,9 @@ export function mapStudioMediaReferences<T>(
           return [key, resolve(item)]
         }
         if (
-          (key === 'mediaIds' || key === 'referenceMediaIds') &&
+          (key === 'mediaIds' ||
+            key === 'referenceMediaIds' ||
+            key === 'musicMediaIds') &&
           Array.isArray(item)
         ) {
           return [
@@ -58,6 +70,17 @@ export function mapStudioMediaReferences<T>(
             item
               .map((id) => (typeof id === 'string' ? resolve(id) : undefined))
               .filter(Boolean),
+          ]
+        }
+        if (key === 'approvedKeyImages' && item && typeof item === 'object') {
+          return [
+            key,
+            Object.fromEntries(
+              Object.entries(item).flatMap(([shot, id]) => {
+                const mapped = typeof id === 'string' ? resolve(id) : undefined
+                return mapped ? [[shot, mapped]] : []
+              })
+            ),
           ]
         }
         return [key, visit(item)]

@@ -1,0 +1,260 @@
+{
+  "projects": [
+    {
+      "id": "c12bd5fa-233c-4922-9bc9-93162cbbf5b3",
+      "revision": 57,
+      "nodes": [
+        {
+          "kind": "image",
+          "title": "镜头 1 · 图片",
+          "mediaId": "35fdd329-a2da-4df2-93b3-25c77fa1df8d",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "35fdd329-a2da-4df2-93b3-25c77fa1df8d",
+              "request": {
+                "model": "flux.2-klein-4b",
+                "n": 1,
+                "size": "576x1024"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "video",
+          "title": "镜头 1",
+          "mediaId": "42577daa-5b51-44ed-896e-369d265dc26e",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "42577daa-5b51-44ed-896e-369d265dc26e",
+              "request": {
+                "model": "wan2.2-ti2v-5b",
+                "ratio": "9:16",
+                "resolution": "224x384",
+                "seconds": "4",
+                "size": "224x384"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "image",
+          "title": "镜头 2 · 图片",
+          "mediaId": "55b43fe2-4da3-4bf7-8361-44241b52ad59",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "55b43fe2-4da3-4bf7-8361-44241b52ad59",
+              "request": {
+                "model": "flux.2-klein-4b",
+                "n": 1,
+                "size": "576x1024"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "video",
+          "title": "镜头 2",
+          "mediaId": "574ecb0a-327f-4064-9ff3-44adee9808b6",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "574ecb0a-327f-4064-9ff3-44adee9808b6",
+              "request": {
+                "model": "wan2.2-ti2v-5b",
+                "ratio": "9:16",
+                "resolution": "224x384",
+                "seconds": "4",
+                "size": "224x384"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "image",
+          "title": "镜头 3 · 图片",
+          "mediaId": "7b9682a9-8f9a-4585-8445-a46e8311531c",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "7b9682a9-8f9a-4585-8445-a46e8311531c",
+              "request": {
+                "model": "flux.2-klein-4b",
+                "n": 1,
+                "size": "576x1024"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "video",
+          "title": "镜头 3",
+          "mediaId": "e5425ff5-a6f8-425c-9913-bfb73541bc47",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "fe542b97-e2a5-43c8-8165-b42755803fe4",
+              "request": {
+                "model": "wan2.2-ti2v-5b",
+                "ratio": "9:16",
+                "resolution": "224x384",
+                "seconds": "4",
+                "size": "224x384"
+              }
+            },
+            {
+              "status": "completed",
+              "mediaId": "e5425ff5-a6f8-425c-9913-bfb73541bc47",
+              "request": {
+                "model": "wan2.2-ti2v-5b",
+                "ratio": "9:16",
+                "resolution": "384x640",
+                "seconds": "4",
+                "size": "384x640"
+              }
+            }
+          ]
+        },
+        {
+          "kind": "audio",
+          "title": "角色配音",
+          "mediaId": "b2d21e2c-9e0d-4c57-ac87-fb0698df67a7",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "b2d21e2c-9e0d-4c57-ac87-fb0698df67a7",
+              "request": {
+                "media_id": "",
+                "model": "studio-voice-speech",
+                "group": "",
+                "language": "zh",
+                "action": "voice_speech",
+                "node_id": "63fdec82-16e3-4236-a22e-defeda0b617c",
+                "prompt": "青咖啡，周末来喝一杯。",
+                "seconds": 4.041,
+                "voice_id": "default",
+                "options": {
+                  "speed": 1,
+                  "expression": 0.5
+                }
+              }
+            }
+          ]
+        },
+        {
+          "kind": "audio",
+          "title": "music-fixture.wav",
+          "mediaId": "7b69fc43-333b-4b92-a69f-f8f5ab21b012",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "7b69fc43-333b-4b92-a69f-f8f5ab21b012",
+              "request": null
+            }
+          ]
+        },
+        {
+          "kind": "image",
+          "title": "brand-logo.png",
+          "mediaId": "596b5f18-68c6-49be-a068-47d3e70a9e86",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "596b5f18-68c6-49be-a068-47d3e70a9e86",
+              "request": null
+            }
+          ]
+        }
+      ],
+      "jobs": [
+        {
+          "kind": "render",
+          "status": "succeeded"
+        },
+        {
+          "kind": "render",
+          "status": "succeeded"
+        },
+        {
+          "kind": "quality",
+          "status": "succeeded"
+        },
+        {
+          "kind": "media",
+          "status": "succeeded"
+        },
+        {
+          "kind": "generate",
+          "status": "succeeded"
+        },
+        {
+          "kind": "generate",
+          "status": "succeeded"
+        },
+        {
+          "kind": "generate",
+          "status": "succeeded"
+        }
+      ]
+    },
+    {
+      "id": "1b3f3708-2c5b-4d06-89f5-17e1d7166352",
+      "revision": 7,
+      "nodes": [
+        {
+          "kind": "video",
+          "title": "trim-fixture.mp4",
+          "mediaId": "cb5ce9af-4f63-4615-a946-7ba2e46189ea",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "cb5ce9af-4f63-4615-a946-7ba2e46189ea",
+              "request": null
+            }
+          ]
+        },
+        {
+          "kind": "video",
+          "title": "second-fixture.mp4",
+          "mediaId": "7f9879e2-8611-4a16-a202-85e8dfb56643",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "7f9879e2-8611-4a16-a202-85e8dfb56643",
+              "request": null
+            }
+          ]
+        },
+        {
+          "kind": "audio",
+          "title": "music-fixture.wav",
+          "mediaId": "f2bbca98-47ec-4fe3-a229-5e17b93c33b8",
+          "takes": [
+            {
+              "status": "completed",
+              "mediaId": "f2bbca98-47ec-4fe3-a229-5e17b93c33b8",
+              "request": null
+            }
+          ]
+        }
+      ],
+      "jobs": [
+        {
+          "kind": "render",
+          "status": "succeeded"
+        },
+        {
+          "kind": "render",
+          "status": "succeeded"
+        }
+      ]
+    }
+  ],
+  "modelKeyCreationRequests": 0,
+  "mutatingBrowserRequests": 109,
+  "zeroModelCalls": 0,
+  "browserRuntimeErrors": [],
+  "afterReloadDeliveryAvailable": true
+}

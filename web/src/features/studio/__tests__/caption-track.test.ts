@@ -77,3 +77,36 @@ test('imported SRT retains its global timing and does not duplicate dialogue cap
     { source: 'srt', start: 1, end: 2, text: 'Imported' },
   ])
 })
+
+test('dialogue subtitles stop with decoded speech and retain the shot offset', () => {
+  const project = addStudioNode(
+    createStudioProject('Film', 'film'),
+    'video',
+    'a'
+  )
+  project.nodes[0].data.mediaId = 'video'
+  project.shots = [
+    {
+      id: 'shot',
+      title: 'Shot',
+      textNodeId: 'text',
+      imageNodeId: 'image',
+      videoNodeId: 'a',
+    },
+  ]
+  project.production = studioProductionSchema.parse({
+    dialogueCues: [
+      {
+        id: 'cue',
+        shotId: 'shot',
+        text: 'Hello',
+        offset: 0.2,
+        audioMediaId: 'voice',
+        duration: 10,
+      },
+    ],
+  })
+  expect(studioCaptionTrack(project, { video: 5, voice: 2.4 })).toMatchObject([
+    { start: 0.2, end: 2.6, text: 'Hello', source: 'dialogue' },
+  ])
+})

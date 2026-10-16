@@ -24,6 +24,7 @@ import {
   screen,
   waitFor,
 } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import i18n from 'i18next'
 import { useEffect, type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
@@ -1809,6 +1810,19 @@ describe('Studio account isolation', () => {
       )
     )
   })
+  test('a cold route opens the requested project before browsing recipes', async () => {
+    const first = createStudioProject('Other project', 'route-b')
+    const requested = createStudioProject('Requested project', 'route-a')
+    saveStudioProjects(localStorage, 12, [first, requested])
+    render(<Studio project='route-a' workspace='templates' />)
+    const selector = await screen.findByRole('combobox', {
+      name: 'studio.project.select',
+    })
+    await waitFor(() => expect(selector).toHaveTextContent('Requested project'))
+    expect(
+      screen.getAllByRole('region', { name: 'Creative recipes' }).length
+    ).toBeGreaterThan(0)
+  })
   test('opens the account submission history from the workbench', async () => {
     vi.mocked(fetchStudioAttempts).mockResolvedValue([
       {
@@ -1826,6 +1840,12 @@ describe('Studio account isolation', () => {
     render(<Studio />)
     fireEvent.click(
       await screen.findByRole('button', { name: 'studio.taskCenter.title' })
+    )
+    await userEvent.click(
+      await screen.findByRole('combobox', { name: 'Task project scope' })
+    )
+    await userEvent.click(
+      await screen.findByRole('option', { name: 'All projects' })
     )
     expect(await screen.findByText('upstream_rejected')).toBeTruthy()
   })

@@ -44,7 +44,7 @@ export function planLocalStudioShots(
   // brief remains stored separately, so global constraints never become shots.
   const markers = [
     ...prompt.matchAll(
-      /(?:^|\n|(?<=[。；;]))\s*(?:镜头\s*[一二三四五六七八九十百\d]+|第\s*[一二三四五六七八九十百\d]+\s*镜|shot\s*\d+)\s*[:：、.)）-]\s*/gi
+      /(?:^|\n|(?<=[。；;.!?]))\s*(?:镜头\s*[一二三四五六七八九十百\d]+|第\s*[一二三四五六七八九十百\d]+\s*镜|shot\s*\d+)\s*[:：、.)）-]\s*/gi
     ),
   ]
   if (markers.length) {
@@ -53,7 +53,7 @@ export function planLocalStudioShots(
     const shared = [
       prompt.slice(0, markers[0].index).trim(),
       tail.match(
-        /\n\s*((?:全局要求|统一要求|整体要求|global requirements)\s*[:：][\s\S]*)$/i
+        /(?:^|[\n。；;.!?])\s*((?:全局要求|统一要求|整体要求|global requirements)\s*[:：][\s\S]*)$/i
       )?.[1] || '',
     ]
       .filter(Boolean)
@@ -65,14 +65,28 @@ export function planLocalStudioShots(
           markers[index + 1]?.index
         )
         .split(
-          /\n\s*(?:全局要求|统一要求|整体要求|global requirements)\s*[:：]/i
+          /(?:^|(?<=[\n。；;.!?]))\s*(?:全局要求|统一要求|整体要求|global requirements)\s*[:：]/i
         )[0]
         .trim()
+      const requirements = shared
+        .split(/(?<=[。；;.!?])\s*|\n/)
+        .filter((part) => {
+          if (
+            /结尾|片尾|最后[一1]镜|closing|last shot|final shot/i.test(part)
+          ) {
+            return index === Math.min(requested, markers.length) - 1
+          }
+          if (/第一镜|首镜|开头|opening|first shot/i.test(part)) {
+            return index === 0
+          }
+          return true
+        })
+        .join('\n')
       return {
         title: `Shot ${index + 1}`,
         text,
-        imagePrompt: [shared, text].filter(Boolean).join('\n'),
-        videoPrompt: [shared, text].filter(Boolean).join('\n'),
+        imagePrompt: [requirements, text].filter(Boolean).join('\n'),
+        videoPrompt: [requirements, text].filter(Boolean).join('\n'),
       }
     })
   }

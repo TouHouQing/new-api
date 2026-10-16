@@ -56,6 +56,7 @@ import { connectedGenerationInput } from './canvas-flow'
 import { StudioBudgetSummary } from './studio-budget-summary'
 import { studioCloudRequest, type StudioCloudJob } from './studio-cloud'
 import { StudioConnectorRecovery } from './studio-connector-recovery'
+import { StudioDraftStage } from './studio-draft-stage'
 import { StudioGenerationEstimate } from './studio-generation-estimate'
 import { StudioGenerationSetup } from './studio-generation-setup'
 import { studioMediaModelAction } from './studio-media-draft'
@@ -160,15 +161,38 @@ export function StudioProductionWorkflowTab(
       return true
     }
   })
-  const visibleJobs = showHistory
-    ? jobs.data
-    : jobs.data?.filter(
-        (job, index) =>
-          index === 0 ||
-          ['queued', 'running', 'waiting', 'paused', 'uncertain'].includes(
-            job.status
-          )
+  let visibleJobs = jobs.data
+  if (!showHistory && options.compact) {
+    visibleJobs = jobs.data
+      ?.filter(
+        (job) =>
+          job.kind === 'generate' &&
+          job.node_ids?.some((id) => selectedNodes.includes(id))
       )
+      .slice(0, 1)
+  } else if (!showHistory) {
+    visibleJobs = jobs.data?.filter(
+      (job, index) =>
+        index === 0 ||
+        ['queued', 'running', 'waiting', 'paused', 'uncertain'].includes(
+          job.status
+        )
+    )
+  }
+  const selectedCompleted =
+    selectedNodes.length === 1 &&
+    props.project.nodes.some(
+      (node) => node.id === selectedNodes[0] && !!node.data.mediaId
+    )
+  const selectedImage =
+    selectedNodes.length === 1 &&
+    props.project.nodes.some(
+      (node) => node.id === selectedNodes[0] && node.data.kind === 'image'
+    )
+  let generationLabel = 'Generate selected footage'
+  if (selectedNodes.length === 1) generationLabel = 'Try this shot first'
+  if (selectedImage) generationLabel = 'Make the key image'
+  if (selectedCompleted) generationLabel = 'Make a new version'
   const eligibleVideos = props.project.nodes.filter(
     (node) =>
       node.data.kind === 'video' &&
@@ -236,14 +260,11 @@ export function StudioProductionWorkflowTab(
           </p>
           <Button
             ref={options.runButtonRef}
+            variant={selectedCompleted ? 'outline' : 'default'}
             disabled={runDisabled}
             onClick={() => setReviewRun(true)}
           >
-            {t(
-              selectedNodes.length === 1
-                ? 'Try this shot first'
-                : 'Generate selected footage'
-            )}
+            {t(generationLabel)}
           </Button>
           {missingKeyImage && (
             <p role='status'>
@@ -259,6 +280,7 @@ export function StudioProductionWorkflowTab(
               )}
             </p>
           )}
+          <StudioDraftStage />
           <StudioGenerationSetup />
         </div>
       )}

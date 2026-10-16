@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { ALL_FORMATS, BlobSource, Input as MediaInput } from 'mediabunny'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -54,6 +55,9 @@ export function StudioMediaImport() {
     controller.current = pending
     let next = props.project
     try {
+      // A fresh project may still be waiting for autosave. Its server record
+      // must exist before an upload can be linked to its permissions.
+      await props.onSave()
       for (const item of files) {
         if (pending.signal.aborted) {
           throw new DOMException('Aborted', 'AbortError')
@@ -103,6 +107,42 @@ export function StudioMediaImport() {
             mediaId: id,
           }
         )
+        if (
+          kind === 'video' &&
+          !next.shots?.length &&
+          next.nodes.filter((node) => node.data.kind === 'video').length ===
+            1 &&
+          !next.production?.brief &&
+          next.production?.exportSizeMode !== 'custom'
+        ) {
+          const input = new MediaInput({
+            source: new BlobSource(item),
+            formats: ALL_FORMATS,
+          })
+          try {
+            const track = await input.getPrimaryVideoTrack()
+            if (track) {
+              next = {
+                ...next,
+                production: {
+                  ...(next.production || studioProductionSchema.parse({})),
+                  width: Math.max(
+                    64,
+                    Math.min(4096, Math.floor(track.displayWidth / 2) * 2)
+                  ),
+                  height: Math.max(
+                    64,
+                    Math.min(4096, Math.floor(track.displayHeight / 2) * 2)
+                  ),
+                  exportSizeMode: 'source',
+                },
+              }
+            }
+          } finally {
+            input.dispose()
+          }
+        }
+        projectAccess.current = next
         props.onUpdate(next)
       }
       if (

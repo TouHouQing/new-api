@@ -1,0 +1,16 @@
+{
+  "protocol": "2025-11-25",
+  "tools": 34,
+  "read": true,
+  "schema": true,
+  "optimisticSave": true,
+  "sharedProductionPreserved": true,
+  "fields": [
+    "brandKit",
+    "audioMix",
+    "approvedKeyImages",
+    "generationStage",
+    "framing",
+    "creativeBrief"
+  ]
+}

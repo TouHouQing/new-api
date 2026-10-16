@@ -43,3 +43,30 @@ test('English numbered shot labels retain multi-line directions', () => {
     'Coffee close-up. Steam rises.',
   ])
 })
+
+test('inline global requirements are shared without becoming the final shot action', () => {
+  const shots = planLocalStudioShots(
+    '为咖啡店制作12秒开业短片。镜头一：店门打开。镜头二：咖啡师递出杯子。镜头三：顾客微笑。整体要求：温暖真实，女咖啡师穿米色毛衣。',
+    12
+  )
+  expect(shots.map((shot) => shot.text)).toEqual([
+    '店门打开。',
+    '咖啡师递出杯子。',
+    '顾客微笑。',
+  ])
+  expect(shots.every((shot) => shot.imagePrompt?.includes('米色毛衣'))).toBe(
+    true
+  )
+  expect(shots[0].text).not.toContain('整体要求')
+})
+
+test('English inline shots preserve punctuation and scope closing requirements to the final shot', () => {
+  const shots = planLocalStudioShots(
+    'Shot 1: A garden. Shot 2: A cup. Global requirements: Warm daylight; closing: show the invitation.',
+    2
+  )
+  expect(shots.map((shot) => shot.text)).toEqual(['A garden.', 'A cup.'])
+  expect(shots[0].videoPrompt).toContain('Warm daylight')
+  expect(shots[0].videoPrompt).not.toContain('show the invitation')
+  expect(shots[1].videoPrompt).toContain('show the invitation')
+})

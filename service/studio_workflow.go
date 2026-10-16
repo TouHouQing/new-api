@@ -762,6 +762,11 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 			}
 		}
 		take := map[string]any{"id": progress.RequestID, "createdAt": time.Now().UTC().Format(time.RFC3339Nano), "status": "completed", "model": modelName, "prompt": data["prompt"]}
+		// Store only reproducible parameters, never signed reference URLs or
+		// provider credentials. The frozen plan supplies these again on resume.
+		if snapshot := studioGenerationParameterSnapshot(request); snapshot != "" {
+			take["requestSnapshot"] = snapshot
+		}
 		if kind == "text" {
 			var parsed struct {
 				Choices []struct {
@@ -835,7 +840,7 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 					if err := LinkStudioProjectMedia(project.ID, id); err != nil {
 						return err
 					}
-					progress.AdditionalTakes = append(progress.AdditionalTakes, map[string]any{"id": id, "createdAt": take["createdAt"], "status": "completed", "model": modelName, "prompt": data["prompt"], "mediaId": id})
+					progress.AdditionalTakes = append(progress.AdditionalTakes, map[string]any{"id": id, "createdAt": take["createdAt"], "status": "completed", "model": modelName, "prompt": data["prompt"], "mediaId": id, "requestSnapshot": take["requestSnapshot"]})
 				}
 			} else {
 				content = response.Body
@@ -1624,4 +1629,30 @@ func ReadStudioRemoteMedia(ctx context.Context, rawURL string) ([]byte, string, 
 		return nil, "", errors.New("generated media exceeds 512 MiB")
 	}
 	return data, response.Header.Get("Content-Type"), err
+}
+
+func studioGenerationParameterSnapshot(body []byte) string {
+	var request map[string]any
+	if common.Unmarshal(body, &request) != nil {
+		return ""
+	}
+	snapshot := map[string]any{}
+	for _, key := range []string{"model", "size", "seconds", "duration", "mode", "seed", "n"} {
+		switch value := request[key].(type) {
+		case string, float64, bool:
+			snapshot[key] = value
+		}
+	}
+	metadata, _ := request["metadata"].(map[string]any)
+	for _, key := range []string{"resolution", "ratio", "seed"} {
+		switch value := metadata[key].(type) {
+		case string, float64, bool:
+			snapshot[key] = value
+		}
+	}
+	encoded, err := common.Marshal(snapshot)
+	if err != nil {
+		return ""
+	}
+	return string(encoded)
 }

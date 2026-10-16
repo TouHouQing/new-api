@@ -79,7 +79,11 @@ export function studioMotionSVG(
       }
     } else {
       const lines = item.text.split('\n')
-      drawing = `<text text-anchor="middle" dominant-baseline="middle" font-family="Arial,Microsoft YaHei,Noto Sans CJK SC,sans-serif" font-size="${size}">${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? -(lines.length - 1) * size * 0.6 : size * 1.2}">${escapeSVG(line)}</tspan>`).join('')}</text>`
+      const font =
+        item.font_family === 'serif'
+          ? 'Noto Serif CJK SC,SimSun,serif'
+          : 'Arial,Microsoft YaHei,Noto Sans CJK SC,sans-serif'
+      drawing = `<text text-anchor="middle" dominant-baseline="middle" font-family="${font}" font-size="${size}">${lines.map((line, index) => `<tspan x="0" dy="${index === 0 ? -(lines.length - 1) * size * 0.6 : size * 1.2}">${escapeSVG(line)}</tspan>`).join('')}</text>`
     }
     parts.push(
       `<g data-studio-graphic-id="${escapeSVG(item.id)}" transform="translate(${x},${y}) rotate(${rotation}) scale(${scale})" fill="${escapeSVG(item.color)}" opacity="${alpha}">${drawing}</g>`

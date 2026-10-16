@@ -159,6 +159,15 @@ export function StudioProductionMediaTab(
         : source
     const selectedAction = draft?.action || currentAction
     if (!selectedAction) {
+      if (selected?.data.mediaId) {
+        let nextAction: MediaAction = 'audio_separate'
+        if (selected.data.kind === 'image') nextAction = 'image_bg_remove'
+        if (selected.data.kind === 'video') nextAction = 'video_depth'
+        setAction(nextAction)
+        setModel(models[nextAction])
+        setReferences([selected.data.mediaId])
+        setNodeId('')
+      }
       setHydrated(true)
       return
     }
@@ -800,12 +809,27 @@ export function StudioProductionMediaTab(
       <StudioBudgetSummary />
       <Collapsible>
         <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
-          {t('Language and advanced tool parameters')} ·{' '}
           {t(
-            ({ zh: 'Chinese', en: 'English' } as Record<string, string>)[
-              language
-            ] || language
-          )}
+            [
+              'voice_speech',
+              'voice_clone',
+              'audio_translate',
+              'music',
+            ].includes(action)
+              ? 'Language and advanced tool parameters'
+              : 'Advanced tool parameters'
+          )}{' '}
+          {['voice_speech', 'voice_clone', 'audio_translate', 'music'].includes(
+            action
+          ) && '· '}
+          {['voice_speech', 'voice_clone', 'audio_translate', 'music'].includes(
+            action
+          ) &&
+            t(
+              ({ zh: 'Chinese', en: 'English' } as Record<string, string>)[
+                language
+              ] || language
+            )}
         </CollapsibleTrigger>
         <CollapsibleContent className='pt-3'>
           <StudioToolParameters
@@ -871,22 +895,31 @@ export function StudioProductionMediaTab(
             </Field>
           )}
       </div>
-      <Field>
-        <FieldLabel>{t('studio.production.mediaPrompt')}</FieldLabel>
-        <Textarea
-          aria-label={t('studio.production.mediaPrompt')}
-          value={prompt}
-          maxLength={30000}
-          onChange={(event) => {
-            setPrompt(event.target.value)
-            if (!languageEdited.current && event.target.value.trim()) {
-              setLanguage(
-                /[\u4e00-\u9fff]/.test(event.target.value) ? 'zh' : 'en'
-              )
-            }
-          }}
-        />
-      </Field>
+      {![
+        'video_depth',
+        'audio_separate',
+        'image_bg_remove',
+        'image_upscale',
+        'image_layers',
+        'image_to_3d',
+      ].includes(action) && (
+        <Field>
+          <FieldLabel>{t('studio.production.mediaPrompt')}</FieldLabel>
+          <Textarea
+            aria-label={t('studio.production.mediaPrompt')}
+            value={prompt}
+            maxLength={30000}
+            onChange={(event) => {
+              setPrompt(event.target.value)
+              if (!languageEdited.current && event.target.value.trim()) {
+                setLanguage(
+                  /[\u4e00-\u9fff]/.test(event.target.value) ? 'zh' : 'en'
+                )
+              }
+            }}
+          />
+        </Field>
+      )}
       <p className='text-muted-foreground text-xs'>
         {t(
           'A new output copy is created automatically. Existing footage stays available.'

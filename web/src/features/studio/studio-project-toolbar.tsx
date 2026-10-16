@@ -39,6 +39,7 @@ import {
 import type { StudioProject } from './local-projects'
 
 export function StudioProjectToolbar(props: {
+  compact?: boolean
   project: StudioProject
   projects: StudioProject[]
   readOnly: boolean
@@ -61,9 +62,21 @@ export function StudioProjectToolbar(props: {
   if (props.saveProblem) saveLabel = 'Draft save needs attention'
   if (props.readOnly) saveLabel = 'Read-only project'
   return (
-    <header className='min-w-0 space-y-3 border-b p-3 sm:px-4'>
+    <header
+      className={
+        props.compact
+          ? 'flex min-w-0 flex-wrap items-center gap-2 border-b px-3 py-2 sm:px-4'
+          : 'min-w-0 space-y-3 border-b p-3 sm:px-4'
+      }
+    >
       <div className='flex min-w-0 flex-wrap items-center gap-2'>
-        <h1 className='mr-auto text-lg font-semibold'>{t('studio.title')}</h1>
+        <h1
+          className={
+            props.compact ? 'sr-only' : 'mr-auto text-lg font-semibold'
+          }
+        >
+          {t('studio.title')}
+        </h1>
         <Button size='sm' variant='outline' onClick={props.onTasks}>
           {t('studio.taskCenter.title')}
         </Button>
@@ -96,7 +109,13 @@ export function StudioProjectToolbar(props: {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      <div className='flex min-w-0 items-center gap-2'>
+      <div
+        className={
+          props.compact
+            ? 'order-first flex min-w-0 flex-1 items-center gap-2'
+            : 'flex min-w-0 items-center gap-2'
+        }
+      >
         <Select
           value={props.project.id}
           onValueChange={(id) => {

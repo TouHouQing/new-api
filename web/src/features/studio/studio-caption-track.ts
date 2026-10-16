@@ -64,7 +64,11 @@ export function studioCaptionTrack(
           item.end,
           item.start +
             cue.offset +
-            (cue.duration || item.duration) -
+            Math.min(
+              cue.duration || Infinity,
+              durations[cue.audioMediaId || ''] || Infinity,
+              item.duration
+            ) -
             item.sourceOffset
         )
         if (cue.text.trim() && end > start) {

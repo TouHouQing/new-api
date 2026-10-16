@@ -49,12 +49,9 @@ export function studioCreationTemplate(
     t('studio.shot.defaultName')
   )
   const count = Math.min(3, duration)
-  return studioScreenplaySchema.parse({
-    title: project.title,
-    brief,
-    characters: [character],
-    scenes: [scene],
-    props:
+  let props = planned.props
+  if (!custom) {
+    props =
       goal === 'product'
         ? [
             {
@@ -63,14 +60,16 @@ export function studioCreationTemplate(
               description: t('studio.template.product.propHint'),
             },
           ]
-        : [],
+        : []
+  }
+  return studioScreenplaySchema.parse({
+    title: project.title,
+    brief,
+    characters: custom ? planned.characters : [character],
+    scenes: custom ? planned.scenes : [scene],
+    props,
     shots: custom
-      ? planned.shots.map((shot) => ({
-          ...shot,
-          characterIds: ['lead'],
-          sceneId: 'setting',
-          propIds: goal === 'product' ? ['product'] : [],
-        }))
+      ? planned.shots
       : Array.from({ length: count }, (_, i) => i + 1).map((index) => ({
           id: `shot_${index}`,
           title: t(`studio.template.${goal}.shot${index}.title`),

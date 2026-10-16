@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { ALL_FORMATS, BlobSource, Input as MediaInput } from 'mediabunny'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -27,6 +28,8 @@ import { handleServerError } from '@/lib/handle-server-error'
 
 import type { StudioProject } from './local-projects'
 import { studioCaptionTrack } from './studio-caption-track'
+import { studioMusicGain, studioVoiceWindows } from './studio-creative-plan'
+import { StudioFilmOverlay } from './studio-film-overlay'
 import {
   studioTimelineAudio,
   studioTimelineSchedule,
@@ -42,8 +45,17 @@ export function StudioTimelinePreview(props: {
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [urls, setUrls] = useState<Record<string, string>>({})
   const [durations, setDurations] = useState<Record<string, number>>({})
+  const [audibleMedia, setAudibleMedia] = useState<Record<string, boolean>>({})
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
+  useEffect(() => {
+    const pauseHiddenPreview = () => {
+      if (document.hidden) setPlaying(false)
+    }
+    document.addEventListener('visibilitychange', pauseHiddenPreview)
+    return () =>
+      document.removeEventListener('visibilitychange', pauseHiddenPreview)
+  }, [])
   useEffect(() => {
     window.dispatchEvent(
       new CustomEvent('studio-timeline-durations', {
@@ -97,6 +109,7 @@ export function StudioTimelinePreview(props: {
   useEffect(() => {
     let disposed = false
     const next: Record<string, string> = {}
+    const audible: Record<string, boolean> = {}
     setPlaying(false)
     async function loadMedia() {
       await Promise.all(
@@ -105,11 +118,23 @@ export function StudioTimelinePreview(props: {
           .filter(Boolean)
           .map(async (id) => {
             const blob = await access.current(id)
-            if (blob && !disposed) next[id] = URL.createObjectURL(blob)
+            if (blob && !disposed) {
+              next[id] = URL.createObjectURL(blob)
+              const input = new MediaInput({
+                source: new BlobSource(blob),
+                formats: ALL_FORMATS,
+              })
+              try {
+                audible[id] = !!(await input.getPrimaryAudioTrack())
+              } finally {
+                input.dispose()
+              }
+            }
           })
       )
       if (!disposed) {
         setUrls(next)
+        setAudibleMedia(audible)
       }
     }
     void loadMedia().catch(handleServerError)
@@ -189,11 +214,41 @@ export function StudioTimelinePreview(props: {
       if (Math.abs(element.currentTime - local) > 0.15) {
         element.currentTime = Math.max(0, local)
       }
-      element.volume = track.volume
+      const isMusic =
+        track.mediaId === props.project.soundtrackMediaId ||
+        props.project.production?.audioMix?.musicMediaIds.includes(
+          track.mediaId
+        )
+      element.volume =
+        track.volume *
+        (isMusic
+          ? studioMusicGain(
+              props.project,
+              time,
+              studioVoiceWindows(props.project, durations, audibleMedia),
+              total
+            )
+          : 1)
       if (playing) void element.play().catch(() => setPlaying(false))
       else element.pause()
     }
-  }, [time, total, playing, schedule, audio])
+  }, [
+    time,
+    total,
+    playing,
+    schedule,
+    audio,
+    props.project,
+    durations,
+    audibleMedia,
+  ])
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('studio-timeline-position', {
+        detail: { projectId: props.project.id, seconds: time },
+      })
+    )
+  }, [props.project.id, time])
   const active = schedule.find((item) => time >= item.start && time < item.end)
   let caption = ''
   try {
@@ -203,6 +258,16 @@ export function StudioTimelinePreview(props: {
       .join('\n')
   } catch {
     /* Caption errors are actionable in the caption editor. */
+  }
+  let captionBottom = '4%'
+  if (props.project.production?.framing?.safeArea) {
+    captionBottom = '8%'
+    if (
+      (props.project.production?.height || 1080) >
+      (props.project.production?.width || 1920)
+    ) {
+      captionBottom = '20%'
+    }
   }
   if (!schedule.length) return null
   return (
@@ -241,6 +306,7 @@ export function StudioTimelinePreview(props: {
             style={{
               objectFit:
                 props.project.production?.fit === 'crop' ? 'cover' : 'contain',
+              objectPosition: `${(props.project.production?.framing?.focusX ?? 0.5) * 100}% ${(props.project.production?.framing?.focusY ?? 0.5) * 100}%`,
             }}
             onLoadedMetadata={(event) => {
               const duration = event.currentTarget.duration
@@ -257,9 +323,26 @@ export function StudioTimelinePreview(props: {
           />
         ))}
         {caption && (
-          <p className='absolute inset-x-4 bottom-4 text-center whitespace-pre-wrap text-white [text-shadow:0_1px_4px_black]'>
+          <p
+            className='absolute inset-x-[8%] text-center whitespace-pre-wrap text-white [text-shadow:0_1px_4px_black]'
+            style={{
+              bottom: captionBottom,
+            }}
+          >
             {caption}
           </p>
+        )}
+        <StudioFilmOverlay
+          project={props.project}
+          seconds={time}
+          total={total}
+          getMedia={props.getMedia}
+        />
+        {props.project.production?.framing?.safeArea && (
+          <div
+            className='pointer-events-none absolute top-[8%] right-[12%] bottom-[18%] left-[8%] border border-dashed border-white/40'
+            aria-hidden
+          />
         )}
         {props.project.production?.watermark && (
           <p className='absolute top-4 right-4 max-w-[90%] text-xs text-white/75'>
@@ -275,6 +358,16 @@ export function StudioTimelinePreview(props: {
           }}
           src={urls[track.mediaId]}
           preload='metadata'
+          onLoadedMetadata={(event) => {
+            const duration = event.currentTarget.duration
+            if (Number.isFinite(duration) && duration > 0) {
+              setDurations((current) =>
+                current[track.mediaId] === duration
+                  ? current
+                  : { ...current, [track.mediaId]: duration }
+              )
+            }
+          }}
         />
       ))}
       <div className='flex items-center gap-3'>

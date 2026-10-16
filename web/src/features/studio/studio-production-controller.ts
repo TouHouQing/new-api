@@ -77,6 +77,7 @@ export type StudioProductionPanelProps = {
   onSave: () => Promise<void>
   onRefresh: () => Promise<void>
   onUpdate: (project: StudioProject) => void
+  onApplyRecipe?: (project: StudioProject) => void
   getMedia: (id: string) => Promise<Blob | null>
 }
 
@@ -118,10 +119,11 @@ export function useStudioProductionController(
   selectionProject.current = props.project
   useEffect(() => {
     if (props.open && props.selectedNodeId) {
-      setSelectedNodes(
-        studioGeneratableNodeIds(selectionProject.current, [
-          props.selectedNodeId,
-        ])
+      const nodeId = props.selectedNodeId
+      setSelectedNodes((current) =>
+        current.length > 1 && current.includes(nodeId)
+          ? current
+          : studioGeneratableNodeIds(selectionProject.current, [nodeId])
       )
       setMediaDraftNodeId(props.selectedNodeId)
     }
@@ -192,6 +194,11 @@ export function useStudioProductionController(
     }
   }
   const clip = timeline.find((clip) => clip.id === selectedClip)
+  useEffect(() => {
+    if (timeline.length && !timeline.some((clip) => clip.id === selectedClip)) {
+      setSelectedClip(timeline[0].id)
+    }
+  }, [selectedClip, timeline])
   const capabilities = useQuery({
     queryKey: ['studio-cloud-capabilities', props.userId],
     queryFn: () =>

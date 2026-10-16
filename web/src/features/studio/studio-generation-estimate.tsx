@@ -62,7 +62,7 @@ export function StudioGenerationEstimate() {
       <p className='font-medium'>{t('Review the generation scope')}</p>
       <p className='text-muted-foreground text-xs'>
         {t(
-          'Existing completed inputs are reused. Estimates cover video requests; text and image usage are also limited by the total hard budget.'
+          'Only the tasks listed below will run. Completed dependencies are reused. Estimated prices and the maximum spending limit are different; unknown prices require checking the model catalog.'
         )}
       </p>
       {[...planned.values()].map((node) => {
@@ -147,7 +147,7 @@ export function StudioGenerationEstimate() {
         )
       })}
       <p className='text-sm'>
-        {t('Total hard budget')}: {formatCurrencyFromUSD(Number(budget) || 0)}
+        {t('Maximum spend')}: {formatCurrencyFromUSD(Number(budget) || 0)}
       </p>
       {error && (
         <p className='text-destructive text-sm' role='alert'>

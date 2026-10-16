@@ -53,13 +53,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { TabsContent } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { StudioBudgetSummary } from './studio-budget-summary'
 import { StudioCaptionEditor } from './studio-caption-editor'
 import { studioCloudRequest, type StudioCloudProject } from './studio-cloud'
 import { studioCreationProgress } from './studio-creation'
+import { StudioFilmFinish, StudioDialogueTiming } from './studio-film-finish'
+import { StudioFilmLayout } from './studio-film-layout'
 import { StudioMotionGraphics } from './studio-motion-graphics'
 import { StudioNumberField } from './studio-number-field'
 import {
@@ -152,6 +153,9 @@ export function StudioProductionTimelineTab(
               )}
             </p>
           )}
+          <StudioDialogueTiming />
+          <StudioFilmFinish />
+          <StudioFilmLayout />
           <Collapsible>
             <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
               {t('Titles and motion graphics')}
@@ -214,6 +218,7 @@ export function StudioProductionTimelineTab(
               </Button>
             ))}
           </div>
+          <StudioWorkspaceCaptions />
           {clip && (
             <div className='grid gap-3 sm:grid-cols-2'>
               <label className='flex items-center gap-2'>
@@ -387,20 +392,6 @@ export function StudioProductionTimelineTab(
                   })}
                 </CollapsibleContent>
               </Collapsible>
-              <Field className='sm:col-span-2'>
-                <FieldLabel htmlFor='production-caption'>
-                  {t('studio.production.caption')}
-                </FieldLabel>
-                <Textarea
-                  id='production-caption'
-                  disabled={!writable}
-                  value={clip.caption}
-                  maxLength={30000}
-                  onChange={(event) =>
-                    updateClip({ caption: event.target.value })
-                  }
-                />
-              </Field>
               <Field>
                 <FieldLabel>{t('studio.production.splitAt')}</FieldLabel>
                 <Input
@@ -661,7 +652,6 @@ export function StudioProductionTimelineTab(
               </Button>
             </CollapsibleContent>
           </Collapsible>
-          <StudioWorkspaceCaptions />
           <Collapsible>
             <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
               {t('Imported and recognized SRT captions')}

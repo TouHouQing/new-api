@@ -251,6 +251,10 @@ export function StudioInspector(props: Props) {
   } catch {
     payloadValid = false
   }
+  const [showGeneration, setShowGeneration] = useState(false)
+  useEffect(() => setShowGeneration(false), [props.node.id])
+  const uploadedMedia =
+    props.node.data.sourceMode === 'upload' && !!props.node.data.mediaId
   const busy =
     props.node.data.status === 'submitting' ||
     props.node.data.status === 'queued' ||
@@ -295,7 +299,9 @@ export function StudioInspector(props: Props) {
     <Card className='min-h-[560px] rounded-none border-0 ring-0 lg:h-full lg:min-h-0'>
       <CardHeader className='border-b'>
         <div className='flex items-center justify-between gap-2'>
-          <CardTitle>{t('studio.inspector.title')}</CardTitle>
+          <CardTitle>
+            {t(uploadedMedia ? 'Media actions' : 'studio.inspector.title')}
+          </CardTitle>
           {props.onClose && (
             <Button size='xs' variant='ghost' onClick={props.onClose}>
               {t('studio.inspector.close')}
@@ -303,13 +309,30 @@ export function StudioInspector(props: Props) {
           )}
         </div>
         <p className='text-muted-foreground text-xs'>
-          {t('studio.inspector.description')}
+          {t(
+            uploadedMedia
+              ? 'Preview, edit or reuse this media. Generation settings are only needed to make a new variant.'
+              : 'studio.inspector.description'
+          )}
         </p>
       </CardHeader>
       <CardContent className='flex flex-1 flex-col gap-4 pb-4 lg:min-h-0 lg:overflow-y-auto'>
         {props.readOnly && <p role='status'>{t('Read-only project')}</p>}
         {props.mediaEditor}
-        <fieldset disabled={props.readOnly} className='contents'>
+        {uploadedMedia && (
+          <Button
+            variant='outline'
+            onClick={() => setShowGeneration(!showGeneration)}
+          >
+            {t(
+              showGeneration ? 'Hide generation settings' : 'Make an AI variant'
+            )}
+          </Button>
+        )}
+        <fieldset
+          disabled={props.readOnly}
+          className={uploadedMedia && !showGeneration ? 'hidden' : 'contents'}
+        >
           {isVideo && (
             <Field>
               <FieldLabel>{t('studio.video.group')}</FieldLabel>

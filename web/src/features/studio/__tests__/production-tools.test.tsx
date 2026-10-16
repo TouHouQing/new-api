@@ -130,7 +130,7 @@ function mount(
   if (tab === 'media') {
     fireEvent.click(
       screen.getByRole('button', {
-        name: /Language and advanced tool parameters/,
+        name: /advanced tool parameters/i,
       })
     )
   }

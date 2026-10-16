@@ -482,6 +482,13 @@
                       "minimum": 12,
                       "maximum": 300
                     },
+                    "font_family": {
+                      "type": "string",
+                      "enum": [
+                        "sans",
+                        "serif"
+                      ]
+                    },
                     "color": {
                       "type": "string",
                       "pattern": "^#[0-9a-fA-F]{6}$"

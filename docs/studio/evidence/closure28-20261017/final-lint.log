@@ -1,0 +1,4 @@
+src/features/studio/studio-workspace.test.tsx:169:34: warning unicorn(prefer-structured-clone): Use `structuredClone(…)` to create a deep clone. help: Switch to `structuredClone(…)`.
+src/features/studio/studio-workspace.test.tsx:176:34: warning unicorn(prefer-structured-clone): Use `structuredClone(…)` to create a deep clone. help: Switch to `structuredClone(…)`.
+src/features/studio/studio-workspace.test.tsx:190:34: warning unicorn(prefer-structured-clone): Use `structuredClone(…)` to create a deep clone. help: Switch to `structuredClone(…)`.
+src/features/studio/studio-workspace.test.tsx:198:34: warning unicorn(prefer-structured-clone): Use `structuredClone(…)` to create a deep clone. help: Switch to `structuredClone(…)`.

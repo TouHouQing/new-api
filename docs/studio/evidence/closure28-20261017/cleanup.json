@@ -1,0 +1,17 @@
+{
+  "method": "go clean -cache with the task-specific GOCACHE; remove the single task deployment binary",
+  "freeC_GiB_before": 45.1,
+  "freeC_GiB_after": 48.47,
+  "removedOwnDanglingImages": [
+    "65407b6807ba",
+    "860e90f32d2d",
+    "52eb64eda599",
+    "44c8846b17f8",
+    "9cd54a0c0354",
+    "36154efe0373",
+    "8389740acb74"
+  ],
+  "retainedRuntimeImage": "cdaf188e39b4",
+  "retainedRollbackImage": "112de2ac795b",
+  "retainedFinalQAProjects": 2
+}

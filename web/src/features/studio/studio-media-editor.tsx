@@ -502,20 +502,32 @@ export function StudioMediaEditor(props: Props) {
                     key={value}
                     value={value}
                     disabled={value === 'extract_audio' && !canExtractAudio}
+                    title={
+                      value === 'extract_audio' && !canExtractAudio
+                        ? t(
+                            'This video has no audio track. Choose a video with sound or add separate audio.'
+                          )
+                        : undefined
+                    }
                   >
                     {t(`studio.edit.${value}`)}
+                    {value === 'extract_audio' &&
+                      !canExtractAudio &&
+                      ` · ${t('No audio track')}`}
                   </SelectItem>
                 ))}
               </SelectGroup>
             </SelectContent>
           </Select>
-          {kind === 'video' && audioProbe.audio === false && (
-            <p role='status'>
-              {t(
-                'This video has no audio track. Choose a video with sound or add separate audio.'
-              )}
-            </p>
-          )}
+          {kind === 'video' &&
+            audioProbe.audio === false &&
+            action === 'extract_audio' && (
+              <p role='status'>
+                {t(
+                  'This video has no audio track. Choose a video with sound or add separate audio.'
+                )}
+              </p>
+            )}
           {action === 'annotate' ? (
             <div className='space-y-2'>
               <Input

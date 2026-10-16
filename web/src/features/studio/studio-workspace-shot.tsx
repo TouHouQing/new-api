@@ -44,9 +44,12 @@ import { api } from '@/lib/api'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { connectedGenerationInput } from './canvas-flow'
+import { studioTakeSizeLabel } from './studio-draft-profile'
 import { StudioMediaImport } from './studio-media-import'
 import { StudioMediaThumbnail } from './studio-media-thumbnail'
+import { studioProductionSchema } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
+import { StudioReworkPanel } from './studio-rework-panel'
 import {
   pinStudioShotAssetVersion,
   recordStudioTake,
@@ -66,6 +69,7 @@ export function StudioWorkspaceShot(props: {
     mutate,
   } = useStudioProductionContext()
   const project = workspace.project
+  const production = project.production || studioProductionSchema.parse({})
   const liveProject = useRef(project)
   liveProject.current = project
   const shot =
@@ -94,11 +98,19 @@ export function StudioWorkspaceShot(props: {
   const [replacement, setReplacement] = useState('')
   const [advice, setAdvice] = useState('')
   const [direction, setDirection] = useState('')
+  const [previousDirection, setPreviousDirection] = useState<{
+    nodeId: string
+    prompt: string
+    intent: (typeof production.directionIntents)[string] | undefined
+  }>()
   const takes =
     node?.data.takes?.filter(
       (take) => take.status === 'completed' && take.mediaId
     ) || []
   const currentTake = node?.data.selectedTakeId
+  const sizeLabel = studioTakeSizeLabel(
+    takes.find((take) => take.id === currentTake)?.requestSnapshot
+  )
   const compareTake =
     takes.find((take) => take.id === candidate && take.id !== currentTake) ||
     takes.find((take) => take.id !== currentTake)
@@ -215,6 +227,7 @@ export function StudioWorkspaceShot(props: {
       </div>
       <div className='flex flex-wrap gap-2'>
         <Badge variant='secondary'>{t(status)}</Badge>
+        {sizeLabel && <Badge variant='outline'>{t(sizeLabel)}</Badge>}
         {node?.data.kind === 'video' && (
           <Badge variant='outline'>
             {node.data.seconds || 5} {t('Seconds')}
@@ -248,7 +261,7 @@ export function StudioWorkspaceShot(props: {
           {t('Stage people and camera')}
         </Button>
       </div>
-      {shot && (
+      {shot && kind === 'image' && (
         <div className='flex flex-wrap gap-2'>
           <Button
             size='sm'
@@ -261,6 +274,15 @@ export function StudioWorkspaceShot(props: {
             onClick={() => {
               workspace.onUpdate({
                 ...project,
+                production: {
+                  ...production,
+                  approvedKeyImages: {
+                    ...production.approvedKeyImages,
+                    [shot.id]:
+                      project.nodes.find((node) => node.id === shot.imageNodeId)
+                        ?.data.mediaId || '',
+                  },
+                },
                 edges: project.edges.some(
                   (edge) =>
                     edge.source === shot.imageNodeId &&
@@ -497,7 +519,19 @@ export function StudioWorkspaceShot(props: {
                   onClick={() => {
                     setAdvice(key)
                     setDirection(
-                      `${node.data.prompt || ''}\n${t(adviceText[key])}`.trim()
+                      `${(node.data.prompt || '')
+                        .split('\n')
+                        .filter(
+                          (line) =>
+                            !Object.entries(adviceText).some(
+                              ([previous, text]) =>
+                                (previous === key ||
+                                  (['closeup', 'wider'].includes(key) &&
+                                    ['closeup', 'wider'].includes(previous))) &&
+                                [text, t(text)].includes(line.trim())
+                            )
+                        )
+                        .join('\n')}\n${t(adviceText[key])}`.trim()
                     )
                   }}
                 >
@@ -619,6 +653,30 @@ export function StudioWorkspaceShot(props: {
           </CollapsibleContent>
         </Collapsible>
       )}
+      {node?.data.mediaId && <StudioReworkPanel />}
+      {previousDirection?.nodeId === node?.id && (
+        <Button
+          size='sm'
+          variant='ghost'
+          disabled={!writable}
+          onClick={() => {
+            if (!node || !previousDirection) return
+            const intents = { ...production.directionIntents }
+            if (previousDirection.intent) {
+              intents[node.id] = previousDirection.intent
+            } else delete intents[node.id]
+            workspace.onUpdate({
+              ...updateStudioNode(project, node.id, {
+                prompt: previousDirection.prompt,
+              }),
+              production: { ...production, directionIntents: intents },
+            })
+            setPreviousDirection(undefined)
+          }}
+        >
+          {t('Undo direction change')}
+        </Button>
+      )}
       <Collapsible>
         <CollapsibleTrigger render={<Button variant='ghost' size='sm' />}>
           {t('Upload existing footage')}
@@ -667,9 +725,34 @@ export function StudioWorkspaceShot(props: {
         }
         handleConfirm={() => {
           if (node) {
-            workspace.onUpdate(
-              updateStudioNode(project, node.id, { prompt: direction })
-            )
+            setPreviousDirection({
+              nodeId: node.id,
+              prompt: node.data.prompt,
+              intent: production.directionIntents[node.id],
+            })
+            const next = updateStudioNode(project, node.id, {
+              prompt: direction,
+            })
+            const intent = production.directionIntents[node.id] || {
+              keepIdentity: false,
+            }
+            workspace.onUpdate({
+              ...next,
+              production: {
+                ...production,
+                directionIntents: {
+                  ...production.directionIntents,
+                  [node.id]: {
+                    ...intent,
+                    ...(['closeup', 'wider'].includes(advice)
+                      ? { framing: advice as 'closeup' | 'wider' }
+                      : {}),
+                    ...(advice === 'push' ? { motion: 'push' as const } : {}),
+                    ...(advice === 'identity' ? { keepIdentity: true } : {}),
+                  },
+                },
+              },
+            })
           }
           setAdvice('')
         }}

@@ -5,6 +5,207 @@
     "production": {
       "type": "object",
       "properties": {
+        "creativeBrief": {
+          "type": "object",
+          "properties": {
+            "recipeId": {
+              "default": "",
+              "type": "string",
+              "maxLength": 80
+            },
+            "subject": {
+              "default": "",
+              "type": "string",
+              "maxLength": 300
+            },
+            "audience": {
+              "default": "",
+              "type": "string",
+              "maxLength": 300
+            },
+            "benefit": {
+              "default": "",
+              "type": "string",
+              "maxLength": 1000
+            },
+            "callToAction": {
+              "default": "",
+              "type": "string",
+              "maxLength": 500
+            }
+          },
+          "additionalProperties": false
+        },
+        "brandKit": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "default": "",
+              "type": "string",
+              "maxLength": 120
+            },
+            "address": {
+              "default": "",
+              "type": "string",
+              "maxLength": 300
+            },
+            "callToAction": {
+              "default": "",
+              "type": "string",
+              "maxLength": 300
+            },
+            "color": {
+              "default": "#ffffff",
+              "type": "string",
+              "pattern": "^#[0-9a-fA-F]{6}$"
+            },
+            "logoMediaId": {
+              "default": "",
+              "type": "string",
+              "maxLength": 128
+            },
+            "endSeconds": {
+              "default": 2,
+              "type": "number",
+              "minimum": 0.5,
+              "maximum": 15
+            },
+            "font": {
+              "type": "string",
+              "enum": [
+                "sans",
+                "serif"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "audioMix": {
+          "type": "object",
+          "properties": {
+            "voicePriority": {
+              "default": false,
+              "type": "boolean"
+            },
+            "musicGain": {
+              "default": 0.2,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "fadeOut": {
+              "default": 1,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 10
+            },
+            "normalize": {
+              "default": false,
+              "type": "boolean"
+            },
+            "musicMediaIds": {
+              "default": [],
+              "maxItems": 100,
+              "type": "array",
+              "items": {
+                "type": "string",
+                "maxLength": 128
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "approvedKeyImages": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 128
+          }
+        },
+        "generationStage": {
+          "type": "string",
+          "enum": [
+            "draft",
+            "final"
+          ]
+        },
+        "finalResolutions": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "string",
+            "maxLength": 100
+          }
+        },
+        "framing": {
+          "type": "object",
+          "properties": {
+            "focusX": {
+              "default": 0.5,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "focusY": {
+              "default": 0.5,
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            "safeArea": {
+              "default": true,
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "exportSizeMode": {
+          "type": "string",
+          "enum": [
+            "source",
+            "custom"
+          ]
+        },
+        "directionIntents": {
+          "default": {},
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "framing": {
+                "type": "string",
+                "enum": [
+                  "closeup",
+                  "wider"
+                ]
+              },
+              "motion": {
+                "type": "string",
+                "enum": [
+                  "push"
+                ]
+              },
+              "keepIdentity": {
+                "default": false,
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
         "captionDraft": {
           "maxItems": 1000,
           "type": "array",
@@ -692,6 +893,13 @@
                 "minimum": 12,
                 "maximum": 300
               },
+              "font_family": {
+                "type": "string",
+                "enum": [
+                  "sans",
+                  "serif"
+                ]
+              },
               "color": {
                 "type": "string",
                 "pattern": "^#[0-9a-fA-F]{6}$"
@@ -1017,6 +1225,13 @@
                       "type": "integer",
                       "minimum": 12,
                       "maximum": 300
+                    },
+                    "font_family": {
+                      "type": "string",
+                      "enum": [
+                        "sans",
+                        "serif"
+                      ]
                     },
                     "color": {
                       "type": "string",

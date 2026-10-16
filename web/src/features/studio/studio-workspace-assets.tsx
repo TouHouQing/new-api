@@ -49,6 +49,10 @@ export function StudioWorkspaceAssets() {
   const live = useRef(props.project)
   live.current = props.project
   const [removal, setRemoval] = useState('')
+  const [appearances, setAppearances] = useState<Record<
+    string,
+    string[]
+  > | null>(null)
   const update = (
     assetId: string,
     patch: Partial<NonNullable<typeof props.project.assets>[number]>
@@ -95,6 +99,48 @@ export function StudioWorkspaceAssets() {
           ))}
         </CollapsibleContent>
       </Collapsible>
+      <Button
+        size='sm'
+        variant='outline'
+        disabled={
+          !writable ||
+          !props.project.assets?.length ||
+          !props.project.shots?.length
+        }
+        onClick={() => {
+          const proposed: Record<string, string[]> = {}
+          for (const asset of props.project.assets || []) {
+            const names = asset.title
+              .split(/[：:、,，\s]+/)
+              .filter((name) => name.length >= 2)
+            proposed[asset.id] = (props.project.shots || [])
+              .filter((shot) => {
+                const text = props.project.nodes.find(
+                  (node) => node.id === shot.textNodeId
+                )?.data
+                const description = [
+                  text?.outputText,
+                  text?.prompt,
+                  shot.dialogue,
+                ]
+                  .filter(Boolean)
+                  .join(' ')
+                const existing =
+                  props.project.nodes.find(
+                    (node) => node.id === shot.videoNodeId
+                  )?.data.assetIds || []
+                return (
+                  existing.includes(asset.id) ||
+                  names.some((name) => description.includes(name))
+                )
+              })
+              .map((shot) => shot.id)
+          }
+          setAppearances(proposed)
+        }}
+      >
+        {t('Review suggested character and scene appearances')}
+      </Button>
       <StudioAssetLibrary
         compact
         getMedia={props.getMedia}
@@ -108,7 +154,27 @@ export function StudioWorkspaceAssets() {
             ...props.project,
             assets: [
               ...(props.project.assets || []),
-              { id: crypto.randomUUID(), kind, title, prompt },
+              {
+                id: crypto.randomUUID(),
+                kind,
+                title,
+                prompt,
+                ...(kind === 'character'
+                  ? {
+                      profile: {
+                        appearance: prompt.slice(0, 2000),
+                        wardrobe: prompt
+                          .match(/(?:穿着|身穿|穿)([^，。；\n]+)/)?.[1]
+                          ?.slice(0, 2000),
+                        voice: prompt
+                          .match(
+                            /(?:声音|声线|voice)\s*[:：]\s*([^。；\n]+)/i
+                          )?.[1]
+                          ?.slice(0, 2000),
+                      },
+                    }
+                  : {}),
+              },
             ],
           })
         }
@@ -196,6 +262,65 @@ export function StudioWorkspaceAssets() {
           <StudioProductionContinuity />
         </CollapsibleContent>
       </Collapsible>
+      <ConfirmDialog
+        open={appearances !== null}
+        onOpenChange={(open) => {
+          if (!open) setAppearances(null)
+        }}
+        title={t('Confirm who appears in each shot')}
+        desc={
+          <div className='space-y-4'>
+            <p>
+              {t(
+                'Names mentioned in shot descriptions are suggestions. Confirm the scope, especially empty establishing shots. Existing media is preserved; changed references require a new generation confirmation.'
+              )}
+            </p>
+            {(props.project.assets || []).map((asset) => (
+              <div className='space-y-2' key={asset.id}>
+                <p>{asset.title}</p>
+                {props.project.shots?.map((shot) => (
+                  <Field key={shot.id} orientation='horizontal'>
+                    <Checkbox
+                      id={`appearance-${asset.id}-${shot.id}`}
+                      checked={
+                        appearances?.[asset.id]?.includes(shot.id) || false
+                      }
+                      onCheckedChange={(checked) =>
+                        setAppearances({
+                          ...appearances,
+                          [asset.id]: checked
+                            ? [...(appearances?.[asset.id] || []), shot.id]
+                            : (appearances?.[asset.id] || []).filter(
+                                (id) => id !== shot.id
+                              ),
+                        })
+                      }
+                    />
+                    <FieldLabel htmlFor={`appearance-${asset.id}-${shot.id}`}>
+                      {shot.title}
+                    </FieldLabel>
+                  </Field>
+                ))}
+              </div>
+            ))}
+          </div>
+        }
+        handleConfirm={() => {
+          if (!appearances) return
+          let next = props.project
+          for (const shot of next.shots || []) {
+            next = setStudioShotAssets(
+              next,
+              shot.id,
+              (next.assets || [])
+                .filter((asset) => appearances[asset.id]?.includes(shot.id))
+                .map((asset) => asset.id)
+            )
+          }
+          props.onUpdate(next)
+          setAppearances(null)
+        }}
+      />
       <ConfirmDialog
         open={!!removal}
         onOpenChange={(open) => {

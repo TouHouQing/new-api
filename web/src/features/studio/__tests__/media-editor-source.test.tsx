@@ -57,15 +57,19 @@ test('silent footage cannot submit audio extraction and shows an explanation bef
   await userEvent.click(
     screen.getByRole('button', { name: 'Edit this media for free' })
   )
-  await screen.findByText(
-    'This video has no audio track. Choose a video with sound or add separate audio.'
-  )
+  expect(
+    screen.queryByText(
+      'This video has no audio track. Choose a video with sound or add separate audio.'
+    )
+  ).toBeNull()
   await userEvent.click(
     screen.getByRole('combobox', { name: 'Media operation' })
   )
   await waitFor(() =>
     expect(
-      screen.getByRole('option', { name: 'studio.edit.extract_audio' })
+      screen.getByRole('option', {
+        name: /studio\.edit\.extract_audio.*No audio track/,
+      })
     ).toHaveAttribute('aria-disabled', 'true')
   )
   expect(onCreate).not.toHaveBeenCalled()

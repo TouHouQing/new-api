@@ -86,7 +86,7 @@ export function StudioAttempts(props: Props) {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [revision, setRevision] = useState(0)
-  const [scope, setScope] = useState('current')
+  const [scope, setScope] = useState(props.currentProjectId ? 'current' : 'all')
   const [kind, setKind] = useState('all')
   const [jobs, setJobs] = useState<
     (StudioCloudJob & { projectId: string; projectTitle: string })[]
@@ -97,6 +97,30 @@ export function StudioAttempts(props: Props) {
         (project) => scope === 'all' || project.id === props.currentProjectId
       )
       .map((project) => ({ id: project.id, title: project.title }))
+  )
+  const localTasks = (props.localTasks || []).filter(
+    (task) =>
+      (scope === 'all' || task.projectId === props.currentProjectId) &&
+      (kind === 'all' || kind === 'generate')
+  )
+  const taskIds = new Set(
+    (props.projects || [])
+      .filter(
+        (project) => scope === 'all' || project.id === props.currentProjectId
+      )
+      .flatMap((project) =>
+        project.nodes.flatMap((node) => [
+          node.data.taskId,
+          ...(node.data.takes || []).map((take) => take.taskId),
+        ])
+      )
+      .filter(Boolean)
+  )
+  for (const task of localTasks) taskIds.add(task.taskId)
+  const visibleAttempts = attempts.filter(
+    (attempt) =>
+      (scope === 'all' || (attempt.taskId && taskIds.has(attempt.taskId))) &&
+      (kind === 'all' || kind === 'generate')
   )
 
   useEffect(() => {
@@ -208,29 +232,35 @@ export function StudioAttempts(props: Props) {
           <Select
             value={kind}
             onValueChange={(value) => setKind(value || 'all')}
-            items={['all', ...new Set(jobs.map((job) => job.kind))].map(
-              (value) => ({ value, label: t(`studio.taskKind.${value}`) })
-            )}
+            items={[
+              'all',
+              ...new Set(['generate', ...jobs.map((job) => job.kind)]),
+            ].map((value) => ({ value, label: t(`studio.taskKind.${value}`) }))}
           >
             <SelectTrigger aria-label={t('Task type')}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                {['all', ...new Set(jobs.map((job) => job.kind))].map(
-                  (value) => (
-                    <SelectItem key={value} value={value}>
-                      {t(`studio.taskKind.${value}`)}
-                    </SelectItem>
-                  )
-                )}
+                {[
+                  'all',
+                  ...new Set(['generate', ...jobs.map((job) => job.kind)]),
+                ].map((value) => (
+                  <SelectItem key={value} value={value}>
+                    {t(`studio.taskKind.${value}`)}
+                  </SelectItem>
+                ))}
               </SelectGroup>
             </SelectContent>
           </Select>
         </div>
         <section className='max-h-[45vh] space-y-2 overflow-y-auto'>
           {jobs
-            .filter((job) => kind === 'all' || job.kind === kind)
+            .filter(
+              (job) =>
+                (scope === 'all' || job.projectId === props.currentProjectId) &&
+                (kind === 'all' || job.kind === kind)
+            )
             .map((job) => (
               <div
                 key={job.id}
@@ -279,13 +309,13 @@ export function StudioAttempts(props: Props) {
               </div>
             ))}
         </section>
-        {Boolean(props.localTasks?.length) && (
+        {Boolean(localTasks.length) && (
           <section className='flex flex-col gap-2'>
             <h3 className='text-sm font-medium'>
               {t('studio.taskCenter.localTasks')}
             </h3>
             <div className='max-h-48 overflow-y-auto'>
-              {props.localTasks?.map((task) => (
+              {localTasks.map((task) => (
                 <div
                   key={`${task.projectId}:${task.nodeId}:${task.taskId}`}
                   className='flex items-center justify-between gap-2 border-b py-2 text-sm'
@@ -334,64 +364,73 @@ export function StudioAttempts(props: Props) {
         )}
         {!loading &&
           !error &&
-          attempts.length === 0 &&
+          visibleAttempts.length === 0 &&
           jobs.length === 0 &&
-          !props.localTasks?.length && (
+          !localTasks.length && (
             <p className='text-muted-foreground text-sm'>
               {t('studio.attempt.empty')}
             </p>
           )}
-        <div className='max-h-[60vh] space-y-3 overflow-y-auto'>
-          {attempts.map((attempt) => (
-            <div
-              key={attempt.id}
-              className='space-y-2 rounded-lg border p-3 text-sm'
-            >
-              <div className='flex items-start justify-between gap-3'>
-                <strong className='break-all'>
-                  {attempt.model || t('studio.model.empty')}
-                </strong>
-                <span className='text-muted-foreground shrink-0'>
-                  {stageLabel(attempt.stage)}
-                </span>
-              </div>
-              <p className='text-muted-foreground break-all'>
-                {attempt.group || '—'} · {t('studio.attempt.channel')}{' '}
-                {attempt.channelId || '—'} · HTTP {attempt.httpStatus || '—'}
-              </p>
-              {attempt.errorCode && (
-                <div className='text-destructive block break-all'>
-                  {t(
-                    studioWorkflowProblem(
-                      `HTTP ${attempt.httpStatus || ''} ${attempt.errorCode}`
-                    )
+        <details>
+          <summary>{t('Submission diagnostics')}</summary>
+          <p className='text-muted-foreground text-xs'>
+            {t('Unlinked submissions are only shown under all projects.')}
+          </p>
+          <div className='max-h-[60vh] space-y-3 overflow-y-auto'>
+            {visibleAttempts.map((attempt) => (
+              <div
+                key={attempt.id}
+                className='space-y-2 rounded-lg border p-3 text-sm'
+              >
+                <div className='flex items-start justify-between gap-3'>
+                  <strong className='break-all'>
+                    {attempt.model || t('studio.model.empty')}
+                  </strong>
+                  {(!attempt.taskId || !taskIds.has(attempt.taskId)) && (
+                    <span>{t('Unlinked submission')}</span>
                   )}
-                  <details className='mt-1 text-xs'>
-                    <summary>{t('Technical details')}</summary>
-                    <code>{attempt.errorCode}</code>
-                  </details>
+                  <span className='text-muted-foreground shrink-0'>
+                    {stageLabel(attempt.stage)}
+                  </span>
                 </div>
-              )}
-              {attempt.taskId && (
-                <p className='break-all'>
-                  {t('studio.attempt.task')} {attempt.taskId}
+                <p className='text-muted-foreground break-all'>
+                  {attempt.group || '—'} · {t('studio.attempt.channel')}{' '}
+                  {attempt.channelId || '—'} · HTTP {attempt.httpStatus || '—'}
                 </p>
-              )}
-              <div className='flex items-center gap-2'>
-                <code className='text-muted-foreground min-w-0 flex-1 truncate text-xs'>
-                  {attempt.id}
-                </code>
-                <CopyButton
-                  value={attempt.id}
-                  aria-label={t('studio.attempt.copyId')}
-                />
+                {attempt.errorCode && (
+                  <div className='text-destructive block break-all'>
+                    {t(
+                      studioWorkflowProblem(
+                        `HTTP ${attempt.httpStatus || ''} ${attempt.errorCode}`
+                      )
+                    )}
+                    <details className='mt-1 text-xs'>
+                      <summary>{t('Technical details')}</summary>
+                      <code>{attempt.errorCode}</code>
+                    </details>
+                  </div>
+                )}
+                {attempt.taskId && (
+                  <p className='break-all'>
+                    {t('studio.attempt.task')} {attempt.taskId}
+                  </p>
+                )}
+                <div className='flex items-center gap-2'>
+                  <code className='text-muted-foreground min-w-0 flex-1 truncate text-xs'>
+                    {attempt.id}
+                  </code>
+                  <CopyButton
+                    value={attempt.id}
+                    aria-label={t('studio.attempt.copyId')}
+                  />
+                </div>
+                <p className='text-muted-foreground text-xs'>
+                  {attempt.createdAt}
+                </p>
               </div>
-              <p className='text-muted-foreground text-xs'>
-                {attempt.createdAt}
-              </p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </details>
       </div>
     </Dialog>
   )

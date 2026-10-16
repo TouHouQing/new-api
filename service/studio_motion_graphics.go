@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"slices"
+	"strings"
 	"unicode/utf8"
 )
 
@@ -23,6 +24,7 @@ type StudioMotionGraphic struct {
 	X            float64 `json:"x"`
 	Y            float64 `json:"y"`
 	FontSize     int     `json:"font_size"`
+	FontFamily   string  `json:"font_family,omitempty"`
 	Color        string  `json:"color"`
 	Animation    string  `json:"animation"`
 	BPM          int     `json:"bpm"`
@@ -36,6 +38,9 @@ func validateStudioMotionGraphics(items []StudioMotionGraphic) error {
 	}
 	seen := map[string]bool{}
 	for _, item := range items {
+		if item.FontFamily != "" && item.FontFamily != "sans" && item.FontFamily != "serif" {
+			return errors.New("invalid graphic font family")
+		}
 		if !StudioIDPattern.MatchString(item.ID) || seen[item.ID] || len(item.Text) == 0 || utf8.RuneCountInString(item.Text) > 2000 || item.Start < 0 || item.End <= item.Start || item.End > 3600 || item.X < 0 || item.X > 1 || item.Y < 0 || item.Y > 1 || item.FontSize < 12 || item.FontSize > 300 || !studioGraphicColor.MatchString(item.Color) || !slices.Contains([]string{"fade", "slide", "pulse", "bounce", "rotate", "morph"}, item.Animation) || item.BPM < 30 || item.BPM > 240 {
 			return errors.New("invalid motion graphic configuration")
 		}
@@ -71,7 +76,7 @@ func studioMotionGraphicFilters(items []StudioMotionGraphic, offset, duration fl
 			return "", err
 		}
 		time := fmt.Sprintf("(t+%g-%g)", offset, item.Start)
-		x, y := fmt.Sprintf("(w-text_w)*%g", item.X), fmt.Sprintf("(h-text_h)*%g", item.Y)
+		x, y := fmt.Sprintf("w*%g-text_w/2", item.X), fmt.Sprintf("h*%g-text_h/2", item.Y)
 		alpha := fmt.Sprintf("min(1,min(%s/0.4,(%g-t-%g)/0.4))", time, item.End, offset)
 		switch item.Animation {
 		case "slide":
@@ -81,7 +86,27 @@ func studioMotionGraphicFilters(items []StudioMotionGraphic, offset, duration fl
 		case "bounce":
 			y += fmt.Sprintf("-h*0.08*abs(sin(2*PI*%d/60*%s))", item.BPM, time)
 		}
-		filters += fmt.Sprintf(",drawtext=fontfile=font.ttf:textfile=%s:expansion=none:fontsize=%d:fontcolor=%s:x='%s':y='%s':alpha='%s':enable='between(t,%g,%g)'", filename, item.FontSize, item.Color, x, y, alpha, max(0, item.Start-offset), min(duration, item.End-offset))
+		font := "font.ttf"
+		if item.FontFamily == "serif" {
+			for _, source := range []string{os.Getenv("STUDIO_SERIF_FONT_PATH"), "C:\\Windows\\Fonts\\simsun.ttc", "/usr/share/fonts/opentype/noto/NotoSerifCJK-Regular.ttc"} {
+				if data, err := os.ReadFile(source); err == nil && len(data) > 0 {
+					if err := os.WriteFile(filepath.Join(workdir, "serif.ttf"), data, 0600); err != nil {
+						return "", err
+					}
+					font = "serif.ttf"
+					break
+				}
+			}
+		}
+		lines := strings.Split(item.Text, "\n")
+		for lineIndex, line := range lines {
+			lineFile := fmt.Sprintf("graphic-%03d-line-%03d.txt", index, lineIndex)
+			if err := os.WriteFile(filepath.Join(workdir, lineFile), []byte(line), 0600); err != nil {
+				return "", err
+			}
+			lineY := fmt.Sprintf("%s+(%g)", y, (float64(lineIndex)-float64(len(lines)-1)/2)*float64(item.FontSize)*1.2)
+			filters += fmt.Sprintf(",drawtext=fontfile=%s:textfile=%s:expansion=none:fontsize=%d:fontcolor=%s:x='%s':y='%s':alpha='%s':enable='between(t,%g,%g)'", font, lineFile, item.FontSize, item.Color, x, lineY, alpha, max(0, item.Start-offset), min(duration, item.End-offset))
+		}
 	}
 	return filters, nil
 }

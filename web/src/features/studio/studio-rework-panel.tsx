@@ -17,7 +17,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 import { ALL_FORMATS, BlobSource, Input as MediaInput } from 'mediabunny'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -51,7 +51,7 @@ export function StudioReworkPanel() {
   const { t } = useTranslation()
   const { props, writable, setSelectedNodes, setConfirm, mutate } =
     useStudioProductionContext()
-  const [sourceId, setSourceId] = useState('')
+  const [sourceId, setSourceId] = useState(props.selectedNodeId || '')
   const [mode, setMode] = useState<'angle' | 'light' | 'region' | 'range'>(
     'angle'
   )
@@ -71,6 +71,9 @@ export function StudioReworkPanel() {
       node.data.mediaId &&
       node.data.purpose !== 'assembly'
   )
+  useEffect(() => {
+    if (props.selectedNodeId) setSourceId(props.selectedNodeId)
+  }, [props.selectedNodeId])
   const source = sources.find((node) => node.id === sourceId)
   let editFields: (keyof typeof values)[] = []
   if (mode === 'range') editFields = ['start', 'end']
