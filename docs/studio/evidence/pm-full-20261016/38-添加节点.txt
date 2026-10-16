@@ -1,0 +1,67 @@
+- main:
+  - main:
+    - region "创作画布":
+      - application
+- region "Notifications alt+T"
+- dialog "创建节点或查找画布内容":
+  - heading "创建节点或查找画布内容" [level=2]
+  - paragraph: 选择节点、添加工作流，或定位已有内容。
+  - group:
+    - combobox [expanded]
+    - group:
+      - img
+  - listbox "Suggestions":
+    - group "节点目录":
+      - option "文本 生成镜头描述与图片、视频提示词。" [selected]:
+        - text: 文本 生成镜头描述与图片、视频提示词。
+        - img
+      - option "剧本 用文本模型创作大纲、故事或剧本。":
+        - text: 剧本 用文本模型创作大纲、故事或剧本。
+        - img
+      - option "便签 记录创作意图，可作为下游提示词来源。":
+        - text: 便签 记录创作意图，可作为下游提示词来源。
+        - img
+      - option "角色 复用角色外貌、服装和参考图。":
+        - text: 角色 复用角色外貌、服装和参考图。
+        - img
+      - option "场景 复用地点、氛围、时间和光照设定。":
+        - text: 场景 复用地点、氛围、时间和光照设定。
+        - img
+      - option "风格 统一视觉语言与色彩风格。":
+        - text: 风格 统一视觉语言与色彩风格。
+        - img
+      - option "图片 通过提示词、参考图生成或编辑，也支持上传。":
+        - text: 图片 通过提示词、参考图生成或编辑，也支持上传。
+        - img
+      - option "视频 通过提示词、首帧及视频参考生成片段。":
+        - text: 视频 通过提示词、首帧及视频参考生成片段。
+        - img
+      - option "音频 上传音频或合成语音，用于最终配乐和旁白。":
+        - text: 音频 上传音频或合成语音，用于最终配乐和旁白。
+        - img
+      - option "剪辑合成 排列视频片段、混合音轨并在本地导出 MP4。":
+        - text: 剪辑合成 排列视频片段、混合音轨并在本地导出 MP4。
+        - img
+    - group "工作流模板":
+      - option "单镜头工作流":
+        - text: 单镜头工作流
+        - img
+      - option "角色叙事工作流":
+        - text: 角色叙事工作流
+        - img
+      - option "产品广告工作流":
+        - text: 产品广告工作流
+        - img
+    - group "已有节点":
+      - option "shot-1.mp4":
+        - text: shot-1.mp4
+        - img
+      - option "shot-2.mp4":
+        - text: shot-2.mp4
+        - img
+      - option "music.mp3":
+        - text: music.mp3
+        - img
+  - button "关闭":
+    - img
+    - text: 关闭

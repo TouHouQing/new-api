@@ -1,0 +1,337 @@
+### Open tabs
+- 0: [LibTV - 专业视频创作工具](https://www.liblib.tv/)
+- 1: [LibTV - 专业视频创作工具](https://www.liblib.tv/canvas?spaceId=10522799&projectId=7b134c8a84fc4c719a09a79d600df778)
+- 2: (current) [功能体验-不生成-20261005 - 小云雀](https://www.xiaoyunque.com/project?projectId=10107742814220&entrance_from=history_entrance&page_from=home&canvasId=10119397729548&agent_thread_id=e71ec951-393c-418f-95ed-73b2b396f4e5)
+### Page
+- Page URL: https://www.xiaoyunque.com/project?projectId=10107742814220&entrance_from=history_entrance&page_from=home&canvasId=10119397729548&agent_thread_id=e71ec951-393c-418f-95ed-73b2b396f4e5
+- Page Title: 功能体验-不生成-20261005 - 小云雀
+- Console: 4 errors, 0 warnings
+### Snapshot
+```yaml
+- generic [active] [ref=f1e1]:
+  - generic [ref=f1e1435]:
+    - complementary [ref=f1e1436]:
+      - button "回到主页" [ref=f1e1437] [cursor=pointer]
+      - navigation "画布导航菜单" [ref=f1e1439]:
+        - button "资产" [pressed] [ref=f1e1440] [cursor=pointer]
+      - generic [ref=f1e1443]:
+        - button "资产管理" [ref=f1e1445] [cursor=pointer]
+        - button "打开角色库" [ref=f1e1448] [cursor=pointer]
+        - button "生成历史" [ref=f1e1452] [cursor=pointer]
+        - button "Agent 个性化" [ref=f1e1455] [cursor=pointer]
+      - generic [ref=f1e1456]:
+        - button "帮助中心" [ref=f1e1457] [cursor=pointer]
+        - generic [ref=f1e1459]:
+          - button "打开个人导航" [ref=f1e1462] [cursor=pointer]:
+            - img "用户头像" [ref=f1e1465]
+          - generic [ref=f1e1466]:
+            - button "最近更新" [ref=f1e1467] [cursor=pointer]
+            - button "打开消息中心" [ref=f1e1470] [cursor=pointer]
+    - main [ref=f1e1471]:
+      - generic:
+        - generic:
+          - generic "画布顶部操作区":
+            - generic:
+              - generic:
+                - generic:
+                  - generic:
+                    - generic:
+                      - generic:
+                        - generic:
+                          - heading [level=1] [ref=f1e1473]:
+                            - button "功能体验-不生成-20261005" [ref=f1e1474]
+                          - generic [ref=f1e1476]: 包含 AI 生成内容
+                  - radiogroup "资产库" [ref=f1e1480] [cursor=pointer]:
+                    - radio "画布" [checked] [ref=f1e1481]
+                    - radio "列表" [ref=f1e1482]
+            - generic [ref=f1e1487]:
+              - generic [ref=f1e1489]:
+                - button "风格库" [ref=f1e1492] [cursor=pointer]
+                - button "全局比例 默认比例" [ref=f1e1497] [cursor=pointer]: 默认比例
+              - button "积分超市" [ref=f1e1500] [cursor=pointer]
+              - group [ref=f1e1504]:
+                - button "积分余额 60" [ref=f1e1506] [cursor=pointer]:
+                  - generic [ref=f1e1508]: "60"
+                - button "优惠开会员 低至4.5折" [ref=f1e1510] [cursor=pointer]:
+                  - text: 优惠开会员
+                  - generic [ref=f1e1511]: 低至4.5折
+              - button "分享" [ref=f1e1514] [cursor=pointer]
+      - main [ref=f1e1518]:
+        - generic [ref=f1e1519]:
+          - application [ref=f1e1524]:
+            - generic [ref=f1e1526]:
+              - generic:
+                - generic:
+                  - img:
+                    - group "Edge from 10120301920780 to 10120301921292":
+                      - generic [ref=f1e1527] [cursor=pointer]
+                  - img:
+                    - group "Edge from 10120301921036 to 10124355783436"
+                  - img:
+                    - group "Edge from 10120856245516 to 10120699643916":
+                      - generic [ref=f1e1536] [cursor=pointer]
+                - generic:
+                  - group [ref=f1e1541]:
+                    - generic [ref=f1e1542]:
+                      - generic [ref=f1e1544]:
+                        - generic [ref=f1e1547]:
+                          - generic:
+                            - generic "测试角色阿青"
+                          - generic "测试角色阿青" [ref=f1e1548]:
+                            - img "日常服装" [ref=f1e1550]
+                            - generic [ref=f1e1560]: +
+                            - generic [ref=f1e1561]:
+                              - generic [ref=f1e1562]:
+                                - generic "日常服装" [ref=f1e1563]
+                                - generic "出现集数：暂无" [ref=f1e1564]
+                              - generic [aria-hidden] [ref=f1e1565]: ⋯
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1566]
+                        - generic "连接入口" [ref=f1e1567]
+                  - group [ref=f1e1568]:
+                    - generic [ref=f1e1569]:
+                      - generic [ref=f1e1571]:
+                        - generic [ref=f1e1574]:
+                          - generic [ref=f1e1575]:
+                            - generic "空场景节点" [ref=f1e1577]:
+                              - generic [ref=f1e1582]:
+                                - button "上传" [ref=f1e1583] [cursor=pointer]
+                                - button "从小云雀资产库选择" [ref=f1e1584] [cursor=pointer]: 资产库
+                            - generic [ref=f1e1585]:
+                              - generic [ref=f1e1586]:
+                                - generic [ref=f1e1587]:
+                                  - generic "未命名场景" [ref=f1e1588]
+                                  - generic [ref=f1e1589]: 待补充
+                                - generic "出现集数：暂无" [ref=f1e1590]
+                              - button "打开场景描述信息" [ref=f1e1591] [cursor=pointer]: ⋯
+                          - tooltip "节点标题":
+                            - generic "未命名场景" [ref=f1e1592] [cursor=pointer]
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1595]
+                        - generic "连接入口" [ref=f1e1596]
+                  - group [ref=f1e1597]:
+                    - generic [ref=f1e1598]:
+                      - generic [ref=f1e1600]:
+                        - generic [ref=f1e1601]:
+                          - generic [ref=f1e1603]:
+                            - paragraph [ref=f1e1607]
+                            - generic [aria-hidden]: 文本
+                          - tooltip "节点标题":
+                            - generic "文本" [ref=f1e1608] [cursor=pointer]:
+                              - generic [ref=f1e1609]:
+                                - generic [ref=f1e1610]: T
+                                - generic [ref=f1e1612]: 文本
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1613]
+                        - generic "连接入口" [ref=f1e1614]
+                  - group [ref=f1e1615]:
+                    - generic [ref=f1e1616]:
+                      - generic [ref=f1e1618]:
+                        - generic [ref=f1e1621]:
+                          - generic "空图片节点" [ref=f1e1623]:
+                            - generic [ref=f1e1629]:
+                              - button "上传" [ref=f1e1630] [cursor=pointer]
+                              - button "从小云雀资产库选择" [ref=f1e1631] [cursor=pointer]: 资产库
+                          - tooltip "节点标题":
+                            - generic "图片" [ref=f1e1632] [cursor=pointer]
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1640]
+                        - generic "连接入口" [ref=f1e1641]
+                  - group [ref=f1e1642]:
+                    - generic [ref=f1e1643]:
+                      - generic [ref=f1e1645]:
+                        - generic [ref=f1e1648]:
+                          - generic:
+                            - generic "audit-video-6s"
+                          - generic "audit-video-6s" [ref=f1e1649]:
+                            - generic [ref=f1e1650]:
+                              - img "audit-video-6s"
+                              - button "播放预览" [ref=f1e1651] [cursor=pointer]
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1652]
+                        - generic "连接入口" [ref=f1e1653]
+                  - group [ref=f1e1654]:
+                    - generic [ref=f1e1655]:
+                      - generic [ref=f1e1657]:
+                        - generic [ref=f1e1660]:
+                          - generic:
+                            - generic "audit-audio-4s"
+                          - generic "audit-audio-4s" [ref=f1e1661]: 00:00 / 00:04
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1666]
+                        - generic "连接入口" [ref=f1e1667]
+                  - group [ref=f1e1668]:
+                    - generic [ref=f1e1669]:
+                      - generic [ref=f1e1671]:
+                        - generic [ref=f1e1672]:
+                          - generic [ref=f1e1673]:
+                            - separator "调整时间线宽度" [ref=f1e1674]
+                            - group "预览时间线" [ref=f1e1675]:
+                              - generic [ref=f1e1676]:
+                                - generic [ref=f1e1678] [cursor=pointer]:
+                                  - generic [ref=f1e1679]:
+                                    - button "分割片段" [disabled]
+                                    - button "删除片段" [disabled]
+                                    - button "撤销" [disabled]
+                                    - button "重做" [disabled]
+                                    - button "智能识别字幕" [ref=f1e1680]:
+                                      - status [ref=f1e1682]: 智能识别字幕
+                                  - generic [ref=f1e1683]:
+                                    - button "播放" [ref=f1e1684]
+                                    - generic [ref=f1e1685]: 00:00
+                                    - generic [aria-hidden] [ref=f1e1686]: /
+                                    - generic [ref=f1e1687]: 00:06
+                                  - generic [ref=f1e1688]:
+                                    - generic "缩放时间线" [ref=f1e1690]:
+                                      - slider "缩放时间线" [disabled] [ref=f1e1694]
+                                    - button "静音" [disabled]
+                                    - button "导出" [disabled]
+                                    - button "全屏编辑" [ref=f1e1695]
+                                - generic [ref=f1e1696]:
+                                  - generic [ref=f1e1698]:
+                                    - generic [ref=f1e1700]: 0:00
+                                    - generic [ref=f1e1702]: 0:01
+                                    - generic [ref=f1e1704]: 0:02
+                                    - generic [ref=f1e1706]: 0:03
+                                    - generic [ref=f1e1708]: 0:04
+                                    - generic [ref=f1e1710]: 0:05
+                                    - generic [ref=f1e1712]: 0:06
+                                    - generic [ref=f1e1714]: 0:07
+                                    - generic [ref=f1e1716]: 0:08
+                                    - generic [ref=f1e1718]: 0:09
+                                    - generic [ref=f1e1720]: 0:10
+                                    - generic [ref=f1e1722]: 0:11
+                                    - generic [ref=f1e1724]: 0:12
+                                  - generic [ref=f1e1725]:
+                                    - generic [ref=f1e1729]:
+                                      - button "00:06" [ref=f1e1730] [cursor=pointer]
+                                      - button "添加素材" [ref=f1e1734] [cursor=pointer]
+                                    - button "测试字幕：免费手动剪辑验收" [ref=f1e1739] [cursor=pointer]
+                          - tooltip "节点标题":
+                            - generic "多轨编辑器" [ref=f1e1741] [cursor=pointer]
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1747]
+                        - generic "连接入口" [ref=f1e1748]
+                  - group [ref=f1e1749]:
+                    - generic [ref=f1e1750]:
+                      - generic [ref=f1e1752]:
+                        - generic [ref=f1e1755]:
+                          - generic:
+                            - generic "图片"
+                          - generic "图片" [ref=f1e1756]:
+                            - img "图片" [ref=f1e1757]
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1758]
+                        - generic "连接入口" [ref=f1e1759]
+                  - group [ref=f1e1760]:
+                    - generic [ref=f1e1761]:
+                      - generic [ref=f1e1763]:
+                        - generic [ref=f1e1764]:
+                          - generic [ref=f1e1765]:
+                            - img "3D 导演台" [ref=f1e1766]
+                            - button "打开导演台" [ref=f1e1767] [cursor=pointer]
+                          - tooltip "节点标题":
+                            - generic "3D 导演台" [ref=f1e1768] [cursor=pointer]
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1775]
+                        - generic "连接入口" [ref=f1e1776]
+                  - group [ref=f1e1777]:
+                    - generic [ref=f1e1778]:
+                      - generic [ref=f1e1780]:
+                        - generic [ref=f1e1783]:
+                          - group "空音频节点" [ref=f1e1785]:
+                            - button "上传" [ref=f1e1791] [cursor=pointer]
+                          - tooltip "节点标题":
+                            - generic "音频编辑" [ref=f1e1792] [cursor=pointer]
+                        - generic:
+                          - button "标签"
+                      - generic:
+                        - generic "连接入口" [ref=f1e1798]
+                        - generic "连接入口" [ref=f1e1799]
+            - group "画布左侧菜单" [ref=f1e1800]:
+              - button "添加节点" [ref=f1e1801] [cursor=pointer]:
+                - generic [aria-hidden]:
+                  - generic: New
+              - button "工具箱" [ref=f1e1805] [cursor=pointer]
+              - button "打开使用教程" [ref=f1e1806] [cursor=pointer]
+              - button "打开快捷键说明" [ref=f1e1809] [cursor=pointer]
+              - button "指针工具" [ref=f1e1813] [cursor=pointer]
+            - group "Canvas viewport toolbar" [ref=f1e1816]:
+              - generic [ref=f1e1817]:
+                - button "重置" [ref=f1e1818] [cursor=pointer]
+                - button "隐藏边" [ref=f1e1820] [cursor=pointer]
+                - button "整理画布" [ref=f1e1821] [cursor=pointer]
+                - button "展示角色和场景" [ref=f1e1822] [cursor=pointer]
+                - button "画布小地图" [ref=f1e1823] [cursor=pointer]
+              - button "网格吸附" [pressed] [ref=f1e1826] [cursor=pointer]
+              - generic [ref=f1e1828]:
+                - button "触摸板模式" [pressed] [ref=f1e1829] [cursor=pointer]
+                - button "鼠标模式" [ref=f1e1830] [cursor=pointer]
+              - button "缩放选项" [ref=f1e1834] [cursor=pointer]: 18%
+          - complementary [ref=f1e1836]:
+            - button "调整右侧面板宽度" [ref=f1e1837]
+            - generic [ref=f1e1841]:
+              - generic [ref=f1e1842]:
+                - generic [ref=f1e1843]:
+                  - tablist "智能体对话" [ref=f1e1845]:
+                    - tab "新对话" [selected] [ref=f1e1847] [cursor=pointer]
+                  - button "新建会话" [ref=f1e1851] [cursor=pointer]
+                - generic [ref=f1e1852]:
+                  - button "项目记忆" [ref=f1e1853] [cursor=pointer]
+                  - button "对话历史" [ref=f1e1854] [cursor=pointer]
+                  - button "分享当前会话" [disabled]
+                  - button "显示模式" [ref=f1e1857] [cursor=pointer]
+              - tabpanel "新对话" [ref=f1e1862]:
+                - generic [ref=f1e1866]:
+                  - generic [ref=f1e1870]:
+                    - generic [ref=f1e1871]:
+                      - text: Hi, user91728190370351
+                      - generic [aria-hidden] [ref=f1e1872]: Hi, user917
+                    - generic [ref=f1e1873]: 和小云雀一起聊聊创作想法
+                  - generic [ref=f1e1876]:
+                    - text: 小技巧
+                    - generic [ref=f1e1878]:
+                      - paragraph [ref=f1e1882]: 与综合助手对话，支持多种能力...
+                      - generic [ref=f1e1883]:
+                        - generic [ref=f1e1884]:
+                          - button "上传素材" [ref=f1e1886] [cursor=pointer]
+                          - button "技能" [ref=f1e1887] [cursor=pointer]
+                          - button "Choose File" [ref=f1e1888]
+                          - button "模型选择和偏好设置：智能匹配模型、创作偏好" [ref=f1e1889] [cursor=pointer]
+                        - button [disabled] [ref=f1e1891]
+                      - text: AI 生成可能会犯错，内容仅供参考，请核查重要信息。
+  - region "团队操作提示 alt+E"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "分享链接通知 alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+  - region "Notifications alt+T"
+```

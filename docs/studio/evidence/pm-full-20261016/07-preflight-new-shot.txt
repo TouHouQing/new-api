@@ -1,0 +1,14 @@
+- region "Notifications alt+T"
+- alertdialog "确认本次生成":
+  - heading "确认本次生成" [level=2]
+  - paragraph: 审查生成范围
+  - paragraph: 已重用的现有完成输入。估算涵盖视频请求；文本和图片用量同样受限于总硬性预算。
+  - text: "镜头 1 · 文本 · 重用已完成输入 数量: 1 重用已完成输入 镜头 1 · 图片 · flux.2-klein-4b 数量: 1 当前模型目录价格为 0"
+  - paragraph: "总硬预算: $5"
+  - group:
+    - text: 本次费用上限
+    - spinbutton: "5"
+  - checkbox "我已确认范围、时长与费用上限"
+  - text: 我已确认范围、时长与费用上限
+  - button "取消"
+  - button "开始已确认的生成" [disabled]

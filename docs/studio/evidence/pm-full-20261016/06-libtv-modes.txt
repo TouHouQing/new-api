@@ -1,0 +1,158 @@
+### Open tabs
+- 0: [LibTV - 专业视频创作工具](https://www.liblib.tv/)
+- 1: (current) [LibTV - 专业视频创作工具](https://www.liblib.tv/canvas?spaceId=10522799&projectId=7b134c8a84fc4c719a09a79d600df778)
+### Page
+- Page URL: https://www.liblib.tv/canvas?spaceId=10522799&projectId=7b134c8a84fc4c719a09a79d600df778
+- Page Title: LibTV - 专业视频创作工具
+### Snapshot
+```yaml
+- generic [ref=e1]:
+  - generic [ref=e3]:
+    - generic:
+      - navigation:
+        - generic:
+          - generic [ref=e6]:
+            - generic [ref=e7] [cursor=pointer]
+            - textbox "项目名称" [ref=e10]: 功能体验-不生成-20261005
+            - button "画布 1" [ref=e12] [cursor=pointer]
+          - generic [ref=e15]:
+            - button "工作流" [pressed] [ref=e16] [cursor=pointer]
+            - button "故事板" [ref=e17] [cursor=pointer]
+        - generic [ref=e18]:
+          - button "发布与分享" [ref=e19] [cursor=pointer]
+          - generic [ref=e24]:
+            - button "积分超市" [ref=e26] [cursor=pointer]
+            - generic [ref=e27]:
+              - generic [ref=e28] [cursor=pointer]:
+                - text: 开通会员
+                - generic [ref=e29]:
+                  - generic [ref=e32]: 节后特惠 07:42:16
+                  - button "关闭活动倒计时" [ref=e33]
+              - button "100" [ref=e34] [cursor=pointer]
+              - img "avatar" [ref=e40] [cursor=pointer]
+    - generic [ref=e43]:
+      - generic [ref=e44]:
+        - button "添加节点" [ref=e45] [cursor=pointer]
+        - button "移动" [ref=e47] [cursor=pointer]
+        - button "素材库" [ref=e48] [cursor=pointer]
+        - button "角色造型室" [ref=e50] [cursor=pointer]
+        - button "生成历史" [ref=e51] [cursor=pointer]
+        - button "快捷键" [ref=e53] [cursor=pointer]
+        - button "教程" [ref=e54] [cursor=pointer]
+      - application [ref=e55]:
+        - generic [ref=e57]:
+          - generic:
+            - generic:
+              - img:
+                - group "Edge from a-xPgSml2yw4 to v-ByYIWknulo" [ref=e238] [cursor=pointer]
+                - group "Edge from i-cbxKFYXDwy to v-ByYIWknulo" [ref=e240] [cursor=pointer]
+            - generic:
+              - group [ref=e242]:
+                - generic [ref=e245]:
+                  - generic "音频节点 2" [ref=e250]
+                  - generic [ref=e268]:
+                    - generic [ref=e269]: 00:00 / 00:07
+                    - button [ref=e270] [cursor=pointer]
+                    - generic [aria-hidden] [ref=e271]: 00:00 / 00:07
+              - group [ref=e278]:
+                - generic [ref=e281]:
+                  - generic "逐帧拉片" [ref=e286]
+                  - generic [ref=e294]:
+                    - generic [ref=e295]:
+                      - generic [ref=e296]: 逐帧拉片
+                      - generic [ref=e297]: SD 2.5
+                    - generic [ref=e299]:
+                      - generic [ref=e300]:
+                        - generic [ref=e301]: 视频素材
+                        - button "上传视频后开始" [ref=e304] [cursor=pointer]
+                      - generic [ref=e306]:
+                        - generic [ref=e307]: 拆解维度
+                        - generic [ref=e309]:
+                          - button "分镜" [ref=e310] [cursor=pointer]
+                          - button "动态" [ref=e312] [cursor=pointer]
+                          - button "音乐" [ref=e314] [cursor=pointer]
+                    - button "开始拉片" [disabled] [ref=e317]
+              - group [ref=e318]:
+                - generic [ref=e321]:
+                  - generic [ref=e323] [cursor=pointer]:
+                    - generic "图片节点 1" [ref=e326]
+                    - generic "2048 × 1152" [ref=e327]
+                  - img "图片 2" [ref=e339]
+              - group [ref=e346]:
+                - generic [ref=e351] [cursor=pointer]:
+                  - generic "视频节点1" [ref=e354]
+                  - generic "1280 × 720" [ref=e355]
+              - group [ref=e374]:
+                - generic [ref=e377]:
+                  - generic "智能剪辑 1" [ref=e382]
+                  - generic [ref=e383]: 空空如也，请连接视频节点后操作
+        - status [ref=e58]
+        - generic [ref=e61]:
+          - button "资产管理" [ref=e62] [cursor=pointer]
+          - button "整理画布，Alt+Shift+F" [ref=e65] [cursor=pointer]
+          - button "切换小地图" [ref=e68] [cursor=pointer]
+          - button "隐藏节点连线" [ref=e71] [cursor=pointer]
+          - button "网格吸附" [ref=e75] [cursor=pointer]
+          - button "缩放选项" [ref=e77] [cursor=pointer]: 59%
+  - generic:
+    - dialog [ref=e451]:
+      - banner [ref=e162]:
+        - heading "新对话 当前已是新对话 历史对话 新对话无法分享 TV Director 全局设置 LibTV Plugin 停靠到右侧 关闭" [level=2] [ref=e452]:
+          - generic [ref=e164]:
+            - generic "新对话" [ref=e165]
+            - generic [ref=e166]:
+              - button "当前已是新对话" [disabled] [ref=e167]
+              - button "历史对话" [ref=e168] [cursor=pointer]
+              - button "新对话无法分享" [disabled] [ref=e169]
+              - button "TV Director 全局设置" [ref=e171] [cursor=pointer]
+              - button "LibTV Plugin" [ref=e172] [cursor=pointer]
+              - button "停靠到右侧" [ref=e454] [cursor=pointer]
+              - button "关闭" [ref=e455] [cursor=pointer]
+      - generic [ref=e176]:
+        - generic [ref=e183]:
+          - paragraph [ref=e187]: 让 TV Director 辅助你的无限创意
+          - generic [ref=e188]:
+            - button "感知画布开始创作" [ref=e189] [cursor=pointer]
+            - button "从爆款预设开始剧本原创" [ref=e191] [cursor=pointer]
+            - button "上传故事来改编" [ref=e193] [cursor=pointer]
+            - button "批量优化提示词" [ref=e195] [cursor=pointer]
+        - generic [ref=e198]:
+          - generic [ref=e199]:
+            - generic [ref=e200]:
+              - generic [ref=e201]: 开启浏览器通知，及时获取最新消息
+              - button "开启" [ref=e202] [cursor=pointer]
+            - button "关闭浏览器通知提示" [ref=e203] [cursor=pointer]
+          - generic [ref=e205]:
+            - generic [ref=e207]:
+              - button [aria-hidden] [ref=e208]
+              - textbox "开始你的创作，或者 @ 引用工作流/节点/资源" [ref=e212]:
+                - paragraph [ref=e213]: 开始你的创作，或者 @ 引用工作流/节点/资源
+            - generic [ref=e214]:
+              - button "添加附件" [ref=e216] [cursor=pointer]
+              - button "选择创作模式" [expanded] [active] [ref=e217] [cursor=pointer]:
+                - generic "全能创作" [ref=e218]
+              - button "选择模型" [ref=e221] [cursor=pointer]
+              - button "Skill" [ref=e223] [cursor=pointer]
+              - button "手动生成" [ref=e227] [cursor=pointer]
+              - button "Send" [disabled] [ref=e228]
+    - dialog "选择创作模式" [ref=e464]:
+      - generic [ref=e466]:
+        - button "全能创作" [pressed] [ref=e467] [cursor=pointer]
+        - button "剧本创编" [ref=e470] [cursor=pointer]
+        - button "导演执导" [ref=e473] [cursor=pointer]
+  - alert [ref=e229]: 功能体验-不生成-20261005 - 未命名 -
+  - generic [aria-hidden]:
+    - generic:
+      - generic: 正在跟随
+      - generic:
+        - button: 取消ESC
+        - tooltip: 按 ESC 退出
+  - separator "调整浮窗大小" [ref=e456]
+  - separator "调整浮窗大小" [ref=e457]
+  - separator "调整浮窗大小" [ref=e458]
+  - separator "调整浮窗大小" [ref=e459]
+  - separator "调整浮窗大小" [ref=e460]
+  - separator "调整浮窗大小" [ref=e461]
+  - separator "调整浮窗大小" [ref=e462]
+  - separator "调整浮窗大小" [ref=e463]
+```

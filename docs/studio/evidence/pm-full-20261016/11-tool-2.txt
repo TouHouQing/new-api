@@ -1,0 +1,63 @@
+- dialog "配音与素材工具 · 镜头 1":
+  - heading "配音与素材工具 · 镜头 1" [level=2]
+  - tabpanel:
+    - group "选择制作任务":
+      - button "加配音"
+      - button "加音乐"
+      - button "修改图片"
+      - button "视频参考"
+    - button "现成音乐与音效"
+    - button "我的音色库"
+    - button "角色对白与音色绑定"
+    - paragraph: 选择制作功能、目标节点和参考素材，确认预算后再运行；结果会保存为新的候选版本。
+    - group:
+      - text: 制作工具
+      - combobox "制作工具": 克隆声音
+    - status:
+      - button "余额与费用上限"
+      - button "费用与服务说明"
+    - button "语言与高级参数 · 中文" [expanded]
+    - button "平静语气"
+    - button "清晰解说"
+    - button "兴奋语气"
+    - group:
+      - text: 语速
+      - spinbutton "语速": "1"
+    - group:
+      - text: 音高（半音）
+      - spinbutton "音高（半音）": "0"
+    - group:
+      - text: 前后的静音时长
+      - spinbutton "前后的静音时长": "0"
+    - group:
+      - text: 语音表现力
+      - spinbutton "语音表现力": "0.5"
+    - group:
+      - text: 本次输出语言
+      - combobox "本次输出语言": 中文
+    - paragraph: 暂停在此对话片段前后添加静音。请使用独立的对话提示来控制句子之间的停顿。
+    - paragraph: 语音长度由台词和语速决定，时长设置不会拉伸或循环台词；交付前请核对实际长度。
+    - button "高级模型设置"
+    - group:
+      - text: 描述或台词
+      - textbox "描述或台词"
+    - paragraph: 自动创建输出副本，原有素材仍可使用。
+    - button "高级：输出设置"
+    - group "参考素材":
+      - checkbox "展开派生素材与历史版本"
+      - text: 展开派生素材与历史版本 参考素材
+      - textbox "搜索可用参考素材"
+      - paragraph: 只显示适用于此任务且已保存的素材；已选历史版本保持固定。
+      - paragraph: 请先在画布上传或生成参考素材。
+    - checkbox "我已获得使用此参考声音的授权。"
+    - text: 我已获得使用此参考声音的授权。
+    - group:
+      - text: 生成预算（美元）
+      - spinbutton "生成预算（美元）": "5"
+    - checkbox "允许在此预算内生成"
+    - text: 允许在此预算内生成
+    - status: 请选择已完成的音频参考。
+    - button "生成候选版本" [disabled]
+  - button "Close":
+    - img
+    - text: Close

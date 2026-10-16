@@ -1,0 +1,67 @@
+- dialog "配音与素材工具 · 镜头 1":
+  - heading "配音与素材工具 · 镜头 1" [level=2]
+  - tabpanel:
+    - group "选择制作任务":
+      - button "加配音"
+      - button "加音乐"
+      - button "修改图片"
+      - button "视频参考"
+    - paragraph: 选择制作功能、目标节点和参考素材，确认预算后再运行；结果会保存为新的候选版本。
+    - group:
+      - text: 制作工具
+      - combobox "制作工具": 生成分镜网格
+    - status:
+      - button "余额与费用上限"
+      - button "费用与服务说明"
+    - button "语言与高级参数 · 中文" [expanded]
+    - status: 将生成 4 张图片，每格分别调用模型。
+    - group:
+      - text: 第 1 格：动作与景别
+      - textbox "第 1 格：动作与景别":
+        - /placeholder: 远景开场：交代环境
+    - group:
+      - text: 第 2 格：动作与景别
+      - textbox "第 2 格：动作与景别":
+        - /placeholder: 中景：角色开始行动
+    - group:
+      - text: 第 3 格：动作与景别
+      - textbox "第 3 格：动作与景别":
+        - /placeholder: 特写：展示反应或关键细节
+    - group:
+      - text: 第 4 格：动作与景别
+      - textbox "第 4 格：动作与景别":
+        - /placeholder: 远景收尾：展示故事结果
+    - group:
+      - text: 图像宽度
+      - spinbutton "图像宽度": "1024"
+    - group:
+      - text: 图像高度
+      - spinbutton "图像高度": "1024"
+    - group:
+      - text: 网格行数
+      - spinbutton "网格行数": "2"
+    - group:
+      - text: 网格列数
+      - spinbutton "网格列数": "2"
+    - button "高级模型设置"
+    - group:
+      - text: 描述或台词
+      - textbox "描述或台词"
+    - paragraph: 自动创建输出副本，原有素材仍可使用。
+    - button "高级：输出设置"
+    - group "参考素材":
+      - checkbox "展开派生素材与历史版本"
+      - text: 展开派生素材与历史版本 参考素材
+      - textbox "搜索可用参考素材"
+      - paragraph: 只显示适用于此任务且已保存的素材；已选历史版本保持固定。
+      - paragraph: 请先在画布上传或生成参考素材。
+    - group:
+      - text: 生成预算（美元）
+      - spinbutton "生成预算（美元）": "5"
+    - checkbox "允许在此预算内生成"
+    - text: 允许在此预算内生成
+    - status: 请先确认费用上限，再开始生成。
+    - button "生成候选版本" [disabled]
+  - button "Close":
+    - img
+    - text: Close

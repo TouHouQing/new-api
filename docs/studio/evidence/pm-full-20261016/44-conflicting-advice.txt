@@ -1,0 +1,10 @@
+- region "Notifications alt+T"
+- alertdialog "确认本镜头的修改":
+  - heading "确认本镜头的修改" [level=2]
+  - paragraph: "修改前: 采用近景，让主体更近，同时保持面部完整可见。"
+  - group:
+    - text: 修改后
+    - textbox: 采用近景，让主体更近，同时保持面部完整可见。 采用更宽的景别，保留主体并展示更多周围环境。
+  - paragraph: 只修改本镜头描述，已有素材、音轨和剪辑仍保留。制作新版本需要另行确认。
+  - button "取消"
+  - button "继续"

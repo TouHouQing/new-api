@@ -1,0 +1,126 @@
+- link "跳到主内容":
+  - /url: "#content"
+- banner:
+  - button "展开或收起侧栏":
+    - img
+    - text: 展开或收起侧栏
+  - link "返回主页":
+    - /url: /
+    - img "徽标"
+    - text: New API
+  - button "通知"
+  - button "更改语言"
+  - button "打开主题设置"
+  - button "U"
+- list:
+  - listitem:
+    - link "账户与高级设置":
+      - /url: /dashboard/overview
+- text: 视频创作
+- list:
+  - listitem:
+    - link "引导式视频创作":
+      - /url: /studio?workspace=guided
+  - listitem:
+    - link "素材库":
+      - /url: /studio?workspace=assets
+  - listitem:
+    - link "创作模板":
+      - /url: /studio?workspace=templates
+  - listitem:
+    - link "高级画布":
+      - /url: /studio?workspace=canvas
+- button "展开或收起侧栏"
+- main:
+  - main:
+    - heading "创作工作台" [level=1]
+    - button "任务中心"
+    - button "项目操作"
+    - combobox "选择项目": 未命名项目
+    - button "新建项目"
+    - status: 正在保存项目更改…
+    - button "高级工具"
+    - region "引导式视频创作":
+      - heading "未命名项目" [level=2]
+      - paragraph: 制作中心 · 草稿更改自动保存。
+      - button "创作助手"
+      - button "分享项目"
+      - button "项目工具"
+      - tablist:
+        - tab "✓ 想法"
+        - tab "2 镜头" [selected]
+        - tab "3 画面"
+        - tab "4 剪辑与声音"
+        - tab "5 导出"
+      - complementary:
+        - navigation "项目镜头":
+          - heading "项目镜头 · 0" [level=3]
+          - paragraph: 输入想法，或上传自己的素材开始。
+          - button "编辑分镜"
+      - tabpanel "2 镜头":
+        - button "角色与参考"
+        - button "用 AI 完善故事"
+        - button "镜头工作组"
+        - paragraph: 先审核待确认镜头计划，再应用；图片与视频的创作指令可稍后补充。
+        - button "角色、场景和道具"
+        - article:
+          - text: "1"
+          - textbox "镜头标题": 镜头 1
+          - button "上移" [disabled]
+          - button "下移"
+          - button "从草稿中移除"
+          - group:
+            - text: 此镜头发生了什么？
+            - textbox "此镜头发生了什么？": 店门打开，早晨阳光照进来。
+          - group:
+            - text: 时长（秒）
+            - spinbutton "时长（秒）": "4"
+          - group:
+            - text: 对白或旁白
+            - textbox "对白或旁白"
+          - combobox "场景参考": 暂无场景参考
+          - button "高级镜头方向"
+        - article:
+          - text: "2"
+          - textbox "镜头标题": 镜头 2
+          - button "上移"
+          - button "下移"
+          - button "从草稿中移除"
+          - group:
+            - text: 此镜头发生了什么？
+            - textbox "此镜头发生了什么？": 咖啡师把咖啡杯递给顾客。
+          - group:
+            - text: 时长（秒）
+            - spinbutton "时长（秒）": "4"
+          - group:
+            - text: 对白或旁白
+            - textbox "对白或旁白"
+          - combobox "场景参考": 暂无场景参考
+          - button "高级镜头方向"
+        - article:
+          - text: "3"
+          - textbox "镜头标题": 镜头 3
+          - button "上移"
+          - button "下移" [disabled]
+          - button "从草稿中移除"
+          - group:
+            - text: 此镜头发生了什么？
+            - textbox "此镜头发生了什么？": 顾客微笑，画面出现“周末来喝一杯”。整体要求：温暖真实，女咖啡师穿米色毛衣，最后显示店名与位置。
+          - group:
+            - text: 时长（秒）
+            - spinbutton "时长（秒）": "4"
+          - group:
+            - text: 对白或旁白
+            - textbox "对白或旁白"
+          - combobox "场景参考": 暂无场景参考
+          - button "高级镜头方向"
+        - button "添加镜头草稿"
+        - button "应用镜头计划"
+        - status: 总时长：12 秒
+        - paragraph: 受影响的镜头数：3
+      - button "上一步"
+      - text: 整个项目
+      - button "确认镜头，准备画面" [disabled]
+- heading "搜索页面与操作" [level=2]
+- paragraph: 查找页面或操作
+- region "Notifications alt+T"

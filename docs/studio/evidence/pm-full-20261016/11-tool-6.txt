@@ -1,0 +1,37 @@
+- dialog "配音与素材工具 · 镜头 1":
+  - heading "配音与素材工具 · 镜头 1" [level=2]
+  - tabpanel:
+    - group "选择制作任务":
+      - button "加配音"
+      - button "加音乐"
+      - button "修改图片"
+      - button "视频参考"
+    - button "现成音乐与音效"
+    - paragraph: 使用前请试听 AI 声景草稿。需要单独音效时，可选择上方合成预设或上传有使用权的录音。
+    - paragraph: 选择制作功能、目标节点和参考素材，确认预算后再运行；结果会保存为新的候选版本。
+    - group:
+      - text: 制作工具
+      - combobox "制作工具": 音效
+    - status:
+      - button "余额与费用上限"
+      - button "费用与服务说明"
+    - button "语言与高级参数 · 中文" [expanded]
+    - button "高级模型设置"
+    - group:
+      - text: 时长（秒）
+      - spinbutton "时长（秒）": "12"
+    - group:
+      - text: 描述或台词
+      - textbox "描述或台词"
+    - paragraph: 自动创建输出副本，原有素材仍可使用。
+    - button "高级：输出设置"
+    - group:
+      - text: 生成预算（美元）
+      - spinbutton "生成预算（美元）": "5"
+    - checkbox "允许在此预算内生成"
+    - text: 允许在此预算内生成
+    - status: 请先确认费用上限，再开始生成。
+    - button "生成候选版本" [disabled]
+  - button "Close":
+    - img
+    - text: Close

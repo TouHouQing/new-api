@@ -1,0 +1,156 @@
+- link "跳到主内容":
+  - /url: "#content"
+- banner:
+  - button "展开或收起侧栏":
+    - img
+    - text: 展开或收起侧栏
+  - link "返回主页":
+    - /url: /
+    - img "徽标"
+    - text: New API
+  - button "通知"
+  - button "更改语言"
+  - button "打开主题设置"
+  - button "U"
+- list:
+  - listitem:
+    - link "账户与高级设置":
+      - /url: /dashboard/overview
+- text: 视频创作
+- list:
+  - listitem:
+    - link "引导式视频创作":
+      - /url: /studio?workspace=guided
+  - listitem:
+    - link "素材库":
+      - /url: /studio?workspace=assets
+  - listitem:
+    - link "创作模板":
+      - /url: /studio?workspace=templates
+  - listitem:
+    - link "高级画布":
+      - /url: /studio?workspace=canvas
+- button "展开或收起侧栏"
+- main:
+  - main:
+    - heading "创作工作台" [level=1]
+    - button "任务中心"
+    - button "项目操作"
+    - combobox "选择项目": 未命名项目
+    - button "新建项目"
+    - status: 已保存到服务端
+    - button "引导式视频创作"
+    - button "分镜表"
+    - button "画布"
+    - button "素材库"
+    - button "新增分镜"
+    - button "文本节点"
+    - button "图片节点"
+    - button "视频节点"
+    - button "连接外部 Agent"
+    - button "音频"
+    - button "制作中心"
+    - region "创作画布":
+      - application:
+        - group:
+          - text: shot-1.mp4 视频
+          - paragraph: 在设置面板中填写提示词。
+          - text: 已完成 输入 视频
+          - button "高级连接"
+        - group:
+          - text: shot-2.mp4 视频
+          - paragraph: 在设置面板中填写提示词。
+          - text: 已完成 输入 视频
+          - button "高级连接"
+        - group:
+          - text: music.mp3 音频
+          - paragraph: 在设置面板中填写提示词。
+          - text: 已完成 输入 音频
+        - img
+        - link "React Flow attribution":
+          - /url: https://reactflow.dev?utm_source=attribution
+          - text: React Flow
+      - toolbar "画布导航":
+        - button "选择" [pressed]
+        - button "平移"
+        - button "搜索 / 创建"
+        - button "画布筛选" [expanded]
+        - button "将选中节点分组" [disabled]
+        - button "解散选中分组" [disabled]
+        - combobox "按标色筛选":
+          - option "全部标色" [selected]
+        - combobox "最低评级":
+          - option "全部评级" [selected]
+          - option "1 星及以上"
+          - option "2 星及以上"
+          - option "3 星及以上"
+          - option "4 星及以上"
+          - option "5 星及以上"
+        - combobox "画布展示密度":
+          - option "紧凑"
+          - option "标准" [selected]
+          - option "大预览"
+        - button "清除筛选"
+        - status: 显示 3 / 3 个节点
+      - toolbar "画布操作":
+        - button "添加节点"
+        - button "撤销"
+        - button "重做" [disabled]
+        - button "自动布局"
+        - button "适应画布"
+        - button "缩小": −
+        - text: 71%
+        - button "放大": +
+        - button "吸附网格"
+        - button "小地图"
+    - complementary:
+      - text: 生成设置
+      - button "收起检查面板"
+      - paragraph: 选中节点后编辑模型、提示词并查看结果。
+      - button "放大并比较"
+      - button "免费编辑此媒体"
+      - group:
+        - group:
+          - text: 视频分组
+          - combobox "视频分组": 默认分组
+        - group:
+          - text: 节点名称
+          - textbox "节点名称": shot-1.mp4
+        - textbox "节点标色": "#64748b"
+        - combobox "节点评级":
+          - option "未评级" [selected]
+          - option "★"
+          - option "★★"
+          - option "★★★"
+          - option "★★★★"
+          - option "★★★★★"
+        - text: 标色和评级只用于整理素材。
+        - group:
+          - text: 首帧 · 每个插槽一张图像
+          - combobox: 未选择参考
+        - group:
+          - text: 最后一帧 · 每个插槽一张图像
+          - combobox: 未选择参考
+        - paragraph: 此模型未声明支持最后一帧。请保留最后一帧插槽为空或选择兼容模型。
+        - paragraph: 更改参考将保留之前的版本，并要求重新确认生成。
+        - group:
+          - text: 模型
+          - button "选择模型"
+        - group:
+          - text: 上传视频片段
+          - button "上传视频片段"
+        - group:
+          - text: 提示词
+          - textbox "提示词":
+            - /placeholder: 描述你希望生成的画面或内容
+        - button "摄影与光照"
+        - button "开始生成" [disabled]
+        - button "删除节点"
+        - status: 已完成
+        - button "候选版本 · 1" [expanded]
+        - group:
+          - text: 历史版本
+          - combobox "历史版本": 1 · 手动输入（不调用模型） · 已完成
+- heading "搜索页面与操作" [level=2]
+- paragraph: 查找页面或操作
+- region "Notifications alt+T"

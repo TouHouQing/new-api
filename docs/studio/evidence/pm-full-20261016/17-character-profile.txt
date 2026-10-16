@@ -1,0 +1,56 @@
+- region "Notifications alt+T"
+- dialog "角色与参考 · 镜头 1":
+  - heading "角色与参考 · 镜头 1" [level=2]
+  - status: "参考应用范围: 镜头 2"
+  - button "选择多个镜头" [expanded]
+  - group:
+    - checkbox "镜头 1"
+    - text: 镜头 1
+  - group:
+    - checkbox "镜头 2" [checked]:
+      - img
+    - text: 镜头 2
+  - group:
+    - checkbox "镜头 3"
+    - text: 镜头 3
+  - heading "素材库" [level=2]
+  - paragraph: 创建可复用的角色、场景与风格。项目资产与已同步的媒体保存在服务端。
+  - group:
+    - combobox "类型": 角色
+    - textbox "名称"
+    - textbox "描述与视觉特征"
+    - button "新增素材" [disabled]
+  - textbox "查找角色或场景"
+  - group:
+    - paragraph: 角色
+    - paragraph: · 参考版本 0
+    - textbox "晓岚：咖啡师 名称": 晓岚：咖啡师
+    - button "参考描述与详细设定" [expanded]
+    - textbox "晓岚：咖啡师 描述与视觉特征": 年轻女咖啡师，黑色及肩发，米色毛衣，友善自然。只在镜头二出现。
+    - button "一致性设定" [expanded]
+    - paragraph: 所选资产设定会进入生成上下文；锁定版本保留当时的描述。
+    - combobox "角色类型": 真人
+    - group:
+      - text: 外貌与身份特征
+      - textbox "外貌与身份特征"
+    - group:
+      - text: 服装与配饰
+      - textbox "服装与配饰"
+    - group:
+      - text: 声线与说话方式
+      - textbox "声线与说话方式"
+    - group:
+      - text: 必须保持的一致性
+      - textbox "必须保持的一致性"
+    - group:
+      - text: 需要避免的变化
+      - textbox "需要避免的变化"
+    - button "详细角色设定"
+    - button "晓岚：咖啡师 参考图片"
+    - button "晓岚：咖啡师 锁定当前版本": 锁定当前版本
+    - button "晓岚：咖啡师 应用到选定镜头": 应用到选定镜头
+    - button "删除素材"
+  - button "可选：角色与场景连续性"
+  - button "Close":
+    - img
+    - text: Close

@@ -1,0 +1,11 @@
+{
+  "filename": "pm-upload-edit.mp4",
+  "duration_seconds": 6.021029,
+  "width": 640,
+  "height": 360,
+  "video_codec": "h264",
+  "audio_codec": "aac",
+  "size_bytes": 701234,
+  "ffmpeg_full_decode_exit_code": 0,
+  "inference_submitted_this_audit": false
+}

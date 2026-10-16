@@ -1,0 +1,30 @@
+- main:
+  - main:
+    - region "创作画布":
+      - application
+- region "Notifications alt+T"
+- dialog "免费编辑此媒体":
+  - heading "免费编辑此媒体" [level=2]
+  - paragraph: 编辑结果将另存为副本，并保留原素材；此操作不调用模型。
+  - combobox "媒体操作" [expanded]: 修剪
+  - listbox:
+    - group:
+      - option "修剪" [selected]
+      - option "提取帧"
+      - option "裁剪"
+      - option "调整大小"
+      - option "旋转"
+      - option "更改速度"
+      - option "倒放"
+      - option "提取音频" [disabled]
+  - status: 这段视频没有音轨，请选择有声音的视频，或添加单独音频。
+  - group:
+    - text: 开始时间（秒）
+    - spinbutton "开始时间（秒）": "0"
+  - group:
+    - text: 结束时间（秒）
+    - spinbutton "结束时间（秒）": "3"
+  - button "保存编辑副本"
+  - button "关闭":
+    - img
+    - text: 关闭

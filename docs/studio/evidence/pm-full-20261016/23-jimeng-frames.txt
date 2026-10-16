@@ -1,0 +1,501 @@
+### Open tabs
+- 0: [LibTV - 专业视频创作工具](https://www.liblib.tv/)
+- 1: [LibTV - 专业视频创作工具](https://www.liblib.tv/canvas?spaceId=10522799&projectId=7b134c8a84fc4c719a09a79d600df778)
+- 2: [功能体验-不生成-20261005 - 小云雀](https://www.xiaoyunque.com/project?projectId=10107742814220&entrance_from=history_entrance&page_from=home&canvasId=10119397729548&agent_thread_id=e71ec951-393c-418f-95ed-73b2b396f4e5)
+- 3: [www.tapnow.ai](chrome-error://chromewebdata/)
+- 4: [TapNow｜你的智能体创意画布](https://app.tapnow.media/canvas/)
+- 5: (current) [即梦AI - 一站式AI创作平台](https://jimeng.jianying.com/ai-tool/home?type=video)
+### Page
+- Page URL: https://jimeng.jianying.com/ai-tool/home?type=video
+- Page Title: 即梦AI - 一站式AI创作平台
+- Console: 6 errors, 70 warnings
+### Snapshot
+```yaml
+- generic [ref=e2]:
+  - generic [ref=e5]:
+    - generic [ref=e511] [cursor=pointer]:
+      - generic [ref=e512]:
+        - generic [ref=e513]: "10"
+        - generic [ref=e514]: ":"
+        - generic [ref=e515]: "21"
+        - generic [ref=e516]: ":"
+        - generic [ref=e517]: "23"
+        - generic [ref=e518]: ":"
+        - generic [ref=e519]: "04"
+      - generic [ref=e520]: ⚡备战双11！Seedance 2.5低至￥0.19/秒｜年卡4.5折起，再赠2个月会员，最高连续3个月加赠4万+积分
+    - generic [ref=e6]:
+      - complementary [ref=e8]:
+        - generic [ref=e9]:
+          - button "去首页" [ref=e10] [cursor=pointer]
+          - button [expanded] [ref=e13] [cursor=pointer]
+        - generic [ref=e18]:
+          - navigation [ref=e19]:
+            - button "创作" [ref=e20] [cursor=pointer]
+            - button "探索" [ref=e22] [cursor=pointer]
+            - button "资产" [ref=e24] [cursor=pointer]
+            - button "主体" [ref=e26] [cursor=pointer]
+          - generic [ref=e32]:
+            - generic [ref=e33]:
+              - generic [ref=e34]:
+                - button "对话" [expanded] [ref=e35] [cursor=pointer]
+                - generic [ref=e38]:
+                  - button "新建对话"
+                - button [aria-hidden]
+              - button "默认创作 更多" [ref=e527] [cursor=pointer]:
+                - generic [ref=e531]:
+                  - generic [ref=e532]: 默认创作
+                  - button "更多"
+            - generic [ref=e42]:
+              - generic [ref=e43]:
+                - button "画布" [expanded] [ref=e44] [cursor=pointer]
+                - generic [ref=e47]:
+                  - button "全部"
+                  - button "新建画布"
+                - button [aria-hidden]
+              - button "功能体验-不生成-20261005 打开画布 更多" [ref=e537] [cursor=pointer]:
+                - generic [ref=e541]:
+                  - generic [ref=e542]: 功能体验-不生成-20261005
+                  - generic:
+                    - button "打开画布"
+                    - button "更多"
+      - generic [ref=e54]:
+        - button "积分商城" [ref=e55] [cursor=pointer]
+        - generic [ref=e58]:
+          - generic [ref=e62]:
+            - button "消息中心" [ref=e63] [cursor=pointer]
+            - generic [ref=e543]: "12"
+          - generic [ref=e546] [cursor=pointer]:
+            - generic [ref=e547]: "66"
+            - generic [ref=e550]: 开会员
+            - generic [ref=e551]: 会员低至4.5折
+          - generic [ref=e68] [cursor=pointer]
+      - generic [ref=e75]:
+        - generic [ref=e79]:
+          - banner [ref=e80]:
+            - heading "你好，今天想要 创作 什么?" [level=1] [ref=e81]:
+              - text: 你好，今天想要
+              - generic [ref=e82]: 创作
+              - text: 什么?
+            - group "Creation mode" [ref=e83]:
+              - button "生成" [pressed] [ref=e84] [cursor=pointer]
+              - button "画布" [ref=e86] [cursor=pointer]
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - generic:
+                - generic:
+                  - generic:
+                    - button "去查看"
+              - generic [ref=e1206]:
+                - generic [ref=e1207]:
+                  - generic [ref=e1354]:
+                    - generic [ref=e1355]: 首帧
+                    - button [ref=e1364] [cursor=pointer]
+                    - generic [ref=e1367]: 尾帧
+                  - textbox "输入文字，描述你想创作的画面内容、运动方式等。例如：一个3D形象的小男孩，在公园滑滑板。" [ref=e1377]
+                - generic [ref=e1226]:
+                  - generic [ref=e1228]:
+                    - combobox [ref=e1229] [cursor=pointer]:
+                      - generic [ref=e1230]: 视频生成
+                    - combobox [ref=e1240] [cursor=pointer]:
+                      - generic [ref=e1241]: 即梦 Seedance 2.5
+                    - combobox [ref=e1251] [cursor=pointer]:
+                      - generic [ref=e1252]: 首尾帧
+                    - button "自动 480P 1" [ref=e1380] [cursor=pointer]:
+                      - generic [ref=e1262]:
+                        - text: 自动
+                        - generic [ref=e1264]: 480P
+                        - generic [ref=e1269]: "1"
+                    - button "5s" [ref=e1270] [cursor=pointer]
+                  - generic [ref=e1279]:
+                    - generic [ref=e1280] [cursor=pointer]: "60"
+                    - button [disabled] [ref=e1286]
+            - generic "Chat recommendations" [ref=e133]:
+              - generic [ref=e136]:
+                - button "/ 电影级长镜头运镜 New" [ref=e629] [cursor=pointer]:
+                  - generic [ref=e630]: / 电影级长镜头运镜
+                  - generic [ref=e631]: New
+                - button "/ 创作分镜 New" [ref=e635] [cursor=pointer]:
+                  - generic [ref=e636]: / 创作分镜
+                  - generic [ref=e637]: New
+                - button "/ 风格大师 New" [ref=e641] [cursor=pointer]:
+                  - generic [ref=e642]: / 风格大师
+                  - generic [ref=e643]: New
+                - button "/ 叙事短片导演分镜 Hot" [ref=e647] [cursor=pointer]:
+                  - generic [ref=e648]: / 叙事短片导演分镜
+                  - generic [ref=e649]: Hot
+                - button "更多技能" [ref=e652] [cursor=pointer]
+          - region [ref=e142]:
+            - heading "最近上新" [level=2] [ref=e144]
+            - generic [ref=e145]:
+              - group "What’s new resources" [ref=e146]:
+                - generic [ref=e147]:
+                  - button "即梦精选广告片 · MANGO GLASS PRO" [ref=e149] [cursor=pointer]
+                  - button "Open featured content" [ref=e153] [cursor=pointer]
+                  - button "AI短剧创作计划——让灵感在光影里发生" [ref=e157] [cursor=pointer]
+                  - button "即梦片场上线——寻找AI时代最敢想象的好故事" [ref=e161] [cursor=pointer]
+                  - button "Graphis AI创意设计竞赛 · 即梦创作者五折报名费优惠" [ref=e165] [cursor=pointer]
+                  - button "即梦AI 创作者成长计划・造梦新章" [ref=e169] [cursor=pointer]
+                  - button "即梦APP · 创作者招募计划" [ref=e174] [cursor=pointer]
+              - generic:
+                - generic:
+                  - button "下一个"
+          - generic [ref=e180]:
+            - generic [ref=e182]:
+              - group [ref=e187]:
+                - button "精选" [pressed] [ref=e188] [cursor=pointer]
+                - button "广告营销" [ref=e190] [cursor=pointer]
+                - button "影视作品" [ref=e192] [cursor=pointer]
+                - button "平面设计" [ref=e194] [cursor=pointer]
+                - button "电商" [ref=e196] [cursor=pointer]
+                - button "动画动漫" [ref=e198] [cursor=pointer]
+              - textbox "jumpstyle舞蹈" [ref=e658]
+            - generic [ref=e215]:
+              - region [ref=e216]:
+                - heading "广告" [level=2] [ref=e218]
+                - list "广告" [ref=e219]:
+                  - listitem [ref=e220] [cursor=pointer]:
+                    - generic [ref=e221]:
+                      - generic [aria-hidden]:
+                        - generic: 00:48
+                      - button "查看创作过程"
+                    - generic [ref=e226]:
+                      - generic [ref=e227]: Seedance2.0 4K TVC
+                      - generic [ref=e228]: 即梦AI
+                  - listitem [ref=e233] [cursor=pointer]:
+                    - generic [ref=e234]:
+                      - generic [aria-hidden]:
+                        - generic: 00:50
+                      - button "查看创作过程"
+                    - generic [ref=e239]:
+                      - generic [ref=e240]: 《Elle fait naître le soleil》｜她让太阳升起
+                      - generic [ref=e241]: 机关枪怪人
+                  - listitem [ref=e246] [cursor=pointer]:
+                    - generic [ref=e247]:
+                      - generic [aria-hidden]:
+                        - generic: 02:41
+                      - button "查看创作过程"
+                    - generic [ref=e252]:
+                      - generic [ref=e253]: 即梦Seedance2.5模型发布TVC
+                      - generic [ref=e254]: 即梦AI
+                  - listitem [ref=e259] [cursor=pointer]:
+                    - generic [ref=e260]:
+                      - generic [aria-hidden]:
+                        - generic: 01:04
+                      - button "查看创作过程"
+                    - generic [ref=e265]:
+                      - generic [ref=e266]: 《灭火总动员》
+                      - generic [ref=e267]: 小死样子。
+                  - listitem [ref=e272] [cursor=pointer]:
+                    - generic [ref=e273]:
+                      - generic [aria-hidden]:
+                        - generic: 03:24
+                      - button "查看创作过程"
+                    - generic [ref=e278]:
+                      - generic [ref=e279]: 《雪境微光》
+                      - generic [ref=e280]: 菲凡创意AIGC
+                  - listitem [ref=e285] [cursor=pointer]:
+                    - generic [ref=e286]:
+                      - generic [aria-hidden]:
+                        - generic: 00:39
+                      - button "查看创作过程"
+                    - generic [ref=e291]:
+                      - generic [ref=e292]: 《牧羊犬日常》
+                      - generic [ref=e293]: 小易小易
+                  - listitem [ref=e298] [cursor=pointer]:
+                    - generic [ref=e299]:
+                      - generic [aria-hidden]:
+                        - generic: 00:32
+                      - button "查看创作过程"
+                    - generic [ref=e304]:
+                      - generic [ref=e305]: 《TIME, IN MOTION》｜时序流转
+                      - generic [ref=e306]: kirito
+                  - listitem [ref=e659] [cursor=pointer]:
+                    - generic [ref=e660]:
+                      - generic [aria-hidden]:
+                        - generic: 01:53
+                      - button "查看创作过程"
+                    - generic [ref=e665]:
+                      - generic [ref=e666]: 《益达竞速嘉年华》
+                      - generic [ref=e667]: SKYLINE
+                  - listitem [ref=e672] [cursor=pointer]:
+                    - generic [ref=e673]:
+                      - generic [aria-hidden]:
+                        - generic: 01:30
+                      - button "查看创作过程"
+                    - generic [ref=e678]:
+                      - generic [ref=e679]: 《雀巢咖啡之八仙过海》
+                      - generic [ref=e680]: 小弹簧晓丹
+              - region [ref=e311]:
+                - heading "动画" [level=2] [ref=e313]
+                - list "动画" [ref=e314]:
+                  - listitem [ref=e685] [cursor=pointer]:
+                    - generic [ref=e686]:
+                      - generic [aria-hidden]:
+                        - generic: 04:10
+                      - button "查看创作过程"
+                    - generic [ref=e691]:
+                      - generic [ref=e692]: 《完美花园》
+                      - generic [ref=e693]: bling不凝
+                  - listitem [ref=e698] [cursor=pointer]:
+                    - generic [ref=e699]:
+                      - generic [aria-hidden]:
+                        - generic: 05:31
+                      - button "查看创作过程"
+                    - generic [ref=e704]:
+                      - generic [ref=e705]: 《贵司有尾》
+                      - generic [ref=e706]: Tassi
+                  - listitem [ref=e711] [cursor=pointer]:
+                    - generic [ref=e712]:
+                      - generic [aria-hidden]:
+                        - generic: 05:23
+                      - button "查看创作过程"
+                    - generic [ref=e717]:
+                      - generic [ref=e718]: 《Kite》
+                      - generic [ref=e719]: bling不凝
+                  - listitem [ref=e724] [cursor=pointer]:
+                    - generic [ref=e725]:
+                      - generic [aria-hidden]:
+                        - generic: 04:33
+                      - button "查看创作过程"
+                    - generic [ref=e730]:
+                      - generic [ref=e731]: 《捕梦师·老周的虫》
+                      - generic [ref=e732]: 无敌星橙
+                  - listitem [ref=e737] [cursor=pointer]:
+                    - generic [ref=e738]:
+                      - generic [aria-hidden]:
+                        - generic: 11:15
+                      - button "查看创作过程"
+                    - generic [ref=e743]:
+                      - generic [ref=e744]: 《猫罐头》
+                      - generic [ref=e745]: 橘子Niki
+                  - listitem [ref=e750] [cursor=pointer]:
+                    - generic [ref=e751]:
+                      - generic [aria-hidden]:
+                        - generic: 19:37
+                      - button "查看创作过程"
+                    - generic [ref=e756]:
+                      - generic [ref=e757]: 《机魂觉醒》
+                      - generic [ref=e758]: 柔树特效｜AIGC动画｜后期
+                  - listitem [ref=e763] [cursor=pointer]:
+                    - generic [ref=e764]:
+                      - generic [aria-hidden]:
+                        - generic: 04:55
+                      - button "查看创作过程"
+                    - generic [ref=e770]:
+                      - generic [ref=e771]: 《空白肺女士》
+                      - generic [ref=e772]: 不加班艺术中心
+                  - listitem [ref=e777] [cursor=pointer]:
+                    - generic [ref=e778]:
+                      - generic [aria-hidden]:
+                        - generic: 07:45
+                      - button "查看创作过程"
+                    - generic [ref=e784]:
+                      - generic [ref=e785]: 《任务编号：0924》
+                      - generic [ref=e786]: 不加班艺术中心
+                  - listitem [ref=e791] [cursor=pointer]:
+                    - generic [ref=e792]:
+                      - generic [aria-hidden]:
+                        - generic: 08:36
+                      - button "查看创作过程"
+                    - generic [ref=e798]:
+                      - generic [ref=e799]: 《扒皮》
+                      - generic [ref=e800]: 赛博镜头手杰丰
+              - region [ref=e360]:
+                - heading "剧集" [level=2] [ref=e362]
+                - list "剧集" [ref=e363]:
+                  - listitem [ref=e805] [cursor=pointer]:
+                    - generic [ref=e806]:
+                      - generic [aria-hidden]:
+                        - generic: 17:22
+                      - button "查看创作过程"
+                    - generic [ref=e812]:
+                      - generic [ref=e813]: 《反相之地》
+                      - generic [ref=e814]: 潘鱼晏
+                  - listitem [ref=e819] [cursor=pointer]:
+                    - generic [ref=e820]:
+                      - generic [aria-hidden]:
+                        - generic: 02:33
+                      - button "查看创作过程"
+                    - generic [ref=e826]:
+                      - generic [ref=e827]: 《零号档案》
+                      - generic [ref=e828]: 白袋子
+                  - listitem [ref=e833] [cursor=pointer]:
+                    - generic [ref=e834]:
+                      - generic [aria-hidden]:
+                        - generic: 03:29
+                      - button "查看创作过程"
+                    - generic [ref=e840]:
+                      - generic [ref=e841]: 《魔女也疯狂-魔女K的一天》
+                      - generic [ref=e842]: 樱桃砰砰
+                  - listitem [ref=e847] [cursor=pointer]:
+                    - generic [ref=e848]:
+                      - generic [aria-hidden]:
+                        - generic: 01:35
+                      - button "查看创作过程"
+                    - generic [ref=e854]:
+                      - generic [ref=e855]: 《假马脱缎》
+                      - generic [ref=e856]: 李哈哈一家
+                  - listitem [ref=e861] [cursor=pointer]:
+                    - generic [ref=e862]:
+                      - generic [aria-hidden]:
+                        - generic: 03:34
+                      - button "查看创作过程"
+                    - generic [ref=e868]:
+                      - generic [ref=e869]: 《班尼打工日记》
+                      - generic [ref=e870]: 炖捣像素
+                  - listitem [ref=e875] [cursor=pointer]:
+                    - generic [ref=e876]:
+                      - generic [aria-hidden]:
+                        - generic: 01:11
+                    - generic [ref=e882]:
+                      - generic [ref=e883]: 第五期番外《东北留子与涩谷辣妹的爱情故事》
+                      - generic [ref=e884]: 私密马赛账号
+                  - listitem [ref=e889] [cursor=pointer]:
+                    - generic [ref=e890]:
+                      - generic [aria-hidden]:
+                        - generic: 15:55
+                    - generic [ref=e896]:
+                      - generic [ref=e897]: 雾山精神病院
+                      - generic [ref=e898]: 吃药都要可乐送
+                  - listitem [ref=e903] [cursor=pointer]:
+                    - generic [ref=e904]:
+                      - generic [aria-hidden]:
+                        - generic: 04:23
+                    - generic [ref=e910]:
+                      - generic [ref=e911]: 不正经魔女日记 之我的怪物俏房客 05
+                      - generic [ref=e912]: 还有言载
+                  - listitem [ref=e917] [cursor=pointer]:
+                    - generic [ref=e918]:
+                      - generic [aria-hidden]:
+                        - generic: 05:16
+                    - generic [ref=e924]:
+                      - generic [ref=e925]: 《我的兄弟叫张伟》
+                      - generic [ref=e926]: 杰克伟
+              - region [ref=e409]:
+                - heading "音乐 MV" [level=2] [ref=e411]
+                - list "音乐 MV" [ref=e412]:
+                  - listitem [ref=e931] [cursor=pointer]:
+                    - generic [ref=e932]:
+                      - generic [aria-hidden]:
+                        - generic: 03:59
+                      - button "查看创作过程"
+                    - generic [ref=e938]:
+                      - generic [ref=e939]: 《ComeWhatMay》
+                      - generic [ref=e940]: XEIIZO
+                  - listitem [ref=e945] [cursor=pointer]:
+                    - generic [ref=e946]:
+                      - generic [aria-hidden]:
+                        - generic: 01:30
+                      - button "查看创作过程"
+                    - generic [ref=e952]:
+                      - generic [ref=e953]: 《「路西的世界」拼盘菜》
+                      - generic [ref=e954]: 路西
+                  - listitem [ref=e959] [cursor=pointer]:
+                    - generic [ref=e960]:
+                      - generic [aria-hidden]:
+                        - generic: 03:28
+                      - button "查看创作过程"
+                    - generic [ref=e966]:
+                      - generic [ref=e967]: 《keep real》
+                      - generic [ref=e968]: 森海荧光
+                  - listitem [ref=e973] [cursor=pointer]:
+                    - generic [ref=e974]:
+                      - generic [aria-hidden]:
+                        - generic: 03:50
+                      - button "查看创作过程"
+                    - generic [ref=e980]:
+                      - generic [ref=e981]: 《友情出演》
+                      - generic [ref=e982]: 整点动静AIGC
+                  - listitem [ref=e987] [cursor=pointer]:
+                    - generic [ref=e988]:
+                      - generic [aria-hidden]:
+                        - generic: 00:28
+                      - button "查看创作过程"
+                    - generic [ref=e994]:
+                      - generic [ref=e995]: 《STORMⅡ-橄榄球队版》
+                      - generic [ref=e996]: 胡赛尼
+                  - listitem [ref=e1001] [cursor=pointer]:
+                    - generic [ref=e1002]:
+                      - generic [aria-hidden]:
+                        - generic: 01:17
+                      - button "查看创作过程"
+                    - generic [ref=e1008]:
+                      - generic [ref=e1009]: 《Puzzle Mystic-「好运000」》
+                      - generic [ref=e1010]: PuzzleMysti
+                  - listitem [ref=e1015] [cursor=pointer]:
+                    - generic [ref=e1016]:
+                      - generic [aria-hidden]:
+                        - generic: 03:21
+                    - generic [ref=e1022]:
+                      - generic [ref=e1023]: 【MV】仿生小狗会梦见电子天使吗？（爵士说唱《单人狗》）
+                      - generic [ref=e1024]: 兰蓝君
+              - region [ref=e458]:
+                - heading "短片" [level=2] [ref=e460]
+                - list "短片" [ref=e461]:
+                  - listitem [ref=e1029] [cursor=pointer]:
+                    - generic [ref=e1030]:
+                      - generic [aria-hidden]:
+                        - generic: 11:39
+                      - button "查看创作过程"
+                    - generic [ref=e1036]:
+                      - generic [ref=e1037]: 《回潮》
+                      - generic [ref=e1038]: 鹿之乐
+                  - listitem [ref=e1043] [cursor=pointer]:
+                    - generic [ref=e1044]:
+                      - generic [aria-hidden]:
+                        - generic: 05:33
+                      - button "查看创作过程"
+                    - generic [ref=e1050]:
+                      - generic [ref=e1051]: 《搜山 THE GREAT HUNT》
+                      - generic [ref=e1052]: 王炸
+                  - listitem [ref=e1057] [cursor=pointer]:
+                    - generic [ref=e1058]:
+                      - generic [aria-hidden]:
+                        - generic: 02:13
+                      - button "查看创作过程"
+                    - generic [ref=e1064]:
+                      - generic [ref=e1065]: 《故乡》
+                      - generic [ref=e1066]: 喵酒酒
+                  - listitem [ref=e1071] [cursor=pointer]:
+                    - generic [ref=e1072]:
+                      - generic [aria-hidden]:
+                        - generic: 02:58
+                      - button "查看创作过程"
+                    - generic [ref=e1078]:
+                      - generic [ref=e1079]: 《逆行之舟》
+                      - generic [ref=e1080]: 疯Max
+                  - listitem [ref=e1085] [cursor=pointer]:
+                    - generic [ref=e1086]:
+                      - generic [aria-hidden]:
+                        - generic: 04:36
+                      - button "查看创作过程"
+                    - generic [ref=e1092]:
+                      - generic [ref=e1093]: 《当仁不让》
+                      - generic [ref=e1094]: 超级飞侠
+                  - listitem [ref=e1099] [cursor=pointer]:
+                    - generic [ref=e1100]:
+                      - generic [aria-hidden]:
+                        - generic: 07:38
+                      - button "查看创作过程"
+                    - generic [ref=e1106]:
+                      - generic [ref=e1107]: 《美丑》
+                      - generic [ref=e1108]: 双重杀菌配方
+                  - listitem [ref=e1113] [cursor=pointer]:
+                    - generic [ref=e1114]:
+                      - generic [aria-hidden]:
+                        - generic: 02:02
+                      - button "查看创作过程"
+                    - generic [ref=e1120]:
+                      - generic [ref=e1121]: 《同桌儿》
+                      - generic [ref=e1122]: 滞夏汽水
+                  - listitem [ref=e1127] [cursor=pointer]:
+                    - generic [ref=e1128]:
+                      - generic [aria-hidden]:
+                        - generic: 30:00
+                      - button "查看创作过程"
+                    - generic [ref=e1134]:
+                      - generic [ref=e1135]: 《乱世奇瞎》
+                      - generic [ref=e1136]: 胡扯Max
+        - generic [ref=e1142] [cursor=pointer]
+  - status [ref=e508]
+```
