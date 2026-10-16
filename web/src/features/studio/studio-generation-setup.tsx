@@ -95,150 +95,159 @@ export function StudioGenerationSetup() {
     )
   }, [catalog.data, writable, props, group])
   return (
-    <div className='space-y-3 rounded-lg border p-3'>
-      {catalog.isError && <p role='alert'>{catalog.error.message}</p>}
-      <p className='font-medium'>{t('Recommended platform services')}</p>
-      <p className='text-sm'>
-        {t(
-          'Story writing, reference images and shot videos use the available platform services.'
-        )}
-      </p>
-      {!available.video.length && !catalog.isLoading && (
-        <p role='status'>
-          {t(
-            'No video service is available for this account. Upload footage or ask the administrator to configure a service.'
+    <Collapsible>
+      <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
+        {t('Model and generation settings')}
+      </CollapsibleTrigger>
+      <CollapsibleContent>
+        <div className='space-y-3 rounded-lg border p-3'>
+          {catalog.isError && <p role='alert'>{catalog.error.message}</p>}
+          <p className='font-medium'>{t('Recommended platform services')}</p>
+          <p className='text-sm'>
+            {t(
+              'Story writing, reference images and shot videos use the available platform services.'
+            )}
+          </p>
+          {!available.video.length && !catalog.isLoading && (
+            <p role='status'>
+              {t(
+                'No video service is available for this account. Upload footage or ask the administrator to configure a service.'
+              )}
+            </p>
           )}
-        </p>
-      )}
-      <Button
-        variant='outline'
-        disabled={!writable || !defaults.video}
-        onClick={() =>
-          props.onUpdate(
-            applyStudioRecommendedModels(props.project, available, group, true)
-          )
-        }
-      >
-        {t('Prepare a quick preview')}
-      </Button>
-      {defaults.video === 'wan2.2-ti2v-5b' && (
-        <p className='text-muted-foreground text-xs'>
-          {t(
-            'The local video model supports clips of up to 10 seconds and one first frame. Split longer shots before editing them together.'
-          )}
-        </p>
-      )}
-      <p className='text-muted-foreground text-xs'>
-        {t(
-          'Available services are loaded from your account. Applying choices configures unfinished nodes and does not generate media.'
-        )}
-      </p>
-      <Collapsible>
-        <CollapsibleTrigger render={<Button variant='outline' size='sm' />}>
-          {t('Advanced model selection')}
-        </CollapsibleTrigger>
-        <CollapsibleContent className='space-y-3 pt-3'>
-          <Select
-            value={group}
-            onValueChange={(value) => {
-              if (value) {
-                setGroup(value)
-                setChosen((current) => ({ ...current, video: undefined }))
-              }
-            }}
-            items={(groups.data || []).map((item) => ({
-              value: item.id,
-              label: item.description || item.id,
-            }))}
-          >
-            <SelectTrigger aria-label={t('Service group')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {groups.data?.map((item) => (
-                  <SelectItem key={item.id} value={item.id}>
-                    {item.description || item.id}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <div className='grid gap-3 sm:grid-cols-3'>
-            {(['text', 'image', 'video'] as const).map((kind) => (
-              <Field key={kind}>
-                <FieldLabel>{t(`studio.kind.${kind}`)}</FieldLabel>
-                <Select
-                  disabled={!writable}
-                  value={defaults[kind] || null}
-                  onValueChange={(value) =>
-                    setChosen((current) => ({
-                      ...current,
-                      [kind]: value || undefined,
-                    }))
-                  }
-                  items={available[kind].map((value) => ({
-                    value,
-                    label: value,
-                  }))}
-                >
-                  <SelectTrigger aria-label={t(`studio.kind.${kind}`)}>
-                    <SelectValue placeholder={t('Choose an available model')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      {available[kind].map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {value}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </Field>
-            ))}
-          </div>
           <Button
             variant='outline'
-            disabled={!writable}
-            onClick={() => {
-              let next: StudioProject = {
-                ...props.project,
-                defaults: {
-                  ...props.project.defaults,
-                  textModel: defaults.text || undefined,
-                  imageModel: defaults.image || undefined,
-                  videoModel: defaults.video || undefined,
-                  videoGroup: group,
-                },
-              }
-              for (const node of next.nodes) {
-                if (
-                  node.data.model ||
-                  node.data.sourceMode === 'upload' ||
-                  node.data.locked ||
-                  node.data.purpose === 'assembly' ||
-                  node.data.purpose === 'note' ||
-                  node.data.outputText ||
-                  node.data.kind === 'audio'
-                ) {
-                  continue
-                }
-                const model = defaults[node.data.kind]
-                if (model) {
-                  next = updateStudioNode(next, node.id, {
-                    model,
-                    ...(node.data.kind === 'video' ? { group } : {}),
-                  })
-                }
-              }
-              props.onUpdate(next)
-            }}
+            disabled={!writable || !defaults.video}
+            onClick={() =>
+              props.onUpdate(
+                applyStudioRecommendedModels(props.project, available, group)
+              )
+            }
           >
-            {t('Apply models to unconfigured nodes')}
+            {t('Apply recommended model settings')}
           </Button>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
+          {defaults.video === 'wan2.2-ti2v-5b' && (
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'The local video model supports clips of up to 10 seconds and one first frame. Split longer shots before editing them together.'
+              )}
+            </p>
+          )}
+          <p className='text-muted-foreground text-xs'>
+            {t(
+              'Available services are loaded from your account. Applying choices configures unfinished nodes and does not generate media.'
+            )}
+          </p>
+          <Collapsible>
+            <CollapsibleTrigger render={<Button variant='outline' size='sm' />}>
+              {t('Advanced model selection')}
+            </CollapsibleTrigger>
+            <CollapsibleContent className='space-y-3 pt-3'>
+              <Select
+                value={group}
+                onValueChange={(value) => {
+                  if (value) {
+                    setGroup(value)
+                    setChosen((current) => ({ ...current, video: undefined }))
+                  }
+                }}
+                items={(groups.data || []).map((item) => ({
+                  value: item.id,
+                  label: item.description || item.id,
+                }))}
+              >
+                <SelectTrigger aria-label={t('Service group')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {groups.data?.map((item) => (
+                      <SelectItem key={item.id} value={item.id}>
+                        {item.description || item.id}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <div className='grid gap-3 sm:grid-cols-3'>
+                {(['text', 'image', 'video'] as const).map((kind) => (
+                  <Field key={kind}>
+                    <FieldLabel>{t(`studio.kind.${kind}`)}</FieldLabel>
+                    <Select
+                      disabled={!writable}
+                      value={defaults[kind] || null}
+                      onValueChange={(value) =>
+                        setChosen((current) => ({
+                          ...current,
+                          [kind]: value || undefined,
+                        }))
+                      }
+                      items={available[kind].map((value) => ({
+                        value,
+                        label: value,
+                      }))}
+                    >
+                      <SelectTrigger aria-label={t(`studio.kind.${kind}`)}>
+                        <SelectValue
+                          placeholder={t('Choose an available model')}
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {available[kind].map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {value}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                ))}
+              </div>
+              <Button
+                variant='outline'
+                disabled={!writable}
+                onClick={() => {
+                  let next: StudioProject = {
+                    ...props.project,
+                    defaults: {
+                      ...props.project.defaults,
+                      textModel: defaults.text || undefined,
+                      imageModel: defaults.image || undefined,
+                      videoModel: defaults.video || undefined,
+                      videoGroup: group,
+                    },
+                  }
+                  for (const node of next.nodes) {
+                    if (
+                      node.data.model ||
+                      node.data.sourceMode === 'upload' ||
+                      node.data.locked ||
+                      node.data.purpose === 'assembly' ||
+                      node.data.purpose === 'note' ||
+                      node.data.outputText ||
+                      node.data.kind === 'audio'
+                    ) {
+                      continue
+                    }
+                    const model = defaults[node.data.kind]
+                    if (model) {
+                      next = updateStudioNode(next, node.id, {
+                        model,
+                        ...(node.data.kind === 'video' ? { group } : {}),
+                      })
+                    }
+                  }
+                  props.onUpdate(next)
+                }}
+              >
+                {t('Apply models to unconfigured nodes')}
+              </Button>
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      </CollapsibleContent>
+    </Collapsible>
   )
 }

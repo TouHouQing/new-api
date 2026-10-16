@@ -39,6 +39,7 @@ import { studioCreationTemplate } from './studio-creation-templates'
 import { StudioMediaImport } from './studio-media-import'
 import { studioProductionSchema } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
+import { StudioStoryPlanner } from './studio-story-planner'
 import { studioWorkflowProblem } from './studio-workflow-problem'
 
 export function StudioCreationBrief(props: {
@@ -160,6 +161,7 @@ export function StudioCreationBrief(props: {
           )}
         </p>
       </Field>
+      <StudioStoryPlanner disabled={!durationValid} />
       <p className='text-muted-foreground text-sm'>
         {t(`studio.creation.goalHelp.${production.guide?.goal || 'story'}`)}
       </p>
@@ -278,6 +280,7 @@ export function StudioCreationBrief(props: {
           {t('Load a complete creative template')}
         </Button>
         <Button
+          variant='outline'
           disabled={!writable || !production.brief?.trim() || !durationValid}
           onClick={() => requestDraft('manual')}
         >

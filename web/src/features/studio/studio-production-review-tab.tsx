@@ -57,6 +57,7 @@ export function StudioProductionReviewTab(
     writable,
     setSelectedNodes,
     setMediaDraftNodeId,
+    setMediaEntryAction,
     setActiveTab,
     reviewTarget,
   } = useStudioProductionContext()
@@ -324,6 +325,16 @@ export function StudioProductionReviewTab(
                       ) {
                         setMediaDraftNodeId(target.id)
                         setActiveTab('media')
+                      } else if (!options.inline) {
+                        if (action === 'audio') {
+                          setMediaDraftNodeId('')
+                          setMediaEntryAction('voice_speech')
+                          setActiveTab('media')
+                        } else {
+                          setActiveTab(
+                            action === 'edit' ? 'timeline' : 'workflow'
+                          )
+                        }
                       }
                       await props.onRefresh()
                     })

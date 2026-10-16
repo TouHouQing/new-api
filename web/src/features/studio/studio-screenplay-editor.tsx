@@ -48,7 +48,8 @@ export function StudioScreenplayEditor(
   options: { onValidityChange?: (valid: boolean) => void } = {}
 ) {
   const { t } = useTranslation()
-  const { props, writable } = useStudioProductionContext()
+  const { props, writable, setActiveTab, activeTab } =
+    useStudioProductionContext()
   const state = useMemo(() => {
     try {
       return { draft: studioEditableScreenplay(props.project), error: '' }
@@ -100,7 +101,7 @@ export function StudioScreenplayEditor(
           )}
         </p>
         <Button
-          onClick={() =>
+          onClick={() => {
             props.onUpdate({
               ...props.project,
               production: {
@@ -112,7 +113,8 @@ export function StudioScreenplayEditor(
                 },
               },
             })
-          }
+            setActiveTab(activeTab === 'plan' ? 'timeline' : 'edit')
+          }}
         >
           {t('Continue editing imported footage')}
         </Button>

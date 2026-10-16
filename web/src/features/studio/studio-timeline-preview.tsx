@@ -26,6 +26,7 @@ import { formatNumber } from '@/lib/format'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import type { StudioProject } from './local-projects'
+import { studioCaptionTrack } from './studio-caption-track'
 import {
   studioTimelineAudio,
   studioTimelineSchedule,
@@ -35,6 +36,7 @@ export function StudioTimelinePreview(props: {
   project: StudioProject
   getMedia: (id: string) => Promise<Blob | null>
   onPreviewed?: () => void
+  compact?: boolean
 }) {
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
@@ -193,47 +195,15 @@ export function StudioTimelinePreview(props: {
     }
   }, [time, total, playing, schedule, audio])
   const active = schedule.find((item) => time >= item.start && time < item.end)
-  const local = active ? time - active.start : 0
-  const captions: string[] = []
-  if (
-    active &&
-    local >= active.clip.captionOffset &&
-    (!active.clip.captionDuration ||
-      local < active.clip.captionOffset + active.clip.captionDuration)
-  ) {
-    captions.push(active.clip.caption)
+  let caption = ''
+  try {
+    caption = studioCaptionTrack(props.project, durations)
+      .filter((cue) => time >= cue.start && time < cue.end)
+      .map((cue) => cue.text)
+      .join('\n')
+  } catch {
+    /* Caption errors are actionable in the caption editor. */
   }
-  for (const cue of props.project.captionsText
-    ? []
-    : props.project.production?.dialogueCues || []) {
-    if (
-      active &&
-      cue.shotId === active.shot?.id &&
-      local + active.sourceOffset >= cue.offset &&
-      local + active.sourceOffset <
-        cue.offset + (cue.duration || active.duration)
-    ) {
-      captions.push(cue.text)
-    }
-  }
-  for (const cue of (props.project.captionsText || '')
-    .replaceAll('\r\n', '\n')
-    .split(/\n\s*\n/)) {
-    const lines = cue.split('\n')
-    const timing = lines.findIndex((line) => line.includes('-->'))
-    if (timing < 0) continue
-    const values = lines[timing].match(/(\d+):(\d+):(\d+)[,.](\d+)/g)
-    if (!values || values.length !== 2) continue
-    const seconds = values.map((value) => {
-      const parts = value.split(/[:,.]/).map(Number)
-      return parts[0] * 3600 + parts[1] * 60 + parts[2] + parts[3] / 1000
-    })
-    const offset = props.project.captionOffsetSeconds || 0
-    if (time >= seconds[0] + offset && time < seconds[1] + offset) {
-      captions.push(lines.slice(timing + 1).join('\n'))
-    }
-  }
-  const caption = captions.filter(Boolean).join('\n')
   if (!schedule.length) return null
   return (
     <div className='space-y-2'>
@@ -241,6 +211,7 @@ export function StudioTimelinePreview(props: {
         className='relative overflow-hidden rounded-lg bg-black'
         style={{
           aspectRatio: `${props.project.production?.width || 1920} / ${props.project.production?.height || 1080}`,
+          maxHeight: props.compact ? '32dvh' : undefined,
         }}
       >
         {props.project.production?.fit === 'blur' && active && (

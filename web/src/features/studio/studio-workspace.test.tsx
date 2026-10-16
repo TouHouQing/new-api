@@ -482,9 +482,11 @@ describe('Studio account isolation', () => {
       )
     )
   })
-  test('a new empty project opens the seven-step creation guide first', async () => {
+  test('a new empty project opens the five-stage workspace and story input first', async () => {
     render(<Studio />)
-    expect(await screen.findByText('Make your first video')).toBeVisible()
+    expect(
+      await screen.findByRole('textbox', { name: 'Tell your story' })
+    ).toBeVisible()
     expect(
       screen.getByRole('textbox', { name: 'Tell your story' })
     ).toBeVisible()
@@ -2588,7 +2590,7 @@ describe('Studio account isolation', () => {
         user: { id: 13, username: 'two', role: 1, group: 'default' },
       },
     }))
-    await screen.findByText('Make your first video')
+    await screen.findByRole('textbox', { name: 'Tell your story' })
     expect(screen.queryByText('studio.kind.video')).toBeNull()
     expect(
       localStorage.getItem('newapi:studio:projects:v1:user:13')

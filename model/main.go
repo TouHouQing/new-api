@@ -354,6 +354,7 @@ func migrateDB() error {
 		&StudioReviewComment{},
 		&StudioReviewShare{},
 		&StudioWorkflowJob{},
+		&StudioWorkflowCharge{},
 		&StudioWorkflowEvent{},
 		&Redemption{},
 		&Ability{},

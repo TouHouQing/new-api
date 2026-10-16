@@ -39,7 +39,7 @@ func TestStudioProjectDatabaseMatrix(t *testing.T) {
 			sqlDB.SetMaxOpenConns(1)
 			original := DB
 			DB = db
-			models := []any{&StudioWorkflowEvent{}, &StudioReviewShare{}, &StudioWorkflowJob{}, &StudioReviewComment{}, &StudioProjectMediaLink{}, &StudioMedia{}, &StudioProjectMember{}, &StudioProjectVersion{}, &StudioProject{}, &StudioAttempt{}, &StudioProvider{}}
+			models := []any{&Token{}, &StudioWorkflowCharge{}, &StudioWorkflowEvent{}, &StudioReviewShare{}, &StudioWorkflowJob{}, &StudioReviewComment{}, &StudioProjectMediaLink{}, &StudioMedia{}, &StudioProjectMember{}, &StudioProjectVersion{}, &StudioProject{}, &StudioAttempt{}, &StudioProvider{}}
 			t.Cleanup(func() {
 				DB = original
 				for _, item := range models {
@@ -112,6 +112,7 @@ func TestStudioProjectDatabaseMatrix(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, provider)
 			assert.Equal(t, "fixture-ciphertext", provider.EncryptedAPIKey)
+			exerciseStudioWorkflowQuota(t, db)
 			largeDocument := `{"id":"film","title":"Film","nodes":[],"edges":[],"notes":"` + strings.Repeat("x", 100000) + `"}`
 			project, err := SaveStudioProject(91, "film", "Film", 0, largeDocument)
 			require.NoError(t, err)

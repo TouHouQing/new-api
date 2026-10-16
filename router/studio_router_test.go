@@ -2,6 +2,7 @@ package router
 
 import (
 	"bytes"
+	"context"
 	"mime"
 	"mime/multipart"
 	"net/http"
@@ -9,10 +10,12 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/controller"
+	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
@@ -23,6 +26,51 @@ import (
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestStudioWorkflowRelayDoesNotRequireKeyAndRechecksAuthority(t *testing.T) {
+	require.NoError(t, i18n.Init())
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.StudioProject{}, &model.StudioProjectMember{}, &model.StudioWorkflowJob{}, &model.StudioWorkflowCharge{}, &model.Token{}))
+	priorDB, priorRedis, priorRelay := model.DB, common.RedisEnabled, service.StudioWorkflowRelay
+	model.DB, common.RedisEnabled = db, false
+	sqlDB, err := db.DB()
+	require.NoError(t, err)
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		model.DB, common.RedisEnabled, service.StudioWorkflowRelay = priorDB, priorRedis, priorRelay
+		sqlDB.Close()
+	})
+	user := model.User{Id: 481, Username: "workflow-keyless", AffCode: "workflow-keyless", Status: common.UserStatusEnabled, Group: "default", Quota: 10000, Role: common.RoleCommonUser}
+	require.NoError(t, db.Create(&user).Error)
+	project := model.StudioProject{ID: "keyless-film", OwnerID: user.Id, Title: "Film", Document: `{"id":"keyless-film","nodes":[],"edges":[]}`}
+	require.NoError(t, db.Create(&project).Error)
+	job := model.StudioWorkflowJob{ID: "keyless-job", ProjectID: project.ID, UserID: user.Id, RequestID: "keyless-request", Status: "running", Kind: "generate", Budget: 1000, LeaseOwner: "worker", LeaseUntil: time.Now().Add(time.Hour).Unix(), Plan: "{}", Result: "{}"}
+	require.NoError(t, db.Create(&job).Error)
+	configureStudioWorkflowRelay()
+	// A malformed body reaches model validation, rather than failing API-key auth.
+	response, err := service.StudioWorkflowRelay(context.Background(), &job, "text", []byte(`{}`))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusBadRequest, response.Status)
+	var tokens int64
+	require.NoError(t, db.Model(&model.Token{}).Count(&tokens).Error)
+	assert.Zero(t, tokens)
+	for _, status := range []string{"paused", "cancelled"} {
+		require.NoError(t, db.Model(&job).Update("status", status).Error)
+		response, err = service.StudioWorkflowRelay(context.Background(), &job, "text", []byte(`{}`))
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusForbidden, response.Status)
+	}
+	require.NoError(t, db.Model(&job).Updates(map[string]any{"status": "running", "lease_until": time.Now().Add(-time.Hour).Unix()}).Error)
+	response, err = service.StudioWorkflowRelay(context.Background(), &job, "text", []byte(`{}`))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, response.Status)
+	require.NoError(t, db.Model(&job).Update("lease_until", time.Now().Add(time.Hour).Unix()).Error)
+	require.NoError(t, db.Model(&project).Update("owner_id", 482).Error)
+	response, err = service.StudioWorkflowRelay(context.Background(), &job, "text", []byte(`{}`))
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, response.Status)
+}
 
 func TestStudioWorkflowRelayCollectsFlushedBodiesBeforeSettlement(t *testing.T) {
 	engine := gin.New()

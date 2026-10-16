@@ -23,6 +23,7 @@ import (
 	"github.com/QuantumNous/new-api/relaykit/types"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 type studioWorkerContextKey struct{}
@@ -86,12 +87,12 @@ func configureStudioWorkflowRelay() {
 		c.Set("studio_workflow_relay", true)
 		user.WriteContext(c)
 		if !strings.HasSuffix(c.Request.URL.Path, "/content") {
-			var token model.Token
-			if err := model.DB.Where("id = ? AND user_id = ? AND status = ?", job.TokenID, job.UserID, common.TokenStatusEnabled).First(&token).Error; err != nil {
+			var current model.StudioWorkflowJob
+			if err := model.DB.Where("id = ? AND user_id = ? AND status = ? AND lease_owner = ? AND lease_until > ?", job.ID, job.UserID, "running", job.LeaseOwner, time.Now().Unix()).First(&current).Error; err != nil {
 				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
-			if token.ExpiredTime > 0 && token.ExpiredTime <= time.Now().Unix() {
+			if _, _, err := model.StudioProjectAccess(model.DB, job.UserID, current.ProjectID, true); err != nil {
 				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
@@ -103,14 +104,32 @@ func configureStudioWorkflowRelay() {
 				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
-			token.Group = group
 			common.SetContextKey(c, constant.ContextKeyUsingGroup, group)
-			if err := middleware.SetupContextForToken(c, &token); err != nil {
+			identity := &model.Token{UserId: user.Id, Name: "studio-workflow", Group: group, UnlimitedQuota: true}
+			if err := middleware.SetupContextForToken(c, identity); err != nil {
 				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
+			requestID := c.GetHeader("X-Studio-Request-ID")
+			if requestID == "" {
+				requestID = common.NewRequestId()
+			}
+			if err := model.EnsureStudioWorkflowCharge(job.UserID, job.ID, requestID); err != nil {
+				c.AbortWithStatus(http.StatusServiceUnavailable)
+				return
+			}
+			common.SetContextKey(c, common.RequestIdKey, requestID)
+			c.Set("studio_workflow_id", job.ID)
 		}
 		c.Next()
+		if c.Request.Method == http.MethodPost && c.Writer.Status() >= http.StatusBadRequest {
+			// A rejected free request has no BillingSession to finalize its zero reservation.
+			var charge model.StudioWorkflowCharge
+			requestID := common.GetContextKeyString(c, common.RequestIdKey)
+			if model.DB.Where("request_id = ? AND user_id = ? AND quota = 0", requestID, job.UserID).First(&charge).Error == nil {
+				_ = model.UpdateStudioWorkflowCharge(job.UserID, job.ID, requestID, 0, false, true)
+			}
+		}
 	})
 	engine.Use(func(c *gin.Context) {
 		if c.Request.Method == http.MethodPost {
@@ -282,8 +301,27 @@ func configureStudioWorkflowRelay() {
 		if common.Unmarshal([]byte(job.Result), &progress) == nil && progress.RequestID != "" {
 			request.Header.Set("X-Studio-Request-ID", progress.RequestID)
 		}
+		if method == http.MethodPost && request.Header.Get("X-Studio-Request-ID") == "" {
+			request.Header.Set("X-Studio-Request-ID", uuid.NewString())
+		}
 		writer := studioRelayRecorder{header: make(http.Header)}
 		engine.ServeHTTP(&writer, request)
+		if method == http.MethodPost && writer.status >= 200 && writer.status < 300 {
+			var response struct {
+				ID string `json:"id"`
+			}
+			_ = common.Unmarshal(writer.body.Bytes(), &response)
+			var task model.Task
+			pending := response.ID != "" && model.DB.Where("user_id = ? AND task_id = ?", job.UserID, response.ID).First(&task).Error == nil && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure
+			if !pending {
+				var charge model.StudioWorkflowCharge
+				if model.DB.Where("request_id = ? AND user_id = ?", request.Header.Get("X-Studio-Request-ID"), job.UserID).First(&charge).Error == nil {
+					if err := model.UpdateStudioWorkflowCharge(job.UserID, job.ID, charge.RequestID, charge.Quota, false, true); err != nil {
+						return service.StudioRelayResponse{}, err
+					}
+				}
+			}
+		}
 		if err := ctx.Err(); err != nil {
 			return service.StudioRelayResponse{}, err
 		}

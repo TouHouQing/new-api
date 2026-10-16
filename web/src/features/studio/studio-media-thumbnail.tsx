@@ -27,6 +27,7 @@ export function StudioMediaThumbnail(props: {
   kind: string
   title: string
   getMedia: (id: string) => Promise<Blob | null>
+  large?: boolean
   onDuration?: (id: string, seconds: number) => void
 }) {
   const { t, i18n } = useTranslation()
@@ -37,6 +38,7 @@ export function StudioMediaThumbnail(props: {
   useEffect(() => {
     let closed = false,
       created = ''
+    setUrl('')
     access
       .current(props.mediaId)
       .then((blob) => {
@@ -65,7 +67,11 @@ export function StudioMediaThumbnail(props: {
           src={url}
           alt={props.title}
           loading='lazy'
-          className='h-16 w-24 rounded object-cover'
+          className={
+            props.large
+              ? 'max-h-[42dvh] w-full rounded object-contain'
+              : 'h-16 w-24 rounded object-cover'
+          }
         />
       )}
       {url && props.kind === 'video' && (
@@ -75,7 +81,11 @@ export function StudioMediaThumbnail(props: {
           preload='metadata'
           aria-label={props.title}
           onLoadedMetadata={metadata}
-          className='h-16 w-24 rounded bg-black'
+          className={
+            props.large
+              ? 'max-h-[42dvh] w-full rounded bg-black'
+              : 'h-16 w-24 rounded bg-black'
+          }
         />
       )}
       {url && props.kind === 'audio' && (

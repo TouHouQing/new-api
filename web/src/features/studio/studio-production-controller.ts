@@ -1,21 +1,39 @@
 /*
+
 Copyright (C) 2023-2026 QuantumNous
 
+
+
 This program is free software: you can redistribute it and/or modify
+
 it under the terms of the GNU Affero General Public License as
+
 published by the Free Software Foundation, either version 3 of the
+
 License, or (at your option) any later version.
 
+
+
 This program is distributed in the hope that it will be useful,
+
 but WITHOUT ANY WARRANTY; without even the implied warranty of
+
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+
 GNU Affero General Public License for more details.
 
+
+
 You should have received a copy of the GNU Affero General Public License
+
 along with this program. If not, see <https://www.gnu.org/licenses/>.
 
+
+
 For commercial licensing, please contact support@quantumnous.com
+
 */
+
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -33,6 +51,7 @@ import {
   type StudioCloudVersion,
   type StudioCloudComment,
 } from './studio-cloud'
+import { studioCreationProgress } from './studio-creation'
 import { studioNodeInputFingerprint } from './studio-execution'
 import {
   studioProductionSchema,
@@ -44,6 +63,7 @@ import {
 } from './studio-production'
 import { parseStudioSubtitleCues } from './studio-subtitle-cues'
 import { studioWorkflowProblem } from './studio-workflow-problem'
+import { studioGeneratableNodeIds } from './studio-workspace-navigation'
 
 export type StudioProductionPanelProps = {
   initialTab?: 'workflow' | 'media'
@@ -53,6 +73,7 @@ export type StudioProductionPanelProps = {
   userId: number
   selectedNodeId: string | null
   onSelectNode?: (nodeId: string) => void
+  onInspectNode?: (nodeId: string) => void
   onSave: () => Promise<void>
   onRefresh: () => Promise<void>
   onUpdate: (project: StudioProject) => void
@@ -67,18 +88,41 @@ export function useStudioProductionController(
   const path = `/projects/${encodeURIComponent(props.project.id)}`
   const [budget, setBudget] = useState('5')
   const [confirm, setConfirm] = useState(false)
-  const [activeTab, setActiveTab] = useState<string>(
-    props.initialTab || 'workflow'
-  )
+  let initialTab: string = props.initialTab || 'plan'
+  if (!props.initialTab) {
+    if (props.selectedNodeId) {
+      initialTab = 'workflow'
+    } else if (studioCreationProgress(props.project).edit) {
+      initialTab = 'timeline'
+    } else if (props.project.shots?.length) {
+      initialTab = 'workflow'
+    }
+  }
+  const [activeTab, setActiveTab] = useState<string>(initialTab)
   const [mediaDraftNodeId, setMediaDraftNodeId] = useState(
     props.selectedNodeId || ''
   )
+  const [mediaEntryAction, setMediaEntryAction] = useState<
+    'voice_speech' | null
+  >(null)
+  useEffect(() => {
+    if (activeTab !== 'media') setMediaEntryAction(null)
+  }, [activeTab])
   const [selectedNodes, setSelectedNodes] = useState<string[]>(
-    props.selectedNodeId ? [props.selectedNodeId] : []
+    studioGeneratableNodeIds(
+      props.project,
+      props.selectedNodeId ? [props.selectedNodeId] : []
+    )
   )
+  const selectionProject = useRef(props.project)
+  selectionProject.current = props.project
   useEffect(() => {
     if (props.open && props.selectedNodeId) {
-      setSelectedNodes([props.selectedNodeId])
+      setSelectedNodes(
+        studioGeneratableNodeIds(selectionProject.current, [
+          props.selectedNodeId,
+        ])
+      )
       setMediaDraftNodeId(props.selectedNodeId)
     }
   }, [props.open, props.selectedNodeId])
@@ -424,6 +468,8 @@ export function useStudioProductionController(
     setActiveTab,
     mediaDraftNodeId,
     setMediaDraftNodeId,
+    mediaEntryAction,
+    setMediaEntryAction,
     path,
     budget,
     setBudget,

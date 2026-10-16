@@ -37,6 +37,11 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -49,12 +54,16 @@ import { Textarea } from '@/components/ui/textarea'
 
 import type { StudioAsset } from './local-projects'
 import { StudioAssetProfileEditor } from './studio-asset-profile-editor'
+import { StudioMediaThumbnail } from './studio-media-thumbnail'
 
 type Props = {
   assets: StudioAsset[]
   previews: Record<string, string>
   projectId: string
   readOnly?: boolean
+  compact?: boolean
+  applyLabel?: string
+  getMedia?: (id: string) => Promise<Blob | null>
   onAdd: (kind: StudioAsset['kind'], title: string, prompt: string) => void
   onUpdate: (
     assetId: string,
@@ -168,6 +177,21 @@ export function StudioAssetLibrary(props: Props) {
                     className='h-32 w-full rounded object-cover'
                   />
                 )}
+                {!preview && asset.mediaId && props.getMedia && (
+                  <StudioMediaThumbnail
+                    large
+                    mediaId={asset.mediaId}
+                    kind='image'
+                    title={asset.title}
+                    getMedia={props.getMedia}
+                  />
+                )}
+                {props.compact && (
+                  <p className='text-muted-foreground text-xs'>
+                    {asset.profile?.wardrobe} {asset.profile?.voice} ·{' '}
+                    {t('Reference version')} {asset.versions?.length || 0}
+                  </p>
+                )}
                 <Input
                   aria-label={`${asset.title} ${t('studio.asset.name')}`}
                   maxLength={200}
@@ -178,19 +202,30 @@ export function StudioAssetLibrary(props: Props) {
                     }
                   }}
                 />
-                <Textarea
-                  aria-label={`${asset.title} ${t('studio.asset.prompt')}`}
-                  maxLength={10000}
-                  value={asset.prompt}
-                  onChange={(event) =>
-                    props.onUpdate(asset.id, { prompt: event.target.value })
-                  }
-                />
-                <StudioAssetProfileEditor
-                  asset={asset}
-                  disabled={props.readOnly}
-                  onChange={(profile) => props.onUpdate(asset.id, { profile })}
-                />
+                <Collapsible defaultOpen={!props.compact}>
+                  <CollapsibleTrigger
+                    render={<Button size='sm' variant='ghost' />}
+                  >
+                    {t('Reference description and details')}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className='flex flex-col gap-2 pt-2'>
+                    <Textarea
+                      aria-label={`${asset.title} ${t('studio.asset.prompt')}`}
+                      maxLength={10000}
+                      value={asset.prompt}
+                      onChange={(event) =>
+                        props.onUpdate(asset.id, { prompt: event.target.value })
+                      }
+                    />
+                    <StudioAssetProfileEditor
+                      asset={asset}
+                      disabled={props.readOnly}
+                      onChange={(profile) =>
+                        props.onUpdate(asset.id, { profile })
+                      }
+                    />
+                  </CollapsibleContent>
+                </Collapsible>
                 {props.onPlaceOnCanvas && (
                   <Button
                     size='sm'
@@ -258,10 +293,10 @@ export function StudioAssetLibrary(props: Props) {
                 <Button
                   size='xs'
                   variant='outline'
-                  aria-label={`${asset.title} ${t('studio.asset.applyToShots')}`}
+                  aria-label={`${asset.title} ${props.applyLabel || t('studio.asset.applyToShots')}`}
                   onClick={() => props.onApplyToShots?.(asset.id)}
                 >
-                  {t('studio.asset.applyToShots')}
+                  {props.applyLabel || t('studio.asset.applyToShots')}
                 </Button>
                 <Button
                   size='xs'

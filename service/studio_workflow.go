@@ -338,13 +338,6 @@ func QueueScheduledStudioWorkflow(userID int, projectID, requestID, kind string,
 		if count >= 20 {
 			return errors.New("too many unfinished workflows")
 		}
-		if StudioWorkflowNeedsGeneration(kind) {
-			token := model.Token{UserId: userID, Key: strings.ReplaceAll(uuid.NewString()+uuid.NewString(), "-", ""), Status: common.TokenStatusEnabled, Name: "studio-workflow-" + job.ID, CreatedTime: time.Now().Unix(), ExpiredTime: max(time.Now().Unix(), runAfter) + int64((7 * 24 * time.Hour).Seconds()), RemainQuota: int(budget)}
-			if err := tx.Create(&token).Error; err != nil {
-				return err
-			}
-			job.TokenID = token.Id
-		}
 		return tx.Create(&job).Error
 	})
 	if err != nil {
@@ -545,6 +538,7 @@ func runStudioWorkflowsOnce(ctx context.Context, runnerID string, inference *boo
 			}
 		}
 		updates := map[string]any{"status": status, "error": message, "lease_owner": "", "lease_until": 0}
+		ReconcileStudioWorkflowSettlement(ctx, &current)
 		if err == nil {
 			updates["progress"] = 100
 		}
@@ -881,6 +875,15 @@ func waitStudioTask(ctx context.Context, job *model.StudioWorkflowJob, taskID st
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
+		var current model.StudioWorkflowJob
+		if err := model.DB.WithContext(ctx).Select("status").Where("id = ? AND user_id = ?", job.ID, job.UserID).First(&current).Error; err != nil {
+			return err
+		}
+		if current.Status == "paused" || current.Status == "cancelled" {
+			// The task poller keeps the upstream receipt. Release this workflow
+			// worker so a stopped task cannot block the next production job.
+			return context.Canceled
+		}
 		task, exists, err := model.GetByTaskId(job.UserID, taskID)
 		if err != nil {
 			return err
@@ -922,6 +925,20 @@ func publishStudioWorkflowTake(job *model.StudioWorkflowJob, nodeID string, take
 		var frozen StudioWorkflowPlan
 		if err := common.Unmarshal([]byte(job.Plan), &frozen); err != nil {
 			return err
+		}
+		// Reference cards generated earlier in this same workflow are expected
+		// inputs. Replay their committed outputs before checking for human edits.
+		// A different current reference or an edited prompt still fails the check.
+		var committed StudioWorkflowProgress
+		if len(job.Result) > 0 {
+			if err := common.Unmarshal([]byte(job.Result), &committed); err != nil {
+				return err
+			}
+		}
+		for dependencyID, output := range committed.Outputs {
+			if dependencyID != nodeID {
+				applyStudioWorkflowOutput(frozen.Document, dependencyID, output)
+			}
 		}
 		for _, node := range studioObjects(doc, "nodes") {
 			if node["id"] != nodeID {

@@ -157,7 +157,6 @@ import {
   studioProductionSchema,
   studioProjectRenderPlan,
 } from './studio-production'
-import { StudioProductionPanel } from './studio-production-panel'
 import {
   exportStudioProjectBundle,
   importStudioProjectBundle,
@@ -181,6 +180,7 @@ import {
   type StudioVideoTemplate,
 } from './studio-video-templates'
 import { studioWorkflowProblem } from './studio-workflow-problem'
+import { studioWorkspaceEntry } from './studio-workspace-navigation'
 import {
   applyStudioAssetToAllShots,
   addPlannedStudioShots,
@@ -315,10 +315,27 @@ export function Studio(
     ) => void
   } = {}
 ) {
-  const [productionOpen, setProductionOpen] = useState(false)
   const [productionInitialTab, setProductionInitialTab] = useState<
-    'workflow' | 'media'
-  >('workflow')
+    'workflow' | 'media' | undefined
+  >()
+  const productionEntry = useRef<
+    (tab?: 'workflow' | 'media', nodeId?: string) => void
+  >(() => {})
+  const openProduction = useCallback(
+    (tab?: 'workflow' | 'media', nodeId?: string) =>
+      productionEntry.current(tab, nodeId),
+    []
+  )
+  productionEntry.current = (tab?: 'workflow' | 'media', nodeId?: string) => {
+    if (!project) return
+    setProductionInitialTab(tab)
+    const step =
+      tab === 'media'
+        ? 'voice'
+        : studioWorkspaceEntry(project, nodeId || selectedNodeId)
+    options.onNavigate?.('guided', project.id, false, step)
+    setView('guided')
+  }
   const { t } = useTranslation()
   const userId = useAuthStore((state) => state.auth.user?.id ?? 0)
   const userGroup = useAuthStore((state) => state.auth.user?.group ?? '')
@@ -1732,7 +1749,7 @@ export function Studio(
           configs[target.data.kind]?.hasKey
         if (!direct) {
           setSelectedNodeId(target.id)
-          setProductionOpen(true)
+          openProduction('workflow', target.id)
           setMessage(
             t(
               'Review the platform generation budget and selected nodes before starting.'
@@ -2841,6 +2858,7 @@ export function Studio(
       t,
       requestPreflight,
       rememberSuccessfulTemplate,
+      openProduction,
     ]
   )
 
@@ -3283,6 +3301,11 @@ export function Studio(
       }
     },
   })
+
+  const inspectProductionNode = (id: string) => {
+    setSelectedNodeId(id)
+    if (view !== 'guided') setView('canvas')
+  }
 
   const addNode = (kind: StudioCanvasNodeData['kind']) => {
     if (!project) return
@@ -4439,8 +4462,23 @@ export function Studio(
       mediaStore.cloudRecord?.(project.id)?.role || ''
     )
 
+  let workspaceGridClass = 'grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1'
+  if (selectedNode) {
+    workspaceGridClass =
+      'grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]'
+  }
+  if (view === 'guided') {
+    workspaceGridClass = 'grid min-h-0 flex-1 grid-cols-1 overflow-hidden'
+  }
+
   return (
-    <div className='studio-workspace bg-background flex min-h-full max-w-full min-w-0 flex-none flex-col lg:h-full lg:min-h-[640px] lg:flex-1 lg:overflow-hidden'>
+    <div
+      className={
+        view === 'guided'
+          ? 'studio-workspace bg-background flex h-[calc(100dvh-64px)] min-h-0 max-w-full min-w-0 flex-col overflow-hidden lg:h-full lg:flex-1'
+          : 'studio-workspace bg-background flex min-h-full max-w-full min-w-0 flex-none flex-col lg:h-full lg:min-h-[640px] lg:flex-1 lg:overflow-hidden'
+      }
+    >
       <StudioProjectToolbar
         project={project}
         projects={projects}
@@ -4641,7 +4679,7 @@ export function Studio(
                 if (!mediaStore) return
                 void mediaStore
                   .saveProjects(userId, projectsRef.current)
-                  .then(() => setProductionOpen(true))
+                  .then(() => openProduction())
                   .catch((error) => setMessage(errorMessage(error)))
               }}
             >
@@ -4650,17 +4688,11 @@ export function Studio(
           </CollapsibleContent>
         </Collapsible>
       </div>
-      <div
-        className={
-          selectedNode && view !== 'guided'
-            ? 'grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_360px]'
-            : 'grid flex-none grid-cols-1 lg:min-h-0 lg:flex-1'
-        }
-      >
+      <div className={workspaceGridClass}>
         <section
           className={
             view === 'guided'
-              ? 'relative h-[70dvh] overflow-hidden lg:h-auto lg:min-h-[400px]'
+              ? 'relative h-full min-h-0 overflow-hidden'
               : 'relative h-[420px] overflow-hidden lg:h-auto lg:min-h-[400px]'
           }
           aria-label={sectionLabel}
@@ -4668,12 +4700,14 @@ export function Studio(
           {view === 'guided' && (
             <StudioCreationWorkspace
               key={project.id}
+              initialTab={productionInitialTab}
               open
               onOpenChange={() => {}}
               project={project}
               userId={userId}
               selectedNodeId={selectedNodeId}
               onSelectNode={setSelectedNodeId}
+              onInspectNode={inspectProductionNode}
               initialStep={
                 options.step ||
                 (requestedWorkspace === 'templates' ? 'story' : undefined)
@@ -5326,8 +5360,7 @@ export function Studio(
                 }
                 generationBlockReason={generationBlockReason}
                 onOpenMediaTool={() => {
-                  setProductionInitialTab('media')
-                  setProductionOpen(true)
+                  openProduction('media')
                 }}
                 project={project}
                 onUpdateProject={(updated) =>
@@ -5939,42 +5972,6 @@ export function Studio(
         onRefresh={refreshProviderModels}
         onDelete={removeProvider}
       />
-      {productionOpen && (
-        <StudioProductionPanel
-          key={project.id}
-          initialTab={productionInitialTab}
-          open={productionOpen}
-          onOpenChange={setProductionOpen}
-          project={project}
-          userId={userId}
-          selectedNodeId={selectedNodeId}
-          onSelectNode={setSelectedNodeId}
-          onSave={async () => {
-            if (!mediaStore) throw new Error(t('studio.project.saveFailed'))
-            await mediaStore.saveProjects(userId, projectsRef.current)
-          }}
-          onRefresh={async () => {
-            if (!mediaStore) return
-            const restored = await refreshStudioProjects(
-              mediaStore,
-              userId,
-              () => projectsRef.current,
-              () => activeUserId.current === userId
-            )
-            if (!restored) return
-            projectsRef.current = restored
-            setWorkspace((current) => ({ ...current, projects: restored }))
-          }}
-          onUpdate={(updated) =>
-            editProject(project.id, (current) =>
-              mergeStudioCloudDocument(project, updated, current, 'local')
-            )
-          }
-          getMedia={async (id) =>
-            mediaStore ? mediaStore.get(userId, id) : null
-          }
-        />
-      )}
       <StudioAttempts
         open={attemptsOpen}
         onOpenChange={setAttemptsOpen}

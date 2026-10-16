@@ -122,11 +122,31 @@ function mount(
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
   })
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <Host tab={tab} includeInactiveMedia={includeInactiveMedia} />
     </QueryClientProvider>
   )
+  if (tab === 'media') {
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: /Language and advanced tool parameters/,
+      })
+    )
+  }
+  if (tab === 'delivery') {
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Advanced export settings' })
+    )
+  }
+  if (tab === 'previs') {
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: 'Precise camera and position settings',
+      })
+    )
+  }
+  return view
 }
 
 function SelectionHost({
@@ -235,9 +255,7 @@ test('invalid subtitle text blocks delivery before any rendering job is accepted
         screen.getByRole('combobox', { name: 'Fit footage to the frame' })
       ).toBeEnabled()
     )
-    expect(
-      screen.getByRole('button', { name: 'studio.production.export' })
-    ).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Export video' })).toBeDisabled()
     expect(
       vi
         .mocked(api.request)
@@ -458,9 +476,7 @@ test('viewing delivery with a hidden media tab preserves the previous unsubmitte
   const original = JSON.stringify(project.production.mediaDraft)
   mount('delivery', true)
   await waitFor(() =>
-    expect(
-      screen.getByRole('button', { name: 'studio.production.export' })
-    ).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Export video' })).toBeEnabled()
   )
   expect(screen.getByTestId('saved-media-draft')).toHaveTextContent(original)
   expect(
@@ -1064,6 +1080,7 @@ test('voice cloning stays disabled until reference audio and voice permission ar
 test('a sound preset creates a new audio target and uses a free native workflow', async () => {
   const user = userEvent.setup()
   mount('media')
+  await user.click(screen.getByRole('button', { name: 'Ready to use sounds' }))
   await user.click(
     screen.getByRole('button', { name: 'Free synthesized sound presets' })
   )
@@ -1115,9 +1132,7 @@ test('a running render shows progress and prevents another export or preview sub
     name: 'Render progress',
   })
   expect(progress).toHaveAttribute('aria-valuenow', '37')
-  expect(
-    screen.getByRole('button', { name: 'studio.production.export' })
-  ).toBeDisabled()
+  expect(screen.getByRole('button', { name: 'Export video' })).toBeDisabled()
   expect(
     screen.getByRole('button', { name: 'Preview the exact export layout' })
   ).toBeDisabled()

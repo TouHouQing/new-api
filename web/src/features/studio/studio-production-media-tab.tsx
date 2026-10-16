@@ -31,6 +31,8 @@ import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
+  SelectGroup,
+  SelectLabel,
   SelectItem,
   SelectTrigger,
   SelectValue,
@@ -55,6 +57,7 @@ import { useStudioProductionContext } from './studio-production-context'
 import { StudioProductionDialogue } from './studio-production-dialogue'
 import { studioSongDuration } from './studio-song-duration'
 import { StudioSoundPresets } from './studio-sound-presets'
+import { studioTimelineSchedule } from './studio-timeline-playback'
 import { StudioToolArtifacts } from './studio-tool-artifacts'
 import {
   StudioToolParameters,
@@ -67,7 +70,7 @@ import { addStudioNode, updateStudioNode } from './workspace'
 export function StudioProductionMediaTab(
   options: { value?: string; active?: boolean; voice?: boolean } = {}
 ) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const {
     props,
     path,
@@ -80,6 +83,7 @@ export function StudioProductionMediaTab(
     capabilities,
     mediaDraftNodeId,
     activeTab,
+    mediaEntryAction,
   } = useStudioProductionContext()
   const editing =
     props.open && (options.active ?? activeTab === (options.value || 'media'))
@@ -123,6 +127,19 @@ export function StudioProductionMediaTab(
       setHydrated(false)
       return
     }
+    if (mediaEntryAction === 'voice_speech') {
+      setAction('voice_speech')
+      setModel(models.voice_speech)
+      setPrompt('')
+      setNodeId('')
+      setReferences([])
+      setSeconds('10')
+      setVoice('default')
+      setRights(false)
+      setConfirm(false)
+      setHydrated(true)
+      return
+    }
     const selected = props.project.nodes.find(
       (node) => node.id === mediaDraftNodeId
     )
@@ -152,8 +169,11 @@ export function StudioProductionMediaTab(
     durationEdited.current = !!draft
     setNodeId(draft?.node_id || selected?.id || '')
     setVoice(draft?.voice_id || 'default')
-    setLanguage(draft?.language || 'zh')
-    languageEdited.current = !!draft?.language
+    setLanguage(
+      draft?.language ||
+        (/[\u4e00-\u9fff]/.test(draft?.prompt || '') ? 'zh' : 'en')
+    )
+    languageEdited.current = false
     setToolOptions((current) => ({ ...current, ...draft?.options }))
     setReferences(draft?.reference_media_ids || [])
     setRights(false)
@@ -162,7 +182,7 @@ export function StudioProductionMediaTab(
     // Reload only when the user changes the source node. Completed tasks must
     // not overwrite edits made while a generation is running.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mediaDraftNodeId, editing, props.project.id])
+  }, [mediaDraftNodeId, mediaEntryAction, editing, props.project.id])
   const duration = action.startsWith('image_') ? 1 : Number(seconds)
   const draft = studioMediaDraftSchema.safeParse({
     action,
@@ -509,12 +529,104 @@ export function StudioProductionMediaTab(
       setSeconds(String(Math.floor(Math.min(30, depthDuration) * 1000) / 1000))
     }
   }, [action, depthDuration])
+  const chooseAction = (next: MediaAction) => {
+    setAction(next)
+    setModel(models[next])
+    languageEdited.current = false
+    durationEdited.current = false
+    setLanguage(
+      (
+        prompt.trim()
+          ? /[\u4e00-\u9fff]/.test(prompt)
+          : /^(zh|zhCN|zhTW)/.test(i18n.resolvedLanguage || i18n.language)
+      )
+        ? 'zh'
+        : 'en'
+    )
+    const source = props.project.nodes.find(
+      (node) => node.id === props.selectedNodeId
+    )
+    const acceptsImage = next.startsWith('image_')
+    const acceptsVideo = next === 'video_depth' || next === 'lip_sync'
+    setReferences(
+      source?.data.mediaId &&
+        ((acceptsImage && source.data.kind === 'image') ||
+          (acceptsVideo && source.data.kind === 'video'))
+        ? [source.data.mediaId]
+        : []
+    )
+    setConfirm(false)
+    if (acceptsImage) setSeconds('1')
+    if (next === 'music') {
+      try {
+        setSeconds(
+          String(
+            Math.max(
+              1,
+              Math.min(
+                30,
+                Math.ceil(
+                  studioTimelineSchedule(props.project).at(-1)?.end || 10
+                )
+              )
+            )
+          )
+        )
+      } catch {
+        setSeconds('10')
+      }
+    }
+    if (next === 'video_depth') {
+      setToolOptions((value) => ({ ...value, width: 640, height: 384 }))
+      setSeconds('3')
+    }
+    setNodeId('')
+  }
   return (
     <TabsContent value={options.value || 'media'} className='space-y-4'>
-      {kind === 'audio' && <StudioSoundPresets />}
+      <div
+        className='flex flex-wrap gap-2'
+        role='group'
+        aria-label={t('Choose a creative task')}
+      >
+        {[
+          { title: 'Add voice', action: 'voice_speech' },
+          { title: 'Add music', action: 'music' },
+          { title: 'Edit an image', action: 'image_upscale' },
+          { title: 'Video references', action: 'video_depth' },
+        ].map((item) => (
+          <Button
+            key={item.action}
+            size='sm'
+            variant={action === item.action ? 'secondary' : 'outline'}
+            onClick={() => chooseAction(item.action as MediaAction)}
+          >
+            {t(item.title)}
+          </Button>
+        ))}
+      </div>
+      {kind === 'audio' && (
+        <Collapsible>
+          <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
+            {t('Ready to use sounds')}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <StudioSoundPresets />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
       {['voice_speech', 'voice_clone', 'audio_translate', 'lip_sync'].includes(
         action
-      ) && <StudioVoiceLibrary />}
+      ) && (
+        <Collapsible>
+          <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
+            {t('My voice library')}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <StudioVoiceLibrary />
+          </CollapsibleContent>
+        </Collapsible>
+      )}
       {action === 'sound_effects' && (
         <p className='text-muted-foreground text-xs'>
           {t(
@@ -613,16 +725,23 @@ export function StudioProductionMediaTab(
       {['voice_speech', 'voice_clone', 'audio_translate', 'lip_sync'].includes(
         action
       ) && (
-        <StudioProductionDialogue
-          voice={
-            ['voice_speech', 'audio_translate'].includes(action)
-              ? voice
-              : undefined
-          }
-          onVoice={setVoice}
-          model={action === 'voice_speech' ? model : undefined}
-          onModel={action === 'voice_speech' ? setModel : undefined}
-        />
+        <Collapsible>
+          <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
+            {t('Character dialogue and voice binding')}
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <StudioProductionDialogue
+              voice={
+                ['voice_speech', 'audio_translate'].includes(action)
+                  ? voice
+                  : undefined
+              }
+              onVoice={setVoice}
+              model={action === 'voice_speech' ? model : undefined}
+              onModel={action === 'voice_speech' ? setModel : undefined}
+            />
+          </CollapsibleContent>
+        </Collapsible>
       )}
       <StudioProductionChanges />
       <p className='text-muted-foreground text-sm'>
@@ -633,26 +752,7 @@ export function StudioProductionMediaTab(
         <Select
           value={action}
           onValueChange={(value) => {
-            if (value && value in models) {
-              const next = value as MediaAction
-              setAction(next)
-              setModel(models[next])
-              languageEdited.current = false
-              durationEdited.current = false
-              setLanguage(/[\u4e00-\u9fff]/.test(prompt) ? 'zh' : 'en')
-              setReferences([])
-              setConfirm(false)
-              if (next.startsWith('image_')) setSeconds('1')
-              if (next === 'video_depth') {
-                setToolOptions((value) => ({
-                  ...value,
-                  width: 640,
-                  height: 384,
-                }))
-                setSeconds('3')
-              }
-              setNodeId('')
-            }
+            if (value && value in models) chooseAction(value as MediaAction)
           }}
         >
           <SelectTrigger aria-label={t('studio.production.mediaAction')}>
@@ -661,31 +761,71 @@ export function StudioProductionMediaTab(
             </SelectValue>
           </SelectTrigger>
           <SelectContent>
-            {(Object.keys(models) as MediaAction[]).map((value) => (
-              <SelectItem value={value} key={value}>
-                {t(`studio.production.mediaAction.${value}`)}
-              </SelectItem>
+            {[
+              {
+                title: 'Voice and dialogue',
+                actions: [
+                  'voice_speech',
+                  'voice_clone',
+                  'audio_translate',
+                  'lip_sync',
+                ],
+              },
+              {
+                title: 'Music and sound',
+                actions: ['music', 'sound_effects', 'audio_separate'],
+              },
+              {
+                title: 'Edit an image',
+                actions: Object.keys(models).filter((action) =>
+                  action.startsWith('image_')
+                ),
+              },
+              { title: 'Video references', actions: ['video_depth'] },
+            ].map((group) => (
+              <SelectGroup key={group.title}>
+                <SelectLabel>{t(group.title)}</SelectLabel>
+                {group.actions
+                  .filter((action) => action in models)
+                  .map((value) => (
+                    <SelectItem value={value} key={value}>
+                      {t(`studio.production.mediaAction.${value}`)}
+                    </SelectItem>
+                  ))}
+              </SelectGroup>
             ))}
           </SelectContent>
         </Select>
       </Field>
       <StudioBudgetSummary />
-      <StudioToolParameters
-        seconds={Number(seconds)}
-        onSeconds={(value) => {
-          durationEdited.current = true
-          setSeconds(String(value))
-        }}
-        action={action}
-        value={toolOptions}
-        onChange={setToolOptions}
-        language={language}
-        onLanguage={(value) => {
-          languageEdited.current = true
-          setLanguage(value)
-        }}
-        disabled={!writable || mutate.isPending}
-      />
+      <Collapsible>
+        <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
+          {t('Language and advanced tool parameters')} ·{' '}
+          {t(
+            ({ zh: 'Chinese', en: 'English' } as Record<string, string>)[
+              language
+            ] || language
+          )}
+        </CollapsibleTrigger>
+        <CollapsibleContent className='pt-3'>
+          <StudioToolParameters
+            seconds={Number(seconds)}
+            onSeconds={(value) => {
+              durationEdited.current = true
+              setSeconds(String(value))
+            }}
+            action={action}
+            value={toolOptions}
+            onChange={setToolOptions}
+            language={language}
+            onLanguage={(value) => {
+              languageEdited.current = true
+              setLanguage(value)
+            }}
+            disabled={!writable || mutate.isPending}
+          />
+        </CollapsibleContent>
+      </Collapsible>
       {['voice_speech', 'voice_clone', 'audio_translate'].includes(action) && (
         <p className='text-muted-foreground text-sm'>
           {t(
@@ -739,11 +879,10 @@ export function StudioProductionMediaTab(
           maxLength={30000}
           onChange={(event) => {
             setPrompt(event.target.value)
-            if (
-              !languageEdited.current &&
-              /[\u4e00-\u9fff]/.test(event.target.value)
-            ) {
-              setLanguage('zh')
+            if (!languageEdited.current && event.target.value.trim()) {
+              setLanguage(
+                /[\u4e00-\u9fff]/.test(event.target.value) ? 'zh' : 'en'
+              )
             }
           }}
         />

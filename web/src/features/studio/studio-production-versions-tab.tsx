@@ -180,38 +180,47 @@ export function StudioProductionVersionsTab() {
           </Button>
         </div>
       ))}
-      <p className='pt-4 text-sm font-medium'>{t('studio.production.trash')}</p>
-      {trash.isError && (
-        <ErrorState
-          description={trash.error.message}
-          onRetry={() => void trash.refetch()}
-        />
-      )}
-      {trash.data?.map((project) => (
-        <div
-          key={project.id}
-          className='flex items-center justify-between gap-3 rounded-lg border p-3'
-        >
-          <span>{project.title}</span>
-          <Button
-            size='sm'
-            variant='outline'
-            disabled={mutate.isPending}
-            onClick={() =>
-              mutate.mutate(async () => {
-                await studioCloudRequest(
-                  `/projects/${encodeURIComponent(project.id)}/undelete`,
-                  'POST'
-                )
-                await trash.refetch()
-                await props.onRefresh()
-              })
-            }
-          >
-            {t('studio.production.recoverProject')}
-          </Button>
-        </div>
-      ))}
+      <Collapsible>
+        <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
+          {t('Project recycle bin')}
+        </CollapsibleTrigger>
+        <CollapsibleContent className='flex flex-col gap-2 pt-3'>
+          {trash.data?.length === 0 && (
+            <p role='status'>{t('The project recycle bin is empty.')}</p>
+          )}
+          {trash.isError && (
+            <ErrorState
+              description={trash.error.message}
+              onRetry={() => void trash.refetch()}
+            />
+          )}
+          {trash.data?.map((project) => (
+            <div
+              key={project.id}
+              className='flex items-center justify-between gap-3 rounded-lg border p-3'
+            >
+              <span>{project.title}</span>
+              <Button
+                size='sm'
+                variant='outline'
+                disabled={mutate.isPending}
+                onClick={() =>
+                  mutate.mutate(async () => {
+                    await studioCloudRequest(
+                      `/projects/${encodeURIComponent(project.id)}/undelete`,
+                      'POST'
+                    )
+                    await trash.refetch()
+                    await props.onRefresh()
+                  })
+                }
+              >
+                {t('studio.production.recoverProject')}
+              </Button>
+            </div>
+          ))}
+        </CollapsibleContent>
+      </Collapsible>
       <Dialog
         open={selected !== null}
         onOpenChange={(open) => {

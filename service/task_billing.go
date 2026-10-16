@@ -261,6 +261,7 @@ func taskModelName(task *model.Task) string {
 func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool {
 	quota := task.Quota
 	if quota == 0 {
+		finalizeStudioTaskCharge(ctx, task, 0)
 		return true
 	}
 
@@ -272,6 +273,7 @@ func RefundTaskQuota(ctx context.Context, task *model.Task, reason string) bool 
 
 	// 2. 退还令牌额度
 	taskAdjustTokenQuota(ctx, task, -quota)
+	finalizeStudioTaskCharge(ctx, task, 0)
 
 	// 3. 回减预扣时累计的用户和渠道用量，请求次数保持不变
 	model.UpdateUserUsedQuota(task.UserId, -quota)
@@ -314,6 +316,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 	quotaDelta := actualQuota - preConsumedQuota
 
 	if quotaDelta == 0 {
+		finalizeStudioTaskCharge(ctx, task, actualQuota)
 		logger.LogInfo(ctx, fmt.Sprintf("任务 %s 预扣费准确（%s，%s）",
 			task.TaskID, logger.LogQuota(actualQuota), reason))
 		return
@@ -335,6 +338,7 @@ func RecalculateTaskQuota(ctx context.Context, task *model.Task, actualQuota int
 
 	// 调整令牌额度
 	taskAdjustTokenQuota(ctx, task, quotaDelta)
+	finalizeStudioTaskCharge(ctx, task, actualQuota)
 
 	task.Quota = actualQuota
 	if err := task.UpdateQuota(); err != nil {

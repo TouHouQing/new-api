@@ -110,6 +110,8 @@ func sweepTimedOutTasks(ctx context.Context) {
 		timedOutCount++
 		if !isLegacy && task.Quota != 0 {
 			RefundTaskQuota(ctx, task, reason)
+		} else if !isLegacy {
+			finalizeStudioTaskCharge(ctx, task, 0)
 		}
 	}
 
@@ -626,8 +628,13 @@ func updateVideoSingleTask(ctx context.Context, adaptor TaskPollingAdaptor, ch *
 func finalizeTerminalTask(ctx context.Context, adaptor TaskPollingAdaptor, task *model.Task, taskResult *relaycommon.TaskInfo) {
 	perfmetrics.RecordTaskResult(task, taskResult)
 	billingSettled := settleTaskBillingOnComplete(ctx, adaptor, task, taskResult)
-	if task.Status == model.TaskStatusFailure && !billingSettled && task.Quota != 0 {
-		RefundTaskQuota(ctx, task, task.FailReason)
+	if task.Status == model.TaskStatusFailure && !billingSettled {
+		if !RefundTaskQuota(ctx, task, task.FailReason) {
+			return
+		}
+		finalizeStudioTaskCharge(ctx, task, 0)
+	} else if bc := task.PrivateData.BillingContext; bc == nil || bc.TieredSnapshot == nil || bc.TieredSnapshot.UsageFacts != nil {
+		finalizeStudioTaskCharge(ctx, task, task.Quota)
 	}
 }
 

@@ -65,7 +65,14 @@ export function StudioProductionPrevisTab() {
   timeAccess.current = seconds
   const [playing, setPlaying] = useState(false)
   const [advancedOpen, setAdvancedOpen] = useState(false)
-  const [targetId, setTargetId] = useState('')
+  const [targetId, setTargetId] = useState(() => {
+    const shot = props.project.shots?.find((shot) =>
+      [shot.textNodeId, shot.imageNodeId, shot.videoNodeId].includes(
+        props.selectedNodeId || ''
+      )
+    )
+    return shot?.imageNodeId || props.selectedNodeId || ''
+  })
   const scene = props.project.production?.previs || studioPrevisSchema.parse({})
   const snapshot = useRef(scene)
   snapshot.current = scene
@@ -221,257 +228,299 @@ export function StudioProductionPrevisTab() {
           </div>
         </>
       )}
-      <div className='grid gap-3 sm:grid-cols-3'>
-        <Field>
-          <FieldLabel>{t('studio.production.mediaSeconds')}</FieldLabel>
-          <Input
-            aria-label={t('studio.production.mediaSeconds')}
-            type='number'
-            min={1}
-            max={30}
+      <div className='flex flex-wrap gap-2'>
+        {[
+          { title: 'Front view', yaw: 0, endYaw: 0, distance: 8 },
+          { title: 'Side view', yaw: 65, endYaw: 65, distance: 8 },
+          { title: 'Move closer', yaw: 0, endYaw: 0, distance: 4 },
+        ].map((preset) => (
+          <Button
+            key={preset.title}
+            size='sm'
+            variant='outline'
             disabled={!writable}
-            value={scene.duration}
-            onChange={(event) =>
-              update(
-                resizeStudioPrevisDuration(
-                  scene,
-                  Math.max(1, Math.min(30, Number(event.target.value)))
-                )
-              )
+            onClick={() =>
+              update({
+                ...scene,
+                camera: {
+                  ...scene.camera,
+                  yaw: preset.yaw,
+                  endYaw: preset.endYaw,
+                  distance: preset.distance,
+                },
+              })
             }
-          />
-        </Field>
-        {(Object.keys(scene.camera) as (keyof StudioPrevis['camera'])[]).map(
-          (key) => (
-            <Field key={key}>
-              <FieldLabel>{t(`studio.production.camera.${key}`)}</FieldLabel>
+          >
+            {t(preset.title)}
+          </Button>
+        ))}
+      </div>
+      <Collapsible>
+        <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
+          {t('Precise camera and position settings')}
+        </CollapsibleTrigger>
+        <CollapsibleContent className='flex flex-col gap-3 pt-3'>
+          <div className='grid gap-3 sm:grid-cols-3'>
+            <Field>
+              <FieldLabel>{t('studio.production.mediaSeconds')}</FieldLabel>
               <Input
-                aria-label={t(`studio.production.camera.${key}`)}
+                aria-label={t('studio.production.mediaSeconds')}
                 type='number'
+                min={1}
+                max={30}
                 disabled={!writable}
-                value={scene.camera[key]}
-                onChange={(event) => {
-                  const next = studioPrevisSchema.safeParse({
-                    ...scene,
-                    camera: {
-                      ...scene.camera,
-                      [key]: Number(event.target.value),
-                    },
-                  })
-                  if (next.success) update(next.data)
-                }}
+                value={scene.duration}
+                onChange={(event) =>
+                  update(
+                    resizeStudioPrevisDuration(
+                      scene,
+                      Math.max(1, Math.min(30, Number(event.target.value)))
+                    )
+                  )
+                }
               />
             </Field>
-          )
-        )}
-      </div>
-      <div className='flex flex-wrap gap-2'>
-        <Button
-          variant='outline'
-          disabled={!writable || scene.actors.length >= 12}
-          onClick={() =>
-            update({
-              ...scene,
-              actors: [
-                ...scene.actors,
-                {
-                  id: crypto.randomUUID(),
-                  title: t('studio.production.actor'),
-                  x: 0,
-                  z: 0,
-                  endX: 0,
-                  endZ: 0,
-                  yaw: 0,
-                  pose: 'stand',
-                  color: '#8ab4f8',
-                },
-              ],
-            })
-          }
-        >
-          {t('studio.production.addActor')}
-        </Button>
-        <Button
-          variant='outline'
-          disabled={!writable || scene.props.length >= 20}
-          onClick={() =>
-            update({
-              ...scene,
-              props: [
-                ...scene.props,
-                {
-                  id: crypto.randomUUID(),
-                  title: t('studio.production.prop'),
-                  x: 2,
-                  z: 0,
-                  width: 1,
-                  height: 1,
-                  depth: 1,
-                  color: '#e6ad72',
-                },
-              ],
-            })
-          }
-        >
-          {t('studio.production.addProp')}
-        </Button>
-      </div>
-      {scene.actors.map((actor) => (
-        <div
-          key={actor.id}
-          className='grid gap-3 rounded-lg border p-3 sm:grid-cols-4'
-        >
-          <Input
-            aria-label={t('studio.production.actor')}
-            disabled={!writable}
-            value={actor.title}
-            maxLength={200}
-            onChange={(event) =>
-              update({
-                ...scene,
-                actors: scene.actors.map((item) =>
-                  item.id === actor.id
-                    ? { ...item, title: event.target.value }
-                    : item
-                ),
-              })
-            }
-          />
-          <Select
-            value={actor.pose}
-            items={['stand', 'walk', 'wave', 'point', 'sit'].map((pose) => ({
-              value: pose,
-              label: t(`studio.production.pose.${pose}`),
-            }))}
-            onValueChange={(pose) => {
-              if (pose) {
-                update(
-                  studioPrevisSchema.parse({
-                    ...scene,
-                    actors: scene.actors.map((item) =>
-                      item.id === actor.id ? { ...item, pose } : item
-                    ),
-                  })
-                )
+            {(
+              Object.keys(scene.camera) as (keyof StudioPrevis['camera'])[]
+            ).map((key) => (
+              <Field key={key}>
+                <FieldLabel>{t(`studio.production.camera.${key}`)}</FieldLabel>
+                <Input
+                  aria-label={t(`studio.production.camera.${key}`)}
+                  type='number'
+                  disabled={!writable}
+                  value={scene.camera[key]}
+                  onChange={(event) => {
+                    const next = studioPrevisSchema.safeParse({
+                      ...scene,
+                      camera: {
+                        ...scene.camera,
+                        [key]: Number(event.target.value),
+                      },
+                    })
+                    if (next.success) update(next.data)
+                  }}
+                />
+              </Field>
+            ))}
+          </div>
+          <div className='flex flex-wrap gap-2'>
+            <Button
+              variant='outline'
+              disabled={!writable || scene.actors.length >= 12}
+              onClick={() =>
+                update({
+                  ...scene,
+                  actors: [
+                    ...scene.actors,
+                    {
+                      id: crypto.randomUUID(),
+                      title: t('studio.production.actor'),
+                      x: 0,
+                      z: 0,
+                      endX: 0,
+                      endZ: 0,
+                      yaw: 0,
+                      pose: 'stand',
+                      color: '#8ab4f8',
+                    },
+                  ],
+                })
               }
-            }}
-            disabled={!writable}
-          >
-            <SelectTrigger aria-label={t('studio.production.pose')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {['stand', 'walk', 'wave', 'point', 'sit'].map((pose) => (
-                <SelectItem key={pose} value={pose}>
-                  {t(`studio.production.pose.${pose}`)}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            aria-label={t('studio.production.color')}
-            type='color'
-            disabled={!writable}
-            value={actor.color}
-            onChange={(event) =>
-              update({
-                ...scene,
-                actors: scene.actors.map((item) =>
-                  item.id === actor.id
-                    ? { ...item, color: event.target.value }
-                    : item
-                ),
-              })
-            }
-          />
-          <Button
-            variant='ghost'
-            disabled={!writable}
-            onClick={() => update(removeStudioPrevisObject(scene, actor.id))}
-          >
-            {t('studio.production.remove')}
-          </Button>
-          {(['x', 'z', 'endX', 'endZ', 'yaw'] as const).map((key) => (
-            <Field key={key}>
-              <FieldLabel>{t(`studio.production.position.${key}`)}</FieldLabel>
+            >
+              {t('studio.production.addActor')}
+            </Button>
+            <Button
+              variant='outline'
+              disabled={!writable || scene.props.length >= 20}
+              onClick={() =>
+                update({
+                  ...scene,
+                  props: [
+                    ...scene.props,
+                    {
+                      id: crypto.randomUUID(),
+                      title: t('studio.production.prop'),
+                      x: 2,
+                      z: 0,
+                      width: 1,
+                      height: 1,
+                      depth: 1,
+                      color: '#e6ad72',
+                    },
+                  ],
+                })
+              }
+            >
+              {t('studio.production.addProp')}
+            </Button>
+          </div>
+          {scene.actors.map((actor) => (
+            <div
+              key={actor.id}
+              className='grid gap-3 rounded-lg border p-3 sm:grid-cols-4'
+            >
               <Input
-                aria-label={`${actor.title} ${t(`studio.production.position.${key}`)}`}
-                type='number'
-                min={key === 'yaw' ? -180 : -10}
-                max={key === 'yaw' ? 180 : 10}
-                step={0.1}
+                aria-label={t('studio.production.actor')}
                 disabled={!writable}
-                value={actor[key]}
-                onChange={(event) => {
-                  const next = studioPrevisSchema.safeParse({
+                value={actor.title}
+                maxLength={200}
+                onChange={(event) =>
+                  update({
                     ...scene,
                     actors: scene.actors.map((item) =>
                       item.id === actor.id
-                        ? { ...item, [key]: Number(event.target.value) }
+                        ? { ...item, title: event.target.value }
                         : item
                     ),
                   })
-                  if (next.success) update(next.data)
-                }}
+                }
               />
-            </Field>
-          ))}
-        </div>
-      ))}
-      {scene.props.map((prop) => (
-        <div
-          key={prop.id}
-          className='grid gap-3 rounded-lg border p-3 sm:grid-cols-4'
-        >
-          <Input
-            aria-label={t('studio.production.prop')}
-            disabled={!writable}
-            value={prop.title}
-            onChange={(event) =>
-              update({
-                ...scene,
-                props: scene.props.map((item) =>
-                  item.id === prop.id
-                    ? { ...item, title: event.target.value }
-                    : item
-                ),
-              })
-            }
-          />
-          {(['x', 'z', 'width', 'height', 'depth'] as const).map((key) => (
-            <Field key={key}>
-              <FieldLabel>{t(`studio.production.position.${key}`)}</FieldLabel>
-              <Input
-                aria-label={`${prop.title} ${t(`studio.production.position.${key}`)}`}
-                type='number'
-                step={0.1}
+              <Select
+                value={actor.pose}
+                items={['stand', 'walk', 'wave', 'point', 'sit'].map(
+                  (pose) => ({
+                    value: pose,
+                    label: t(`studio.production.pose.${pose}`),
+                  })
+                )}
+                onValueChange={(pose) => {
+                  if (pose) {
+                    update(
+                      studioPrevisSchema.parse({
+                        ...scene,
+                        actors: scene.actors.map((item) =>
+                          item.id === actor.id ? { ...item, pose } : item
+                        ),
+                      })
+                    )
+                  }
+                }}
                 disabled={!writable}
-                value={prop[key]}
-                onChange={(event) => {
-                  const next = studioPrevisSchema.safeParse({
+              >
+                <SelectTrigger aria-label={t('studio.production.pose')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {['stand', 'walk', 'wave', 'point', 'sit'].map((pose) => (
+                    <SelectItem key={pose} value={pose}>
+                      {t(`studio.production.pose.${pose}`)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                aria-label={t('studio.production.color')}
+                type='color'
+                disabled={!writable}
+                value={actor.color}
+                onChange={(event) =>
+                  update({
+                    ...scene,
+                    actors: scene.actors.map((item) =>
+                      item.id === actor.id
+                        ? { ...item, color: event.target.value }
+                        : item
+                    ),
+                  })
+                }
+              />
+              <Button
+                variant='ghost'
+                disabled={!writable}
+                onClick={() =>
+                  update(removeStudioPrevisObject(scene, actor.id))
+                }
+              >
+                {t('studio.production.remove')}
+              </Button>
+              {(['x', 'z', 'endX', 'endZ', 'yaw'] as const).map((key) => (
+                <Field key={key}>
+                  <FieldLabel>
+                    {t(`studio.production.position.${key}`)}
+                  </FieldLabel>
+                  <Input
+                    aria-label={`${actor.title} ${t(`studio.production.position.${key}`)}`}
+                    type='number'
+                    min={key === 'yaw' ? -180 : -10}
+                    max={key === 'yaw' ? 180 : 10}
+                    step={0.1}
+                    disabled={!writable}
+                    value={actor[key]}
+                    onChange={(event) => {
+                      const next = studioPrevisSchema.safeParse({
+                        ...scene,
+                        actors: scene.actors.map((item) =>
+                          item.id === actor.id
+                            ? { ...item, [key]: Number(event.target.value) }
+                            : item
+                        ),
+                      })
+                      if (next.success) update(next.data)
+                    }}
+                  />
+                </Field>
+              ))}
+            </div>
+          ))}
+          {scene.props.map((prop) => (
+            <div
+              key={prop.id}
+              className='grid gap-3 rounded-lg border p-3 sm:grid-cols-4'
+            >
+              <Input
+                aria-label={t('studio.production.prop')}
+                disabled={!writable}
+                value={prop.title}
+                onChange={(event) =>
+                  update({
                     ...scene,
                     props: scene.props.map((item) =>
                       item.id === prop.id
-                        ? { ...item, [key]: Number(event.target.value) }
+                        ? { ...item, title: event.target.value }
                         : item
                     ),
                   })
-                  if (next.success) update(next.data)
-                }}
+                }
               />
-            </Field>
+              {(['x', 'z', 'width', 'height', 'depth'] as const).map((key) => (
+                <Field key={key}>
+                  <FieldLabel>
+                    {t(`studio.production.position.${key}`)}
+                  </FieldLabel>
+                  <Input
+                    aria-label={`${prop.title} ${t(`studio.production.position.${key}`)}`}
+                    type='number'
+                    step={0.1}
+                    disabled={!writable}
+                    value={prop[key]}
+                    onChange={(event) => {
+                      const next = studioPrevisSchema.safeParse({
+                        ...scene,
+                        props: scene.props.map((item) =>
+                          item.id === prop.id
+                            ? { ...item, [key]: Number(event.target.value) }
+                            : item
+                        ),
+                      })
+                      if (next.success) update(next.data)
+                    }}
+                  />
+                </Field>
+              ))}
+              <Button
+                variant='ghost'
+                disabled={!writable}
+                onClick={() => update(removeStudioPrevisObject(scene, prop.id))}
+              >
+                {t('studio.production.remove')}
+              </Button>
+            </div>
           ))}
-          <Button
-            variant='ghost'
-            disabled={!writable}
-            onClick={() => update(removeStudioPrevisObject(scene, prop.id))}
-          >
-            {t('studio.production.remove')}
-          </Button>
-        </div>
-      ))}
+        </CollapsibleContent>
+      </Collapsible>
       <Field>
-        <FieldLabel>{t('studio.production.mediaTarget')}</FieldLabel>
+        <FieldLabel>{t('Reference destination')}</FieldLabel>
         <Select
           value={targetId}
           items={props.project.nodes

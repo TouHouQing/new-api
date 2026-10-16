@@ -394,6 +394,9 @@ func PreConsumeTokenQuota(relayInfo *relaycommon.RelayInfo, quota int) error {
 	if quota < 0 {
 		return errors.New("quota 不能为负数！")
 	}
+	if relayInfo.StudioWorkflowID != "" {
+		return model.UpdateStudioWorkflowCharge(relayInfo.UserId, relayInfo.StudioWorkflowID, relayInfo.RequestId, int64(quota), true, false)
+	}
 	if relayInfo.IsPlayground {
 		return nil
 	}
@@ -449,7 +452,12 @@ func postConsumeQuotaWithResult(relayInfo *relaycommon.RelayInfo, quota int, pre
 	}
 	result.FundingApplied = true
 
-	if !relayInfo.IsPlayground {
+	if relayInfo.StudioWorkflowID != "" {
+		err = model.UpdateStudioWorkflowCharge(relayInfo.UserId, relayInfo.StudioWorkflowID, relayInfo.RequestId, int64(quota+preConsumedQuota), false, true)
+		if err != nil {
+			return result, err
+		}
+	} else if !relayInfo.IsPlayground {
 		if quota > 0 {
 			err = model.DecreaseTokenQuota(relayInfo.TokenId, relayInfo.TokenKey, quota)
 		} else {

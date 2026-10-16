@@ -32,6 +32,7 @@ import { TabsContent } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { handleServerError } from '@/lib/handle-server-error'
 
+import { studioEditableScreenplay } from './studio-creation'
 import { studioProductionSchema } from './studio-production'
 import { StudioProductionChanges } from './studio-production-changes'
 import { useStudioProductionContext } from './studio-production-context'
@@ -45,7 +46,7 @@ import {
 } from './studio-screenplay'
 import { StudioScreenplayEditor } from './studio-screenplay-editor'
 
-export function StudioProductionPlanTab() {
+export function StudioProductionPlanTab(options: { value?: string } = {}) {
   const { t } = useTranslation()
   const { props, screenplay, setScreenplay, writable } =
     useStudioProductionContext()
@@ -60,7 +61,7 @@ export function StudioProductionPlanTab() {
     }
   }, [props.project, screenplay])
   return (
-    <TabsContent value='plan' className='space-y-4'>
+    <TabsContent value={options.value || 'plan'} className='space-y-4'>
       <StudioReferenceAnalysisPanel />
       <Field>
         <FieldLabel>{t('studio.production.targetDuration')}</FieldLabel>
@@ -74,25 +75,27 @@ export function StudioProductionPlanTab() {
         />
         <Button
           variant='outline'
-          disabled={!writable || !impact}
+          disabled={
+            !writable ||
+            !Number.isInteger(Number(target)) ||
+            Number(target) < 1 ||
+            Number(target) > 3600
+          }
           onClick={() => {
             try {
-              setScreenplay(
-                JSON.stringify(
-                  allocateStudioShotDurations(
-                    JSON.parse(screenplay),
-                    Number(target)
-                  ),
-                  null,
-                  2
-                )
+              const allocated = allocateStudioShotDurations(
+                studioEditableScreenplay(props.project),
+                Number(target)
               )
+              const draft = JSON.stringify(allocated, null, 2)
+              setScreenplay(draft)
               props.onUpdate({
                 ...props.project,
                 production: {
                   ...(props.project.production ||
                     studioProductionSchema.parse({})),
                   targetDuration: Number(target),
+                  screenplayDraft: draft,
                 },
               })
             } catch (error) {

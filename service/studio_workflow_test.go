@@ -32,7 +32,7 @@ func studioProductionFixture(t *testing.T, seedOwner ...bool) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "studio.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSubscription{}, &model.StudioProject{}, &model.StudioProjectVersion{}, &model.StudioProjectMember{}, &model.StudioMedia{}, &model.StudioProjectMediaLink{}, &model.StudioWorkflowJob{}, &model.StudioWorkflowEvent{}, &model.StudioAttempt{}, &model.Token{}, &model.Task{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSubscription{}, &model.StudioProject{}, &model.StudioProjectVersion{}, &model.StudioProjectMember{}, &model.StudioMedia{}, &model.StudioProjectMediaLink{}, &model.StudioWorkflowJob{}, &model.StudioWorkflowCharge{}, &model.StudioWorkflowEvent{}, &model.StudioAttempt{}, &model.Token{}, &model.Task{}))
 	if len(seedOwner) == 0 || seedOwner[0] {
 		require.NoError(t, db.Create(&model.User{Id: 1, Username: "studio-test-owner", Quota: 10_000_000, Role: common.RoleCommonUser, Status: common.UserStatusEnabled}).Error)
 	}
@@ -50,6 +50,27 @@ func TestStudioSongDurationIncludesLastLineAndRejectsOverpackedLyrics(t *testing
 	require.Equal(t, 15, StudioSongDuration("Hello my friend\nWe walk together\nHere in the sunlight\nFriends forever"))
 	require.Equal(t, 16, StudioSongDuration("小狐狸走过森林\n蓝色灯笼照亮家园"))
 	require.Greater(t, StudioSongDuration(strings.Repeat("We walk together\n", 50)), 30)
+}
+
+func TestStudioStoppedWorkflowReleasesWorkerAndRetainsUpstreamReceipt(t *testing.T) {
+	for _, status := range []string{"paused", "cancelled"} {
+		t.Run(status, func(t *testing.T) {
+			studioProductionFixture(t)
+			job := model.StudioWorkflowJob{ID: "stopped", UserID: 1, ProjectID: "film", RequestID: "job-request", Kind: "generate", Status: status, Plan: "{}", Result: `{"task_id":"in-flight","completed":["image"]}`}
+			require.NoError(t, model.DB.Create(&job).Error)
+			task := model.Task{TaskID: "in-flight", UserId: 1, Status: model.TaskStatusInProgress}
+			require.NoError(t, model.DB.Create(&task).Error)
+			ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			require.ErrorIs(t, waitStudioTask(ctx, &job, task.TaskID), context.Canceled)
+			require.NoError(t, model.DB.First(&task, "task_id = ?", task.TaskID).Error)
+			assert.EqualValues(t, model.TaskStatusInProgress, task.Status)
+			require.NoError(t, model.DB.First(&job, "id = ?", job.ID).Error)
+			assert.Equal(t, status, job.Status)
+			assert.Contains(t, string(job.Result), "in-flight")
+			assert.Contains(t, string(job.Result), "image")
+		})
+	}
 }
 
 func TestStudioZeroCreditRejectsGenerationWithoutCreatingJobOrToken(t *testing.T) {
@@ -264,10 +285,11 @@ func TestStudioWorkflowBudgetIdempotencyAndRecovery(t *testing.T) {
 	assert.Equal(t, job.ID, repeated.ID)
 	_, err = QueueStudioWorkflow(1, "film", "run-one", "generate", project.Revision, 25001, []string{"shot"}, nil)
 	require.Error(t, err)
-	var token model.Token
-	require.NoError(t, model.DB.First(&token, job.TokenID).Error)
-	assert.False(t, token.UnlimitedQuota)
-	assert.Equal(t, 25000, token.RemainQuota)
+	assert.Zero(t, job.TokenID)
+	var tokens int64
+	require.NoError(t, model.DB.Model(&model.Token{}).Count(&tokens).Error)
+	assert.Zero(t, tokens)
+	assert.EqualValues(t, 25000, job.Budget)
 	calls := 0
 	StudioWorkflowRelay = func(_ context.Context, _ *model.StudioWorkflowJob, kind string, body []byte) (StudioRelayResponse, error) {
 		calls++
@@ -472,6 +494,60 @@ func TestStudioExplicitGenerationCreatesAnotherTakeFromACompletedNode(t *testing
 	assert.Contains(t, string(project.Document), "New variant")
 	RunStudioWorkflowsOnce(t.Context(), "another-worker")
 	assert.Equal(t, 1, calls, "the completed workflow must not submit the variant twice")
+}
+
+func TestStudioOwnGeneratedReferencesDoNotHideTargetTake(t *testing.T) {
+	for _, edit := range []bool{false, true} {
+		t.Run(fmt.Sprint("concurrent-edit-", edit), func(t *testing.T) {
+			studioProductionFixture(t)
+			document := map[string]any{"id": "reference-film", "title": "References", "nodes": []any{
+				map[string]any{"id": "portrait", "data": map[string]any{"kind": "image", "model": "mock-image", "prompt": "Portrait", "linkedAssetId": "person"}},
+				map[string]any{"id": "frame", "data": map[string]any{"kind": "image", "model": "mock-image", "prompt": "A shot", "assetIds": []any{"person"}}},
+			}, "edges": []any{}, "assets": []any{map[string]any{"id": "person", "kind": "character", "title": "Person", "prompt": "Portrait"}}}
+			studioCompleteTestDocument(t, document)
+			raw, err := common.Marshal(document)
+			require.NoError(t, err)
+			project, err := model.SaveStudioProject(1, "reference-film", "References", 0, string(raw))
+			require.NoError(t, err)
+			job, err := QueueStudioWorkflow(1, project.ID, "make-frame", "generate", project.Revision, 1000, []string{"frame"}, nil)
+			require.NoError(t, err)
+			var pixel bytes.Buffer
+			require.NoError(t, png.Encode(&pixel, image.NewRGBA(image.Rect(0, 0, 8, 8))))
+			calls := 0
+			StudioWorkflowRelay = func(context.Context, *model.StudioWorkflowJob, string, []byte) (StudioRelayResponse, error) {
+				calls++
+				if edit && calls == 2 {
+					current, _, readErr := model.StudioProjectAccess(model.DB, 1, project.ID, true)
+					require.NoError(t, readErr)
+					var changed map[string]any
+					require.NoError(t, common.Unmarshal([]byte(current.Document), &changed))
+					studioObjects(changed, "nodes")[1]["data"].(map[string]any)["prompt"] = "A human revision"
+					encoded, encodeErr := common.Marshal(changed)
+					require.NoError(t, encodeErr)
+					_, saveErr := model.SaveStudioProject(1, project.ID, project.Title, current.Revision, string(encoded))
+					require.NoError(t, saveErr)
+				}
+				return StudioRelayResponse{Status: 200, ContentType: "application/json", Body: []byte(`{"data":[{"b64_json":"` + base64.StdEncoding.EncodeToString(pixel.Bytes()) + `"}]}`)}, nil
+			}
+			RunStudioWorkflowsOnce(t.Context(), "reference-worker")
+			require.NoError(t, model.DB.First(job, "id = ?", job.ID).Error)
+			require.Equal(t, "succeeded", job.Status, job.Error)
+			require.Equal(t, 2, calls)
+			current, _, err := model.StudioProjectAccess(model.DB, 1, project.ID, false)
+			require.NoError(t, err)
+			var restored map[string]any
+			require.NoError(t, common.Unmarshal([]byte(current.Document), &restored))
+			frame := studioObjects(restored, "nodes")[1]["data"].(map[string]any)
+			require.Len(t, studioObjects(frame, "takes"), 1)
+			if edit {
+				assert.Equal(t, "A human revision", frame["prompt"])
+				assert.Nil(t, frame["selectedTakeId"], "concurrent human edits must keep the generated candidate unselected")
+			} else {
+				assert.NotEmpty(t, frame["selectedTakeId"], "the workflow's own new reference is not a human input change")
+				assert.NotEmpty(t, frame["mediaId"])
+			}
+		})
+	}
 }
 
 func TestStudioMediaCollectionResumeDoesNotSubmitAgain(t *testing.T) {

@@ -27,12 +27,12 @@ import {
 } from '@/lib/currency'
 import { formatNumber } from '@/lib/format'
 
-import { planStudioExecution } from './canvas-flow'
 import {
   studioCostDurationSeconds,
   estimateStudioVideoCost,
 } from './studio-cost'
 import { useStudioProductionContext } from './studio-production-context'
+import { studioWorkflowScope } from './studio-workflow-scope'
 
 export function StudioGenerationEstimate() {
   const { t, i18n } = useTranslation()
@@ -44,19 +44,13 @@ export function StudioGenerationEstimate() {
   const planned = new Map<string, (typeof props.project.nodes)[number]>()
   let error = ''
   try {
-    for (const id of selectedNodes) {
-      for (const node of planStudioExecution(
-        props.project.nodes,
-        props.project.edges,
-        id
-      )) {
-        if (
-          node.data.sourceMode !== 'upload' &&
-          node.data.purpose !== 'note' &&
-          node.data.purpose !== 'assembly'
-        ) {
-          planned.set(node.id, node)
-        }
+    for (const node of studioWorkflowScope(props.project, selectedNodes)) {
+      if (
+        node.data.sourceMode !== 'upload' &&
+        node.data.purpose !== 'note' &&
+        node.data.purpose !== 'assembly'
+      ) {
+        planned.set(node.id, node)
       }
     }
   } catch (failure) {
@@ -98,14 +92,35 @@ export function StudioGenerationEstimate() {
           !selectedNodes.includes(node.id) &&
           node.data.status === 'completed' &&
           (node.data.mediaId || node.data.outputText)
-        let cost = t('Usage priced within the hard budget')
+        let cost = t(
+          'Price is not available. Check model pricing before confirming.'
+        )
+        const catalogModel = pricing.data?.data?.find(
+          (model) => model.model_name === node.data.model
+        )
+        const group =
+          node.data.group || props.project.defaults?.videoGroup || 'default'
+        const zeroCatalog =
+          pricing.data?.success &&
+          Object.hasOwn(pricing.data.usable_group || {}, group) &&
+          catalogModel?.enable_groups.includes(group) &&
+          !catalogModel.billing_plugin_variants?.length &&
+          catalogModel.billing_mode !== 'tiered_expr' &&
+          ((catalogModel.quota_type === 1 && catalogModel.model_price === 0) ||
+            (catalogModel.quota_type === 0 &&
+              catalogModel.model_ratio === 0 &&
+              catalogModel.completion_ratio === 0))
+        if (zeroCatalog) cost = t('Current catalog price: zero model charge')
         if (ready) cost = t('Reuse completed input')
         else if (preview?.status === 'estimated') {
-          cost = formatBillingCurrencyFromUSD(preview.estimatedUsd, {
-            digitsLarge: 4,
-            digitsSmall: 4,
-            abbreviate: false,
-          })
+          cost =
+            preview.estimatedUsd === 0
+              ? t('Current catalog price: zero model charge')
+              : formatBillingCurrencyFromUSD(preview.estimatedUsd, {
+                  digitsLarge: 4,
+                  digitsSmall: 4,
+                  abbreviate: false,
+                })
         }
         return (
           <div
@@ -114,7 +129,10 @@ export function StudioGenerationEstimate() {
           >
             <span className='mr-auto'>
               {node.data.title} ·{' '}
-              {node.data.model || t('Choose an available model')}
+              {node.data.model ||
+                t(
+                  ready ? 'Reuse completed input' : 'Choose an available model'
+                )}
             </span>
             <span>
               {t('Quantity')}: {formatNumber(quantity, locale)}

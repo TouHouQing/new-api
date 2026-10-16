@@ -40,6 +40,42 @@ export function planLocalStudioShots(
   count: number
 ): StudioShotDraft[] {
   const requested = Math.max(1, Math.min(12, Math.trunc(count) || 1))
+  // Explicit shot boundaries take precedence over sentence punctuation. The
+  // brief remains stored separately, so global constraints never become shots.
+  const markers = [
+    ...prompt.matchAll(
+      /(?:^|\n|(?<=[。；;]))\s*(?:镜头\s*[一二三四五六七八九十百\d]+|第\s*[一二三四五六七八九十百\d]+\s*镜|shot\s*\d+)\s*[:：、.)）-]\s*/gi
+    ),
+  ]
+  if (markers.length) {
+    const last = markers.at(-1) || markers[0]
+    const tail = prompt.slice((last.index || 0) + last[0].length)
+    const shared = [
+      prompt.slice(0, markers[0].index).trim(),
+      tail.match(
+        /\n\s*((?:全局要求|统一要求|整体要求|global requirements)\s*[:：][\s\S]*)$/i
+      )?.[1] || '',
+    ]
+      .filter(Boolean)
+      .join('\n')
+    return markers.slice(0, requested).map((marker, index) => {
+      const text = prompt
+        .slice(
+          (marker.index || 0) + marker[0].length,
+          markers[index + 1]?.index
+        )
+        .split(
+          /\n\s*(?:全局要求|统一要求|整体要求|global requirements)\s*[:：]/i
+        )[0]
+        .trim()
+      return {
+        title: `Shot ${index + 1}`,
+        text,
+        imagePrompt: [shared, text].filter(Boolean).join('\n'),
+        videoPrompt: [shared, text].filter(Boolean).join('\n'),
+      }
+    })
+  }
   const paragraphs = prompt
     .split(/\n\s*\n/)
     .map((part) => part.trim())

@@ -23,9 +23,9 @@ from email.parser import BytesParser
 from email.policy import default
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlencode
-from urllib.request import Request, urlopen, HTTPRedirectHandler, build_opener
+from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_opener
 import studio_vace
 from studio_comfy_receipts import find_prompt
 from studio_inference_lease import gpu_lease
@@ -36,6 +36,21 @@ MAX_VIDEO_BYTES = 512 * 1024 * 1024
 
 class LocalInferenceFailure(RuntimeError):
     pass
+
+
+class LocalServiceUnavailable(LocalInferenceFailure):
+    pass
+
+
+def local_task_failure_status(error, receipt):
+    # A refusal before submitting is safe to retry. Losing the engine after
+    # receiving its prompt ID requires recovery, even for a loopback service.
+    if isinstance(error, LocalInferenceFailure) and not (
+        isinstance(error, LocalServiceUnavailable) and receipt.get('prompt_id')
+    ):
+        return 'failed'
+    submitted = receipt.get('prompt_id') or receipt.get('stage') == 'submitting'
+    return 'uncertain' if submitted or isinstance(error, (TimeoutError, ConnectionError)) else 'failed'
 
 
 def ollama_text_request(model, messages, context, maximum):
@@ -101,12 +116,18 @@ class LocalModels:
         data = None if body is None else json.dumps(body, ensure_ascii=False).encode()
         request = Request(url, data=data, headers={'Content-Type': 'application/json'})
         try:
-            with urlopen(request, timeout=timeout) as response:
+            # Loopback inference must keep working when a desktop proxy stops.
+            with build_opener(ProxyHandler({})).open(request, timeout=timeout) as response:
                 raw = response.read()
                 return json.loads(raw) if raw.strip() else {}
         except HTTPError as error:
             detail = error.read(65536).decode('utf-8', errors='replace')
             raise RuntimeError(f'Local inference HTTP {error.code}: {detail}') from error
+        except URLError as error:
+            if isinstance(error.reason, ConnectionRefusedError):
+                endpoint = urlparse(url)
+                raise LocalServiceUnavailable(f'Local model service at {endpoint.hostname}:{endpoint.port} is not accepting connections. Start the service before retrying.') from error
+            raise
 
     def media(self, url, limit=MAX_BYTES):
         if url.startswith('data:'):
@@ -117,7 +138,7 @@ class LocalModels:
         parsed = urlparse(url)
         if parsed.scheme not in ['http', 'https'] or parsed.hostname not in ['127.0.0.1', 'localhost', '::1'] or parsed.username:
             raise ValueError('The local adapter accepts inline images or loopback media URLs')
-        with build_opener(LoopbackRedirects()).open(url, timeout=60) as response:
+        with build_opener(ProxyHandler({}), LoopbackRedirects()).open(url, timeout=60) as response:
             data = response.read(limit + 1)
             if len(data) > limit:
                 raise ValueError('Media exceeds the local size limit')
@@ -171,7 +192,7 @@ class LocalModels:
         filename = uuid.uuid4().hex + extension
         body = (f'--{boundary}\r\nContent-Disposition: form-data; name="image"; filename="{filename}"\r\nContent-Type: {mime}\r\n\r\n').encode() + data + (f'\r\n--{boundary}--\r\n').encode()
         request = Request(self.args.comfy + '/upload/image', data=body, headers={'Content-Type': 'multipart/form-data; boundary=' + boundary})
-        with urlopen(request, timeout=60) as response:
+        with build_opener(ProxyHandler({})).open(request, timeout=60) as response:
             result = json.load(response)
         return '/'.join(filter(None, [result.get('subfolder'), result['name']]))
 
@@ -404,7 +425,7 @@ class LocalModels:
         except Exception as error:
             with self.connect() as db:
                 result = json.loads(db.execute('SELECT result FROM tasks WHERE id=?', (task_id,)).fetchone()['result'] or '{}')
-                status = 'uncertain' if not isinstance(error, LocalInferenceFailure) and (result.get('prompt_id') or result.get('stage') == 'submitting') else 'failed'
+                status = local_task_failure_status(error, result)
                 db.execute('UPDATE tasks SET status=?,error=? WHERE id=?', (status, str(error)[:6000], task_id))
 
     def run_video(self, task_id):
@@ -457,7 +478,8 @@ class LocalModels:
                 db.execute("UPDATE tasks SET status='completed',result=? WHERE id=?", (json.dumps(response), task_id))
         except Exception as error:
             with self.connect() as db:
-                status = 'uncertain' if isinstance(error, (TimeoutError, ConnectionError)) else 'failed'
+                result = json.loads(db.execute('SELECT result FROM tasks WHERE id=?', (task_id,)).fetchone()['result'] or '{}')
+                status = local_task_failure_status(error, result)
                 db.execute('UPDATE tasks SET status=?,error=? WHERE id=?', (status, str(error)[:6000], task_id))
 
 

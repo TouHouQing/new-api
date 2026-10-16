@@ -108,11 +108,20 @@ func studioJobPayload(job *model.StudioWorkflowJob) gin.H {
 	value := gin.H{"id": job.ID, "project_id": job.ProjectID, "user_id": job.UserID, "request_id": job.RequestID, "kind": job.Kind, "node_ids": plan.NodeIDs, "status": job.Status, "revision": job.Revision, "budget": job.Budget, "progress": job.Progress, "run_after": job.RunAfter, "error": job.Error, "created_at": job.CreatedAt, "updated_at": job.UpdatedAt, "result": json.RawMessage(job.Result)}
 	if job.TokenID == 0 && !service.StudioWorkflowNeedsGeneration(job.Kind) {
 		value["used_quota"], value["settlement_final"] = 0, true
+	} else if job.TokenID == 0 && model.DB != nil {
+		if used, final, err := model.StudioWorkflowChargeUsage(job.UserID, job.ID); err == nil {
+			value["used_quota"] = used
+			value["settlement_final"] = final && (job.Status == "succeeded" || job.Status == "failed" || job.Status == "cancelled")
+		}
 	} else if job.TokenID > 0 && model.DB != nil {
 		var usage struct{ UsedQuota int }
 		if model.DB.Model(&model.Token{}).Select("used_quota").Where("id = ? AND user_id = ?", job.TokenID, job.UserID).Take(&usage).Error == nil {
 			value["used_quota"] = usage.UsedQuota
 			value["settlement_final"] = job.Status == "succeeded"
+			if used, final, err := model.StudioWorkflowChargeUsage(job.UserID, job.ID); err == nil {
+				value["used_quota"] = usage.UsedQuota + int(used)
+				value["settlement_final"] = final && job.Status == "succeeded"
+			}
 		}
 	}
 	if job.Kind == "connector" && plan.Operation != nil && plan.ConnectorTarget != nil {
@@ -218,6 +227,7 @@ func StudioWorkflowJob(c *gin.Context) {
 	}
 	status := ""
 	errorNote := ""
+	service.ReconcileStudioWorkflowSettlement(c.Request.Context(), &job)
 	switch input.Action {
 	case "reconcile":
 		if err := service.ReconcileStudioConnector(c.Request.Context(), &job, input.ExternalResourceID); err != nil {
@@ -289,6 +299,25 @@ func StudioWorkflowJob(c *gin.Context) {
 			}
 		}
 		if job.Status == "failed" && (progress.Phase == "preparing" || progress.Phase == "rejected" || progress.Take != nil || progress.TaskID != "" || progress.ResponseMediaID != "") {
+			// A confirmed terminal failure needs a new submission. An active,
+			// successful or uncertain receipt must keep its identity for recovery.
+			if progress.TaskID != "" && progress.Take == nil {
+				task, exists, err := model.GetByTaskId(job.UserID, progress.TaskID)
+				if err != nil {
+					studioCloudError(c, err)
+					return
+				}
+				if exists && task.Status == model.TaskStatusFailure {
+					progress.TaskID, progress.RequestID, progress.ResponseMediaID, progress.Phase = "", "", "", "preparing"
+					progress.AdditionalTakes = nil
+					raw, err := common.Marshal(progress)
+					if err != nil {
+						studioCloudError(c, err)
+						return
+					}
+					job.Result = model.StudioDocument(raw)
+				}
+			}
 			status = "queued"
 		}
 		if !service.StudioWorkflowNeedsGeneration(job.Kind) && (job.Status == "failed" || job.Status == "paused") {
@@ -314,10 +343,6 @@ func StudioWorkflowJob(c *gin.Context) {
 		}
 		if !input.ConfirmGeneration {
 			studioCloudError(c, errors.New("resuming generation requires confirmation"))
-			return
-		}
-		if err := model.DB.Model(&model.Token{}).Where("id = ? AND user_id = ?", job.TokenID, job.UserID).Update("status", common.TokenStatusEnabled).Error; err != nil {
-			studioCloudError(c, err)
 			return
 		}
 	}

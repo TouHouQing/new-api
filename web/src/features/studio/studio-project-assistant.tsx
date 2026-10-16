@@ -69,7 +69,7 @@ import {
 import { useStudioProductionContext } from './studio-production-context'
 import { addStudioNode, updateStudioNode } from './workspace'
 
-export function StudioProjectAssistant() {
+export function StudioProjectAssistant(options: { inline?: boolean } = {}) {
   const { t } = useTranslation()
   const {
     props,
@@ -118,7 +118,14 @@ export function StudioProjectAssistant() {
     request,
     t('Local name change; no media generation.')
   )
-  const [scopeShot, setScopeShot] = useState('all')
+  const [scopeShot, setScopeShot] = useState(
+    () =>
+      props.project.shots?.find((shot) =>
+        [shot.textNodeId, shot.imageNodeId, shot.videoNodeId].includes(
+          props.selectedNodeId || ''
+        )
+      )?.id || 'all'
+  )
   const scopedShot = props.project.shots?.find((shot) => shot.id === scopeShot)
   const localOutsideScope =
     scopeShot !== 'all' &&
@@ -340,7 +347,7 @@ export function StudioProjectAssistant() {
     Number(budget) > 0 &&
     Number(budget) <= 4000
   return (
-    <Collapsible className='mb-3'>
+    <Collapsible className='mb-3' defaultOpen={options.inline}>
       <CollapsibleTrigger render={<Button variant='outline' />}>
         {t('Project assistant and skills')}
       </CollapsibleTrigger>
@@ -350,272 +357,294 @@ export function StudioProjectAssistant() {
             'The assistant drafts a plan. Apply edits first, then approve image or video generation separately.'
           )}
         </p>
-        <StudioBudgetSummary />
-        <div className='grid gap-3 sm:grid-cols-2'>
-          <Select
-            value={scopeShot}
-            onValueChange={(value) => setScopeShot(value || 'all')}
-            items={[
-              { value: 'all', label: t('Entire project') },
-              ...(props.project.shots || []).map((shot) => ({
-                value: shot.id,
-                label: shot.title,
-              })),
-            ]}
-          >
-            <SelectTrigger aria-label={t('Assistant context range')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value='all'>{t('Entire project')}</SelectItem>
-                {props.project.shots?.map((shot) => (
-                  <SelectItem key={shot.id} value={shot.id}>
-                    {shot.title}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Select
-            value={selectedModel || null}
-            onValueChange={(value) => setTextModel(value || '')}
-            items={(models.data || []).map((value) => ({
-              value,
-              label: value,
-            }))}
-          >
-            <SelectTrigger aria-label={t('Planning model')}>
-              <SelectValue placeholder={t('Choose a planning model')} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                {models.data?.map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Input
-            aria-label={t('Search creative tasks')}
-            placeholder={t('Search creative tasks')}
-            value={skillSearch}
-            onChange={(event) => setSkillSearch(event.target.value)}
-          />
-          <Button
-            variant='outline'
-            aria-pressed={allSkills}
-            onClick={() => setAllSkills(!allSkills)}
-          >
-            {t(
-              allSkills
-                ? 'Show recommended creative tasks'
-                : 'Browse all creative tasks'
-            )}
-          </Button>
-          <Select
-            value={assistant.skillId || 'general'}
-            onValueChange={(value) =>
-              setAssistant({
-                skillId: value === 'general' ? undefined : value || undefined,
-              })
-            }
-            items={[
-              { value: 'general', label: t('General creative assistant') },
-              ...visibleSkills.map((skill) => ({
-                value: skill.id,
-                label: t(skill.name),
-              })),
-            ]}
-          >
-            <SelectTrigger aria-label={t('Choose a creative skill')}>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value='general'>
-                  {t('General creative assistant')}
-                </SelectItem>
-                {visibleSkills.map((skill) => (
-                  <SelectItem key={skill.id} value={skill.id}>
-                    {t(skill.name)}
-                  </SelectItem>
-                ))}
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-          <Field>
-            <FieldLabel>{t('studio.production.budget')}</FieldLabel>
-            <Input
-              type='number'
-              min={0.01}
-              max={4000}
-              step={0.01}
-              value={budget}
-              onChange={(event) => setBudget(event.target.value)}
-            />
-          </Field>
-        </div>
-        {selectedSkill && (
-          <div className='space-y-2 text-sm'>
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={
-                !writable ||
-                mutate.isPending ||
-                !STUDIO_BUILTIN_SKILLS.some(
-                  (skill) => skill.id === selectedSkill.id
-                )
-              }
-              onClick={() =>
-                mutate.mutate(async () => {
-                  const original = STUDIO_BUILTIN_SKILLS.find(
-                    (skill) => skill.id === selectedSkill.id
-                  )
-                  if (!original) return
-                  props.onUpdate({
-                    ...props.project,
-                    production: {
-                      ...production,
-                      skills: [
-                        ...production.skills.filter(
-                          (skill) => skill.id !== original.id
-                        ),
-                        restoreStudioBuiltinSkill(selectedSkill),
-                      ],
-                    },
+        <p className='text-muted-foreground text-xs'>
+          {t('Assistant context range')}:{' '}
+          {scopedShot?.title || t('Entire project')}
+        </p>
+        <Collapsible>
+          <CollapsibleTrigger render={<Button variant='ghost' size='sm' />}>
+            {t('Assistant settings and skills')}
+          </CollapsibleTrigger>
+          <CollapsibleContent className='flex flex-col gap-3 pt-3'>
+            <StudioBudgetSummary />
+            <div className='grid gap-3 sm:grid-cols-2'>
+              <Select
+                value={scopeShot}
+                onValueChange={(value) => setScopeShot(value || 'all')}
+                items={[
+                  { value: 'all', label: t('Entire project') },
+                  ...(props.project.shots || []).map((shot) => ({
+                    value: shot.id,
+                    label: shot.title,
+                  })),
+                ]}
+              >
+                <SelectTrigger aria-label={t('Assistant context range')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value='all'>{t('Entire project')}</SelectItem>
+                    {props.project.shots?.map((shot) => (
+                      <SelectItem key={shot.id} value={shot.id}>
+                        {shot.title}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Select
+                value={selectedModel || null}
+                onValueChange={(value) => setTextModel(value || '')}
+                items={(models.data || []).map((value) => ({
+                  value,
+                  label: value,
+                }))}
+              >
+                <SelectTrigger aria-label={t('Planning model')}>
+                  <SelectValue placeholder={t('Choose a planning model')} />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {models.data?.map((value) => (
+                      <SelectItem key={value} value={value}>
+                        {value}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Input
+                aria-label={t('Search creative tasks')}
+                placeholder={t('Search creative tasks')}
+                value={skillSearch}
+                onChange={(event) => setSkillSearch(event.target.value)}
+              />
+              <Button
+                variant='outline'
+                aria-pressed={allSkills}
+                onClick={() => setAllSkills(!allSkills)}
+              >
+                {t(
+                  allSkills
+                    ? 'Show recommended creative tasks'
+                    : 'Browse all creative tasks'
+                )}
+              </Button>
+              <Select
+                value={assistant.skillId || 'general'}
+                onValueChange={(value) =>
+                  setAssistant({
+                    skillId:
+                      value === 'general' ? undefined : value || undefined,
                   })
-                  await props.onSave()
-                })
-              }
-            >
-              {t('Restore the built-in skill')}
-            </Button>
-            <p>
-              {t(`studio.skill.help.${selectedSkill.id}`, {
-                defaultValue: t(selectedSkill.description),
-              })}
-            </p>
-            <p>
-              {t('Inputs')}:{' '}
-              {selectedSkill.inputs
-                .map((input) =>
-                  t(
-                    (
-                      {
-                        story: 'studio.creation.step.story',
-                        shots: 'studio.view.storyboard',
-                        assets: 'studio.asset.title',
-                        media: 'studio.production.media',
-                        review: 'studio.production.review',
-                      } as Record<string, string>
-                    )[input] || input
-                  )
-                )
-                .join('、')}{' '}
-              · {t('Output')}: {t('Editable plan')} ·{' '}
-              {t('Generation requires separate approval')}
-            </p>
-            <Select
-              disabled={!writable || mutate.isPending}
-              value={selectedSkill.activeVersion}
-              onValueChange={(version) => {
-                if (!version || version === selectedSkill.activeVersion) return
-                const skill = { ...selectedSkill, activeVersion: version }
-                mutate.mutate(async () => {
-                  props.onUpdate({
-                    ...props.project,
-                    production: {
-                      ...production,
-                      skills: [
-                        ...production.skills.filter(
-                          (saved) => saved.id !== skill.id
-                        ),
-                        skill,
-                      ],
-                    },
-                  })
-                  await props.onSave()
-                })
-              }}
-              items={selectedSkill.versions.map((version) => ({
-                value: version.version,
-                label: version.version,
-              }))}
-            >
-              <SelectTrigger aria-label={t('Skill version')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {selectedSkill.versions.map((version) => (
-                    <SelectItem key={version.version} value={version.version}>
-                      {version.version}
+                }
+                items={[
+                  { value: 'general', label: t('General creative assistant') },
+                  ...visibleSkills.map((skill) => ({
+                    value: skill.id,
+                    label: t(skill.name),
+                  })),
+                ]}
+              >
+                <SelectTrigger aria-label={t('Choose a creative skill')}>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value='general'>
+                      {t('General creative assistant')}
                     </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-        <div className='flex flex-wrap gap-2'>
-          {selectedSkill && (
-            <Button
-              variant='outline'
-              disabled={mutate.isPending}
-              onClick={() => {
-                const version = selectedSkill.versions.find(
-                  (item) => item.version === selectedSkill.activeVersion
-                )
-                if (!version) return
-                const url = URL.createObjectURL(
-                  new Blob(
-                    [exportStudioSkill(selectedSkill, t(selectedSkill.name))],
-                    { type: 'text/markdown;charset=utf-8' }
-                  )
-                )
-                const anchor = document.createElement('a')
-                anchor.href = url
-                anchor.download = `${selectedSkill.id}-SKILL.md`
-                anchor.click()
-                window.setTimeout(() => URL.revokeObjectURL(url), 10000)
-              }}
-            >
-              {t('Export selected skill')}
-            </Button>
-          )}
-          <Button
-            disabled={!writable}
-            variant='outline'
-            onClick={() => file.current?.click()}
-          >
-            {t('Import skill file')}
-          </Button>
-          <Button
-            disabled={!writable}
-            variant='outline'
-            onClick={() => folder.current?.click()}
-          >
-            {t('Import skill folder')}
-          </Button>
-          <input
-            ref={file}
-            hidden
-            type='file'
-            accept='.md'
-            onChange={(event) => void importFiles(event.target.files)}
-          />
-          <input
-            ref={folder}
-            hidden
-            type='file'
-            {...{ webkitdirectory: '' }}
-            onChange={(event) => void importFiles(event.target.files)}
-          />
-        </div>
+                    {visibleSkills.map((skill) => (
+                      <SelectItem key={skill.id} value={skill.id}>
+                        {t(skill.name)}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+              <Field>
+                <FieldLabel>{t('studio.production.budget')}</FieldLabel>
+                <Input
+                  type='number'
+                  min={0.01}
+                  max={4000}
+                  step={0.01}
+                  value={budget}
+                  onChange={(event) => setBudget(event.target.value)}
+                />
+              </Field>
+            </div>
+            {selectedSkill && (
+              <div className='space-y-2 text-sm'>
+                <Button
+                  size='sm'
+                  variant='outline'
+                  disabled={
+                    !writable ||
+                    mutate.isPending ||
+                    !STUDIO_BUILTIN_SKILLS.some(
+                      (skill) => skill.id === selectedSkill.id
+                    )
+                  }
+                  onClick={() =>
+                    mutate.mutate(async () => {
+                      const original = STUDIO_BUILTIN_SKILLS.find(
+                        (skill) => skill.id === selectedSkill.id
+                      )
+                      if (!original) return
+                      props.onUpdate({
+                        ...props.project,
+                        production: {
+                          ...production,
+                          skills: [
+                            ...production.skills.filter(
+                              (skill) => skill.id !== original.id
+                            ),
+                            restoreStudioBuiltinSkill(selectedSkill),
+                          ],
+                        },
+                      })
+                      await props.onSave()
+                    })
+                  }
+                >
+                  {t('Restore the built-in skill')}
+                </Button>
+                <p>
+                  {t(`studio.skill.help.${selectedSkill.id}`, {
+                    defaultValue: t(selectedSkill.description),
+                  })}
+                </p>
+                <p>
+                  {t('Inputs')}:{' '}
+                  {selectedSkill.inputs
+                    .map((input) =>
+                      t(
+                        (
+                          {
+                            story: 'studio.creation.step.story',
+                            shots: 'studio.view.storyboard',
+                            assets: 'studio.asset.title',
+                            media: 'studio.production.media',
+                            review: 'studio.production.review',
+                          } as Record<string, string>
+                        )[input] || input
+                      )
+                    )
+                    .join('、')}{' '}
+                  · {t('Output')}: {t('Editable plan')} ·{' '}
+                  {t('Generation requires separate approval')}
+                </p>
+                <Select
+                  disabled={!writable || mutate.isPending}
+                  value={selectedSkill.activeVersion}
+                  onValueChange={(version) => {
+                    if (!version || version === selectedSkill.activeVersion) {
+                      return
+                    }
+                    const skill = { ...selectedSkill, activeVersion: version }
+                    mutate.mutate(async () => {
+                      props.onUpdate({
+                        ...props.project,
+                        production: {
+                          ...production,
+                          skills: [
+                            ...production.skills.filter(
+                              (saved) => saved.id !== skill.id
+                            ),
+                            skill,
+                          ],
+                        },
+                      })
+                      await props.onSave()
+                    })
+                  }}
+                  items={selectedSkill.versions.map((version) => ({
+                    value: version.version,
+                    label: version.version,
+                  }))}
+                >
+                  <SelectTrigger aria-label={t('Skill version')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {selectedSkill.versions.map((version) => (
+                        <SelectItem
+                          key={version.version}
+                          value={version.version}
+                        >
+                          {version.version}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            <div className='flex flex-wrap gap-2'>
+              {selectedSkill && (
+                <Button
+                  variant='outline'
+                  disabled={mutate.isPending}
+                  onClick={() => {
+                    const version = selectedSkill.versions.find(
+                      (item) => item.version === selectedSkill.activeVersion
+                    )
+                    if (!version) return
+                    const url = URL.createObjectURL(
+                      new Blob(
+                        [
+                          exportStudioSkill(
+                            selectedSkill,
+                            t(selectedSkill.name)
+                          ),
+                        ],
+                        { type: 'text/markdown;charset=utf-8' }
+                      )
+                    )
+                    const anchor = document.createElement('a')
+                    anchor.href = url
+                    anchor.download = `${selectedSkill.id}-SKILL.md`
+                    anchor.click()
+                    window.setTimeout(() => URL.revokeObjectURL(url), 10000)
+                  }}
+                >
+                  {t('Export selected skill')}
+                </Button>
+              )}
+              <Button
+                disabled={!writable}
+                variant='outline'
+                onClick={() => file.current?.click()}
+              >
+                {t('Import skill file')}
+              </Button>
+              <Button
+                disabled={!writable}
+                variant='outline'
+                onClick={() => folder.current?.click()}
+              >
+                {t('Import skill folder')}
+              </Button>
+              <input
+                ref={file}
+                hidden
+                type='file'
+                accept='.md'
+                onChange={(event) => void importFiles(event.target.files)}
+              />
+              <input
+                ref={folder}
+                hidden
+                type='file'
+                {...{ webkitdirectory: '' }}
+                onChange={(event) => void importFiles(event.target.files)}
+              />
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
         <div
           className='max-h-64 space-y-3 overflow-y-auto'
           aria-label={t('Creative conversation')}

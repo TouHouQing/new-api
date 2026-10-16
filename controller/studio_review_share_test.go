@@ -112,6 +112,42 @@ func studioReviewDatabase(t *testing.T) *gorm.DB {
 	return db
 }
 
+func TestStudioResumeRetriesOnlyConfirmedFailedTask(t *testing.T) {
+	for _, taskStatus := range []model.TaskStatus{model.TaskStatusFailure, model.TaskStatusSuccess, model.TaskStatusInProgress} {
+		t.Run(string(taskStatus), func(t *testing.T) {
+			db := studioReviewDatabase(t)
+			require.NoError(t, db.AutoMigrate(&model.User{}, &model.Task{}, &model.StudioWorkflowCharge{}))
+			require.NoError(t, db.Create(&model.User{Id: 1, Username: "retry-owner", Quota: 1000, Status: common.UserStatusEnabled}).Error)
+			_, err := model.SaveStudioProject(1, "film", "Film", 0, "{}")
+			require.NoError(t, err)
+			job := model.StudioWorkflowJob{ID: "retry", UserID: 1, ProjectID: "film", RequestID: "workflow-request", Kind: "generate", Status: "failed", Budget: 1000, Plan: "{}", Result: `{"phase":"waiting","node_id":"video","task_id":"upstream","request_id":"video-request","response_media_id":"receipt","completed":["text","image"],"outputs":{"image":{"mediaId":"saved-image"}}}`}
+			require.NoError(t, db.Create(&job).Error)
+			require.NoError(t, db.Create(&model.Task{TaskID: "upstream", UserId: 1, Status: taskStatus}).Error)
+			engine := gin.New()
+			engine.Use(func(c *gin.Context) { c.Set("id", 1) })
+			engine.POST("/jobs/:job_id/control", StudioWorkflowJob)
+			response := httptest.NewRecorder()
+			engine.ServeHTTP(response, httptest.NewRequest("POST", "/jobs/retry/control", strings.NewReader(`{"action":"resume","confirm_generation":true}`)))
+			require.Equal(t, http.StatusOK, response.Code, response.Body.String())
+			require.NoError(t, db.First(&job, "id = ?", job.ID).Error)
+			var progress service.StudioWorkflowProgress
+			require.NoError(t, common.Unmarshal([]byte(job.Result), &progress))
+			assert.Equal(t, "queued", job.Status)
+			assert.Equal(t, int64(1000), job.Budget)
+			assert.Equal(t, []string{"text", "image"}, progress.Completed)
+			assert.Equal(t, "saved-image", progress.Outputs["image"]["mediaId"])
+			if taskStatus == model.TaskStatusFailure {
+				assert.Empty(t, progress.TaskID)
+				assert.Empty(t, progress.RequestID)
+				assert.Empty(t, progress.ResponseMediaID)
+				assert.Equal(t, "preparing", progress.Phase)
+			} else {
+				assert.Equal(t, "upstream", progress.TaskID, "existing results and active submissions must never be regenerated")
+			}
+		})
+	}
+}
+
 func TestStudioCompletionCursorDoesNotRepeatAcrossTimezonesOrLoseSameTimeJobs(t *testing.T) {
 	db := studioReviewDatabase(t)
 	_, err := model.SaveStudioProject(1, "film", "Film", 0, "{}")

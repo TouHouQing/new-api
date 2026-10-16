@@ -2,6 +2,7 @@ param(
   [string]$Directory = "$env:USERPROFILE\.cache\codex-studio-toolchains\studio-local",
   [string]$ComfyDirectory = "$env:USERPROFILE\Desktop\Data\Packages\ComfyUI",
   [ValidateRange(1, 8)][double]$ReserveVRAMGB = 4,
+  [switch]$DisableDynamicVRAM,
   [switch]$CPUVAE
 )
 $ErrorActionPreference = 'Stop'
@@ -27,12 +28,13 @@ $memoryExtension = Join-Path $privateRoot 'custom_nodes\studio_memory_cleanup'
 New-Item -ItemType Directory -Path $memoryExtension -Force | Out-Null
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'comfy_private_memory.py') -Destination (Join-Path $memoryExtension 'policy.py') -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'comfy_private_memory_extension.py') -Destination (Join-Path $memoryExtension '__init__.py') -Force
-$arguments = @('-u', ('"' + $main + '"'), '--listen', '127.0.0.1', '--port', '8288', '--disable-dynamic-vram', '--disable-all-custom-nodes', '--base-directory', ('"' + $privateRoot + '"'), '--user-directory', ('"' + (Join-Path $privateRoot 'user') + '"'), '--database-url', $database, '--models-directory', ('"' + (Join-Path $sourceRoot 'models') + '"'), '--use-pytorch-cross-attention')
+$arguments = @('-u', ('"' + $main + '"'), '--listen', '127.0.0.1', '--port', '8288', '--disable-all-custom-nodes', '--base-directory', ('"' + $privateRoot + '"'), '--user-directory', ('"' + (Join-Path $privateRoot 'user') + '"'), '--database-url', $database, '--models-directory', ('"' + (Join-Path $sourceRoot 'models') + '"'), '--use-pytorch-cross-attention')
+if ($DisableDynamicVRAM) { $arguments += '--disable-dynamic-vram' }
 $arguments += @('--lowvram', '--fp32-text-enc', '--bf16-unet', '--cache-classic', '--disable-pinned-memory', '--disable-async-offload', '--reserve-vram', $ReserveVRAMGB.ToString([Globalization.CultureInfo]::InvariantCulture))
 $arguments += @('--whitelist-custom-nodes', 'studio_memory_cleanup')
 if ($CPUVAE) { $arguments += '--cpu-vae' }
 $env:OMP_NUM_THREADS = '8'
 $env:MKL_NUM_THREADS = '8'
 $child = Start-Process -FilePath $python -ArgumentList $arguments -WorkingDirectory $sourceRoot -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $Directory 'private-comfy.log') -RedirectStandardError (Join-Path $Directory 'private-comfy.err')
-@{ pid = $child.Id; port = 8288; directory = $privateRoot; source = $sourceRoot; reserve_vram_gb = $ReserveVRAMGB; cpu_vae = [bool]$CPUVAE } | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $privateRoot 'runtime.json')
+@{ pid = $child.Id; port = 8288; directory = $privateRoot; source = $sourceRoot; reserve_vram_gb = $ReserveVRAMGB; disable_dynamic_vram = [bool]$DisableDynamicVRAM; cpu_vae = [bool]$CPUVAE } | ConvertTo-Json | Set-Content -Encoding utf8 (Join-Path $privateRoot 'runtime.json')
 Write-Output "Private inference runtime started on loopback port 8288; PID $($child.Id)"

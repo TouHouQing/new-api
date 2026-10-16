@@ -82,6 +82,7 @@ type TokenCountMeta struct {
 }
 
 type RelayInfo struct {
+	StudioWorkflowID  string
 	TokenId           int
 	TokenKey          string
 	TokenGroup        string
@@ -637,6 +638,11 @@ func genBaseRelayInfo(c *gin.Context, request dto.Request) *RelayInfo {
 		info.IsPlayground = true
 		info.RequestURLPath = strings.TrimPrefix(info.RequestURLPath, "/pg")
 		info.RequestURLPath = "/v1" + info.RequestURLPath
+	}
+	info.StudioWorkflowID = c.GetString("studio_workflow_id")
+	if info.StudioWorkflowID != "" {
+		info.IsPlayground = true
+		info.ForcePreConsume = true
 	}
 
 	userSetting, ok := common.GetContextKeyType[dto.UserSetting](c, constant.ContextKeyUserSetting)

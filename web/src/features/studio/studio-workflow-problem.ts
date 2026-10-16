@@ -17,6 +17,13 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 For commercial licensing, please contact support@quantumnous.com
 */
 export function studioWorkflowProblem(message: string): string {
+  if (
+    /local Wan supports|supported frame size|unsupported resolution/i.test(
+      message
+    )
+  ) {
+    return 'Choose a frame size supported by the selected video model.'
+  }
   if (/no audio (stream|track)/i.test(message)) {
     return 'This video has no audio track. Choose a video with sound or add separate audio.'
   }
@@ -37,6 +44,9 @@ export function studioWorkflowProblem(message: string): string {
   }
   if (/insufficient.*quota|insufficient.*credit/i.test(message)) {
     return 'Insufficient generation credit. Add credit or continue with free editing.'
+  }
+  if (/workflow spending limit|workflow.*budget/i.test(message)) {
+    return 'Workflow spending limit reached. Review the recorded costs before starting another generation.'
   }
   if (/HTTP (401|403)|permission|access.denied/i.test(message)) {
     return 'The service rejected this request. Check credit and model access, then retry with the saved settings.'

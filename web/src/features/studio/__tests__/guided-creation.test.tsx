@@ -147,7 +147,7 @@ test('an explicit route step survives a late cloud document with a different sav
       <Host initialStep='voice' />
     </QueryClientProvider>
   )
-  await waitFor(() => expect(saved.production?.guide?.step).toBe('voice'))
+  await waitFor(() => expect(saved.production?.guide?.step).toBe('edit'))
   await act(async () =>
     restoreDocument({
       ...saved,
@@ -157,11 +157,10 @@ test('an explicit route step survives a late cloud document with a different sav
       },
     })
   )
+  expect(screen.getByRole('dialog')).toBeVisible()
+  await userEvent.click(screen.getByRole('button', { name: 'Close' }))
   expect(
-    screen.getByRole('button', { name: 'Make shot images and videos' })
-  ).toBeVisible()
-  expect(
-    screen.getByRole('tab', { name: /studio.creation.step.visual/ })
+    screen.getByRole('tab', { name: /studio.workspace.stage.edit/ })
   ).toHaveAttribute('aria-selected', 'true')
 })
 
@@ -172,14 +171,15 @@ test('restoring a built-in skill persists the selection before exporting while k
     'studio.creation.step.story',
     'Story'
   )
-  const view = mount()
+  mount()
   await waitFor(() => expect(save).toHaveBeenCalledTimes(1))
   save.mockClear()
   const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Creative assistant' }))
   await user.click(
-    screen.getByRole('button', { name: 'Project assistant and skills' })
+    screen.getByRole('button', { name: 'Assistant settings and skills' })
   )
-  const input = view.container.querySelector<HTMLInputElement>(
+  const input = document.querySelector<HTMLInputElement>(
     'input[type="file"][accept=".md"]'
   )
   if (!input) throw new Error('The skill upload input is missing')
@@ -410,7 +410,9 @@ test('a reviewer may browse the guide while story inputs and project writes rema
       screen.getByRole('textbox', { name: 'Tell your story' })
     ).toBeDisabled()
   )
-  await userEvent.click(screen.getByRole('button', { name: 'Next step' }))
+  await userEvent.click(
+    screen.getByRole('tab', { name: /studio.workspace.stage.shots/ })
+  )
   expect(
     await screen.findByRole('textbox', { name: 'Shot title' })
   ).toBeDisabled()
@@ -431,7 +433,9 @@ test('an empty or invalid shot duration blocks applying and continuing until cor
   })
   await user.clear(duration)
   expect(screen.getByRole('button', { name: 'Apply shot plan' })).toBeDisabled()
-  expect(screen.getByRole('button', { name: 'Next step' })).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
+  ).toBeDisabled()
   await user.type(duration, '0')
   expect(screen.getByRole('button', { name: 'Apply shot plan' })).toBeDisabled()
   await user.clear(duration)
@@ -441,10 +445,14 @@ test('an empty or invalid shot duration blocks applying and continuing until cor
       screen.getByRole('button', { name: 'Apply shot plan' })
     ).toBeEnabled()
   )
-  expect(screen.getByRole('button', { name: 'Next step' })).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
+  ).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Apply shot plan' }))
   expect(saved.shots).toHaveLength(1)
-  expect(screen.getByRole('button', { name: 'Next step' })).toBeEnabled()
+  expect(
+    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
+  ).toBeEnabled()
   expect(
     vi.mocked(studioCloudRequest).mock.calls.every((call) => call[1] !== 'POST')
   ).toBe(true)
@@ -464,11 +472,15 @@ test.each(['', '0', '1.5', '3601'])(
     expect(
       screen.getByRole('button', { name: 'Make a manual shot draft' })
     ).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Next step' })).toBeDisabled()
+    expect(
+      screen.getByRole('button', { name: 'Review shot draft' })
+    ).toBeDisabled()
     expect(saved.production?.screenplayDraft).toBeFalsy()
     fireEvent.change(duration, { target: { value: '6' } })
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Next step' })).toBeEnabled()
+      expect(
+        screen.getByRole('button', { name: 'Review shot draft' })
+      ).toBeEnabled()
     )
     await user.click(
       screen.getByRole('button', { name: 'Make a manual shot draft' })
@@ -498,12 +510,15 @@ test.each([
     i18next.addResource('zh', 'translation', sample.key, sample.message)
     await i18next.changeLanguage('zh')
     try {
-      const view = mount()
+      mount()
       const user = userEvent.setup()
       await user.click(
-        screen.getByRole('button', { name: 'Project assistant and skills' })
+        screen.getByRole('button', { name: 'Creative assistant' })
       )
-      const input = view.container.querySelector<HTMLInputElement>(
+      await user.click(
+        screen.getByRole('button', { name: 'Assistant settings and skills' })
+      )
+      const input = document.querySelector<HTMLInputElement>(
         'input[type="file"][accept=".md"]'
       )
       expect(input).not.toBeNull()
@@ -526,7 +541,10 @@ test('invalid delivery numbers stay in the field and cannot corrupt the saved do
   const user = userEvent.setup()
   await waitFor(() => expect(save).toHaveBeenCalled())
   await user.click(
-    screen.getByRole('tab', { name: /studio.creation.step.deliver/ })
+    screen.getByRole('tab', { name: /studio.workspace.stage.deliver/ })
+  )
+  await user.click(
+    screen.getByRole('button', { name: 'Advanced export settings' })
   )
   const width = await screen.findByLabelText('studio.production.width')
   const valid = saved.production?.width
@@ -536,7 +554,7 @@ test('invalid delivery numbers stay in the field and cannot corrupt the saved do
     expect(width).toHaveAttribute('aria-invalid', 'true')
     expect(saved.production?.width).toBe(valid)
     expect(
-      screen.getByRole('button', { name: 'studio.production.export' })
+      screen.getAllByRole('button', { name: 'Export video' })[0]
     ).toBeDisabled()
   }
   fireEvent.change(width, { target: { value: '640' } })
@@ -551,11 +569,10 @@ test('the novice workbench exposes five main goals and an optional media path', 
   expect(screen.getAllByRole('tab')).toHaveLength(5)
   await userEvent
     .setup()
-    .click(screen.getByRole('tab', { name: /studio.creation.step.visual/ }))
+    .click(screen.getByRole('tab', { name: /studio.workspace.stage.visual/ }))
+  await userEvent.click(screen.getByRole('button', { name: 'Project tools' }))
   expect(
-    screen.getByRole('button', {
-      name: 'Optional: voice, music and image tools',
-    })
+    screen.getByRole('menuitem', { name: 'studio.workspace.tool.media' })
   ).toBeEnabled()
 })
 
@@ -564,9 +581,9 @@ test('an empty timeline explains why both export and export preview are unavaila
   await waitFor(() => expect(save).toHaveBeenCalled())
   await userEvent
     .setup()
-    .click(screen.getByRole('tab', { name: /studio.creation.step.deliver/ }))
+    .click(screen.getByRole('tab', { name: /studio.workspace.stage.deliver/ }))
   expect(
-    screen.getByRole('button', { name: 'studio.production.export' })
+    screen.getAllByRole('button', { name: 'Export video' })[0]
   ).toBeDisabled()
   expect(
     screen.getByRole('button', { name: 'Preview the exact export layout' })
@@ -598,9 +615,9 @@ test('storage outage blocks a valid export and gives an actionable reason while 
   await waitFor(() => expect(save).toHaveBeenCalled())
   await userEvent
     .setup()
-    .click(screen.getByRole('tab', { name: /studio.creation.step.deliver/ }))
+    .click(screen.getByRole('tab', { name: /studio.workspace.stage.deliver/ }))
   expect(
-    screen.getByRole('button', { name: 'studio.production.export' })
+    screen.getAllByRole('button', { name: 'Export video' })[0]
   ).toBeDisabled()
   expect(
     screen.getByText(
@@ -608,4 +625,66 @@ test('storage outage blocks a valid export and gives an actionable reason while 
     )
   ).toBeVisible()
   expect(saved.nodes[0].data.mediaId).toBe('completed-video')
+})
+
+test('the fixed generation action opens the same scope confirmation without starting a model', async () => {
+  const project = createStudioProject('Film', 'film')
+  project.nodes = [
+    {
+      id: 'video',
+      type: 'studio',
+      position: { x: 0, y: 0 },
+      data: {
+        kind: 'video',
+        title: 'Shot',
+        prompt: 'A cat walking',
+        model: 'wan2.2-ti2v-5b',
+        seconds: 2,
+        status: 'idle',
+      },
+    },
+  ]
+  saved = project
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  client.setQueryData(['studio-cloud-capabilities', 1], {
+    render_available: true,
+    storage_available: true,
+    quota_per_unit: 500000,
+    available_quota: 5000000,
+    generation_credit_available: true,
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <StudioCreationWorkspace
+        open
+        onOpenChange={() => {}}
+        project={project}
+        initialStep='visual'
+        userId={1}
+        selectedNodeId='video'
+        onSave={save}
+        onRefresh={async () => {}}
+        onUpdate={update}
+        getMedia={async () => null}
+        onAssets={() => {}}
+        onCanvas={() => {}}
+        onDemo={loadDemo}
+      />
+    </QueryClientProvider>
+  )
+  const action = screen.getByRole('button', {
+    name: 'Review and generate selected footage',
+  })
+  await waitFor(() => expect(action).toBeEnabled())
+  await userEvent.click(action)
+  expect(await screen.findByRole('alertdialog')).toBeVisible()
+  expect(
+    vi
+      .mocked(studioCloudRequest)
+      .mock.calls.some(
+        ([path, method]) => path.endsWith('/jobs') && method === 'POST'
+      )
+  ).toBe(false)
 })
