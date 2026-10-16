@@ -1,0 +1,66 @@
+- link "跳到主内容":
+  - /url: "#content"
+- banner:
+  - button "展开或收起侧栏":
+    - img
+    - text: 展开或收起侧栏
+  - link "返回主页":
+    - /url: /
+    - img "徽标"
+    - text: New API
+  - button "通知"
+  - button "更改语言"
+  - button "打开主题设置"
+  - button "U"
+- list:
+  - listitem:
+    - link "账户与高级设置":
+      - /url: /dashboard/overview
+- text: 视频创作
+- list:
+  - listitem:
+    - link "引导式视频创作":
+      - /url: /studio?workspace=guided
+  - listitem:
+    - link "素材库":
+      - /url: /studio?workspace=assets
+  - listitem:
+    - link "创作模板":
+      - /url: /studio?workspace=templates
+  - listitem:
+    - link "高级画布":
+      - /url: /studio?workspace=canvas
+- button "展开或收起侧栏"
+- main:
+  - main:
+    - heading "视频创作工作台" [level=1]
+    - button "选择项目": 青咖啡
+    - status: 已保存到服务端
+    - button "任务中心"
+    - button "新建项目"
+    - button "项目操作"
+    - region "素材库":
+      - region "导入素材":
+        - button "上传素材"
+        - button "导入媒体文件夹"
+        - paragraph: 将图片、视频或音频拖到这里，也可以选择文件。
+      - region "项目素材库":
+        - heading "项目素材库" [level=2]
+        - button "角色与场景"
+        - group:
+          - text: 搜索项目素材
+          - textbox "搜索项目素材"
+        - tablist:
+          - tab "全部素材" [selected]
+          - tab "上传素材"
+          - tab "生成素材"
+          - tab "本片已用"
+          - tab "已导出成片"
+        - paragraph: "视频 · 实际时长: 4s"
+        - paragraph: trim-fixture.mp4
+        - paragraph: 上传素材 · 可选版本
+        - button "查看与编辑"
+        - button "将此版本加入成片"
+- heading "搜索页面与操作" [level=2]
+- paragraph: 查找页面或操作
+- region "Notifications alt+T"

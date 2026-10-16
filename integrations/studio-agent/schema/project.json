@@ -5,6 +5,10 @@
     "production": {
       "type": "object",
       "properties": {
+        "briefSettingsKey": {
+          "type": "string",
+          "maxLength": 62000
+        },
         "creativeBrief": {
           "type": "object",
           "properties": {

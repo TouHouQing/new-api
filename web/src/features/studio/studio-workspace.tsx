@@ -50,6 +50,7 @@ import {
 import { StudioCreationBrief } from './studio-creation-brief'
 import { StudioCreationReadiness } from './studio-creation-readiness'
 import { StudioFilmChecks, StudioDialogueTiming } from './studio-film-finish'
+import { studioGenerationAction } from './studio-generation-action'
 import { studioProductionSchema } from './studio-production'
 import { StudioProductionContext } from './studio-production-context'
 import {
@@ -66,6 +67,7 @@ import { StudioProductionTimelineTab } from './studio-production-timeline-tab'
 import { StudioProductionVersionsTab } from './studio-production-versions-tab'
 import { StudioProductionWorkflowTab } from './studio-production-workflow-tab'
 import { StudioProjectAssistant } from './studio-project-assistant'
+import { studioProjectDisplayTitle } from './studio-project-identity'
 import { StudioScreenplayEditor } from './studio-screenplay-editor'
 import { StudioStoryboardOverview } from './studio-storyboard-overview'
 import { StudioTimelinePreview } from './studio-timeline-preview'
@@ -97,6 +99,7 @@ export function StudioCreationWorkspace(props: Props) {
   const [tool, setTool] = useState<StudioWorkspaceTool | null>(
     props.initialTab === 'media' ? 'media' : null
   )
+  const [showShotList, setShowShotList] = useState(false)
   const [shotsOpen, setShotsOpen] = useState(false)
   const [screenplayValid, setScreenplayValid] = useState(true)
   const [storyValid, setStoryValid] = useState(true)
@@ -134,13 +137,17 @@ export function StudioCreationWorkspace(props: Props) {
     selectedMedia?.data.kind === 'video' && !!selectedMedia.data.mediaId
   const completedImage =
     selectedMedia?.data.kind === 'image' && !!selectedMedia.data.mediaId
-  let generationLabel = 'Generate selected footage'
-  if (controller.selectedNodes.length === 1) {
-    generationLabel = 'Try this shot first'
-  }
-  if (selectedMedia?.data.kind === 'image') {
-    generationLabel = 'Make the key image'
-  }
+  const generationLabel = studioGenerationAction(
+    props.project,
+    controller.selectedNodes,
+    t
+  )
+  const showShots =
+    showShotList &&
+    step !== 'story' &&
+    step !== 'shots' &&
+    step !== 'deliver' &&
+    !!(props.project.shots?.length || controller.timeline.length)
   const selectShot = (id: string) => {
     props.onSelectNode?.(id)
     const node = props.project.nodes.find((node) => node.id === id)
@@ -334,7 +341,7 @@ export function StudioCreationWorkspace(props: Props) {
   return (
     <StudioProductionContext.Provider value={context}>
       <div
-        className='studio-production-workspace flex h-full min-h-0 max-w-full min-w-0 flex-col overflow-hidden'
+        className='studio-guided-ui studio-production-workspace flex h-full min-h-0 max-w-full min-w-0 flex-col overflow-hidden'
         data-stage={step}
       >
         <header className='flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2'>
@@ -349,12 +356,12 @@ export function StudioCreationWorkspace(props: Props) {
           </div>
           <Button
             size='sm'
-            variant='outline'
+            variant='ghost'
             onClick={() => setTool('assistant')}
           >
             {t('Creative assistant')}
           </Button>
-          <Button size='sm' variant='outline' onClick={() => setTool('share')}>
+          <Button size='sm' variant='ghost' onClick={() => setTool('share')}>
             {t('Share project')}
           </Button>
           <DropdownMenu>
@@ -425,7 +432,10 @@ export function StudioCreationWorkspace(props: Props) {
           }}
           className='flex min-h-0 flex-1 flex-col gap-0'
         >
-          <TabsList className='m-2 grid shrink-0 grid-cols-5 group-data-horizontal/tabs:h-auto'>
+          <TabsList
+            data-studio-stages
+            className='m-2 grid shrink-0 grid-cols-5 group-data-horizontal/tabs:h-auto'
+          >
             {stages.map((key, index) => (
               <TabsTrigger
                 key={key}
@@ -433,21 +443,48 @@ export function StudioCreationWorkspace(props: Props) {
                 className='min-w-0 px-1 py-2 text-xs sm:text-sm'
               >
                 {progress[key] ? '✓' : index + 1}{' '}
-                {t(`studio.workspace.stage.${key}`)}
+                <span className='hidden sm:inline'>
+                  {t(`studio.workspace.stage.${key}`)}
+                </span>
+                <span className='sm:hidden'>
+                  {t(`studio.workspace.short.${key}`)}
+                </span>
               </TabsTrigger>
             ))}
           </TabsList>
-          <div className='flex shrink-0 gap-2 px-3 pb-2 lg:hidden'>
+          <div
+            className={
+              step === 'story' || step === 'shots' || step === 'deliver'
+                ? 'hidden'
+                : 'flex shrink-0 gap-2 px-3 pb-2'
+            }
+          >
             <Button
               variant='outline'
               size='sm'
-              onClick={() => setShotsOpen(true)}
+              onClick={() => {
+                if (window.matchMedia('(min-width:1024px)').matches) {
+                  setShowShotList((value) => !value)
+                } else setShotsOpen(true)
+              }}
             >
               {t('Project shots')}
             </Button>
           </div>
-          <div className='grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[220px_minmax(0,1fr)]'>
-            <aside className='hidden min-h-0 overflow-y-auto border-r lg:block'>
+          <div
+            className={
+              showShots
+                ? 'grid min-h-0 flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[190px_minmax(0,1fr)]'
+                : 'grid min-h-0 flex-1 grid-cols-1 overflow-hidden'
+            }
+          >
+            <aside
+              className={
+                showShots
+                  ? 'hidden min-h-0 overflow-y-auto border-r lg:block'
+                  : 'hidden'
+              }
+            >
               {shotList}
             </aside>
             <div
@@ -478,7 +515,26 @@ export function StudioCreationWorkspace(props: Props) {
                   </Button>
                 </div>
                 <StudioStoryboardOverview />
-                <StudioScreenplayEditor onValidityChange={setScreenplayValid} />
+                <StudioScreenplayEditor
+                  compact
+                  formId={`studio-shot-plan-${props.project.id}`}
+                  onValidityChange={setScreenplayValid}
+                  onApplied={(next) => {
+                    props.onUpdate({
+                      ...next,
+                      production: {
+                        ...(next.production ||
+                          studioProductionSchema.parse({})),
+                        guide: {
+                          step: 'visual',
+                          goal: next.production?.guide?.goal || 'story',
+                        },
+                      },
+                    })
+                    setPreviewStep('visual')
+                    props.onStepChange?.('visual')
+                  }}
+                />
                 <StudioDialogueTiming />
               </TabsContent>
               <TabsContent value='visual' className='mt-0'>
@@ -502,37 +558,45 @@ export function StudioCreationWorkspace(props: Props) {
               </TabsContent>
               <StudioProductionTimelineTab value='edit' compact />
               <TabsContent value='deliver' className='mt-0'>
-                <div className='grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]'>
-                  <div className='min-w-0 self-start xl:sticky xl:top-0'>
-                    <h3 className='mb-3 font-medium'>
-                      {t('Whole film preview')}
-                    </h3>
-                    <StudioTimelinePreview
-                      compact
-                      project={props.project}
-                      getMedia={props.getMedia}
-                      onPreviewed={controller.markTimelinePreviewed}
-                    />
-                    <Collapsible className='mt-3'>
-                      <CollapsibleTrigger
-                        render={<Button variant='outline' size='sm' />}
+                <div
+                  className={
+                    controller.deliveryPreview
+                      ? 'mx-auto max-w-4xl space-y-4'
+                      : 'grid gap-4 xl:grid-cols-[minmax(0,1fr)_320px]'
+                  }
+                >
+                  {!controller.deliveryPreview && (
+                    <div className='min-w-0 self-start xl:sticky xl:top-0'>
+                      <h3 className='mb-3 font-medium'>
+                        {t('Whole film preview')}
+                      </h3>
+                      <StudioTimelinePreview
+                        compact
+                        project={props.project}
+                        getMedia={props.getMedia}
+                        onPreviewed={controller.markTimelinePreviewed}
+                      />
+                      <Collapsible className='mt-3'>
+                        <CollapsibleTrigger
+                          render={<Button variant='outline' size='sm' />}
+                        >
+                          {t('Whole film checks')}
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <StudioFilmChecks onStep={setStep} />
+                          <StudioCreationReadiness onStep={setStep} expanded />
+                        </CollapsibleContent>
+                      </Collapsible>
+                      <Button
+                        className='mt-3'
+                        variant='outline'
+                        size='sm'
+                        onClick={() => setTool('review')}
                       >
-                        {t('Whole film checks')}
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <StudioFilmChecks onStep={setStep} />
-                        <StudioCreationReadiness onStep={setStep} expanded />
-                      </CollapsibleContent>
-                    </Collapsible>
-                    <Button
-                      className='mt-3'
-                      variant='outline'
-                      size='sm'
-                      onClick={() => setTool('review')}
-                    >
-                      {t('Review and timepoint feedback')}
-                    </Button>
-                  </div>
+                        {t('Review and timepoint feedback')}
+                      </Button>
+                    </div>
+                  )}
                   <StudioProductionDeliveryTab
                     inline
                     exportButtonRef={exportButton}
@@ -574,29 +638,42 @@ export function StudioCreationWorkspace(props: Props) {
           <span className='text-muted-foreground hidden text-xs sm:block'>
             {selectedShot?.title || t('Entire project')}
           </span>
-          {step === 'story' && (
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={!storyValid || (!progress.story && !progress.edit)}
-              onClick={() => setStep(progress.edit ? 'edit' : 'shots')}
-            >
-              {t(
-                progress.edit
-                  ? 'Continue editing imported footage'
-                  : 'Review shot draft'
-              )}
-            </Button>
-          )}
+          {step === 'story' &&
+            (props.project.production?.screenplayDraft ||
+              progress.shots ||
+              progress.edit) && (
+              <Button
+                disabled={!storyValid}
+                onClick={() => setStep(progress.edit ? 'edit' : 'shots')}
+              >
+                {t(
+                  progress.edit
+                    ? 'Continue editing imported footage'
+                    : 'Review shot draft'
+                )}
+              </Button>
+            )}
           {step === 'shots' && (
             <Button
-              size='sm'
-              disabled={
-                !screenplayValid ||
-                !progress.shots ||
-                !!props.project.production?.screenplayDraft
+              type={
+                props.project.production?.screenplayDraft || !progress.shots
+                  ? 'submit'
+                  : 'button'
               }
-              onClick={() => setStep('visual')}
+              form={
+                props.project.production?.screenplayDraft || !progress.shots
+                  ? `studio-shot-plan-${props.project.id}`
+                  : undefined
+              }
+              disabled={!screenplayValid || !controller.writable}
+              onClick={() => {
+                if (
+                  !props.project.production?.screenplayDraft &&
+                  progress.shots
+                ) {
+                  setStep('visual')
+                }
+              }}
             >
               {t('Confirm shots and prepare pictures')}
             </Button>
@@ -628,7 +705,7 @@ export function StudioCreationWorkspace(props: Props) {
                     disabled={runDisabled}
                     onClick={() => runButton.current?.click()}
                   >
-                    {t(generationLabel)}
+                    {generationLabel}
                   </Button>
                 )}
             </div>
@@ -642,15 +719,34 @@ export function StudioCreationWorkspace(props: Props) {
               {t('Check and export video')}
             </Button>
           )}
-          {step === 'deliver' && (
-            <Button
-              size='sm'
-              disabled={exportDisabled}
-              onClick={() => exportButton.current?.click()}
-            >
-              {t('Export video')}
-            </Button>
-          )}
+          {step === 'deliver' &&
+            (controller.deliveryPreview && controller.result?.media_id ? (
+              <div className='flex gap-2'>
+                <Button variant='outline' onClick={() => setTool('share')}>
+                  {t('Share film')}
+                </Button>
+                <Button
+                  disabled={controller.mutate.isPending}
+                  onClick={() =>
+                    controller.mutate.mutate(() =>
+                      controller.download(
+                        controller.result?.media_id || '',
+                        `${studioProjectDisplayTitle(props.project)}.mp4`
+                      )
+                    )
+                  }
+                >
+                  {t('Save video')}
+                </Button>
+              </div>
+            ) : (
+              <Button
+                disabled={exportDisabled}
+                onClick={() => exportButton.current?.click()}
+              >
+                {t('Export video')}
+              </Button>
+            ))}
         </footer>
         <Sheet open={shotsOpen} onOpenChange={setShotsOpen}>
           <SheetContent side='left' className='w-full sm:max-w-sm'>
@@ -670,7 +766,10 @@ export function StudioCreationWorkspace(props: Props) {
             <SheetHeader>
               <SheetTitle>
                 {t(`studio.workspace.tool.${tool || 'assistant'}`)} ·{' '}
-                {selectedShot?.title || props.project.title}
+                {tool === 'share' || tool === 'members'
+                  ? studioProjectDisplayTitle(props.project)
+                  : selectedShot?.title ||
+                    studioProjectDisplayTitle(props.project)}
               </SheetTitle>
             </SheetHeader>
             <div className='min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6'>

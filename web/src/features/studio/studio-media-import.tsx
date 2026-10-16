@@ -26,12 +26,44 @@ import { api } from '@/lib/api'
 
 import { studioProductionSchema } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
+import type { StudioProductionPanelProps } from './studio-production-controller'
 import { studioWorkflowProblem } from './studio-workflow-problem'
 import { addStudioNode, recordStudioTake, updateStudioNode } from './workspace'
 
-export function StudioMediaImport() {
+type ImportOptions = {
+  workspace?: Pick<
+    StudioProductionPanelProps,
+    'project' | 'onSave' | 'onUpdate' | 'userId'
+  >
+  readOnly?: boolean
+  library?: boolean
+}
+
+export function StudioMediaImport(options: ImportOptions = {}) {
+  if (options.workspace) {
+    return <StudioMediaImportForm {...options} workspace={options.workspace} />
+  }
+  return <StudioContextMediaImport />
+}
+
+function StudioContextMediaImport() {
+  const context = useStudioProductionContext()
+  return (
+    <StudioMediaImportForm
+      workspace={context.props}
+      readOnly={!context.writable}
+    />
+  )
+}
+
+function StudioMediaImportForm(
+  options: ImportOptions & {
+    workspace: NonNullable<ImportOptions['workspace']>
+  }
+) {
   const { t } = useTranslation()
-  const { props, writable } = useStudioProductionContext()
+  const props = options.workspace
+  const writable = !options.readOnly
   const file = useRef<HTMLInputElement>(null)
   const folder = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -146,6 +178,7 @@ export function StudioMediaImport() {
         props.onUpdate(next)
       }
       if (
+        !options.library &&
         !next.shots?.length &&
         next.nodes.some(
           (node) => node.data.kind === 'video' && node.data.mediaId
@@ -178,14 +211,28 @@ export function StudioMediaImport() {
     }
   }
   return (
-    <div className='space-y-3'>
+    <section
+      aria-label={t('Import media')}
+      className={
+        options.library
+          ? 'space-y-3 rounded-xl border border-dashed p-4'
+          : 'space-y-3'
+      }
+      onDragOver={(event) => event.preventDefault()}
+      onDrop={(event) => {
+        event.preventDefault()
+        if (writable && !busy) void importFiles(event.dataTransfer.files)
+      }}
+    >
       <div className='flex flex-wrap gap-2'>
         <Button
           variant='outline'
           disabled={!writable || busy}
           onClick={() => file.current?.click()}
         >
-          {t('Use your own footage or audio')}
+          {t(
+            options.library ? 'Upload media' : 'Use your own footage or audio'
+          )}
         </Button>
         <Button
           variant='outline'
@@ -216,6 +263,11 @@ export function StudioMediaImport() {
           <AlertDescription>{error}</AlertDescription>
         </Alert>
       )}
-    </div>
+      {options.library && (
+        <p className='text-muted-foreground text-sm'>
+          {t('Drop images, video or audio here, or choose files.')}
+        </p>
+      )}
+    </section>
   )
 }

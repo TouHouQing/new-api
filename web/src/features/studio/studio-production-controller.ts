@@ -137,6 +137,14 @@ export function useStudioProductionController(
   ])
   useEffect(() => setConfirm(false), [approvalSignature])
   const [selectedClip, setSelectedClip] = useState('')
+  const [timelineInspector, setTimelineInspector] = useState<
+    'clip' | 'captions' | 'audio' | 'film'
+  >('clip')
+  const [selectedAudioTrack, setSelectedAudioTrack] = useState('')
+  useEffect(() => {
+    setTimelineInspector('clip')
+    setSelectedAudioTrack('')
+  }, [props.project.id])
   const [reviewTarget, setReviewTarget] = useState<{
     nodeId: string
     takeId?: string
@@ -485,6 +493,10 @@ export function useStudioProductionController(
     selectedNodes,
     setSelectedNodes,
     selectedClip,
+    timelineInspector,
+    setTimelineInspector,
+    selectedAudioTrack,
+    setSelectedAudioTrack,
     reviewTarget,
     setReviewTarget,
     setSelectedClip,

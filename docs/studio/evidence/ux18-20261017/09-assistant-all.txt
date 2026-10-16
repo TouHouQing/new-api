@@ -1,0 +1,21 @@
+- region "Notifications alt+T"
+- dialog "创作助手 · 门店开场":
+  - heading "创作助手 · 门店开场" [level=2]
+  - button "创作助手" [expanded]
+  - paragraph: 助手起草计划。先应用编辑，然后单独批准图像或视频生成。
+  - paragraph: "助手当前范围: 整个项目"
+  - group:
+    - text: 助手当前范围
+    - combobox "助手当前范围": 整个项目
+  - button "助手设置与技能"
+  - button "把这一镜的画面描述写清楚，保留参考素材。"
+  - button "为当前范围建议简单的运镜。"
+  - button "检查人物和服装的一致性。"
+  - textbox "请求更改视频":
+    - /placeholder: 描述想改善的整片内容，例如节奏、字幕或结尾。
+    - text: 把这一镜的画面描述写清楚，保留参考素材。
+  - button "起草 AI 计划"
+  - button "刷新对话结果"
+  - button "Close":
+    - img
+    - text: Close

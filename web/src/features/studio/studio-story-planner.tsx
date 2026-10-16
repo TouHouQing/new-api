@@ -23,10 +23,21 @@ import { useTranslation } from 'react-i18next'
 import { ConfirmDialog } from '@/components/confirm-dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
+import { getPricing } from '@/features/pricing/api'
 
 import { studioCloudRequest, type StudioCloudProject } from './studio-cloud'
 import { fetchStudioCreationModels } from './studio-creation-models'
-import { studioCreativeBriefText } from './studio-creative-plan'
+import {
+  studioCreativeBriefText,
+  studioBriefNeedsReview,
+  studioConfirmBrief,
+} from './studio-creative-plan'
+import { studioCatalogZeroCharge } from './studio-generation-action'
 import { studioProductionSchema } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
 import { parseStudioScreenplayResponse } from './studio-screenplay-response'
@@ -58,6 +69,10 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
         workspace.project.defaults?.videoGroup || 'default'
       ),
   })
+  const pricing = useQuery({
+    queryKey: ['studio-creation-pricing'],
+    queryFn: getPricing,
+  })
   const model = workspace.project.defaults?.textModel || catalog.data?.text[0]
   const node = [...workspace.project.nodes]
     .reverse()
@@ -72,16 +87,24 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
     Number(budget) <= 4000
   const submit = async () => {
     setConfirm(false)
+    if (studioBriefNeedsReview(workspace.project)) {
+      setError(t('Choose the video settings above before planning.'))
+      return
+    }
     const id = crypto.randomUUID()
     const prompt = `Return ONLY valid JSON, no markdown. Create an editable video screenplay in the user's language. Respect explicit shot numbering; do not split a shot at sentence boundaries. Keep global identity, wardrobe, style and negative requirements in brief and appropriate reference descriptions, not extra shots. Return {"title":"...","brief":"original idea and global requirements","characters":[{"id":"character_1","title":"...","description":"...","voice":"..."}],"scenes":[{"id":"scene_1","title":"...","description":"..."}],"props":[],"shots":[{"id":"shot_1","title":"...","text":"visible action","imagePrompt":"composition and appearance","videoPrompt":"one clear action and camera motion","seconds":4,"camera":"...","shotType":"...","dialogue":"spoken words only","characterIds":[],"propIds":[],"sceneId":"scene_1"}]}. IDs must match /^[A-Za-z0-9_-]{1,80}$/. Use existing referenced IDs where possible, omit sceneId if none. At most 12 shots. Every shot 1-30 whole seconds, total target ${production.targetDuration || 30} seconds, split actions when needed. Do not generate images/video or invent downloaded references. User idea: ${studioCreativeBriefText(workspace.project, t)}\n${/[\u4e00-\u9fff]/.test(production.brief || '') ? '请用中文填写标题、角色名称、场景名称、text、dialogue、camera、shotType 和 brief。JSON 键名保持英文，图像和视频提示词可以使用英文。没有台词时 dialogue 必须是空字符串，不要使用 null。保留原文明确指定的每个镜头，整体要求不能变成新镜头。' : 'Use empty strings for absent optional dialogue, camera and shotType; do not use null.'}`
     workspace.onUpdate(
-      updateStudioNode(addStudioNode(workspace.project, 'text', id), id, {
-        title: t('AI shot plan'),
-        model,
-        prompt,
-        textMode: 'plain',
-        assistantSkillId: 'screenplay-draft',
-      })
+      updateStudioNode(
+        addStudioNode(studioConfirmBrief(workspace.project, false), 'text', id),
+        id,
+        {
+          title: t('AI shot plan'),
+          model,
+          prompt,
+          textMode: 'plain',
+          assistantSkillId: 'screenplay-draft',
+        }
+      )
     )
     await workspace.onSave()
     const stored = await studioCloudRequest<StudioCloudProject>(path)
@@ -126,6 +149,7 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
       <Button
         disabled={
           !writable ||
+          studioBriefNeedsReview(workspace.project) ||
           props.disabled ||
           !production.brief?.trim() ||
           !model ||
@@ -185,14 +209,36 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
         open={confirm}
         onOpenChange={setConfirm}
         title={t('Confirm AI shot planning')}
+        confirmText={t('Plan the shots')}
         desc={
           <div className='flex flex-col gap-2'>
             <p>
-              {t('One text model request')}: {model}
+              {t('Create one editable shot plan')} ·{' '}
+              {production.targetDuration || 30}
+              s · {production.width}×{production.height}
             </p>
             <p>
-              {t('Maximum spend')}: ${budget}
+              {studioCatalogZeroCharge(
+                pricing.data,
+                model || '',
+                workspace.project.defaults?.videoGroup || 'default'
+              )
+                ? t('Current catalog price: zero model charge')
+                : t(
+                    'Price is not available. Check model pricing before confirming.'
+                  )}
             </p>
+            <Collapsible>
+              <CollapsibleTrigger render={<Button variant='ghost' />}>
+                {t('Model and pricing details')}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <p>{model}</p>
+                <p>
+                  {t('Maximum spend')}: ${budget}
+                </p>
+              </CollapsibleContent>
+            </Collapsible>
             <p>
               {t(
                 'Pricing follows this model; the limit is not a quote. No image, video or audio generation will start. Existing shot plans stay until you apply the new draft.'

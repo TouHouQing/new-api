@@ -172,6 +172,11 @@ export function studioBriefSuggestions(brief: string) {
   if (/广告|开业|产品|卖点|门店|营销/.test(brief)) goal = 'product'
   else if (/讲解|科普|知识/.test(brief)) goal = 'explain'
   else if (/口播|主持人|数字人/.test(brief)) goal = 'presenter'
+  let frame: 'square' | 'vertical' | 'wide' | undefined
+  if (/1\s*[:：]\s*1|方[形版]/i.test(brief)) frame = 'square'
+  else if (/抖音|快手|shorts|reels|竖[屏版]|9\s*[:：]\s*16/i.test(brief)) {
+    frame = 'vertical'
+  } else if (/横[屏版]|16\s*[:：]\s*9|landscape/i.test(brief)) frame = 'wide'
   return {
     details: {
       subject: brief
@@ -195,8 +200,88 @@ export function studioBriefSuggestions(brief: string) {
       ? Math.max(1, Math.min(3600, Number(seconds[1])))
       : undefined,
     vertical: /抖音|快手|shorts|reels|竖[屏版]|9\s*:\s*16/i.test(brief),
+    frame,
     goal,
   } as const
+}
+
+export function studioBriefSettingsKey(project: StudioProject): string {
+  const p = project.production || studioProductionSchema.parse({})
+  return JSON.stringify([
+    p.brief || '',
+    p.targetDuration || 30,
+    p.width,
+    p.height,
+    p.guide?.goal || 'story',
+  ])
+}
+
+export function studioBriefNeedsReview(project: StudioProject): boolean {
+  const p = project.production || studioProductionSchema.parse({})
+  const suggested = studioBriefSuggestions(p.brief || '')
+  let frame = 'wide'
+  if (p.height > p.width) frame = 'vertical'
+  if (p.height === p.width) frame = 'square'
+  const conflict =
+    (suggested.duration && suggested.duration !== (p.targetDuration || 30)) ||
+    (suggested.frame && suggested.frame !== frame) ||
+    (suggested.goal && suggested.goal !== (p.guide?.goal || 'story'))
+  return !!conflict && p.briefSettingsKey !== studioBriefSettingsKey(project)
+}
+
+export function studioConfirmBrief(
+  project: StudioProject,
+  useSuggested: boolean
+): StudioProject & { production: NonNullable<StudioProject['production']> } {
+  const p = project.production || studioProductionSchema.parse({})
+  const suggestions = studioBriefSuggestions(p.brief || '')
+  const next = {
+    ...project,
+    production: { ...p, targetDuration: p.targetDuration || 30 },
+  }
+  if (useSuggested) {
+    if (suggestions.duration) {
+      next.production.targetDuration = suggestions.duration
+    }
+    if (suggestions.frame === 'vertical') {
+      Object.assign(next.production, {
+        width: 1080,
+        height: 1920,
+        deliveryPreset: 'shorts',
+        exportSizeMode: 'custom',
+      })
+    }
+    if (suggestions.frame === 'wide') {
+      Object.assign(next.production, {
+        width: 1920,
+        height: 1080,
+        deliveryPreset: 'youtube',
+        exportSizeMode: 'custom',
+      })
+    }
+    if (suggestions.frame === 'square') {
+      Object.assign(next.production, {
+        width: 1080,
+        height: 1080,
+        deliveryPreset: 'custom',
+        exportSizeMode: 'custom',
+      })
+    }
+    next.production.guide = {
+      step: 'story',
+      goal: suggestions.goal || p.guide?.goal || 'story',
+    }
+  }
+  next.production.creativeBrief = {
+    recipeId: p.creativeBrief?.recipeId || '',
+    subject: p.creativeBrief?.subject ?? suggestions.details.subject ?? '',
+    audience: p.creativeBrief?.audience ?? suggestions.details.audience ?? '',
+    benefit: p.creativeBrief?.benefit ?? suggestions.details.benefit ?? '',
+    callToAction:
+      p.creativeBrief?.callToAction ?? suggestions.details.callToAction ?? '',
+  }
+  next.production.briefSettingsKey = studioBriefSettingsKey(next)
+  return next
 }
 
 export function studioCreativeBriefText(project: StudioProject, t: TFunction) {

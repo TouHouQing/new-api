@@ -24,6 +24,7 @@ import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
 
 import type { StudioProject } from './local-projects'
+import { studioCaptionTrack } from './studio-caption-track'
 import { StudioClipTrimHandles } from './studio-clip-trim-handles'
 import {
   studioProductionSchema,
@@ -127,8 +128,15 @@ function StudioAudioWaveform(props: {
 
 export function StudioTimelineTracks() {
   const { t, i18n } = useTranslation()
-  const { props, timeline, selectedClip, setSelectedClip, writable } =
-    useStudioProductionContext()
+  const {
+    props,
+    timeline,
+    selectedClip,
+    setSelectedClip,
+    writable,
+    setTimelineInspector,
+    setSelectedAudioTrack,
+  } = useStudioProductionContext()
   const [audioDurations, setAudioDurations] = useState<Record<string, number>>(
     {}
   )
@@ -322,6 +330,14 @@ export function StudioTimelineTracks() {
       ),
     })
   }
+  let dialogueCaptions: ReturnType<typeof studioCaptionTrack> = []
+  try {
+    dialogueCaptions = studioCaptionTrack(props.project, audioDurations).filter(
+      (cue) => cue.source === 'dialogue'
+    )
+  } catch {
+    /* Caption repair remains available in the inspector. */
+  }
   return (
     <section
       className='min-w-0 space-y-3 rounded-lg border p-3'
@@ -446,6 +462,7 @@ export function StudioTimelineTracks() {
               }}
               onClick={() => {
                 setSelectedClip(item.clip.id)
+                setTimelineInspector?.('clip')
                 props.onSelectNode?.(item.clip.nodeId)
                 seek(item.start)
               }}
@@ -510,6 +527,7 @@ export function StudioTimelineTracks() {
               onClick={() => {
                 setSelectedClip(item.clip.id)
                 props.onSelectNode?.(item.clip.nodeId)
+                setTimelineInspector?.('captions')
                 seek(item.start + item.clip.captionOffset)
               }}
             >
@@ -551,13 +569,41 @@ export function StudioTimelineTracks() {
                     cue.end - cue.start
                   ),
                 }}
-                onClick={() => seek(cue.start + captionOffset)}
+                onClick={() => {
+                  setTimelineInspector?.('captions')
+                  seek(cue.start + captionOffset)
+                }}
               >
                 {cue.text}
               </Button>
             ))}
           </div>
         </>
+      )}
+      {!!dialogueCaptions.length && (
+        <div>
+          <p className='text-xs font-medium'>{t('Dialogue captions')}</p>
+          <div className='bg-muted relative h-12 overflow-hidden rounded'>
+            {dialogueCaptions.map((cue) => (
+              <Button
+                key={cue.id}
+                variant='outline'
+                className='absolute top-1 h-10 min-w-0 overflow-hidden px-1 text-xs'
+                style={{
+                  left: `${(cue.start / total) * 100}%`,
+                  width: boundedWidth(cue.start, cue.end - cue.start),
+                }}
+                onClick={() => {
+                  if (cue.clipId) setSelectedClip(cue.clipId)
+                  setTimelineInspector?.('captions')
+                  seek(cue.start)
+                }}
+              >
+                {cue.text}
+              </Button>
+            ))}
+          </div>
+        </div>
       )}
       {audioTracks.map((track, index) => (
         <div key={track.id} className='space-y-1'>
@@ -607,7 +653,11 @@ export function StudioTimelineTracks() {
               aria-label={t('Move audio track: {{number}}', {
                 number: index + 1,
               })}
-              onClick={() => seek(track.offset)}
+              onClick={() => {
+                setTimelineInspector?.('audio')
+                setSelectedAudioTrack?.(track.id)
+                seek(track.offset)
+              }}
             >
               <StudioAudioWaveform
                 mediaId={track.mediaId}

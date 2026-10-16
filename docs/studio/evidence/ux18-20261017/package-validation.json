@@ -1,0 +1,73 @@
+{
+  "files": [
+    {
+      "name": "manifest.json",
+      "bytes": 2022
+    },
+    {
+      "name": "project.json",
+      "bytes": 2975
+    },
+    {
+      "name": "subtitles.srt",
+      "bytes": 96
+    },
+    {
+      "name": "timeline.xml",
+      "bytes": 6952
+    },
+    {
+      "name": "timeline.fcpxml",
+      "bytes": 2447
+    },
+    {
+      "name": "timeline.otio",
+      "bytes": 16492
+    },
+    {
+      "name": "editorial-plan.json",
+      "bytes": 1172
+    },
+    {
+      "name": "relink_media.py",
+      "bytes": 1703
+    },
+    {
+      "name": "EDITORIAL_README.txt",
+      "bytes": 990
+    },
+    {
+      "name": "editorial/clip-000.mp4",
+      "bytes": 37178
+    },
+    {
+      "name": "editorial/clip-001.mp4",
+      "bytes": 439175
+    },
+    {
+      "name": "editorial/audio-000.wav",
+      "bytes": 1536078
+    },
+    {
+      "name": "timeline.edl",
+      "bytes": 421
+    },
+    {
+      "name": "media/4a254a12-7e1b-4af0-a33e-a407f45cf97e.mp4",
+      "bytes": 382375
+    },
+    {
+      "name": "media/45646233-3a82-44b2-8f7d-c69f02e81d45.wav",
+      "bytes": 768078
+    },
+    {
+      "name": "media/73cc438f-5a39-4f1f-bff0-cb78d5278bb3.mp4",
+      "bytes": 4811
+    },
+    {
+      "name": "video.mp4",
+      "bytes": 550029
+    }
+  ],
+  "subtitle_match": true
+}

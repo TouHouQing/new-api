@@ -1,0 +1,44 @@
+{
+  "complete_suite": {
+    "files": 90,
+    "passed": 745
+  },
+  "targeted_suite": {
+    "files": 4,
+    "passed": 101
+  },
+  "shot_summary_regression": 21,
+  "brief_fields_regression": 18,
+  "typecheck": "passed",
+  "lint": "passed with existing repository warnings",
+  "format": "passed",
+  "i18n": {
+    "en_missing": 0,
+    "zh_missing": 0
+  },
+  "browser_page_errors": [],
+  "video": {
+    "programs": [],
+    "stream_groups": [],
+    "streams": [
+      {
+        "codec_name": "h264",
+        "codec_type": "video",
+        "width": 640,
+        "height": 360
+      },
+      {
+        "codec_name": "aac",
+        "codec_type": "audio",
+        "sample_rate": "48000",
+        "channels": 2
+      }
+    ],
+    "format": {
+      "duration": "8.021029",
+      "size": "550029"
+    }
+  },
+  "package_subtitles_match": true,
+  "local_version": "studio-ux18-20261017"
+}

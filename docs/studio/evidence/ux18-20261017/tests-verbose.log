@@ -1,0 +1,962 @@
+$ vitest run src/features/studio src/features/auth "--pool=forks" "--maxWorkers=2" "--reporter=verbose"
+
+ RUN  v4.1.10 C:/Users/Administrator/Desktop/git/new-api/web
+
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > timed SRT captions use the server renderer with their saved offset 481ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > assembled MP4 receives voiceover and captions positioned within a shot 361ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > uploading shot voiceover persists its local media reference 222ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > changing language and account group preserves the active draft while refreshing models 987ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > assembled MP4 mixes a saved voiceover with the clip audio 339ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > removing narration detaches it and retains the bytes for undo 424ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a pinned character version supplies its original image to the video model 867ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > clicking assemble exports ordered local clips and saves the MP4 for another visit 370ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a completed video records a reusable safe model template for its account 490ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > passes edited trims, fade, volume, and soundtrack into browser composition 311ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > loads the durable IndexedDB project snapshot ahead of an older localStorage mirror 108ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > an unfinished shot blocks MP4 assembly with a visible shot error 119ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > keeps the previous manual image when its replacement cannot be stored 192ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > a full browser store still lets the user download the completed MP4 203ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > reordering shots invalidates the old assembled MP4 and removes its local blob 252ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > retrying media storage repairs the selected image take for portable export 366ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > plain text mode asks the external model for an ordinary visual prompt 253ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > reopening a project restores the assembled MP4 preview from browser storage 283ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > assembling again replaces the saved MP4 and removes the previous blob 214ms
+stderr | src/features/studio/__tests__/assembly-workspace.test.tsx > an old account export cannot overwrite a newer account export state
+Query data cannot be undefined. Please make sure to return a value other than undefined from your query function. Affected query key: ["studio-cloud-capabilities",13]
+
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a new empty project offers three starting paths before the story form 307ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > an old account export cannot overwrite a newer account export state 633ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > a node named assembly cannot replace the assembled MP4 preview 172ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > an ambiguous video timeout keeps its request ID and blocks a new submission 870ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a timed-out response with a recorded task resumes the original video 559ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > returning to a project retries an IndexedDB read canceled during a project switch 920ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > reconciliation retains an old task without activating it after input edits 366ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > a queued shot reorder cannot attach an MP4 made from the old order 732ms
+ ✓ src/features/studio/__tests__/assembly-workspace.test.tsx > a queued shot reorder also blocks the storage-failure download fallback 673ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > manual reconciliation retries a missing attempt with the same request ID 1151ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > an uncertain upstream video blocks dependent work before text generation 307ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a removed video model gives a reselect message before any billable request 339ms
+stderr | src/features/studio/studio-workspace.test.tsx > Studio account isolation > rejects an empty asset name before it can invalidate saved projects
+You have Reduced Motion enabled on your device. Animations may not appear as expected.. For more information and steps for solving, visit https://motion.dev/troubleshooting/reduced-motion-disabled
+
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > never overwrites unreadable local project data with a blank project 21ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > rejects an empty asset name before it can invalidate saved projects 258ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > does not import another account’s ZIP after an account switch 156ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > stores image variants as selectable takes 365ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > sends a connected image as an external image edit reference 401ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > submits two connected images as external image edit references 473ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > shares one in-flight text request across two downstream video nodes 834ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > discards a late text response after its prompt changes 373ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > starts a fresh request for a changed prompt while the old call is pending 414ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > recovers an unselected pending video take after project reload 125ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > requires explicit confirmation before creating a billable video task 1007ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a partial saved text revision stays authoritative for downstream video 256ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > copies a completed previous shot frame into the next manual image node 275ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > keeps a video task discoverable if the prompt changes during submission 569ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > clears an old final video when a source shot is regenerated 306ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > keeps a queued upstream video alive after a local dependent wait deadline 247ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > a failed free sample upload explains the storage recovery instead of displaying the raw server error 432ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > submits completed storyboard videos to the final model in shot order 333ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > saving manual text twice retains both outputs as selectable versions without inference 686ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an explicit route step survives a late cloud document with a different saved step 787ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > generates a storyboard video from manual text without requiring an image 262ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > generates a storyboard video from an uploaded image without requiring text 340ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > adds a final video connected to storyboard shots 347ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > restoring a built-in skill persists the selection before exporting while keeping personal versions 1031ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > captions can be added without SRT knowledge and invalid ranges retain the editor draft 403ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > unfinished caption rows can be reopened without replacing the last valid subtitle version 16ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > submits missing storyboard videos in shot order 736ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > the task center includes failed and successful cloud exports when no video submission exists 216ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > honors the editable batch submission limit 491ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an outdated draft can be replanned after editing the story without removing existing footage 637ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > batch overview still confirms each exact billable request and stops on cancel 1542ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > creates a storyboard shot within the current New API project 528ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a cold route opens the requested project before browsing recipes 135ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > opens the account submission history from the workbench 888ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > a beginner saves a story, edits shots and returns without entering JSON or submitting inference 3010ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > a reviewer may browse the guide while story inputs and project writes remain unavailable 482ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > submits an unknown alias with editable parameters and metadata 714ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > regenerates an image after its upstream manual text changes 1894ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > uses a manual text prompt and an uploaded local image without external models 2156ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an empty or invalid shot duration blocks applying and continuing until corrected 4732ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > passes a completed upstream video into the final video request 1840ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > an extend-video connection submits the previous last frame as a first frame 1832ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an invalid story duration "" blocks manual planning and continuing until corrected 3658ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a native extension connection sends the source clip and an extend request 1881ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a pinned image connection sends its version while another take is selected 2562ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an invalid story duration "0" blocks manual planning and continuing until corrected 4706ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > a pinned video connection refreshes that take’s content URL before submission 1756ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > runs text and image ancestors before submitting the connected video 2102ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an invalid story duration "1.5" blocks manual planning and continuing until corrected 4183ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > runs a connected text model before submitting a video with its result 1926ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > submits an arbitrary saved thirty-second alias without a name-based cap 1910ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > sends the selected Unicode group ID instead of its display label 1791ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an invalid story duration "3601" blocks manual planning and continuing until corrected 4578ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > polls a processing video on the schedule instead of every render 384ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > explains that the project is unsaved when browser storage is full 440ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > skill import reports 'a duplicate installed version' in the current language without changing the project 1435ms
+ ✓ src/features/studio/studio-workspace.test.tsx > Studio account isolation > keeps the first account project separate when another account signs in 1795ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > skill import reports 'invalid skill metadata' in the current language without changing the project 1603ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > invalid delivery numbers stay in the field and cannot corrupt the saved document 2514ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > the novice workbench exposes five main goals and an optional media path 1701ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > an empty timeline explains why both export and export preview are unavailable 1124ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > storage outage blocks a valid export and gives an actionable reason while completed footage stays available 1754ms
+ ✓ src/features/studio/__tests__/guided-creation.test.tsx > the fixed generation action opens the same scope confirmation without starting a model 2697ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > opening a platform workflow selects the requested canvas node and preserves manual choices while open 404ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > invalid subtitle text blocks delivery before any rendering job is accepted 3212ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > speech production has one primary voice picker and creates output copies automatically 3475ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > subtitle recognition starts with the configured local model and keeps a manual choice 1547ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > subtitle recognition exposes its budget beside the action and rejects invalid spending limits 4495ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > reopening a selected song restores its immutable lyrics and zero seed without starting another model 423ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > unsubmitted song edits survive closing the production panel and require fresh confirmation 1962ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > viewing delivery with a hidden media tab preserves the previous unsubmitted draft 672ms
+ ✓ src/features/studio/__tests__/production-center.test.tsx > an empty production center opens story first, retains advanced tools and prevents empty previews 4576ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > opening media from a normal video node resumes the saved song instead of clearing it 1356ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > editing one song preserves the other song draft and restores each node independently 1326ms
+ ✓ src/features/studio/__tests__/production-center.test.tsx > first-shot generation confirms exactly one video and keeps scheduling and effects optional 3130ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > audio production shows pending review instructions and requires an explicit version acceptance 1180ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > changing a music node to narration does not restore a stale song draft over the new operation 994ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > image tool editing restores its reference without unrelated voice controls or a duration field 1321ms
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > audio reviews preview the stored version and record its selected Take 804ms
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-center.test.tsx > resuming a failed task confirms its own frozen spending limit instead of borrowing the new-run checkbox 3190ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > preparing a regional version prevents edits to the previous version and episode until complete 1047ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > review selectors show the clip title and current version label before their menus open 392ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > a completed image version can be previewed and reviewed 442ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > opening optional connections without configuration explains the empty state and sends no external write 144ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > a viewer cannot fetch or run the project owner connection catalog 121ms
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > a context-only connection selects a valid operation and exposes the resource and text output 1816ms
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-center.test.tsx > the edit-page voice entry opens speech even when the last production draft used video depth 4481ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > a newer draft preview preserves the final delivery package and final video 1035ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > the same rendered film appears once when it is both the latest preview and final delivery 496ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-center.test.tsx > uploaded footage is never selected for first-shot generation 2464ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-center.test.tsx > an unapproved delivery clip opens the matching review controls 1975ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-center.test.tsx > opening generated footage for editing keeps the automatically created clip 2351ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > voice cloning stays disabled until reference audio and voice permission are both selected 14115ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > a sound preset creates a new audio target and uses a free native workflow 1336ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > a viewer can preview the stage but cannot place actors or export 194ms
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > a running render shows progress and prevents another export or preview submission 552ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > timeline audio tracks identify their source and provide a named playback control 2268ms
+ ✓ src/features/studio/__tests__/production-tools.test.tsx > adding a stage actor preserves its position controls and rejects an invalid camera distance 308ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > lets a pending login switch from Passkey to 2FA without using authenticated verification endpoints 6011ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > automatically obtains the first-enrollment session proof and handles success 225ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > automatically obtains the first-enrollment session proof and handles cancel 520ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > automatically obtains the first-enrollment session proof and handles retry 883ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > keeps the requested channel context fixed while verification is open 1711ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > shows query errors and reloads requirements only when the user retries 1349ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > returns a proof only after successful verification and clears a rejected password 1638ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > discards a late proof after cancellation and prevents a duplicate submission 1052ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > does not reopen after a cancelled method query finishes 418ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > keeps an enrolled Passkey unavailable when this browser cannot use it 414ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > starts linked-account verification from the provider button without a separate Verify button 664ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-flow.test.tsx > verifies with the clicked provider when several linked accounts are available 1109ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > read-only node fields and mutations are disabled while its inspector can be closed 1025ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > unavailable generation credit blocks inference but leaves manual notes usable 471ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > a song node opens its production settings instead of calling speech synthesis 371ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > a successful template for the selected group and alias can be applied 1619ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > a text model can switch between structured shots and plain prompt writing 919ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > a connected image version can be pinned without changing the source selection 1217ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > keeps invalid or secret metadata drafts out of saved project state 340ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > explains an invalid advanced draft before submission even when collapsed 339ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > lets an unknown site alias submit custom resolution and ratio without a family guess 192ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > shows only H3 duration and resolution controls for an H3 node 91ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > shows Seedance 2.0 output tiers for a Seedance node 32ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > keeps a thirty-second duration on an existing video alias node 448ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > selecting a site alias preserves the user-entered duration 860ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > offers a retry when a completed video was not saved locally 90ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > shows site model aliases without asking for a media request format 58ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > keeps thirty seconds while ignoring a saved legacy family selection 221ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > changes the site group before selecting a model 620ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > offers external service settings when a text node has no provider 198ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > labels manual text saving as a version instead of model generation 140ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > an image tool with no prompt opens its production operation instead of image generation 224ms
+ ✓ src/features/studio/studio-inspector.test.tsx > Studio model controls > shows the two downstream prompts produced by an AI text node 72ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > routes a primary-authenticated challenge into shared verification without applying authentication 2268ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > accepts a completed Passkey login without opening another verification dialog 183ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > writes authentication only after verification and preserves the original destination 1893ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > cancels verification with Escape and returns to sign-in without authenticating 141ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > aborts an in-flight verification on unmount and ignores its late result 1188ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > aborts an in-flight verification on account switch and ignores its late result 904ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > requires a new sign-in when the verification page has no in-memory challenge 120ms
+ ✓ src/features/auth/otp/__tests__/login-verification.test.tsx > rejects submission after the five-minute challenge deadline without sending a request 1114ms
+ ✓ src/features/studio/__tests__/studio-shot-review.test.tsx > review controls send explicit approval and note changes without generating 1854ms
+ ✓ src/features/studio/__tests__/studio-shot-review.test.tsx > candidate gallery shows recent completed takes and requires an explicit choice 866ms
+ ✓ src/features/studio/__tests__/studio-shot-review.test.tsx > shot references can be selected, pinned, and reused from the previous shot 1347ms
+ ✓ src/features/studio/__tests__/studio-shot-review.test.tsx > a selected shot reference can pin a saved version without generating 1549ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > binds a login factor to its pending login and the selected domain challenge 11ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > uses the last successful domain without storing flows or credentials 1ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > accepts the credential domain chosen by the server over a remembered hint 0ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > discards a removed remembered domain before opening a single browser prompt 1ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > does not remember or replay a failed finish request 1ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > allows a manual domain switch after cancellation with a fresh challenge 3344ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > supports verification when browser storage is blocked 1ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > Passkey domain compatibility > does not submit an assertion after its operation is aborted 1ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > keeps case-sensitive historical domains selectable and labels the distinction 1303ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > does not display origins from cached status with [ 'api.example.com' ] 6ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > does not display origins from cached status with [ 'example.com' ] 5ms
+ ✓ src/features/auth/passkey/__tests__/domain-verification.test.tsx > does not display origins from cached status with [ 'example.com', 'www.example.com' ] 195ms
+ ✓ src/features/studio/__tests__/studio-video-model-picker.test.tsx > shows only freshly available site models with description and group price 3216ms
+ ✓ src/features/studio/__tests__/studio-video-model-picker.test.tsx > marks channel-dependent prices as a reference instead of a final charge 415ms
+ ✓ src/features/studio/__tests__/studio-video-model-picker.test.tsx > keeps the model picker usable when the pricing catalog is unavailable 692ms
+ ✓ src/features/studio/__tests__/studio-video-model-picker.test.tsx > refreshes the available models when the channel list changes 609ms
+stderr | src/features/studio/__tests__/studio-video-model-picker.test.tsx > shows a retry action when the current group model request fails
+You have Reduced Motion enabled on your device. Animations may not appear as expected.. For more information and steps for solving, visit https://motion.dev/troubleshooting/reduced-motion-disabled
+
+ ✓ src/features/studio/__tests__/studio-video-model-picker.test.tsx > shows a retry action when the current group model request fails 862ms
+ ✓ src/features/studio/__tests__/studio-video-model-picker.test.tsx > requires a video group before opening the model dialog 82ms
+ ✓ src/features/studio/provider-settings.test.tsx > saves text credentials through the server and clears the secret input 5325ms
+ ✓ src/features/studio/__tests__/canvas-readonly.test.tsx > Escape cancels a group rename and the next Enter commits the new name 1918ms
+ ✓ src/features/studio/__tests__/canvas-readonly.test.tsx > a viewer can find nodes but cannot create or lay out a shared canvas 1192ms
+ ✓ src/features/studio/__tests__/image-layer-editor.test.tsx > adding a stored photo waits for the new source map before previewing and preserves its aspect 3342ms
+ ✓ src/features/studio/__tests__/closure-interactions.test.tsx > an immediate upload saves the new project before linking media 115ms
+ ✓ src/features/studio/__tests__/closure-interactions.test.tsx > current project filters local and unlinked submissions, with all-project access explicit 2045ms
+ ✓ src/features/studio/__tests__/closure-interactions.test.tsx > recipe preview and cancel leave the project untouched; confirmation returns a pending draft 1431ms
+ ✓ src/features/studio/__tests__/closure-interactions.test.tsx > trim handles support keyboard precision and prevent inverted or empty ranges 27ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > creates a final video and can select and generate it from the storyboard 1081ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > final video references show their real clip status with a translated idle label 154ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > a creator can choose which completed shots the final AI video references 171ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > a storyboard shot selects source nodes and generates through its video node 571ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > a shot keeps detailed controls closed while its first frame can generate directly 725ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > a storyboard with no pending shots disables batch generation 430ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > the storyboard exposes known settled video spending 304ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > an invalidated storyboard clip shows why it needs regeneration 82ms
+ ✓ src/features/studio/studio-storyboard.test.tsx > offers previous-shot last frame only when the previous video is completed 371ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > assembly panel starts and cancels a browser MP4 export with visible progress 1031ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > assembly panel offers a saved MP4 for preview and download 137ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > assembly panel does not expose the timed SRT caption editor 40ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > assembly panel lets a creator add narration beside the soundtrack 59ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > assembly timeline shows ordered shots and separate fixed-start audio lanes 228ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > selecting a timeline shot edits that shot trim and transition through callbacks 1088ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > selected shot edits its own voiceover and caption lanes 403ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > timeline overview marks the shot that has local audio and captions 242ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > timeline reports invalid trim range and prevents invalid export 101ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > timeline clip overview identifies configured crop and fade between shots 34ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > timeline places soundtrack and voiceover at editable start times 219ms
+ ✓ src/features/studio/__tests__/assembly-panel.test.tsx > timeline reorders shots with boundary-aware move controls 149ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > an applied plan retains its immutable before value after reopening the saved document 185ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a plan remains editable after clearing a required name and permits numeric and boolean edits 1360ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > an explanation-only skill plan preserves the project without requiring an edit 1ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > an explicit local rename targets the second video and preserves the first video and original media 16ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > restoring a built-in skill selects its original without deleting personal versions 13ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a proposed edit with the existing title is rejected instead of reporting an applied change 1ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > overriding a built-in skill keeps its original version available for rollback 1ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a proposed reusable skill needs review, preserves versions and exports interoperable metadata 5ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a persisted assistant snapshot survives JSON key reordering but rejects creative edits 2ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > assistant changes only the requested visual and preserves voiceover and selected Takes 2ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > assistant cannot unlock or edit locked nodes or silently remove production content 1ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > skill import stores only instructions, refuses duplicate versions and preserves rollback versions 4ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a clear local rename accepts the wording 节点的名称改为 without requesting inference 0ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a clear local rename accepts the wording 节点名称改为 without requesting inference 0ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a clear local rename accepts the wording 节点改为 without requesting inference 0ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > a free media edit has a distinct result and original source identity 0ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > repeated edits have distinct bounded names even when the source name is at the schema limit 0ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > an annotation copy uses a translated action name and preserves its source 18ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > reference analysis appends only selected shots, preserves existing media and records provenance without injecting its JSON into generation 22ms
+ ✓ src/features/studio/__tests__/assistant-plans.test.ts > 3D keys interpolate at the playhead, replacing duplicate times rather than adding discontinuities 1ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > allows a security key when the browser has WebAuthn but no platform authenticator 3ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > retains the Telegram verification request after popup close and honors caller cancellation: false 161ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > retains the Telegram verification request after popup close and honors caller cancellation: true 158ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > encrypts short and 128-character Unicode passwords with Web Crypto enabled: true 34ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > encrypts short and 128-character Unicode passwords with Web Crypto enabled: false 94ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > never replays a proof request after a 401 response 6ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > never replays a flow request after a 401 response 2ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > refreshes an expiring login token before submitting a one-time proof 8ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > binds a channel verification to the requested channel context 1ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > passes the operation context to Passkey begin and completes with only its flow and assertion 1ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > passes an enrollment operation through OAuth state creation 0ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > provides a re-verification message for SECURITY_PROOF_CONSUMED 0ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > provides a re-verification message for SECURITY_PROOF_CONTEXT_MISMATCH 0ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > reports a failed method query instead of treating the account as unenrolled 0ms
+ ✓ src/features/auth/secure-verification/__tests__/verification-api.test.ts > displays a generic internal error even if the server includes database details 0ms
+ ✓ src/features/studio/__tests__/media-editor-source.test.tsx > silent footage cannot submit audio extraction and shows an explanation before a job exists 509ms
+ ✓ src/features/studio/__tests__/media-editor-source.test.tsx > source invalidation during free editing retains the draft and requires selecting a completed version 271ms
+ ✓ src/features/studio/__tests__/studio-shot-planner-ui.test.tsx > manual brief stays as a reviewed draft until the user creates shots 221ms
+ ✓ src/features/studio/__tests__/studio-shot-planner-ui.test.tsx > manual planning lets a creator refine shot type camera and dialogue before creation 175ms
+ ✓ src/features/studio/__tests__/studio-shot-planner-ui.test.tsx > a quick-start template fills an editable brief without creating shots 39ms
+ ✓ src/features/studio/__tests__/studio-shot-planner-ui.test.tsx > AI shot drafts can be reviewed before they enter the project 59ms
+ ✓ src/features/studio/__tests__/studio-shot-planner-ui.test.tsx > a failed planning request leaves the project without new shots 57ms
+ ✓ src/features/studio/__tests__/studio-shot-planner-ui.test.tsx > a newly configured project text model becomes the planning default 61ms
+ ✓ src/features/studio/__tests__/studio-shot-planner-ui.test.tsx > a late planning response cannot add drafts to another project 43ms
+ ✓ src/features/studio/__tests__/timed-frames.test.tsx > reference preservation can be explicitly disabled without losing other metadata 337ms
+ ✓ src/features/studio/__tests__/timed-frames.test.tsx > invalid metadata is shown as a field error instead of crashing the editor 88ms
+ ✓ src/features/studio/__tests__/timed-frames.test.tsx > viewers cannot change frame preservation on a shared project 81ms
+ ✓ src/features/studio/__tests__/tool-artifacts.test.tsx > processed reports identify their Take and mark only the currently selected version 156ms
+ ✓ src/features/studio/__tests__/tool-artifacts.test.tsx > an unrecognized vocal candidate becomes an editable separation draft without generating another song 127ms
+ ✓ src/features/studio/__tests__/tool-artifacts.test.tsx > a application/json download does not offer an ineffective raster/audio canvas import 9ms
+ ✓ src/features/studio/__tests__/tool-artifacts.test.tsx > a model/gltf-binary download does not offer an ineffective raster/audio canvas import 7ms
+ ✓ src/features/studio/__tests__/tool-artifacts.test.tsx > a application/zip download does not offer an ineffective raster/audio canvas import 17ms
+ ✓ src/features/studio/__tests__/tool-artifacts.test.tsx > a compatible image/png file can be imported while retaining its source Take 84ms
+ ✓ src/features/studio/__tests__/tool-artifacts.test.tsx > a compatible audio/wav file can be imported while retaining its source Take 106ms
+ ✓ src/features/studio/__tests__/visual-presets.test.tsx > visual preset edits inputs while retaining source media and approved Takes 3ms
+ ✓ src/features/studio/__tests__/visual-presets.test.tsx > personal preset can be saved, revised, rolled back and reopened with its license 525ms
+ ✓ src/features/studio/__tests__/workspace-candidates.test.tsx > candidate comparison remains usable when switching back and forth between Takes 497ms
+ ✓ src/features/studio/studio-attempts.test.tsx > shows a rejected video submission with its channel and safe error code 402ms
+ ✓ src/features/studio/studio-attempts.test.tsx > task center opens an active project shot and shows its progress 106ms
+stderr | src/features/studio/__tests__/workspace-navigation.test.tsx > a canvas entry stays on the canvas after a guided project is restored
+You have Reduced Motion enabled on your device. Animations may not appear as expected.. For more information and steps for solving, visit https://motion.dev/troubleshooting/reduced-motion-disabled
+
+ ✓ src/features/studio/__tests__/workspace-navigation.test.tsx > a canvas entry stays on the canvas after a guided project is restored 260ms
+ ✓ src/features/studio/__tests__/workspace-navigation.test.tsx > restored guide state cannot rewrite the URL, while a local tool result can move it 277ms
+ ✓ src/features/studio/__tests__/workspace-navigation.test.tsx > a canvas entry selected during project loading survives that asynchronous restore 149ms
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx
+i18next: languageChanged en
+i18next: initialized {
+  debug: true,
+  initAsync: true,
+  ns: [ 'translation' ],
+  defaultNS: [ 'translation' ],
+  fallbackLng: [ 'en' ],
+  fallbackNS: false,
+  supportedLngs: [
+    'en',   'zhCN',
+    'fr',   'ru',
+    'ja',   'vi',
+    'zhTW', 'cimode'
+  ],
+  nonExplicitSupportedLngs: false,
+  load: 'currentOnly',
+  preload: false,
+  keySeparator: '.',
+  nsSeparator: false,
+  pluralSeparator: '_',
+  contextSeparator: '_',
+  enableSelector: false,
+  partialBundledLanguages: false,
+  saveMissing: false,
+  updateMissing: false,
+  saveMissingTo: 'fallback',
+  saveMissingPlurals: true,
+  missingKeyHandler: false,
+  missingInterpolationHandler: false,
+  postProcess: false,
+  postProcessPassResolved: false,
+  returnNull: false,
+  returnEmptyString: true,
+  returnObjects: false,
+  joinArrays: false,
+  returnedObjectHandler: false,
+  parseMissingKeyHandler: false,
+  appendNamespaceToMissingKey: false,
+  appendNamespaceToCIMode: false,
+  overloadTranslationOptionHandler: [Function: overloadTranslationOptionHandler],
+  interpolation: {
+    escapeValue: false,
+    prefix: '{{',
+    suffix: '}}',
+    formatSeparator: ',',
+    unescapePrefix: '-',
+    nestingPrefix: '$t(',
+    nestingSuffix: ')',
+    nestingOptionsSeparator: ',',
+    maxReplaces: 1000,
+    skipOnVariables: true,
+    format: [Function: bound format]
+  },
+  cacheInBuiltFormats: true,
+  resources: {
+    en: { translation: [Object] },
+    zhCN: { translation: [Object] },
+    fr: { translation: [Object] },
+    ru: { translation: [Object] },
+    ja: { translation: [Object] },
+    vi: { translation: [Object] },
+    zhTW: { translation: [Object] }
+  },
+  detection: {
+    order: [ 'localStorage', 'navigator' ],
+    caches: [ 'localStorage' ],
+    convertDetectedLanguage: [Function: convertDetectedLanguage],
+    lookupQuerystring: 'lng',
+    lookupCookie: 'i18next',
+    lookupLocalStorage: 'i18nextLng',
+    lookupSessionStorage: 'i18nextLng',
+    excludeCacheFor: [ 'cimode' ]
+  },
+  userDefinedNsSeparator: false,
+  ignoreJSONStructure: true
+}
+
+stderr | src/features/studio/__tests__/screenplay-assets.test.tsx
+i18next: init: i18next is already initialized. You should call init just once!
+
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx
+i18next: languageChanged en
+i18next: initialized {
+  debug: true,
+  initAsync: true,
+  ns: [ 'translation' ],
+  defaultNS: [ 'translation' ],
+  fallbackLng: [ 'en' ],
+  fallbackNS: false,
+  supportedLngs: [
+    'en',   'zhCN',
+    'fr',   'ru',
+    'ja',   'vi',
+    'zhTW', 'cimode'
+  ],
+  nonExplicitSupportedLngs: false,
+  load: 'currentOnly',
+  preload: false,
+  keySeparator: '.',
+  nsSeparator: false,
+  pluralSeparator: '_',
+  contextSeparator: '_',
+  enableSelector: false,
+  partialBundledLanguages: false,
+  saveMissing: false,
+  updateMissing: false,
+  saveMissingTo: 'fallback',
+  saveMissingPlurals: true,
+  missingKeyHandler: false,
+  missingInterpolationHandler: false,
+  postProcess: false,
+  postProcessPassResolved: false,
+  returnNull: false,
+  returnEmptyString: true,
+  returnObjects: false,
+  joinArrays: false,
+  returnedObjectHandler: false,
+  parseMissingKeyHandler: false,
+  appendNamespaceToMissingKey: false,
+  appendNamespaceToCIMode: false,
+  overloadTranslationOptionHandler: [Function: overloadTranslationOptionHandler],
+  interpolation: {
+    escapeValue: false,
+    prefix: '{{',
+    suffix: '}}',
+    formatSeparator: ',',
+    unescapePrefix: '-',
+    nestingPrefix: '$t(',
+    nestingSuffix: ')',
+    nestingOptionsSeparator: ',',
+    maxReplaces: 1000,
+    skipOnVariables: true,
+    format: [Function: bound format]
+  },
+  cacheInBuiltFormats: true,
+  resources: { en: { translation: {} } },
+  detection: {
+    order: [ 'localStorage', 'navigator' ],
+    caches: [ 'localStorage' ],
+    convertDetectedLanguage: [Function: convertDetectedLanguage],
+    lookupQuerystring: 'lng',
+    lookupCookie: 'i18next',
+    lookupLocalStorage: 'i18nextLng',
+    lookupSessionStorage: 'i18nextLng',
+    excludeCacheFor: [ 'cimode' ]
+  },
+  userDefinedNsSeparator: false,
+  ignoreJSONStructure: true,
+  lng: 'en'
+}
+
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual en resources instead of internal keys
+i18next::translator: missingKey en translation studio.shot.defaultName studio.shot.defaultName
+
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual zhCN resources instead of internal keys
+i18next::translator: missingKey en translation studio.shot.defaultName studio.shot.defaultName
+
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual zhTW resources instead of internal keys
+i18next::translator: missingKey en translation studio.shot.defaultName studio.shot.defaultName
+
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual fr resources instead of internal keys
+i18next::translator: missingKey en translation studio.shot.defaultName studio.shot.defaultName
+
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual ru resources instead of internal keys
+i18next::translator: missingKey en translation studio.shot.defaultName studio.shot.defaultName
+
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual ja resources instead of internal keys
+i18next::translator: missingKey en translation studio.shot.defaultName studio.shot.defaultName
+
+ ✓ src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual en resources instead of internal keys 217ms
+ ✓ src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual zhCN resources instead of internal keys 16ms
+ ✓ src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual zhTW resources instead of internal keys 40ms
+ ✓ src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual fr resources instead of internal keys 17ms
+ ✓ src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual ru resources instead of internal keys 20ms
+stdout | src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual vi resources instead of internal keys
+i18next::translator: missingKey en translation studio.shot.defaultName studio.shot.defaultName
+
+ ✓ src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual ja resources instead of internal keys 19ms
+ ✓ src/features/studio/__tests__/screenplay-assets.test.tsx > asset section headings resolve the actual vi resources instead of internal keys 17ms
+ ✓ src/features/studio/studio-video-preflight.test.tsx > preflight preserves exact patched request fields and names attached media roles 3ms
+ ✓ src/features/studio/studio-video-preflight.test.tsx > batch overview identifies custom duration and explains per-request approval 190ms
+ ✓ src/features/studio/studio-video-preflight.test.tsx > mixed references show media previews and disclose a converted first frame 30ms
+ ✓ src/features/studio/studio-video-preflight.test.tsx > a malformed custom media patch cannot crash the request preview 1ms
+ ✓ src/features/studio/studio-video-preflight.test.tsx > many reference videos show an advisory without blocking submission 73ms
+ ✓ src/features/studio/studio-video-preflight.test.tsx > native extension explains that the selected channel determines continuity 19ms
+ ✓ src/features/studio/studio-video-preflight.test.tsx > the stored request summary retains settings and media identity without signed URLs 36ms
+ ✓ src/features/studio/__tests__/studio-shot-defaults.test.tsx > editing project defaults updates future shot settings without creating a shot 279ms
+ ✓ src/features/studio/__tests__/studio-asset-apply.test.tsx > a reusable character can be applied to every storyboard shot 245ms
+ ✓ src/features/studio/__tests__/studio-asset-apply.test.tsx > locking the current reference version is explicit and shows saved versions 73ms
+ ✓ src/features/studio/__tests__/lyrics-report.test.tsx > missing lyrics remain visibly flagged with the independent transcript 190ms
+ ✓ src/features/studio/__tests__/lyrics-report.test.tsx > a matched report still asks the user to audition before delivery 39ms
+ ✓ src/features/studio/__tests__/lyrics-report.test.tsx > an unavailable report keeps a clear audition instruction 31ms
+ ✓ src/features/studio/__tests__/studio-text-result-editor.test.tsx > edited text results are saved explicitly and cancellation keeps the previous version 208ms
+ ✓ src/features/studio/__tests__/document-editing.test.tsx > formatted draft survives project serialization and keeps model input as plain text 9ms
+ ✓ src/features/studio/__tests__/document-editing.test.tsx > format and text edits have a visible preview and formatting can be undone 257ms
+ ✓ src/features/studio/__tests__/document-editing.test.tsx > document rejects aggregate overflow and script is rendered as text 40ms
+ ✓ src/features/studio/__tests__/node-organization.test.tsx > canvas labels, rating and display filters persist without changing generation inputs 10ms
+ ✓ src/features/studio/__tests__/node-organization.test.tsx > disabled node labels cannot edit a busy node 163ms
+ ✓ src/features/studio/__tests__/node-organization.test.tsx > switching image models resets unsupported settings and keeps valid local dimensions 1ms
+ ✓ src/features/studio/studio-node.test.tsx > keeps drag handles outside the node card visible and reachable 70ms
+ ✓ src/features/studio/studio-node.test.tsx > shows uncommon text outputs only when expanded 91ms
+ ✓ src/features/studio/studio-node.test.tsx > keeps a connected specialized port visible when advanced options are closed 5ms
+ ✓ src/features/studio/studio-node.test.tsx > a connected video has one visible output while both saved handle IDs remain addressable 11ms
+ ✓ src/features/studio/studio-node.test.tsx > a final video shows its connected reference input and opens generic input on demand 46ms
+ ✓ src/features/studio/studio-node.test.tsx > a video with an older automatic input keeps that input visible beside named references 4ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a local region edit keeps the selected aspect ratio within model dimensions 5ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a angle rework uses the visible translated purpose and retains source provenance 17ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a light rework uses the visible translated purpose and retains source provenance 38ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a region rework uses the visible translated purpose and retains source provenance 14ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a range rework uses the visible translated purpose and retains source provenance 14ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > last-frame roles stay distinct and unsupported models reject them before inference 4ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a timed rework replaces only its interval, retaining narration, captions and source Take 8ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > the exact export preview uses final dimensions and becomes stale after a layout edit 9ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > an API render without a clip voiceover remains current when unused voice settings are omitted 1ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a render with a clip voiceover becomes stale when its actual audio volume changes 1ms
+ ✓ src/features/studio/__tests__/rework-delivery.test.ts > a muted clip voiceover remains current when the server omits its zero volume 1ms
+ ✓ src/features/studio/__tests__/voice-picker.test.tsx > a renamed default voice is presented with the saved library name before any speech generation 1100ms
+ ✓ src/features/studio/__tests__/number-field.test.tsx > invalid volume remains editable and cannot replace the valid timeline value 125ms
+ ✓ src/features/studio/__tests__/number-field.test.tsx > clearing an optional trim endpoint restores the full source without writing zero 6ms
+ ✓ src/features/studio/__tests__/studio-node-preview.test.tsx > completed video with a local preview shows an accessible compact player 63ms
+ ✓ src/features/studio/__tests__/studio-node-preview.test.tsx > completed video uses its output URL when the local preview is empty 25ms
+ ✓ src/features/studio/__tests__/studio-node-preview.test.tsx > completed video without a URL keeps the ready fallback 6ms
+ ✓ src/features/studio/__tests__/studio-node-preview.test.tsx > unfinished video with a URL does not show a player 6ms
+ ✓ src/features/studio/__tests__/studio-node-preview.test.tsx > an invalidated video shows which upstream node made it stale 4ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > a ZIP round trip restores image, video and assembly media into the destination user namespace 27ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > a ZIP round trip restores a soundtrack into the destination user namespace 1ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > a ZIP round trip restores voiceover audio into the destination user namespace 1ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > a ZIP round trip retains pinned asset versions and shot voiceover media 7ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > exports an unnormalized legacy video task without losing its media mapping 24ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > export rejects a referenced media blob that is missing 2ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > export refuses a completed image whose remote result was never saved locally 0ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > export refuses an asset version whose remote image was never saved locally 0ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > export refuses a missing historical take even when the selected image is local 2ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > a round trip restores take and asset media without retaining browser URLs 15ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > export rejects extra project fields so provider credentials cannot enter an archive 1ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > import rejects archive paths outside the media directory 2ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > import rejects corrupted media bytes before saving them 1ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > import removes newly stored media when a later store write fails 3ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > empty projects still require a valid user namespace 0ms
+ ✓ src/features/studio/__tests__/studio-project-bundle.test.ts > a production bundle copies audio tracks and prop references into the destination namespace 4ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > a product recipe keeps the brief and creates an editable opening, demonstration and invitation 14ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > brief suggestions are explicit recommendations for duration and destination 3ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > recorded dialogue duration overrides estimates and detects an overcrowded shot 1ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > brand overlays use actual film duration and retain exact closing text 1ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > overlapping voices reduce music only once and the ending fades without changing voice volume 0ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > serialized finishing plans match their saved worker receipt and change when a mix setting changes 14ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > splitting through a caption preserves the same visible phrase interval and only exterior fades 1ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > native dialogue ducks music, while sound effects and muted footage do not 1ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > explicit brief labels become editable suggestions; unknown details stay empty 0ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > a recipe creates a valid separate project without copying old media or invalid shot fields 17ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > portable media remapping preserves music classification and exact picture approvals 1ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > a vertical recipe prepares portrait key images and native portrait video without changing duration 5ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > a numbered establishing shot does not inherit the template protagonist 1ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > conflicting brief settings require an explicit choice which persists and resets on edits 1ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > manual one-paragraph briefs preserve the raw idea and never create metadata shots 2ms
+ ✓ src/features/studio/__tests__/creative-plan.test.ts > a manual production request without visible action stays blank for editing 0ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > a depth-reference draft accepts its typed control and invalidates its input fingerprint 12ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > layer changes and timed image references advance the canvas authoring fingerprint 3ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > a motion draft keeps its account group and connects distinct image and video reference slots 4ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > an invalid operation rolls back the entire proposed transaction 2ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > a character node shares its selected reference and profile with the asset library 2ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > notes stay manual even when the project has a default text model 1ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > cycles and attempts to forge task results are rejected before changing the document 1ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > duplicating generated nodes copies configuration and internal edges without paid results 2ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > input edits and deletion are blocked while an unpinned dependent task is active 1ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > automatic layout follows dependencies and preserves locked node coordinates 1ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > a story template connects its reusable references into the shot workflow 3ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > assembly accepts one soundtrack slot and materializes ordered video sources with pinned Takes 7ms
+ ✓ src/features/studio/__tests__/canvas-commands.test.ts > the project format round-trips new node purposes, camera profiles and viewport settings 9ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > delivery approval applies to the exact current footage and expires when its selected version changes 7ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > a shot-only script revision preserves manual character design and literal dialogue identifiers 19ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > duration planning exactly fits the target while preserving at least one second per shot 3ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > only the shot using a changed recurring asset is included in a revision plan 5ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > live playback uses actual media duration, trim and speed and places narration on the same clock 2ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > revising an imported script retains shot identity, selected media, narration and edited timeline 4ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > archiving reclaims an unused Take while preserving selected and pinned results 1ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > merges human prompt edits with a completed background Take without losing either 1ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > rejects concurrent edits to the same creative field 0ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > an intentionally empty timeline remains empty after removing the last clip 0ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > split clips share their exact Take and retain adjacent source ranges 1ms
+ ✓ src/features/studio/__tests__/production-workflow.test.ts > persistent production edits > imports connected shots, recurring character identity, scenes and prop bindings atomically 5ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > a refresh ignored while typing does not acknowledge unsaved edits or lose them in the next save 14ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > reopening after a failed save retains the unsaved local draft and merges server results 15ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > a stable unsaved draft survives an accepted refresh and a second server edit 8ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > switching accounts while cached media is being read rejects the old save before any remote upload (same account logs back in: false) 8ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > switching accounts while cached media is being read rejects the old save before any remote upload (same account logs back in: true) 6ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > an invalid number in a project draft cannot throw from the saved-state indicator 4ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > an autosave cannot advance the revision while a saved native edit is being submitted 2ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > a task completing during a CAS retry preserves both its Take and the local title change 4ms
+ ✓ src/features/studio/__tests__/cloud-account-isolation.test.ts > ignoring a refresh while typing does not turn the next autosave into deletion of a completed Take 2ms
+ ✓ src/features/studio/media-store.test.ts > task refresh merges the existing draft and refuses to replace edits made while it is pending 2ms
+ ✓ src/features/studio/media-store.test.ts > task refresh accepts merged results when the workspace and account still match 0ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > cloud project edits reuse stored media without re-uploading cached bytes 50ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > keeps image and video bytes separate for users sharing a browser 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > deletes only the selected account asset 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > rejects invalid account and media identifiers 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > retries opening browser media storage after a temporary failure 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > upgrades a v1 media database without losing existing bytes 2ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > persists project metadata across store instances and isolates owners 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > serializes overlapping project saves in invocation order 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > conditional migration save never replaces an existing snapshot 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > commits media and its project snapshot in one transaction 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > rolls back project changes when a combined media write fails 1ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > rejects invalid project snapshots without changing saved metadata 2ms
+ ✓ src/features/studio/media-store.test.ts > browser-local Studio media > surfaces a corrupt IndexedDB snapshot without replacing its bytes 1ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > initial frame measurement does not enqueue a save or reset the debounce 11ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > drag notifications move selected members once when their frame moves 2ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > grouping persists membership without creating an executable node 2ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > moving a frame translates members and undo restores both positions 2ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > copying every member duplicates its frame and internal edges 2ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > duplicating creative notes and region drafts keeps their editable configuration 1ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > regrouping removes previous membership and deleting its last member removes the frame 1ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > ungroup keeps media nodes and edges intact and locked members block a group move 3ms
+ ✓ src/features/studio/__tests__/canvas-frames.test.ts > invalid, duplicate and missing group members fail before saving 1ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > all creative templates retain the authors story, duration and frame 12ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > a one second manual plan never silently extends the requested duration 0ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > account model recommendations separate actual local text, image and video services from audio tools 1ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > manual drafts use localized default shot names without changing their story 1ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > a story can become an editable saved draft without image or video prompts 10ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > a reordered screenplay preserves shot identity and existing selected media 8ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > a persisted unfinished draft is restored rather than replaced by a new plan 1ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > temporarily empty shot titles remain editable until the plan is applied 2ms
+ ✓ src/features/studio/__tests__/creation-drafts.test.ts > editing a legacy canvas screenplay adopts its existing shot IDs and selected media 4ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > persists reviewed shots, shot audio, and locked asset versions 37ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > persists an uncertain billable video submission for later reconciliation 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > persists completed video request provenance and task log charge 2ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > persists project defaults across reload and portable export 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > preserves canvas lines saved before named ports existed 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > preserves the version pinned to a canvas connection 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > migrates an older pending video task into recoverable version history 0ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > plain JSON export excludes version, asset, and soundtrack media IDs 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > keeps storyboard and final video links across reload and project export 2ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > keeps a generic video format and editable metadata across reload and export 2ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > rejects an imported project that embeds an API key in video metadata 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > isolates saved projects by New API user ID 0ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > treats malformed or outdated documents as empty 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > rejects an invalid edit before it replaces a valid saved project 0ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > preserves arbitrary thirty-second alias projects and repairs invalid legacy durations 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > rejects missing users so account data cannot enter a shared key 0ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > surfaces storage quota failures to the workspace 0ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > rejects project imports with embedded credentials or malformed nodes 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > keeps artifact access URLs out of local video state and exported files 1ms
+ ✓ src/features/studio/local-projects.test.ts > browser-local Studio projects > does not treat imported media IDs as files in this browser 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > caption text stays fully opaque over a faded video frame 3ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > caption preflight rejects missing canvas support 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > MP4 assembly refuses an empty or invalid clip before producing an output 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > a canceled MP4 export stops before opening a video decoder 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight reports trimmed duration, input bytes, and supported output codecs 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a trim with no playable interval 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects out-of-range trim offsets { trimStart: -0.001, trimEnd: 0.003 } 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects out-of-range trim offsets { trimStart: NaN, trimEnd: 0.003 } 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects out-of-range trim offsets { trimStart: +0, trimEnd: Infinity } 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects out-of-range trim offsets { trimStart: +0, trimEnd: 0.005 } 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects an audio track the browser cannot decode 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects an oversized input before opening its decoder 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects an unsupported browser video encoder before export 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > trimmed clips keep audio and video aligned at their shared boundary 2ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > a trim crossing a source frame starts video and audio at the cut point 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > soundtrack preflight counts source bytes and enables audio output for silent clips 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > voiceover preflight counts bytes and enables audio for a silent video 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > voiceover preflight rejects missing or undecodable audio 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > voiceover preflight rejects invalid volume -0.1 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > voiceover preflight rejects invalid volume NaN 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > voiceover preflight rejects invalid volume Infinity 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > voiceover preflight rejects invalid volume 1.1 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > soundtrack preflight rejects files without a decodable audio track 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a clip volume outside 0..1: -0.1 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a clip volume outside 0..1: NaN 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a clip volume outside 0..1: Infinity 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a clip volume outside 0..1: 1.1 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a soundtrack volume outside 0..1 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects an invalid stored volume even when the clip is muted 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > muting a clip bypasses its undecodable audio while preserving video 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > soundtrack mixes at volume with clip audio and ends without looping 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > voiceover mixes with soundtrack and clip audio, then stops at its own end 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > music and voiceover start at their configured offsets while clip audio stays in place 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > soundtrack offset crossing a cut starts in the second clip 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects invalid soundtrackOffsetSeconds 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects invalid voiceoverOffsetSeconds 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > soundtrack follows the trimmed video timeline across clip boundaries 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > a shot voiceover starts at its trimmed shot boundary plus its local offset 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > a shot voiceover stops at its shot end while global audio continues 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > shot captions use trimmed shot starts and remain within their shot 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > shot lane preflight validates clip positions and local timing 1ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > mixed soundtrack and clip audio are clamped to the PCM range 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a fade longer than its trimmed clip 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects overlapping fade windows within a short clip 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects invalid fade duration 0 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects invalid fade duration -0.2 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects invalid fade duration NaN 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects invalid fade duration Infinity 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects invalid fade duration 3.1 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a fade when no 2D canvas is available 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight reports canvas initialization failures as unsupported fades 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > preflight rejects a canvas that cannot create video samples 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > fade frames darken around the cut while ordinary frames bypass canvas 0ms
+ ✓ src/features/studio/__tests__/studio-mp4.test.ts > clip audio fades while soundtrack continues at constant volume 0ms
+ ✓ src/features/auth/api.test.ts > starts Telegram OAuth only when configuration is ready: true 23ms
+ ✓ src/features/auth/api.test.ts > starts Telegram OAuth only when configuration is ready: false 3ms
+ ✓ src/features/auth/api.test.ts > logout coordination > returns an unsuccessful response without pretending to sign out 1ms
+ ✓ src/features/auth/api.test.ts > logout coordination > recovers a cookie mismatch and retries with the refreshed SID 0ms
+ ✓ src/features/auth/api.test.ts > logout coordination > treats a mismatch that refresh confirms anonymous as signed out 0ms
+ ✓ src/features/auth/api.test.ts > logout coordination > preserves the active session when mismatch recovery is temporary 3ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > selecting references for one shot updates its nodes and leaves other shots alone 7ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > copying previous shot references carries exact pinned versions to the next shot 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > removing a reference also removes its pinned version 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > choosing another take clears the shot approval for a fresh review 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > changing shot references clears approval before the next review 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > confirmed storyboard drafts become connected shots with reusable text outputs 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > a local wait timeout preserves the upstream task and leaves the dependent retryable 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > revising generated text preserves its prior take and clears dependent media 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > new storyboard shots inherit editable project model defaults 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > new storyboard shots use the simple automatic canvas ports 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > retains a submitted video task without restoring an obsolete selection 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > keeps earlier takes and restores one without retaining downstream media 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > retains a queued video take after its node inputs change 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > connects ordered shot videos to a final New API video node 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > a new final AI video samples three ordered references and lets creators choose more 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > storyboard reordering and appending preserve pinned final references 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > changing AI final references invalidates the prior generated result 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > removing a referenced shot invalidates the prior AI final result 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > pinning an image version invalidates its target while later source selections leave it intact 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > regeneration targets exclude edges pinned to a completed take 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > a changed upstream result marks completed descendants stale until regeneration 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > a reusable character asset can be applied consistently to every storyboard shot 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > applying an asset to full shot nodes leaves the project unchanged 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > creates ordered shots backed by the existing text image video graph 4ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > removes a storyboard entry when one of its graph nodes is deleted 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > deletes a shot and its generated graph without affecting other shots 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > creates a project and adds typed nodes with distinct positions 0ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > updates only the requested node and clears stale results when its prompt changes 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > clears a stale group error when the video group changes 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > clears generated text when its model changes so downstream generation refreshes it 1ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > invalidates downstream generated media when a source changes 5ms
+ ✓ src/features/studio/workspace.test.ts > Studio project editing > keeps a manually uploaded image while invalidating its generated successors 1ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > local VACE retains all four reference roles together and rejects oversized slots 4ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > the bundled local Wan adapter rejects unsupported duration and frame sizes before submission 1ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > chooses the same media encoding for changing model aliases and legacy family values 3ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > allows explicit model-specific payload fields while protecting routing and credentials 3ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > accepts editable JSON metadata and rejects invalid or unsafe drafts 1ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > submits an arbitrary alias with user-supplied format values 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > forwards both image and video references for an arbitrary alias 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > converts a first frame to reference media for video continuation 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > does not hide a typed first frame from the H3 task adapter 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > sends an H3 frame as a reference image when mixed with video 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > keeps extra metadata without letting it replace billing fields 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > accepts thirty seconds for an arbitrary site alias without duration words 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > recognizes the site Seedance 2.5 thirty-second alias 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > uses a selected family for an arbitrary site model alias 1ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > uses the signed-in account model IDs without inventing a video model 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > keeps a deployment alias from the model list unchanged 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > builds the Seedance 2.0 request with its resolution and optional source image 8ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > builds the MiniMax H3 request using its own resolution values 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > passes a local image and an upstream video to a Seedance reference request 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > uses reference media roles when MiniMax H3 combines an image and video 0ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > rejects local image payloads larger than the relay request limit 5ms
+ ✓ src/features/studio/model-profiles.test.ts > Studio video models > keeps billing and media safety checks without enforcing guessed model limits 1ms
+ ✓ src/features/studio/__tests__/editing-example.test.ts > the free example keeps shot and clip names aligned and supplies a named reusable music source 29ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > accepts only the matching popup, origin, intent, provider and state 4ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > closes an aborted popup and ignores a late authorization response 1ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > keeps the bind callback request alive after the popup closes 2ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > keeps the verify callback request alive after the popup closes 1ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > still cancels when the caller aborts after receiving a callback 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > cancels when the popup closes before receiving a callback 1ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > reports a blocked popup without starting authorization 1ms
+ ✓ src/features/auth/lib/__tests__/oauth-popup.test.ts > times out an unfinished authorization and clears its listeners and timers 6ms
+ ✓ src/features/studio/__tests__/series.test.ts > regional delivery uses pinned Takes and its own captions and audio without changing the original production 6ms
+ ✓ src/features/studio/__tests__/series.test.ts > translation drafts keep arrow dialogue and exact timing; changed timing or source prevents applying a draft 3ms
+ ✓ src/features/studio/__tests__/series.test.ts > long subtitles are segmented and rejoined without dropping any cue text 2ms
+ ✓ src/features/studio/__tests__/series.test.ts > regional media snapshots survive source node removal and selected Take changes 1ms
+ ✓ src/features/studio/__tests__/series.test.ts > episode creation relocates global subtitle times and freezes source media 4ms
+ ✓ src/features/studio/__tests__/canvas-history.test.ts > undoing a move retains a task that completed after the history checkpoint 18ms
+ ✓ src/features/studio/__tests__/canvas-history.test.ts > undo cannot erase a newly created node with an active task 3ms
+ ✓ src/features/studio/__tests__/canvas-history.test.ts > undoing deletion restores completed media references without dropping result history 5ms
+ ✓ src/features/studio/__tests__/image-layers.test.ts > stored photos retain their aspect ratio and fit within a small layer canvas 2ms
+ ✓ src/features/studio/__tests__/image-layers.test.ts > an editable image document survives project serialization with its source and independent layers 10ms
+ ✓ src/features/studio/__tests__/image-layers.test.ts > a locked layer rejects edits while allowing an explicit unlock 2ms
+ ✓ src/features/studio/__tests__/image-layers.test.ts > invalid dimensions and missing stored image sources are rejected before editing 2ms
+ ✓ src/features/studio/__tests__/image-layers.test.ts > duplicate layer identities are rejected instead of applying one edit to two layers 0ms
+ ✓ src/features/studio/__tests__/image-layers.test.ts > switching image Takes restores the matching layer document without applying old layers to a new image 1ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > rejects an unfinished shot before starting a browser export 5ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > returns finished videos in storyboard order using local media or task artifacts 2ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > invalidates a saved MP4 when a shot changes or its order changes 1ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > timed caption edits invalidate an assembled MP4 0ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > moving audio invalidates a previously assembled MP4 0ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > changing voiceover audio invalidates an assembled MP4 0ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > editing a shot voiceover or caption invalidates the assembled MP4 0ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > propagates optional shot trims and invalidates an export when a trim changes 0ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > propagates shot audio controls and invalidates an export when they change 0ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > a fade after a shot applies matching outgoing and incoming windows 1ms
+ ✓ src/features/studio/__tests__/assembly-plan.test.ts > Studio MP4 assembly planning > a fade without a duration uses a half-second boundary 1ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > parses submission attempts without exposing unexpected response fields 1ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > sends Unicode group IDs as URL parameters instead of HTTP headers 2ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > uses a stable client request ID and can recover its task from an attempt 1ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > reads settled task quota and channel for a completed video 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > includes the submission ID when the video relay rejects before a task exists 1ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > lists selectable account groups and excludes automatic routing 6ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > parses external provider settings without retaining a returned key 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > parses the server-proxied text and image result 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > plain text mode sends an explicit mode and supplies connected prompts 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > lets each image model choose its own default output size 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > sends model-specific image options and retains returned variants 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > accepts the image URL returned by the OpenAI image contract 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > accepts inline image bytes when a provider returns them 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > rejects an image response without media 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > reads a video task ID without relying on the upstream private ID 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > rejects text results without both downstream prompts 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > maps the owning user task response into visible progress 0ms
+ ✓ src/features/studio/api.test.ts > Studio relay responses > refuses a task record that belongs to a different ID 0ms
+ ✓ src/features/studio/__tests__/agent-snapshot.test.ts > Agent snapshots include saved group IDs and exact membership for later edits 20ms
+ ✓ src/features/studio/__tests__/agent-snapshot.test.ts > Agent snapshots expose bounded results and precise ports while excluding local blob URLs and request snapshots 1ms
+ ✓ src/features/studio/__tests__/asset-model-version.test.ts > generated GLB stays with the exact character version when another Take is selected 12ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > a pinned connection fingerprint ignores unrelated source take selections 4ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > a missing pinned take is represented in the fingerprint instead of crashing the workspace 1ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > batch cap counts dependent video tasks, not only shot cards 2ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > injects selected continuity assets into generation prompts 0ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > editing a continuity asset title or visual URL changes generation input 0ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > a shared upstream node submits once across concurrent branches 1ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > reuses a settled billed task for a stale dependent branch snapshot 0ms
+ ✓ src/features/studio/studio-execution.test.ts > Studio shared execution > does not reuse a video submission after its task fails 0ms
+ ✓ src/features/studio/__tests__/project-storage.test.ts > migrates a valid legacy snapshot and removes it only after IndexedDB commits 13ms
+ ✓ src/features/studio/__tests__/project-storage.test.ts > prefers a valid IndexedDB snapshot and leaves stale legacy data alone 1ms
+ ✓ src/features/studio/__tests__/project-storage.test.ts > preserves corrupt legacy bytes for recovery without writing an empty snapshot 1ms
+ ✓ src/features/studio/__tests__/project-storage.test.ts > reports an empty workspace when neither store has a snapshot 0ms
+ ✓ src/features/studio/__tests__/project-storage.test.ts > reports usage and an elevated backup warning near browser quota 1ms
+ ✓ src/features/studio/__tests__/project-storage.test.ts > keeps the browser-local backup warning below the quota threshold 0ms
+ ✓ src/features/studio/__tests__/project-storage.test.ts > reports unavailable estimates when browser storage cannot be queried 0ms
+ ✓ src/features/studio/__tests__/caption-track.test.ts > clip captions appear in the same exported SRT with decoded duration and a timeline offset 8ms
+ ✓ src/features/studio/__tests__/caption-track.test.ts > imported SRT retains its global timing and does not duplicate dialogue captions 1ms
+ ✓ src/features/studio/__tests__/caption-track.test.ts > dialogue subtitles stop with decoded speech and retain the shot offset 1ms
+ ✓ src/features/studio/__tests__/previs-validation.test.ts > stage editing preserves valid references and timing > rejects ambiguous object IDs, missing camera targets and out-of-scene keys 9ms
+ ✓ src/features/studio/__tests__/previs-validation.test.ts > stage editing preserves valid references and timing > removes an actor together with its track and camera references 1ms
+ ✓ src/features/studio/__tests__/previs-validation.test.ts > stage editing preserves valid references and timing > shortens a scene at the interpolated position without invalid trailing keys 1ms
+ ✓ src/features/studio/__tests__/node-inputs.test.ts > changing a generated image camera invalidates the selected output and keeps its Take 4ms
+ ✓ src/features/studio/__tests__/node-inputs.test.ts > changing speech voice invalidates the audio result and keeps its Take 0ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > uses the submitted duration or marks custom billable fields unknown 2ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > prices each fixed-price request with the selected user group ratio 1ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > uses a simple server-provided seconds expression and request quantity 2ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > returns unknown for channel-specific prices 0ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > does not present a legacy task base price as a final video total 0ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > returns unknown when expression needs extra request facts 0ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > does not invent a price for token pricing or missing group ratios 0ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > requires the model to be enabled in the selected user group 0ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > rejects invalid quantities without assigning a guessed price 0ms
+ ✓ src/features/studio/__tests__/studio-cost.test.ts > Studio video cost preview > reads the catalog and the selected group’s enabled models 1ms
+ ✓ src/features/studio/__tests__/draft-profile.test.ts > a real local draft profile keeps duration, references and the existing result when restored to final 10ms
+ ✓ src/features/studio/__tests__/draft-profile.test.ts > unsupported models and custom payloads cannot pretend to use a draft profile 4ms
+ ✓ src/features/studio/__tests__/draft-profile.test.ts > Take labels come from the completed request, without guessing from edited settings 0ms
+ ✓ src/features/studio/__tests__/screenplay-response.test.ts > a real model empty dialogue shape becomes an editable draft while preserving authored shot text and global constraints 7ms
+ ✓ src/features/studio/__tests__/screenplay-response.test.ts > normalization never turns an invalid duration or an injected model field into an accepted plan 2ms
+ ✓ src/features/studio/studio-frame-grab.test.ts > captures a near-final PNG frame and releases the video object URL 4ms
+ ✓ src/features/studio/studio-frame-grab.test.ts > rejects invalid metadata and releases the source 3ms
+ ✓ src/features/studio/studio-frame-grab.test.ts > an aborted capture does not allocate a video object URL 24ms
+ ✓ src/features/studio/__tests__/timeline-frames.test.ts > preview shares the renderers cumulative frame boundaries for fractional cuts 20ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > named and automatic ports cannot create the same video reference twice 2ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > a pinned completed text take supplies its own prompt without rerunning the source 1ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > plans only the ancestors of a target in dependency order 2ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > rejects cycles and unsupported node connections 1ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > automatically accepts common image edit links without advanced ports 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > accepts multiple image edit references 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > accepts typed media ports and rejects a second first frame 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > allows two distinct output roles from one source to the same target 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > passes text and a generated image into a downstream video 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > routes one generated shot to the image and video prompts it needs 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > does not repeat a manual shot description when scene and motion are identical 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > a partial saved text result falls back to its saved prompt instead of the old brief 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > uses an explicit text output port instead of guessing by target kind 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > does not submit a browser blob URL as an upstream image reference 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > does not read nodes outside direct incoming connections 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > uses an ungenerated connected text prompt when the video prompt is empty 0ms
+ ✓ src/features/studio/canvas-flow.test.ts > Studio canvas connections > passes text through an image node when the final video has no prompt 0ms
+ ✓ src/features/studio/__tests__/assembly-persistence.test.ts > legacy timed-caption data remains readable in older project backups 6ms
+ ✓ src/features/studio/__tests__/assembly-persistence.test.ts > a local assembled MP4 survives reload but is excluded from portable project export 1ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > matching provider and state mark is treated as a bind flow 1ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > verification markers cannot be confused with account binding 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > login redirect in a tab with a foreign opener stays a login flow 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > bind marker for another provider does not hijack this callback 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > stale bind marker does not hijack a later callback 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > bind marker without an opener falls back to login 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > closed opener falls back to login 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > missing storage degrades to login instead of throwing 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > resolveOAuthCallbackMode > storage read failure degrades to login instead of throwing 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > OAuth bind popup storage > blocked sessionStorage getter is contained 0ms
+ ✓ src/features/auth/lib/__tests__/oauth-callback-mode.test.ts > OAuth bind popup storage > marking reports unavailable or unwritable storage 0ms
+ ✓ src/features/studio/__tests__/creation-services.test.ts > recommended services configure new nodes while preserving stored footage and explicit model choices 3ms
+ ✓ src/features/studio/__tests__/creation-services.test.ts > quick preview shortens a configured unfinished video while retaining its model and completed Takes 1ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > a pinned asset reference resolves immutable prompt and media 1ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > keeps the manual shot prompt and appends selected assets in project order 0ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > does not repeat descriptions already written in the manual prompt 0ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > does not append context again when a compiled prompt is reused 0ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > returns the manual prompt unchanged when no usable context is selected 0ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > pinned asset versions use their saved description across shots 0ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > missing pinned asset versions fail instead of silently using the current description 1ms
+ ✓ src/features/studio/__tests__/studio-continuity.test.ts > Studio continuity prompt > an intentionally empty pinned description does not fall through to the editable current draft 0ms
+ ✓ src/features/studio/__tests__/shot-planning-numbered.test.ts > explicit Chinese shot labels retain sentences within three shots and exclude global requirements 2ms
+ ✓ src/features/studio/__tests__/shot-planning-numbered.test.ts > English numbered shot labels retain multi-line directions 1ms
+ ✓ src/features/studio/__tests__/shot-planning-numbered.test.ts > inline global requirements are shared without becoming the final shot action 0ms
+ ✓ src/features/studio/__tests__/shot-planning-numbered.test.ts > English inline shots preserve punctuation and scope closing requirements to the final shot 0ms
+ ✓ src/features/studio/__tests__/assembly-media.test.ts > assembly loads clips in shot order and refetches an artifact when local media is missing 3ms
+ ✓ src/features/studio/__tests__/assembly-media.test.ts > assembly reports the affected shot when its task artifact download fails 1ms
+ ✓ src/features/studio/__tests__/workspace-navigation.test.ts > uploaded footage enters editing and is never submitted as a generation target 4ms
+ ✓ src/features/studio/__tests__/workspace-navigation.test.ts > legacy production entries resolve into the five shared stages 0ms
+ ✓ src/features/studio/__tests__/cloud-merge.test.ts > choosing the cloud order resolves only conflicting edits and retains unrelated local changes 3ms
+ ✓ src/features/studio/__tests__/cloud-merge.test.ts > different browser measurements cannot block a creative edit or drop the completed task 0ms
+ ✓ src/features/studio/__tests__/cloud-merge.test.ts > two authors editing the same prompt still require conflict resolution 0ms
+ ✓ src/features/studio/studio-shot-planner.test.ts > Studio shot planning > retains optional camera, shot type, and dialogue from a model storyboard 2ms
+ ✓ src/features/studio/studio-shot-planner.test.ts > Studio shot planning > splits pasted paragraphs into editable manual shots 1ms
+ ✓ src/features/studio/studio-shot-planner.test.ts > Studio shot planning > keeps every paragraph when the requested shot count is smaller 1ms
+ ✓ src/features/studio/studio-shot-planner.test.ts > Studio shot planning > parses validated provider shot fields 1ms
+ ✓ src/features/studio/__tests__/studio-video-templates.test.ts > a successful request template keeps editable settings without media or secrets 3ms
+ ✓ src/features/studio/__tests__/studio-video-templates.test.ts > templates are scoped to one account and retain the latest successful channel 1ms
+ ✓ src/features/studio/__tests__/studio-video-templates.test.ts > a large metadata draft still fits the project take snapshot limit 1ms
+ ✓ src/features/studio/__tests__/motion-graphics.test.ts > shared motion graphics rendering > rejects an image element without its required stored source before rendering 2ms
+ ✓ src/features/studio/__tests__/motion-graphics.test.ts > shared motion graphics rendering > escapes project text and excludes out-of-range frames 1ms
+ ✓ src/features/studio/__tests__/motion-graphics.test.ts > shared motion graphics rendering > morphs shape corners at the selected beat and preserves icon type 0ms
+ ✓ src/features/studio/__tests__/motion-graphics.test.ts > shared motion graphics rendering > rejects URLs that could execute code or fetch another service 0ms
+ ✓ src/features/studio/__tests__/workflow-scope.test.ts > generation confirmation includes unpinned character and scene generation that the server executes implicitly 4ms
+ ✓ src/features/auth/lib/oauth-bind-window.test.ts > OAuth bind popup lifecycle > parses Telegram success and stable error callbacks 2ms
+ ✓ src/features/auth/lib/oauth-bind-window.test.ts > OAuth bind popup lifecycle > rejects Telegram callbacks without a flow token and ignores descriptions 0ms
+ ✓ src/features/auth/lib/oauth-bind-window.test.ts > OAuth bind popup lifecycle > posts only complete Telegram bind results to an available opener 0ms
+ ✓ src/features/auth/lib/oauth-bind-window.test.ts > OAuth bind popup lifecycle > waits 30 seconds for the opener response and can be cancelled 0ms
+ ✓ src/features/auth/lib/oauth-bind-window.test.ts > OAuth bind popup lifecycle > reports a closed popup once and clears its poller 0ms
+ ✓ src/features/auth/lib/telegram-login.test.ts > Telegram login authorization > keeps only fields signed by the Telegram login contract 2ms
+ ✓ src/features/auth/lib/telegram-login.test.ts > Telegram login authorization > rejects incomplete or structurally invalid callbacks 1ms
+ ✓ src/features/auth/lib/auth-redirect.test.ts > the remembered workspace accepts only the creator choice and cannot become an external redirect 1ms
+ ✓ src/features/auth/lib/auth-redirect.test.ts > authentication redirect validation > preserves safe internal paths, search parameters, and fragments 0ms
+ ✓ src/features/auth/lib/auth-redirect.test.ts > authentication redirect validation > rejects external and ambiguously parsed redirect targets 0ms
+ ✓ src/features/auth/lib/auth-redirect.test.ts > authentication redirect validation > rejects invalid or non-HTTP application origins 0ms
+ ✓ src/features/auth/lib/auth-redirect.test.ts > saved authentication language > prefers the explicit user language 0ms
+ ✓ src/features/auth/lib/auth-redirect.test.ts > saved authentication language > reads object and JSON string settings 0ms
+ ✓ src/features/auth/lib/auth-redirect.test.ts > saved authentication language > ignores malformed and non-string setting languages 0ms
+ ✓ src/features/studio/__tests__/studio-task-scheduler.test.ts > task polling backs off failed checks without starving other tasks 2ms
+ ✓ src/features/studio/__tests__/studio-task-scheduler.test.ts > task polling limits concurrent network checks 1ms
+ ✓ src/features/studio/__tests__/song-duration.test.ts > lyrics estimate includes the final line and counts Chinese characters without pretending the local maximum fits everything 2ms
+
+ Test Files  90 passed (90)
+      Tests  745 passed (745)
+   Start at  04:29:55
+   Duration  399.79s (transform 17.28s, setup 45.74s, import 310.40s, tests 247.55s, environment 157.47s)

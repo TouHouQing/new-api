@@ -718,7 +718,7 @@ test('an old account export cannot overwrite a newer account export state', asyn
   })
   await waitFor(() =>
     expect(
-      screen.getByRole('combobox', { name: 'studio.project.select' })
+      screen.getByRole('button', { name: 'studio.project.select' })
     ).toHaveTextContent('Second')
   )
   fireEvent.click(
@@ -818,21 +818,21 @@ test('returning to a project retries an IndexedDB read canceled during a project
   render(<Studio />)
   await waitFor(() => expect(getMedia).toHaveBeenCalledTimes(1))
   await user.click(
-    screen.getByRole('combobox', { name: 'studio.project.select' })
+    screen.getByRole('button', { name: 'studio.project.select' })
   )
-  await user.click(await screen.findByRole('option', { name: 'Other' }))
+  await user.click(await screen.findByRole('button', { name: /Other/ }))
   await waitFor(() =>
     expect(
-      screen.getByRole('combobox', { name: 'studio.project.select' })
+      screen.getByRole('button', { name: 'studio.project.select' })
     ).toHaveTextContent('Other')
   )
   await act(async () => {
     releaseRead(stored.get('12:assembled') || null)
   })
   await user.click(
-    screen.getByRole('combobox', { name: 'studio.project.select' })
+    screen.getByRole('button', { name: 'studio.project.select' })
   )
-  await user.click(await screen.findByRole('option', { name: 'Drama' }))
+  await user.click(await screen.findByRole('button', { name: /Drama/ }))
 
   await waitFor(() => expect(getMedia).toHaveBeenCalledTimes(2))
   expect(

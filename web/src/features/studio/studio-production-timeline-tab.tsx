@@ -88,6 +88,10 @@ export function StudioProductionTimelineTab(
     confirm,
     setConfirm,
     selectedClip,
+    timelineInspector = 'clip',
+    setTimelineInspector,
+    selectedAudioTrack,
+    setSelectedAudioTrack,
     setSelectedClip,
     splitAt,
     setSplitAt,
@@ -133,7 +137,7 @@ export function StudioProductionTimelineTab(
           />
           <div
             className={
-              options.compact ? 'max-h-[22dvh] overflow-y-auto' : undefined
+              options.compact ? 'max-h-[26dvh] overflow-y-auto' : undefined
             }
           >
             <StudioTimelineTracks />
@@ -153,54 +157,77 @@ export function StudioProductionTimelineTab(
               )}
             </p>
           )}
-          <StudioDialogueTiming />
-          <StudioFilmFinish />
-          <StudioFilmLayout />
-          <Collapsible>
-            <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
-              {t('Titles and motion graphics')}
-            </CollapsibleTrigger>
-            <CollapsibleContent>
-              <StudioMotionGraphics />
-            </CollapsibleContent>
-          </Collapsible>
-          <Button
-            variant='outline'
-            disabled={!writable || !timeline.length}
-            onClick={() => {
-              const production =
-                props.project.production || studioProductionSchema.parse({})
-              const ordered = studioProjectTimeline({
-                ...props.project,
-                production: {
-                  ...production,
-                  timelineEdited: false,
-                  timeline: [],
-                },
-              })
-              props.onUpdate({
-                ...props.project,
-                production: {
-                  ...production,
-                  timelineEdited: true,
-                  timeline: ordered,
-                },
-              })
-            }}
-          >
-            {t('Build a rough cut from shot order')}
-          </Button>
-
-          <StudioRenderProgress />
-          {!options.compact && preview && (
-            <video
-              src={preview}
-              aria-label={t('studio.production.preview')}
-              controls
-              className='aspect-video w-full rounded-lg bg-black'
-            />
+          {options.compact && (
+            <div
+              role='group'
+              aria-label={t('Editing controls')}
+              className='grid grid-cols-4 gap-1'
+            >
+              {(['clip', 'captions', 'audio', 'film'] as const).map((key) => (
+                <Button
+                  key={key}
+                  aria-pressed={timelineInspector === key}
+                  variant={timelineInspector === key ? 'secondary' : 'ghost'}
+                  onClick={() => setTimelineInspector(key)}
+                >
+                  {t(`studio.inspector.${key}`)}
+                </Button>
+              ))}
+            </div>
           )}
-          <div className='flex flex-wrap gap-2'>
+          <div
+            hidden={options.compact && timelineInspector !== 'film'}
+            className='space-y-3'
+          >
+            <StudioDialogueTiming />
+            <StudioFilmFinish />
+            <StudioFilmLayout />
+            <Collapsible>
+              <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
+                {t('Titles and motion graphics')}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <StudioMotionGraphics />
+              </CollapsibleContent>
+            </Collapsible>
+            <Button
+              variant='outline'
+              disabled={!writable || !timeline.length}
+              onClick={() => {
+                const production =
+                  props.project.production || studioProductionSchema.parse({})
+                const ordered = studioProjectTimeline({
+                  ...props.project,
+                  production: {
+                    ...production,
+                    timelineEdited: false,
+                    timeline: [],
+                  },
+                })
+                props.onUpdate({
+                  ...props.project,
+                  production: {
+                    ...production,
+                    timelineEdited: true,
+                    timeline: ordered,
+                  },
+                })
+              }}
+            >
+              {t('Build a rough cut from shot order')}
+            </Button>
+
+            <StudioRenderProgress />
+            {!options.compact && preview && (
+              <video
+                src={preview}
+                aria-label={t('studio.production.preview')}
+                controls
+                className='aspect-video w-full rounded-lg bg-black'
+              />
+            )}
+          </div>
+          <div hidden={options.compact} className='flex flex-wrap gap-2'>
             {timeline.map((item, index) => (
               <Button
                 key={item.id}
@@ -218,604 +245,692 @@ export function StudioProductionTimelineTab(
               </Button>
             ))}
           </div>
-          <StudioWorkspaceCaptions />
-          {clip && (
-            <div className='grid gap-3 sm:grid-cols-2'>
-              <label className='flex items-center gap-2'>
-                <Checkbox
-                  disabled={!writable}
-                  checked={clip.muted}
-                  onCheckedChange={(value) =>
-                    updateClip({ muted: value === true })
-                  }
-                />
-                {t('studio.production.muted')}
-              </label>
-              <Select
-                value={clip.takeId || 'current'}
-                items={[
-                  {
-                    value: 'current',
-                    label: t('studio.production.currentTake'),
-                  },
-                  ...(
-                    props.project.nodes.find((node) => node.id === clip.nodeId)
-                      ?.data.takes || []
-                  )
-                    .filter((take) => take.mediaId)
-                    .map((take, index) => ({
-                      value: take.id,
-                      label: `${t('Take')} ${index + 1}`,
-                    })),
-                ]}
-                onValueChange={(value) =>
-                  updateClip({
-                    takeId:
-                      value === 'current' ? undefined : value || undefined,
-                  })
-                }
-              >
-                <SelectTrigger
-                  disabled={!writable}
-                  aria-label={t('studio.production.take')}
-                >
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value='current'>
-                    {t('studio.production.currentTake')}
-                  </SelectItem>
-                  {props.project.nodes
-                    .find((node) => node.id === clip.nodeId)
-                    ?.data.takes?.filter((take) => take.mediaId)
-                    .map((take, index) => (
-                      <SelectItem key={take.id} value={take.id}>
-                        {t('Take')} {index + 1}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <div className='flex gap-2 sm:col-span-2'>
-                {[-1, 1].map((direction) => (
-                  <Button
-                    key={direction}
-                    variant='outline'
-                    disabled={
-                      !writable ||
-                      timeline.findIndex((item) => item.id === clip.id) +
-                        direction <
-                        0 ||
-                      timeline.findIndex((item) => item.id === clip.id) +
-                        direction >=
-                        timeline.length
+          <div hidden={options.compact && timelineInspector !== 'captions'}>
+            <StudioWorkspaceCaptions />
+          </div>
+          <div hidden={options.compact && timelineInspector !== 'clip'}>
+            {clip && (
+              <div className='grid gap-3 sm:grid-cols-2'>
+                <label className='flex items-center gap-2'>
+                  <Checkbox
+                    disabled={!writable}
+                    checked={clip.muted}
+                    onCheckedChange={(value) =>
+                      updateClip({ muted: value === true })
                     }
-                    onClick={() => {
-                      const next = [...timeline]
-                      const index = next.findIndex(
-                        (item) => item.id === clip.id
-                      )
-                      ;[next[index], next[index + direction]] = [
-                        next[index + direction],
-                        next[index],
-                      ]
-                      props.onUpdate({
-                        ...props.project,
-                        production: {
-                          ...(props.project.production ||
-                            studioProductionSchema.parse({})),
-                          timelineEdited: true,
-                          timeline: next,
-                        },
-                      })
-                    }}
-                  >
-                    {t(
-                      direction === -1
-                        ? 'studio.production.moveEarlier'
-                        : 'studio.production.moveLater'
-                    )}
-                  </Button>
-                ))}
-                <Button
-                  variant='outline'
-                  disabled={!writable}
-                  onClick={() =>
-                    props.onUpdate({
-                      ...props.project,
-                      production: {
-                        ...(props.project.production ||
-                          studioProductionSchema.parse({})),
-                        timelineEdited: true,
-                        timeline: timeline.filter(
-                          (item) => item.id !== clip.id
-                        ),
-                      },
+                  />
+                  {t('studio.production.muted')}
+                </label>
+                <Select
+                  value={clip.takeId || 'current'}
+                  items={[
+                    {
+                      value: 'current',
+                      label: t('studio.production.currentTake'),
+                    },
+                    ...(
+                      props.project.nodes.find(
+                        (node) => node.id === clip.nodeId
+                      )?.data.takes || []
+                    )
+                      .filter((take) => take.mediaId)
+                      .map((take, index) => ({
+                        value: take.id,
+                        label: `${t('Take')} ${index + 1}`,
+                      })),
+                  ]}
+                  onValueChange={(value) =>
+                    updateClip({
+                      takeId:
+                        value === 'current' ? undefined : value || undefined,
                     })
                   }
                 >
-                  {t('studio.production.removeClip')}
-                </Button>
-              </div>
-              <Field className='sm:col-span-2'>
-                <FieldLabel>
-                  {t('Clip volume')} · {Math.round(clip.volume * 100)}%
-                </FieldLabel>
-                <Input
-                  aria-label={t('Clip volume')}
-                  type='range'
-                  min={0}
-                  max={100}
-                  step={1}
-                  disabled={!writable}
-                  value={Math.round(clip.volume * 100)}
-                  onChange={(event) =>
-                    updateClip({ volume: Number(event.target.value) / 100 })
-                  }
-                />
-              </Field>
-              <Collapsible className='sm:col-span-2'>
-                <CollapsibleTrigger
-                  render={<Button size='sm' variant='ghost' />}
-                >
-                  {t('Precise trim, speed and transitions')}
-                </CollapsibleTrigger>
-                <CollapsibleContent className='grid gap-3 pt-3 sm:grid-cols-2'>
-                  {(
-                    [
-                      'trimStart',
-                      'trimEnd',
-                      'speed',
-                      'volume',
-                      'captionOffset',
-                      'captionDuration',
-                      'fadeIn',
-                      'fadeOut',
-                    ] as const
-                  ).map((key) => {
-                    let max = 3600
-                    if (key === 'speed') max = 4
-                    if (key === 'volume') max = 1
-                    if (key === 'fadeIn' || key === 'fadeOut') max = 3
-                    return (
-                      <StudioNumberField
-                        key={`${clip.id}:${key}`}
-                        id={`production-${key}`}
-                        label={t(`studio.production.${key}`)}
-                        disabled={!writable}
-                        value={clip[key]}
-                        optional={key === 'trimEnd'}
-                        min={key === 'speed' ? 0.25 : 0}
-                        max={max}
-                        onChange={(value) => updateClip({ [key]: value })}
-                      />
-                    )
-                  })}
-                </CollapsibleContent>
-              </Collapsible>
-              <Field>
-                <FieldLabel>{t('studio.production.splitAt')}</FieldLabel>
-                <Input
-                  type='number'
-                  min='0'
-                  step='0.1'
-                  value={splitAt}
-                  onChange={(event) => setSplitAt(event.target.value)}
-                />
-              </Field>
-              <div className='flex items-end gap-2'>
-                <Button
-                  disabled={!writable}
-                  onClick={() => {
-                    try {
-                      const source = props.project.nodes.find(
-                        (node) => node.id === clip.nodeId
-                      )
-                      const split = splitStudioTimelineClip(
-                        {
-                          ...clip,
-                          takeId: clip.takeId || source?.data.selectedTakeId,
-                        },
-                        Number(splitAt)
-                      )
+                  <SelectTrigger
+                    disabled={!writable}
+                    aria-label={t('studio.production.take')}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='current'>
+                      {t('studio.production.currentTake')}
+                    </SelectItem>
+                    {props.project.nodes
+                      .find((node) => node.id === clip.nodeId)
+                      ?.data.takes?.filter((take) => take.mediaId)
+                      .map((take, index) => (
+                        <SelectItem key={take.id} value={take.id}>
+                          {t('Take')} {index + 1}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <div className='flex gap-2 sm:col-span-2'>
+                  {[-1, 1].map((direction) => (
+                    <Button
+                      key={direction}
+                      variant='outline'
+                      disabled={
+                        !writable ||
+                        timeline.findIndex((item) => item.id === clip.id) +
+                          direction <
+                          0 ||
+                        timeline.findIndex((item) => item.id === clip.id) +
+                          direction >=
+                          timeline.length
+                      }
+                      onClick={() => {
+                        const next = [...timeline]
+                        const index = next.findIndex(
+                          (item) => item.id === clip.id
+                        )
+                        ;[next[index], next[index + direction]] = [
+                          next[index + direction],
+                          next[index],
+                        ]
+                        props.onUpdate({
+                          ...props.project,
+                          production: {
+                            ...(props.project.production ||
+                              studioProductionSchema.parse({})),
+                            timelineEdited: true,
+                            timeline: next,
+                          },
+                        })
+                      }}
+                    >
+                      {t(
+                        direction === -1
+                          ? 'studio.production.moveEarlier'
+                          : 'studio.production.moveLater'
+                      )}
+                    </Button>
+                  ))}
+                  <Button
+                    variant='outline'
+                    disabled={!writable}
+                    onClick={() =>
                       props.onUpdate({
                         ...props.project,
                         production: {
                           ...(props.project.production ||
                             studioProductionSchema.parse({})),
                           timelineEdited: true,
-                          timeline: timeline.flatMap((item) =>
-                            item.id === clip.id ? split : [item]
+                          timeline: timeline.filter(
+                            (item) => item.id !== clip.id
                           ),
                         },
                       })
-                    } catch (error) {
-                      handleServerError(error)
                     }
-                  }}
-                >
-                  {t('studio.production.split')}
-                </Button>
-                <Button
-                  variant='outline'
-                  disabled={!writable}
-                  onClick={() =>
-                    props.onUpdate({
-                      ...props.project,
-                      production: {
-                        ...(props.project.production ||
-                          studioProductionSchema.parse({})),
-                        timelineEdited: true,
-                        timeline: [
-                          ...timeline,
-                          {
-                            ...clip,
-                            takeId:
-                              clip.takeId ||
-                              props.project.nodes.find(
-                                (node) => node.id === clip.nodeId
-                              )?.data.selectedTakeId,
-                            id: crypto.randomUUID(),
-                          },
-                        ],
-                      },
-                    })
-                  }
-                >
-                  {t('studio.production.duplicate')}
-                </Button>
-              </div>
-            </div>
-          )}
-          <Button
-            variant='outline'
-            disabled={
-              !writable ||
-              mutate.isPending ||
-              !!activeRender ||
-              !studioCreationProgress(props.project).edit ||
-              !capabilities.data?.render_available
-            }
-            onClick={() => mutate.mutate(() => submit('render', true))}
-          >
-            {t('studio.production.preview')}
-          </Button>
-
-          <Button
-            variant='outline'
-            onClick={() => {
-              setMediaDraftNodeId('')
-              setMediaEntryAction('voice_speech')
-              setActiveTab('media')
-            }}
-          >
-            {t('Create voice or music')}
-          </Button>
-
-          <Field>
-            <FieldLabel>{t('studio.production.audioTracks')}</FieldLabel>
-            <Select
-              value={audioNode}
-              onValueChange={(value) => setAudioNode(value || '')}
-            >
-              <SelectTrigger aria-label={t('studio.production.audioTracks')}>
-                <SelectValue>
-                  {
-                    props.project.nodes.find((node) => node.id === audioNode)
-                      ?.data.title
-                  }
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {props.project.nodes
-                  .filter(
-                    (node) => node.data.kind === 'audio' && node.data.mediaId
-                  )
-                  .map((node) => (
-                    <SelectItem key={node.id} value={node.id}>
-                      {node.data.title}
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Button
-            variant='outline'
-            disabled={!writable || !audioNode}
-            onClick={() => {
-              const node = props.project.nodes.find(
-                (node) => node.id === audioNode
-              )
-              if (!node?.data.mediaId) return
-              const production =
-                props.project.production || studioProductionSchema.parse({})
-              props.onUpdate({
-                ...props.project,
-                production: {
-                  ...production,
-                  audioTracks: [
-                    ...production.audioTracks,
-                    {
-                      id: crypto.randomUUID(),
-                      mediaId: node.data.mediaId,
-                      start: 0,
-                      offset: 0,
-                      volume: 1,
-                    },
-                  ],
-                },
-              })
-            }}
-          >
-            {t('studio.production.addAudio')}
-          </Button>
-          <Collapsible defaultOpen={!options.compact}>
-            <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
-              {t('Recognize captions with AI')}
-            </CollapsibleTrigger>
-            <CollapsibleContent className='flex flex-col gap-3 pt-3'>
-              <Collapsible>
-                <CollapsibleTrigger render={<Button variant='outline' />}>
-                  {t('Advanced model settings')}
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <Field>
-                    <FieldLabel>
-                      {t('studio.production.transcriptionModel')}
-                    </FieldLabel>
-                    <Input
-                      aria-label={t('studio.production.transcriptionModel')}
-                      value={transcriptionModel}
-                      onChange={(event) =>
-                        setTranscriptionModel(event.target.value)
-                      }
-                    />
-                  </Field>
-                </CollapsibleContent>
-              </Collapsible>
-              {audioNode && (
-                <div className='space-y-3'>
-                  <StudioBudgetSummary />
-                  <Field>
-                    <FieldLabel>{t('studio.production.budget')}</FieldLabel>
-                    <Input
-                      aria-label={t('studio.production.budget')}
-                      type='number'
-                      min={0.001}
-                      max={4000}
-                      value={budget}
-                      disabled={!writable}
-                      onChange={(event) => setBudget(event.target.value)}
-                    />
-                  </Field>
-                  <label className='flex items-center gap-2'>
-                    <Checkbox
-                      disabled={!writable}
-                      checked={confirm}
-                      onCheckedChange={(checked) =>
-                        setConfirm(checked === true)
-                      }
-                    />
-                    {t('studio.production.confirm')}
-                  </label>
-                  {!confirm && (
-                    <p role='status' className='text-muted-foreground text-sm'>
-                      {t('Confirm the budget before generating.')}
-                    </p>
-                  )}
+                  >
+                    {t('studio.production.removeClip')}
+                  </Button>
                 </div>
-              )}
-              <Button
-                variant='outline'
-                disabled={
-                  !writable ||
-                  !confirm ||
-                  !audioNode ||
-                  capabilities.data?.storage_available === false ||
-                  capabilities.data?.generation_credit_available !== true ||
-                  !Number.isFinite(Number(budget)) ||
-                  Number(budget) <= 0 ||
-                  Number(budget) > 4000 ||
-                  !transcriptionModel.trim() ||
-                  mutate.isPending
-                }
-                onClick={() =>
-                  mutate.mutate(async () => {
-                    await props.onSave()
-                    const current =
-                      await studioCloudRequest<StudioCloudProject>(path)
-                    const node = current.document.nodes.find(
-                      (node) => node.id === audioNode
-                    )
-                    if (!node?.data.mediaId) {
-                      throw new Error(t('studio.production.mediaMissing'))
-                    }
-                    await studioCloudRequest(`${path}/jobs`, 'POST', {
-                      request_id: crypto.randomUUID(),
-                      revision: current.revision,
-                      kind: 'transcribe',
-                      budget: Math.round(
-                        Number(budget) *
-                          (capabilities.data?.quota_per_unit || 500000)
-                      ),
-                      confirm_generation: true,
-                      operation: {
-                        media_id: node.data.mediaId,
-                        model: transcriptionModel,
-                        group: node.data.group || '',
-                        language: '',
-                      },
-                    })
-                  })
-                }
-              >
-                {t('studio.production.transcribe')}
-              </Button>
-            </CollapsibleContent>
-          </Collapsible>
-          <Collapsible>
-            <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
-              {t('Imported and recognized SRT captions')}
-            </CollapsibleTrigger>
-            <CollapsibleContent className='pt-3'>
-              <StudioCaptionEditor
-                value={props.project.captionsText || ''}
-                draft={props.project.production?.captionDraft}
-                disabled={!writable}
-                hasClipCaptions={timeline.some((clip) => !!clip.caption)}
-                onChange={(captionsText, captionDraft) =>
-                  props.onUpdate({
-                    ...props.project,
-                    captionsText,
-                    production: {
-                      ...(props.project.production ||
-                        studioProductionSchema.parse({})),
-                      captionDraft,
-                    },
-                  })
-                }
-              />
-            </CollapsibleContent>
-          </Collapsible>
-          <StudioNumberField
-            id='studio-subtitle-offset'
-            label={t('studio.production.subtitleOffset')}
-            min={0}
-            max={3600}
-            disabled={!writable}
-            value={props.project.captionOffsetSeconds || 0}
-            onChange={(value) =>
-              props.onUpdate({
-                ...props.project,
-                captionOffsetSeconds: value ?? 0,
-              })
-            }
-          />
-          {props.project.production?.audioTracks.map((track, index) => {
-            const source = props.project.nodes.find(
-              (node) =>
-                node.data.mediaId === track.mediaId ||
-                node.data.takes?.some((take) => take.mediaId === track.mediaId)
-            )
-            const title =
-              source?.data.title ||
-              t('Audio track {{number}}', { number: index + 1 })
-            return (
-              <FieldSet
-                key={track.id}
-                aria-label={title}
-                className='grid gap-3 rounded-lg border p-3 sm:grid-cols-4'
-              >
-                <FieldLegend className='sm:col-span-4'>{title}</FieldLegend>
-                {mediaPreviewUrls[track.mediaId] && (
-                  <audio
-                    controls
-                    aria-label={t('Preview audio track: {{title}}', { title })}
-                    src={mediaPreviewUrls[track.mediaId]}
-                    className='w-full sm:col-span-4'
-                  />
-                )}
-                <Field className='sm:col-span-4'>
+                <Field className='sm:col-span-2'>
                   <FieldLabel>
-                    {t('Audio volume')} · {Math.round(track.volume * 100)}%
+                    {t('Clip volume')} · {Math.round(clip.volume * 100)}%
                   </FieldLabel>
                   <Input
+                    aria-label={t('Clip volume')}
                     type='range'
                     min={0}
                     max={100}
                     step={1}
-                    aria-label={`${title} ${t('Audio volume')}`}
                     disabled={!writable}
-                    value={Math.round(track.volume * 100)}
-                    onChange={(event) => {
-                      const production =
-                        props.project.production ||
-                        studioProductionSchema.parse({})
-                      props.onUpdate({
-                        ...props.project,
-                        production: {
-                          ...production,
-                          audioTracks: production.audioTracks.map((item) =>
-                            item.id === track.id
-                              ? {
-                                  ...item,
-                                  volume: Number(event.target.value) / 100,
-                                }
-                              : item
-                          ),
-                        },
-                      })
-                    }}
+                    value={Math.round(clip.volume * 100)}
+                    onChange={(event) =>
+                      updateClip({ volume: Number(event.target.value) / 100 })
+                    }
                   />
                 </Field>
-                <Collapsible
-                  defaultOpen={!options.compact}
-                  className='sm:col-span-4'
-                >
+                <Collapsible className='sm:col-span-2'>
                   <CollapsibleTrigger
                     render={<Button size='sm' variant='ghost' />}
                   >
-                    {t('Precise audio timing and volume')}
+                    {t('Precise trim, speed and transitions')}
                   </CollapsibleTrigger>
                   <CollapsibleContent className='grid gap-3 pt-3 sm:grid-cols-2'>
-                    {(['start', 'offset', 'duration', 'volume'] as const).map(
-                      (key) => (
+                    {(
+                      [
+                        'trimStart',
+                        'trimEnd',
+                        'speed',
+                        'volume',
+                        'captionOffset',
+                        'captionDuration',
+                        'fadeIn',
+                        'fadeOut',
+                      ] as const
+                    ).map((key) => {
+                      let max = 3600
+                      if (key === 'speed') max = 4
+                      if (key === 'volume') max = 1
+                      if (key === 'fadeIn' || key === 'fadeOut') max = 3
+                      return (
                         <StudioNumberField
-                          key={key}
-                          id={`studio-audio-${track.id}-${key}`}
-                          label={t(`studio.production.audio.${key}`)}
+                          key={`${clip.id}:${key}`}
+                          id={`production-${key}`}
+                          label={t(`studio.production.${key}`)}
                           disabled={!writable}
-                          min={key === 'duration' ? 0.01 : 0}
-                          max={key === 'volume' ? 1 : 3600}
-                          optional={key === 'duration'}
-                          value={track[key]}
-                          onChange={(value) => {
-                            const production =
-                              props.project.production ||
-                              studioProductionSchema.parse({})
-                            props.onUpdate({
-                              ...props.project,
-                              production: {
-                                ...production,
-                                audioTracks: production.audioTracks.map(
-                                  (item) =>
-                                    item.id === track.id
-                                      ? {
-                                          ...item,
-                                          [key]: value,
-                                        }
-                                      : item
-                                ),
-                              },
-                            })
-                          }}
+                          value={clip[key]}
+                          optional={key === 'trimEnd'}
+                          min={key === 'speed' ? 0.25 : 0}
+                          max={max}
+                          onChange={(value) => updateClip({ [key]: value })}
                         />
                       )
-                    )}
+                    })}
                   </CollapsibleContent>
                 </Collapsible>
+                <Field>
+                  <FieldLabel>{t('studio.production.splitAt')}</FieldLabel>
+                  <Input
+                    type='number'
+                    min='0'
+                    step='0.1'
+                    value={splitAt}
+                    onChange={(event) => setSplitAt(event.target.value)}
+                  />
+                </Field>
+                <div className='flex items-end gap-2'>
+                  <Button
+                    disabled={!writable}
+                    onClick={() => {
+                      try {
+                        const source = props.project.nodes.find(
+                          (node) => node.id === clip.nodeId
+                        )
+                        const split = splitStudioTimelineClip(
+                          {
+                            ...clip,
+                            takeId: clip.takeId || source?.data.selectedTakeId,
+                          },
+                          Number(splitAt)
+                        )
+                        props.onUpdate({
+                          ...props.project,
+                          production: {
+                            ...(props.project.production ||
+                              studioProductionSchema.parse({})),
+                            timelineEdited: true,
+                            timeline: timeline.flatMap((item) =>
+                              item.id === clip.id ? split : [item]
+                            ),
+                          },
+                        })
+                      } catch (error) {
+                        handleServerError(error)
+                      }
+                    }}
+                  >
+                    {t('studio.production.split')}
+                  </Button>
+                  <Button
+                    variant='outline'
+                    disabled={!writable}
+                    onClick={() =>
+                      props.onUpdate({
+                        ...props.project,
+                        production: {
+                          ...(props.project.production ||
+                            studioProductionSchema.parse({})),
+                          timelineEdited: true,
+                          timeline: [
+                            ...timeline,
+                            {
+                              ...clip,
+                              takeId:
+                                clip.takeId ||
+                                props.project.nodes.find(
+                                  (node) => node.id === clip.nodeId
+                                )?.data.selectedTakeId,
+                              id: crypto.randomUUID(),
+                            },
+                          ],
+                        },
+                      })
+                    }
+                  >
+                    {t('studio.production.duplicate')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div hidden={options.compact && timelineInspector !== 'film'}>
+            <Button
+              variant='outline'
+              disabled={
+                !writable ||
+                mutate.isPending ||
+                !!activeRender ||
+                !studioCreationProgress(props.project).edit ||
+                !capabilities.data?.render_available
+              }
+              onClick={() => mutate.mutate(() => submit('render', true))}
+            >
+              {t('studio.production.preview')}
+            </Button>
+          </div>
+          <div
+            hidden={
+              options.compact &&
+              !['audio', 'captions'].includes(timelineInspector)
+            }
+            className='space-y-3'
+          >
+            <Button
+              variant='outline'
+              onClick={() => {
+                setMediaDraftNodeId('')
+                setMediaEntryAction('voice_speech')
+                setActiveTab('media')
+              }}
+            >
+              {t('Create voice or music')}
+            </Button>
+
+            <Field>
+              <FieldLabel>{t('studio.production.audioTracks')}</FieldLabel>
+              <Select
+                value={audioNode}
+                onValueChange={(value) => setAudioNode(value || '')}
+              >
+                <SelectTrigger aria-label={t('studio.production.audioTracks')}>
+                  <SelectValue>
+                    {
+                      props.project.nodes.find((node) => node.id === audioNode)
+                        ?.data.title
+                    }
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  {props.project.nodes
+                    .filter(
+                      (node) => node.data.kind === 'audio' && node.data.mediaId
+                    )
+                    .map((node) => (
+                      <SelectItem key={node.id} value={node.id}>
+                        {node.data.title}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </Field>
+            <Button
+              variant='outline'
+              disabled={!writable || !audioNode}
+              onClick={() => {
+                const node = props.project.nodes.find(
+                  (node) => node.id === audioNode
+                )
+                if (!node?.data.mediaId) return
+                const production =
+                  props.project.production || studioProductionSchema.parse({})
+                props.onUpdate({
+                  ...props.project,
+                  production: {
+                    ...production,
+                    audioTracks: [
+                      ...production.audioTracks,
+                      {
+                        id: crypto.randomUUID(),
+                        mediaId: node.data.mediaId,
+                        start: 0,
+                        offset: 0,
+                        volume: 1,
+                      },
+                    ],
+                  },
+                })
+              }}
+            >
+              {t('studio.production.addAudio')}
+            </Button>
+          </div>
+          <div
+            hidden={options.compact && timelineInspector !== 'captions'}
+            className='space-y-3'
+          >
+            <Collapsible defaultOpen={!options.compact}>
+              <CollapsibleTrigger
+                render={<Button size='sm' variant='outline' />}
+              >
+                {t('Recognize captions with AI')}
+              </CollapsibleTrigger>
+              <CollapsibleContent className='flex flex-col gap-3 pt-3'>
+                <Collapsible>
+                  <CollapsibleTrigger render={<Button variant='outline' />}>
+                    {t('Advanced model settings')}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <Field>
+                      <FieldLabel>
+                        {t('studio.production.transcriptionModel')}
+                      </FieldLabel>
+                      <Input
+                        aria-label={t('studio.production.transcriptionModel')}
+                        value={transcriptionModel}
+                        onChange={(event) =>
+                          setTranscriptionModel(event.target.value)
+                        }
+                      />
+                    </Field>
+                  </CollapsibleContent>
+                </Collapsible>
+                {audioNode && (
+                  <div className='space-y-3'>
+                    <StudioBudgetSummary />
+                    <Field>
+                      <FieldLabel>{t('studio.production.budget')}</FieldLabel>
+                      <Input
+                        aria-label={t('studio.production.budget')}
+                        type='number'
+                        min={0.001}
+                        max={4000}
+                        value={budget}
+                        disabled={!writable}
+                        onChange={(event) => setBudget(event.target.value)}
+                      />
+                    </Field>
+                    <label className='flex items-center gap-2'>
+                      <Checkbox
+                        disabled={!writable}
+                        checked={confirm}
+                        onCheckedChange={(checked) =>
+                          setConfirm(checked === true)
+                        }
+                      />
+                      {t('studio.production.confirm')}
+                    </label>
+                    {!confirm && (
+                      <p
+                        role='status'
+                        className='text-muted-foreground text-sm'
+                      >
+                        {t('Confirm the budget before generating.')}
+                      </p>
+                    )}
+                  </div>
+                )}
                 <Button
                   variant='outline'
+                  disabled={
+                    !writable ||
+                    !confirm ||
+                    !audioNode ||
+                    capabilities.data?.storage_available === false ||
+                    capabilities.data?.generation_credit_available !== true ||
+                    !Number.isFinite(Number(budget)) ||
+                    Number(budget) <= 0 ||
+                    Number(budget) > 4000 ||
+                    !transcriptionModel.trim() ||
+                    mutate.isPending
+                  }
+                  onClick={() =>
+                    mutate.mutate(async () => {
+                      await props.onSave()
+                      const current =
+                        await studioCloudRequest<StudioCloudProject>(path)
+                      const node = current.document.nodes.find(
+                        (node) => node.id === audioNode
+                      )
+                      if (!node?.data.mediaId) {
+                        throw new Error(t('studio.production.mediaMissing'))
+                      }
+                      await studioCloudRequest(`${path}/jobs`, 'POST', {
+                        request_id: crypto.randomUUID(),
+                        revision: current.revision,
+                        kind: 'transcribe',
+                        budget: Math.round(
+                          Number(budget) *
+                            (capabilities.data?.quota_per_unit || 500000)
+                        ),
+                        confirm_generation: true,
+                        operation: {
+                          media_id: node.data.mediaId,
+                          model: transcriptionModel,
+                          group: node.data.group || '',
+                          language: '',
+                        },
+                      })
+                    })
+                  }
+                >
+                  {t('studio.production.transcribe')}
+                </Button>
+              </CollapsibleContent>
+            </Collapsible>
+            <Collapsible>
+              <CollapsibleTrigger
+                render={<Button size='sm' variant='outline' />}
+              >
+                {t('Imported and recognized SRT captions')}
+              </CollapsibleTrigger>
+              <CollapsibleContent className='pt-3'>
+                <StudioCaptionEditor
+                  value={props.project.captionsText || ''}
+                  draft={props.project.production?.captionDraft}
                   disabled={!writable}
-                  onClick={() => {
-                    const production =
-                      props.project.production ||
-                      studioProductionSchema.parse({})
+                  hasClipCaptions={timeline.some((clip) => !!clip.caption)}
+                  onChange={(captionsText, captionDraft) =>
                     props.onUpdate({
                       ...props.project,
+                      captionsText,
                       production: {
-                        ...production,
-                        audioTracks: production.audioTracks.filter(
-                          (item) => item.id !== track.id
-                        ),
+                        ...(props.project.production ||
+                          studioProductionSchema.parse({})),
+                        captionDraft,
                       },
                     })
-                  }}
+                  }
+                />
+              </CollapsibleContent>
+            </Collapsible>
+            <StudioNumberField
+              id='studio-subtitle-offset'
+              label={t('studio.production.subtitleOffset')}
+              min={0}
+              max={3600}
+              disabled={!writable}
+              value={props.project.captionOffsetSeconds || 0}
+              onChange={(value) =>
+                props.onUpdate({
+                  ...props.project,
+                  captionOffsetSeconds: value ?? 0,
+                })
+              }
+            />
+          </div>
+          <div
+            hidden={options.compact && timelineInspector !== 'audio'}
+            className='space-y-3'
+          >
+            {options.compact && (
+              <Field>
+                <FieldLabel>{t('Audio track to edit')}</FieldLabel>
+                <Select
+                  value={selectedAudioTrack || null}
+                  onValueChange={(value) => setSelectedAudioTrack(value || '')}
+                  items={(props.project.production?.audioTracks || []).map(
+                    (track, index) => ({
+                      value: track.id,
+                      label:
+                        props.project.nodes.find(
+                          (node) => node.data.mediaId === track.mediaId
+                        )?.data.title || `${t('Audio')} ${index + 1}`,
+                    })
+                  )}
                 >
-                  {t('studio.production.removeAudio')}
-                </Button>
-              </FieldSet>
-            )
-          })}
+                  <SelectTrigger aria-label={t('Audio track to edit')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {props.project.production?.audioTracks.map(
+                      (track, index) => (
+                        <SelectItem key={track.id} value={track.id}>
+                          {props.project.nodes.find(
+                            (node) => node.data.mediaId === track.mediaId
+                          )?.data.title || `${t('Audio')} ${index + 1}`}
+                        </SelectItem>
+                      )
+                    )}
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+            {selectedAudioTrack &&
+              !props.project.production?.audioTracks.some(
+                (track) => track.id === selectedAudioTrack
+              ) && (
+                <>
+                  <p>
+                    {t(
+                      'This audio follows the shot dialogue. Edit its speech or drag its timing in the timeline.'
+                    )}
+                  </p>
+                  <StudioDialogueTiming />
+                </>
+              )}
+            {props.project.production?.audioTracks
+              .filter(
+                (track) =>
+                  !options.compact ||
+                  !selectedAudioTrack ||
+                  selectedAudioTrack === track.id
+              )
+              .map((track, index) => {
+                const source = props.project.nodes.find(
+                  (node) =>
+                    node.data.mediaId === track.mediaId ||
+                    node.data.takes?.some(
+                      (take) => take.mediaId === track.mediaId
+                    )
+                )
+                const title =
+                  source?.data.title ||
+                  t('Audio track {{number}}', { number: index + 1 })
+                return (
+                  <FieldSet
+                    key={track.id}
+                    aria-label={title}
+                    className='grid gap-3 rounded-lg border p-3 sm:grid-cols-4'
+                  >
+                    <FieldLegend className='sm:col-span-4'>{title}</FieldLegend>
+                    {mediaPreviewUrls[track.mediaId] && (
+                      <audio
+                        controls
+                        aria-label={t('Preview audio track: {{title}}', {
+                          title,
+                        })}
+                        src={mediaPreviewUrls[track.mediaId]}
+                        className='w-full sm:col-span-4'
+                      />
+                    )}
+                    <Field className='sm:col-span-4'>
+                      <FieldLabel>
+                        {t('Audio volume')} · {Math.round(track.volume * 100)}%
+                      </FieldLabel>
+                      <Input
+                        type='range'
+                        min={0}
+                        max={100}
+                        step={1}
+                        aria-label={`${title} ${t('Audio volume')}`}
+                        disabled={!writable}
+                        value={Math.round(track.volume * 100)}
+                        onChange={(event) => {
+                          const production =
+                            props.project.production ||
+                            studioProductionSchema.parse({})
+                          props.onUpdate({
+                            ...props.project,
+                            production: {
+                              ...production,
+                              audioTracks: production.audioTracks.map((item) =>
+                                item.id === track.id
+                                  ? {
+                                      ...item,
+                                      volume: Number(event.target.value) / 100,
+                                    }
+                                  : item
+                              ),
+                            },
+                          })
+                        }}
+                      />
+                    </Field>
+                    <Collapsible
+                      defaultOpen={!options.compact}
+                      className='sm:col-span-4'
+                    >
+                      <CollapsibleTrigger
+                        render={<Button size='sm' variant='ghost' />}
+                      >
+                        {t('Precise audio timing and volume')}
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className='grid gap-3 pt-3 sm:grid-cols-2'>
+                        {(
+                          ['start', 'offset', 'duration', 'volume'] as const
+                        ).map((key) => (
+                          <StudioNumberField
+                            key={key}
+                            id={`studio-audio-${track.id}-${key}`}
+                            label={t(`studio.production.audio.${key}`)}
+                            disabled={!writable}
+                            min={key === 'duration' ? 0.01 : 0}
+                            max={key === 'volume' ? 1 : 3600}
+                            optional={key === 'duration'}
+                            value={track[key]}
+                            onChange={(value) => {
+                              const production =
+                                props.project.production ||
+                                studioProductionSchema.parse({})
+                              props.onUpdate({
+                                ...props.project,
+                                production: {
+                                  ...production,
+                                  audioTracks: production.audioTracks.map(
+                                    (item) =>
+                                      item.id === track.id
+                                        ? {
+                                            ...item,
+                                            [key]: value,
+                                          }
+                                        : item
+                                  ),
+                                },
+                              })
+                            }}
+                          />
+                        ))}
+                      </CollapsibleContent>
+                    </Collapsible>
+                    <Button
+                      variant='outline'
+                      disabled={!writable}
+                      onClick={() => {
+                        const production =
+                          props.project.production ||
+                          studioProductionSchema.parse({})
+                        props.onUpdate({
+                          ...props.project,
+                          production: {
+                            ...production,
+                            audioTracks: production.audioTracks.filter(
+                              (item) => item.id !== track.id
+                            ),
+                          },
+                        })
+                      }}
+                    >
+                      {t('studio.production.removeAudio')}
+                    </Button>
+                  </FieldSet>
+                )
+              })}
+          </div>
         </div>
       </div>
     </TabsContent>

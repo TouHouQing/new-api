@@ -37,10 +37,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { StudioBriefGuide } from './studio-brief-guide'
 import { studioPlanStoryDraft } from './studio-creation'
 import { studioCreationTemplate } from './studio-creation-templates'
-import { studioCreativeBriefText } from './studio-creative-plan'
+import {
+  studioBriefNeedsReview,
+  studioConfirmBrief,
+} from './studio-creative-plan'
 import { StudioMediaImport } from './studio-media-import'
 import { studioProductionSchema } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
+import { studioProjectDisplayTitle } from './studio-project-identity'
 import { StudioStoryPlanner } from './studio-story-planner'
 import { StudioTemplateLibrary } from './studio-template-library'
 import { studioWorkflowProblem } from './studio-workflow-problem'
@@ -62,6 +66,9 @@ export function StudioCreationBrief(props: {
   )
   const [busy, setBusy] = useState(false)
   const [templates, setTemplates] = useState(false)
+  const [start, setStart] = useState<'choose' | 'idea' | 'upload' | 'template'>(
+    production.brief || workspace.project.shots?.length ? 'idea' : 'choose'
+  )
   const [error, setError] = useState('')
   const [replacement, setReplacement] = useState<'manual' | 'template' | null>(
     null
@@ -72,8 +79,10 @@ export function StudioCreationBrief(props: {
     Number(duration) >= 1 &&
     Number(duration) <= 3600
   useEffect(() => {
-    onValidityChange?.(durationValid)
-  }, [durationValid, onValidityChange])
+    onValidityChange?.(
+      durationValid && !studioBriefNeedsReview(workspace.project)
+    )
+  }, [durationValid, onValidityChange, workspace.project])
   const update = (patch: Partial<typeof production>): void =>
     workspace.onUpdate({
       ...workspace.project,
@@ -83,6 +92,7 @@ export function StudioCreationBrief(props: {
   const goals = ['story', 'product', 'explain', 'presenter'] as const
   const createDraft = (kind: 'manual' | 'template') => {
     try {
+      const reviewed = studioConfirmBrief(workspace.project, false)
       const draft =
         kind === 'template'
           ? studioCreationTemplate(
@@ -92,14 +102,18 @@ export function StudioCreationBrief(props: {
             )
           : studioPlanStoryDraft(
               workspace.project,
-              studioCreativeBriefText(workspace.project, t),
+              production.brief || '',
               Number(duration),
               t('studio.shot.defaultName')
             )
-      update({
-        screenplayDraft: JSON.stringify(draft),
-        brief: draft.brief,
-        guide: { step: 'shots', goal: production.guide?.goal || 'story' },
+      workspace.onUpdate({
+        ...reviewed,
+        title: studioProjectDisplayTitle(reviewed),
+        production: {
+          ...reviewed.production,
+          screenplayDraft: JSON.stringify(draft),
+          guide: { step: 'shots', goal: production.guide?.goal || 'story' },
+        },
       })
       setReplacement(null)
       setError('')
@@ -107,8 +121,14 @@ export function StudioCreationBrief(props: {
       setError(problem instanceof Error ? problem.message : String(problem))
     }
   }
-  const requestDraft = (kind: 'manual' | 'template') =>
-    production.screenplayDraft ? setReplacement(kind) : createDraft(kind)
+  const requestDraft = (kind: 'manual' | 'template') => {
+    if (studioBriefNeedsReview(workspace.project)) {
+      setError(t('Choose the video settings above before planning.'))
+      return
+    }
+    if (production.screenplayDraft) setReplacement(kind)
+    else createDraft(kind)
+  }
   let outdated = false
   try {
     outdated =
@@ -120,8 +140,114 @@ export function StudioCreationBrief(props: {
   let shape = 'wide'
   if (production.height > production.width) shape = 'vertical'
   else if (production.height === production.width) shape = 'square'
+  if (start !== 'idea') {
+    return (
+      <div className='mx-auto max-w-4xl space-y-6 py-4'>
+        {error && (
+          <Alert variant='destructive'>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+        {start !== 'choose' && (
+          <Button variant='ghost' onClick={() => setStart('choose')}>
+            {t('Change how to start')}
+          </Button>
+        )}
+        {start === 'choose' && (
+          <>
+            <div>
+              <h2 className='text-2xl font-semibold'>
+                {t('What would you like to create?')}
+              </h2>
+              <p className='text-muted-foreground mt-2'>
+                {t('Start with an idea, your footage or a visual example.')}
+              </p>
+            </div>
+            <div className='grid gap-4 sm:grid-cols-3'>
+              {(
+                [
+                  {
+                    id: 'idea',
+                    title: 'Describe a video',
+                    detail:
+                      'Write your idea. Review the shots before making pictures.',
+                  },
+                  {
+                    id: 'upload',
+                    title: 'Use my own footage',
+                    detail:
+                      'Import clips and start editing with sound and captions.',
+                  },
+                  {
+                    id: 'template',
+                    title: 'Browse visual templates',
+                    detail:
+                      'See an example, then adapt its editable storyboard.',
+                  },
+                ] as const
+              ).map((item) => (
+                <Button
+                  key={item.id}
+                  aria-label={t(item.title)}
+                  variant='outline'
+                  className='h-auto min-h-44 flex-col items-start justify-start gap-3 rounded-xl p-5 text-left whitespace-normal'
+                  onClick={() => setStart(item.id)}
+                >
+                  <span className='text-lg font-semibold'>{t(item.title)}</span>
+                  <span className='text-muted-foreground text-sm leading-relaxed'>
+                    {t(item.detail)}
+                  </span>
+                </Button>
+              ))}
+            </div>
+            <Button
+              variant='ghost'
+              disabled={!writable || busy}
+              onClick={() => {
+                setBusy(true)
+                void props
+                  .onDemo()
+                  .catch((error) =>
+                    setError(
+                      t(
+                        studioWorkflowProblem(
+                          error instanceof Error ? error.message : String(error)
+                        )
+                      )
+                    )
+                  )
+                  .finally(() => setBusy(false))
+              }}
+            >
+              {t('Try a free editing example')}
+            </Button>
+          </>
+        )}
+        {start === 'upload' && (
+          <>
+            <h2 className='text-xl font-semibold'>{t('Use my own footage')}</h2>
+            <p className='text-muted-foreground'>
+              {t('Import clips and start editing with sound and captions.')}
+            </p>
+            <StudioMediaImport />
+          </>
+        )}
+        {start === 'template' && (
+          <StudioTemplateLibrary
+            project={workspace.project}
+            readOnly={!writable}
+            onApply={workspace.onApplyRecipe || workspace.onUpdate}
+            onClose={() => setStart('choose')}
+          />
+        )}
+      </div>
+    )
+  }
   return (
     <div className='mx-auto max-w-3xl space-y-5'>
+      <Button variant='ghost' onClick={() => setStart('choose')}>
+        {t('Change how to start')}
+      </Button>
       <Field>
         <FieldLabel>{t('What are you making?')}</FieldLabel>
         <Select
@@ -169,54 +295,6 @@ export function StudioCreationBrief(props: {
           )}
         </p>
       </Field>
-      <StudioBriefGuide />
-      <StudioStoryPlanner disabled={!durationValid} />
-      {templates && (
-        <StudioTemplateLibrary
-          project={workspace.project}
-          readOnly={!writable}
-          onClose={() => setTemplates(false)}
-          onApply={workspace.onApplyRecipe || workspace.onUpdate}
-        />
-      )}
-      <p className='text-muted-foreground text-sm'>
-        {t(`studio.creation.goalHelp.${production.guide?.goal || 'story'}`)}
-      </p>
-      <StudioMediaImport />
-      {outdated && (
-        <Alert>
-          <AlertDescription>
-            <p>
-              {t(
-                'Your story changed. The pending shot draft still contains the previous story.'
-              )}
-            </p>
-            <Button
-              size='sm'
-              variant='outline'
-              disabled={!writable}
-              onClick={() =>
-                update({
-                  guide: {
-                    step: 'shots',
-                    goal: production.guide?.goal || 'story',
-                  },
-                })
-              }
-            >
-              {t('Keep and review pending draft')}
-            </Button>
-            <Button
-              size='sm'
-              variant='ghost'
-              disabled={!writable}
-              onClick={() => update({ screenplayDraft: '' })}
-            >
-              {t('Discard pending draft')}
-            </Button>
-          </AlertDescription>
-        </Alert>
-      )}
       <div className='grid gap-4 sm:grid-cols-2'>
         <Field>
           <FieldLabel>{t('Target duration')}</FieldLabel>
@@ -293,6 +371,51 @@ export function StudioCreationBrief(props: {
           </Select>
         </Field>
       </div>
+      <StudioBriefGuide />
+      <StudioStoryPlanner disabled={!durationValid} />
+      {templates && (
+        <StudioTemplateLibrary
+          project={workspace.project}
+          readOnly={!writable}
+          onClose={() => setTemplates(false)}
+          onApply={workspace.onApplyRecipe || workspace.onUpdate}
+        />
+      )}
+
+      {outdated && (
+        <Alert>
+          <AlertDescription>
+            <p>
+              {t(
+                'Your story changed. The pending shot draft still contains the previous story.'
+              )}
+            </p>
+            <Button
+              size='sm'
+              variant='outline'
+              disabled={!writable}
+              onClick={() =>
+                update({
+                  guide: {
+                    step: 'shots',
+                    goal: production.guide?.goal || 'story',
+                  },
+                })
+              }
+            >
+              {t('Keep and review pending draft')}
+            </Button>
+            <Button
+              size='sm'
+              variant='ghost'
+              disabled={!writable}
+              onClick={() => update({ screenplayDraft: '' })}
+            >
+              {t('Discard pending draft')}
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       {error && (
         <Alert variant='destructive'>
           <AlertDescription>{error}</AlertDescription>
@@ -313,7 +436,12 @@ export function StudioCreationBrief(props: {
         </Button>
         <Button
           variant='outline'
-          disabled={!writable || !production.brief?.trim() || !durationValid}
+          disabled={
+            !writable ||
+            !production.brief?.trim() ||
+            !durationValid ||
+            studioBriefNeedsReview(workspace.project)
+          }
           onClick={() => requestDraft('manual')}
         >
           {t('Make a manual shot draft')}

@@ -101,6 +101,7 @@ export const studioSeriesVersionSchema = z.strictObject({
 })
 export type StudioSeriesVersion = z.infer<typeof studioSeriesVersionSchema>
 export const studioProductionSchema = z.strictObject({
+  briefSettingsKey: z.string().max(62000).optional(),
   creativeBrief: z
     .strictObject({
       recipeId: z.string().max(80).default(''),

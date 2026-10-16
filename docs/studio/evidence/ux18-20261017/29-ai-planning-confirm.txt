@@ -1,0 +1,9 @@
+- region "Notifications alt+T"
+- alertdialog "确认整理分镜":
+  - heading "确认整理分镜" [level=2]
+  - paragraph: 整理一份可编辑的镜头计划 · 30s · 1920×1080
+  - paragraph: 当前模型目录价格为 0
+  - button "模型与价格明细"
+  - paragraph: 按此文本模型价格结算，费用上限并非报价。本次不会生成图片、视频或音频；应用新草稿前保留已有分镜。
+  - button "取消"
+  - button "整理分镜"

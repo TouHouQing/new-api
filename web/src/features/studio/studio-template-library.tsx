@@ -69,23 +69,28 @@ export function StudioTemplateLibrary(props: {
             .includes(search.toLowerCase())
         ).map((item) => (
           <Card key={item.id}>
+            <div className='bg-muted overflow-hidden rounded-t-xl'>
+              <img
+                src={`/studio-examples/${item.id === 'store' ? 'store-cover-b66a5672.jpg' : `${item.id}.svg`}`}
+                alt={t(item.title)}
+                className='h-36 w-full object-cover'
+              />
+              <p className='px-4 py-2 text-sm'>
+                {t(
+                  item.id === 'store'
+                    ? 'Local model example'
+                    : 'Storyboard illustration'
+                )}{' '}
+                · {item.id === 'store' ? '12s' : '15s'} · 9:16
+              </p>
+            </div>
             <CardHeader>
               <CardTitle>{t(item.title)}</CardTitle>
               <CardDescription>{t(item.description)}</CardDescription>
             </CardHeader>
             <CardContent className='space-y-3'>
-              <ol className='list-inside list-decimal space-y-2 text-sm'>
-                {item.beats.map((beat) => (
-                  <li key={beat}>{t(beat)}</li>
-                ))}
-              </ol>
-              <p className='text-muted-foreground text-xs'>
+              <p className='text-muted-foreground text-sm'>
                 {t('Prepare')}: {t(item.needs)}
-              </p>
-              <p className='text-muted-foreground text-xs'>
-                {t(
-                  'Editable storyboard → key images → one test shot → editing → export'
-                )}
               </p>
             </CardContent>
             <CardFooter>
@@ -107,6 +112,36 @@ export function StudioTemplateLibrary(props: {
         title={recipe ? t(recipe.title) : t('Creative recipe')}
         desc={
           <div className='space-y-3'>
+            {recipe?.id === 'store' ? (
+              <figure>
+                <video
+                  src='/studio-examples/store.mp4'
+                  poster='/studio-examples/store-cover-b66a5672.jpg'
+                  controls
+                  playsInline
+                  preload='none'
+                  className='mx-auto max-h-72 rounded-lg'
+                />
+                <figcaption className='text-sm'>
+                  {t('Local model example')} · 12s
+                </figcaption>
+              </figure>
+            ) : (
+              recipe && (
+                <figure>
+                  <img
+                    src={`/studio-examples/${recipe.id}.svg`}
+                    alt={t(recipe.title)}
+                    className='w-full rounded-lg'
+                  />
+                  <figcaption className='text-muted-foreground text-sm'>
+                    {t(
+                      'Storyboard illustration. Your result depends on your media and models.'
+                    )}
+                  </figcaption>
+                </figure>
+              )
+            )}
             <p>{recipe && t(recipe.description)}</p>
             <ol className='list-inside list-decimal'>
               {recipe?.beats.map((beat) => (

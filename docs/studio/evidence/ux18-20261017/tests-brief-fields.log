@@ -1,0 +1,9 @@
+$ vitest run src/features/studio/__tests__/creative-plan.test.ts "--pool=forks" "--maxWorkers=1"
+
+ RUN  v4.1.10 C:/Users/Administrator/Desktop/git/new-api/web
+
+
+ Test Files  1 passed (1)
+      Tests  18 passed (18)
+   Start at  04:51:35
+   Duration  1.47s (transform 291ms, setup 199ms, import 501ms, tests 42ms, environment 595ms)

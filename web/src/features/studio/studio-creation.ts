@@ -83,7 +83,37 @@ export function studioPlanStoryDraft(
   duration: number,
   shotName = t('studio.shot.defaultName')
 ): StudioEditableScreenplay {
-  const drafts = planLocalStudioShots(brief, 12)
+  const explicit =
+    /(?:镜头\s*[一二三四五六七八九十\d]+|shot\s*\d+)\s*[:：、.)）-]/i.test(
+      brief
+    )
+  const visualList = brief.match(
+    /(?:展示|依次呈现|画面包括|show(?:ing)?)\s*[:：]?\s*([^。；;\n，,]+)/i
+  )?.[1]
+  let visual = brief
+  if (!explicit) {
+    visual = brief
+      .split(/(?<=[。！？.!?])\s*|\n/)
+      .filter(
+        (part) =>
+          !/^\s*(?:店名|品牌|受众|卖点|行动提示|地址|主要对象|目标观众|核心要点|结尾行动提示|subject|audience|benefit|brand|cta)\s*[:：]/i.test(
+            part
+          )
+      )
+      .join('\n\n')
+    if (visualList) {
+      visual = visualList
+        .split(/、|以及|和|\band\b/i)
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join('\n\n')
+    } else if (
+      /^(?:我要|请|帮我|为.+做|make\s+(?:me\s+)?a\s+video)/i.test(visual.trim())
+    ) {
+      visual = ''
+    }
+  }
+  const drafts = planLocalStudioShots(visual, 12)
   const planned = drafts.length
     ? drafts
     : [{ title: `${shotName} 1`, text: '', imagePrompt: '', videoPrompt: '' }]

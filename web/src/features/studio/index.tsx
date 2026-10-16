@@ -154,6 +154,7 @@ import {
   studioEditedMediaTitle,
 } from './studio-media-editing'
 import { StudioMediaEditor } from './studio-media-editor'
+import { StudioMediaImport } from './studio-media-import'
 import {
   studioProductionSchema,
   studioProjectRenderPlan,
@@ -162,6 +163,8 @@ import {
   exportStudioProjectBundle,
   importStudioProjectBundle,
 } from './studio-project-bundle'
+
+import './studio-ui.css'
 import { StudioProjectMedia } from './studio-project-media'
 import { StudioProjectToolbar } from './studio-project-toolbar'
 import { StudioSaveRecovery } from './studio-save-recovery'
@@ -388,6 +391,7 @@ export function Studio(
   >({})
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [, refreshSaveStatus] = useState(0)
+  const [roleLibrary, setRoleLibrary] = useState(false)
   const [advancedTools, setAdvancedTools] = useState(false)
   const [attemptsOpen, setAttemptsOpen] = useState(false)
   const [agentOpen, setAgentOpen] = useState(false)
@@ -4499,11 +4503,14 @@ export function Studio(
     <div
       className={
         view === 'guided'
-          ? 'studio-workspace bg-background flex h-[calc(100dvh-64px)] min-h-0 max-w-full min-w-0 flex-col overflow-hidden lg:h-full lg:flex-1'
-          : 'studio-workspace bg-background flex min-h-full max-w-full min-w-0 flex-none flex-col lg:h-full lg:min-h-[640px] lg:flex-1 lg:overflow-hidden'
+          ? 'studio-shell studio-workspace bg-background flex h-[calc(100dvh-64px)] min-h-0 max-w-full min-w-0 flex-col overflow-hidden lg:h-full lg:flex-1'
+          : 'studio-shell studio-workspace bg-background flex min-h-full max-w-full min-w-0 flex-none flex-col lg:h-full lg:min-h-[640px] lg:flex-1 lg:overflow-hidden'
       }
     >
       <StudioProjectToolbar
+        getMedia={async (id) =>
+          mediaStore ? mediaStore.get(userId, id) : null
+        }
         compact={view === 'guided'}
         project={project}
         projects={projects}
@@ -4601,7 +4608,7 @@ export function Studio(
       )}
       <div
         className={
-          view === 'guided'
+          view === 'guided' || view === 'assets' || view === 'templates'
             ? 'hidden'
             : 'flex flex-wrap gap-2 border-b px-4 py-2'
         }
@@ -4864,24 +4871,53 @@ export function Studio(
           )}
           {view === 'assets' && (
             <div className='min-w-0 overflow-y-auto'>
-              <StudioProjectMedia
-                project={project}
-                getMedia={async (id) =>
-                  mediaStore ? mediaStore.get(userId, id) : null
-                }
-                readOnly={projectReadOnly}
-                onUpdate={(next) => editProject(project.id, () => next)}
-                onOpen={(id) => {
-                  setSelectedNodeId(id)
-                  setView('canvas')
-                }}
-                onAssets={() =>
-                  document
-                    .querySelector('#studio-role-library')
-                    ?.scrollIntoView({ behavior: 'smooth' })
-                }
-              />
-              <div id='studio-role-library'>
+              {!roleLibrary && (
+                <>
+                  <div className='px-4 pt-4'>
+                    <StudioMediaImport
+                      library
+                      readOnly={projectReadOnly}
+                      workspace={{
+                        project,
+                        userId,
+                        onUpdate: (next) => editProject(project.id, () => next),
+                        onSave: async () => {
+                          if (!mediaStore) {
+                            throw new Error(t('studio.project.saveFailed'))
+                          }
+                          await mediaStore.saveProjects(
+                            userId,
+                            projectsRef.current
+                          )
+                        },
+                      }}
+                    />
+                  </div>
+                  <StudioProjectMedia
+                    project={project}
+                    getMedia={async (id) =>
+                      mediaStore ? mediaStore.get(userId, id) : null
+                    }
+                    readOnly={projectReadOnly}
+                    onUpdate={(next) => editProject(project.id, () => next)}
+                    onOpen={(id) => {
+                      setSelectedNodeId(id)
+                      setView('canvas')
+                    }}
+                    onAssets={() => setRoleLibrary(true)}
+                  />
+                </>
+              )}
+              {roleLibrary && (
+                <Button
+                  className='m-4'
+                  variant='ghost'
+                  onClick={() => setRoleLibrary(false)}
+                >
+                  {t('Back to project media')}
+                </Button>
+              )}
+              <div id='studio-role-library' hidden={!roleLibrary}>
                 <StudioAssetLibrary
                   assets={project.assets || []}
                   readOnly={

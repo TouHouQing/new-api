@@ -127,6 +127,11 @@ test('a failed free sample upload explains the storage recovery instead of displ
       <Host />
     </QueryClientProvider>
   )
+  await waitFor(() =>
+    expect(
+      screen.getByRole('button', { name: 'Try a free editing example' })
+    ).toBeEnabled()
+  )
   await userEvent.click(
     screen.getByRole('button', { name: 'Try a free editing example' })
   )
@@ -370,6 +375,7 @@ test('an outdated draft can be replanned after editing the story without removin
 test('a beginner saves a story, edits shots and returns without entering JSON or submitting inference', async () => {
   mount()
   const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Describe a video' }))
   const story = screen.getByRole('textbox', { name: 'Tell your story' })
   await waitFor(() => expect(story).toBeEnabled())
   await user.type(story, 'A courier finds a letter.')
@@ -382,7 +388,9 @@ test('a beginner saves a story, edits shots and returns without entering JSON or
   expect(
     JSON.parse(saved.production?.screenplayDraft || '{}').shots[0].title
   ).toBe('')
-  expect(screen.getByRole('button', { name: 'Apply shot plan' })).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
+  ).toBeDisabled()
   fireEvent.change(title, { target: { value: 'Opening' } })
   const duration = screen.getByRole('spinbutton', {
     name: 'Duration in seconds',
@@ -392,8 +400,11 @@ test('a beginner saves a story, edits shots and returns without entering JSON or
     'Use a whole number'
   )
   fireEvent.change(duration, { target: { value: '8' } })
-  await user.click(screen.getByRole('button', { name: 'Apply shot plan' }))
+  await user.click(
+    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
+  )
   expect(saved.shots).toHaveLength(1)
+  await user.click(screen.getByRole('button', { name: 'Previous step' }))
   await user.click(screen.getByRole('button', { name: 'Previous step' }))
   expect(screen.getByRole('textbox', { name: 'Tell your story' })).toHaveValue(
     'A courier finds a letter.'
@@ -405,6 +416,9 @@ test('a beginner saves a story, edits shots and returns without entering JSON or
 test('a reviewer may browse the guide while story inputs and project writes remain unavailable', async () => {
   role = 'reviewer'
   mount()
+  await userEvent.click(
+    screen.getByRole('button', { name: 'Describe a video' })
+  )
   await waitFor(() =>
     expect(
       screen.getByRole('textbox', { name: 'Tell your story' })
@@ -422,6 +436,7 @@ test('a reviewer may browse the guide while story inputs and project writes rema
 test('an empty or invalid shot duration blocks applying and continuing until corrected', async () => {
   mount()
   const user = userEvent.setup()
+  await user.click(screen.getByRole('button', { name: 'Describe a video' }))
   const story = screen.getByRole('textbox', { name: 'Tell your story' })
   await waitFor(() => expect(story).toBeEnabled())
   await user.type(story, 'A courier arrives at sunrise.')
@@ -432,27 +447,28 @@ test('an empty or invalid shot duration blocks applying and continuing until cor
     name: 'Duration in seconds',
   })
   await user.clear(duration)
-  expect(screen.getByRole('button', { name: 'Apply shot plan' })).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
+  ).toBeDisabled()
   expect(
     screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
   ).toBeDisabled()
   await user.type(duration, '0')
-  expect(screen.getByRole('button', { name: 'Apply shot plan' })).toBeDisabled()
+  expect(
+    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
+  ).toBeDisabled()
   await user.clear(duration)
   await user.type(duration, '5')
   await waitFor(() =>
     expect(
-      screen.getByRole('button', { name: 'Apply shot plan' })
+      screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
     ).toBeEnabled()
   )
-  expect(
+  await user.click(
     screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
-  ).toBeDisabled()
-  await user.click(screen.getByRole('button', { name: 'Apply shot plan' }))
+  )
   expect(saved.shots).toHaveLength(1)
-  expect(
-    screen.getByRole('button', { name: 'Confirm shots and prepare pictures' })
-  ).toBeEnabled()
+  expect(saved.production?.guide?.step).toBe('visual')
   expect(
     vi.mocked(studioCloudRequest).mock.calls.every((call) => call[1] !== 'POST')
   ).toBe(true)
@@ -463,6 +479,7 @@ test.each(['', '0', '1.5', '3601'])(
   async (invalid) => {
     mount()
     const user = userEvent.setup()
+    await user.click(screen.getByRole('button', { name: 'Describe a video' }))
     const story = screen.getByRole('textbox', { name: 'Tell your story' })
     await waitFor(() => expect(story).toBeEnabled())
     await user.type(story, 'A fox finds a lamp.')
@@ -473,13 +490,13 @@ test.each(['', '0', '1.5', '3601'])(
       screen.getByRole('button', { name: 'Make a manual shot draft' })
     ).toBeDisabled()
     expect(
-      screen.getByRole('button', { name: 'Review shot draft' })
-    ).toBeDisabled()
+      screen.queryByRole('button', { name: 'Review shot draft' })
+    ).not.toBeInTheDocument()
     expect(saved.production?.screenplayDraft).toBeFalsy()
     fireEvent.change(duration, { target: { value: '6' } })
     await waitFor(() =>
       expect(
-        screen.getByRole('button', { name: 'Review shot draft' })
+        screen.getByRole('button', { name: 'Make a manual shot draft' })
       ).toBeEnabled()
     )
     await user.click(

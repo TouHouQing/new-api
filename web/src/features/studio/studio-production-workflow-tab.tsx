@@ -57,6 +57,7 @@ import { StudioBudgetSummary } from './studio-budget-summary'
 import { studioCloudRequest, type StudioCloudJob } from './studio-cloud'
 import { StudioConnectorRecovery } from './studio-connector-recovery'
 import { StudioDraftStage } from './studio-draft-stage'
+import { studioGenerationAction } from './studio-generation-action'
 import { StudioGenerationEstimate } from './studio-generation-estimate'
 import { StudioGenerationSetup } from './studio-generation-setup'
 import { studioMediaModelAction } from './studio-media-draft'
@@ -184,15 +185,9 @@ export function StudioProductionWorkflowTab(
     props.project.nodes.some(
       (node) => node.id === selectedNodes[0] && !!node.data.mediaId
     )
-  const selectedImage =
-    selectedNodes.length === 1 &&
-    props.project.nodes.some(
-      (node) => node.id === selectedNodes[0] && node.data.kind === 'image'
-    )
-  let generationLabel = 'Generate selected footage'
-  if (selectedNodes.length === 1) generationLabel = 'Try this shot first'
-  if (selectedImage) generationLabel = 'Make the key image'
-  if (selectedCompleted) generationLabel = 'Make a new version'
+  const generationLabel = selectedCompleted
+    ? t('Make a new version')
+    : studioGenerationAction(props.project, selectedNodes, t)
   const eligibleVideos = props.project.nodes.filter(
     (node) =>
       node.data.kind === 'video' &&
@@ -249,7 +244,25 @@ export function StudioProductionWorkflowTab(
     <TabsContent value={options.value || 'workflow'} className='space-y-4'>
       {options.compact && (
         <div className='bg-background sticky top-0 flex flex-col gap-3 rounded-lg border p-3'>
-          <p className='font-medium'>{t('Make the selected shot')}</p>
+          <p className='font-medium'>
+            {selectedNodes.length > 1
+              ? t('Selected generation scope: {{count}} items', {
+                  count: selectedNodes.length,
+                })
+              : t('Make the selected shot')}
+          </p>
+          {selectedNodes.length > 1 && (
+            <Button
+              variant='ghost'
+              onClick={() =>
+                setSelectedNodes(
+                  props.selectedNodeId ? [props.selectedNodeId] : []
+                )
+              }
+            >
+              {t('Use only the current shot')}
+            </Button>
+          )}
           <p className='text-muted-foreground text-xs'>
             {scope
               .map(
@@ -260,11 +273,12 @@ export function StudioProductionWorkflowTab(
           </p>
           <Button
             ref={options.runButtonRef}
+            className={options.runButtonRef ? 'hidden' : undefined}
             variant={selectedCompleted ? 'outline' : 'default'}
             disabled={runDisabled}
             onClick={() => setReviewRun(true)}
           >
-            {t(generationLabel)}
+            {generationLabel}
           </Button>
           {missingKeyImage && (
             <p role='status'>
@@ -765,7 +779,14 @@ export function StudioProductionWorkflowTab(
         open={reviewRun}
         onOpenChange={(open) => {
           setReviewRun(open)
-          if (!open) setConfirm(false)
+          if (!open) {
+            setConfirm(false)
+            if (!mutate.isPending) {
+              setSelectedNodes(
+                props.selectedNodeId ? [props.selectedNodeId] : []
+              )
+            }
+          }
         }}
         title={t('Confirm this generation')}
         disabled={

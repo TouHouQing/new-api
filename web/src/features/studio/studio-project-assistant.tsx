@@ -361,6 +361,34 @@ export function StudioProjectAssistant(options: { inline?: boolean } = {}) {
           {t('Assistant context range')}:{' '}
           {scopedShot?.title || t('Entire project')}
         </p>
+        <Field>
+          <FieldLabel>{t('Assistant context range')}</FieldLabel>{' '}
+          <Select
+            value={scopeShot}
+            onValueChange={(value) => setScopeShot(value || 'all')}
+            items={[
+              { value: 'all', label: t('Entire project') },
+              ...(props.project.shots || []).map((shot) => ({
+                value: shot.id,
+                label: shot.title,
+              })),
+            ]}
+          >
+            <SelectTrigger aria-label={t('Assistant context range')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value='all'>{t('Entire project')}</SelectItem>
+                {props.project.shots?.map((shot) => (
+                  <SelectItem key={shot.id} value={shot.id}>
+                    {shot.title}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
         <Collapsible>
           <CollapsibleTrigger render={<Button variant='ghost' size='sm' />}>
             {t('Assistant settings and skills')}
@@ -368,31 +396,6 @@ export function StudioProjectAssistant(options: { inline?: boolean } = {}) {
           <CollapsibleContent className='flex flex-col gap-3 pt-3'>
             <StudioBudgetSummary />
             <div className='grid gap-3 sm:grid-cols-2'>
-              <Select
-                value={scopeShot}
-                onValueChange={(value) => setScopeShot(value || 'all')}
-                items={[
-                  { value: 'all', label: t('Entire project') },
-                  ...(props.project.shots || []).map((shot) => ({
-                    value: shot.id,
-                    label: shot.title,
-                  })),
-                ]}
-              >
-                <SelectTrigger aria-label={t('Assistant context range')}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value='all'>{t('Entire project')}</SelectItem>
-                    {props.project.shots?.map((shot) => (
-                      <SelectItem key={shot.id} value={shot.id}>
-                        {shot.title}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
               <Select
                 value={selectedModel || null}
                 onValueChange={(value) => setTextModel(value || '')}
@@ -658,10 +661,38 @@ export function StudioProjectAssistant(options: { inline?: boolean } = {}) {
             </div>
           ))}
         </div>
+        <div
+          className='flex flex-wrap gap-2'
+          aria-label={t('Suggested creative tasks')}
+        >
+          {(production.guide?.step === 'edit' ||
+          production.guide?.step === 'deliver'
+            ? [
+                'Improve the pacing and keep the selected footage.',
+                'Shorten the dialogue without changing its meaning.',
+                'Check the closing invitation and captions.',
+              ]
+            : [
+                'Make this shot description clearer and keep its references.',
+                'Suggest one simple camera movement.',
+                'Keep the character and outfit consistent.',
+              ]
+          ).map((suggestion) => (
+            <Button
+              key={suggestion}
+              variant='outline'
+              onClick={() => setRequest(t(suggestion))}
+            >
+              {t(suggestion)}
+            </Button>
+          ))}
+        </div>
         <Textarea
           aria-label={t('Ask for a video change')}
           placeholder={t(
-            'Change shot three to a close-up and keep the voiceover.'
+            scopeShot === 'all'
+              ? 'Describe what you want to improve across the film.'
+              : 'Describe what you want to improve in this shot. The other shots will be kept.'
           )}
           value={request}
           maxLength={6000}

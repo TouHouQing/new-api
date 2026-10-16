@@ -149,7 +149,7 @@ export function StudioProjectMedia(props: {
         <EmptyState
           title={t('No matching media yet')}
           description={t(
-            'Uploaded and generated media stay with this project. Import footage from the creation workspace or create a key image.'
+            'Upload files above or make a key image in the creation workspace. Media stay with this project.'
           )}
         />
       )}

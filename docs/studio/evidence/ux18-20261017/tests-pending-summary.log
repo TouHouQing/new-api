@@ -1,0 +1,14 @@
+$ vitest run src/features/studio/__tests__/guided-creation.test.tsx "--pool=forks" "--maxWorkers=1"
+
+ RUN  v4.1.10 C:/Users/Administrator/Desktop/git/new-api/web
+
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+
+ Test Files  1 passed (1)
+      Tests  21 passed (21)
+   Start at  04:46:04
+   Duration  12.84s (transform 1.52s, setup 260ms, import 4.84s, tests 6.83s, environment 775ms)

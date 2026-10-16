@@ -29,6 +29,7 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import { handleServerError } from '@/lib/handle-server-error'
 
+import type { StudioProject } from './local-projects'
 import {
   studioEditableScreenplay,
   applyStudioEditableScreenplay,
@@ -45,7 +46,12 @@ import { StudioScreenplayShot } from './studio-screenplay-shot'
 import { StudioShotGroups } from './studio-shot-groups'
 
 export function StudioScreenplayEditor(
-  options: { onValidityChange?: (valid: boolean) => void } = {}
+  options: {
+    onValidityChange?: (valid: boolean) => void
+    formId?: string
+    compact?: boolean
+    onApplied?: (project: StudioProject) => void
+  } = {}
 ) {
   const { t } = useTranslation()
   const { props, writable, setActiveTab, activeTab } =
@@ -60,6 +66,7 @@ export function StudioScreenplayEditor(
       }
     }
   }, [props.project])
+  const [selectedDraft, setSelectedDraft] = useState('')
   const [invalidDurations, setInvalidDurations] = useState<Set<string>>(
     new Set()
   )
@@ -80,7 +87,10 @@ export function StudioScreenplayEditor(
       return null
     }
   }, [props.project, state.draft])
-  const valid = !!impact && invalidDurations.size === 0
+  const valid =
+    !!impact &&
+    invalidDurations.size === 0 &&
+    !!state.draft?.shots.every((shot) => shot.text.trim() && shot.title.trim())
   const onValidityChange = options.onValidityChange
   useEffect(() => onValidityChange?.(valid), [onValidityChange, valid])
   if (
@@ -171,19 +181,22 @@ export function StudioScreenplayEditor(
     if (!valid) return
     try {
       const next = applyStudioEditableScreenplay(props.project, draft)
-      props.onUpdate({
+      const applied = {
         ...next,
         production: {
           ...(next.production || studioProductionSchema.parse({})),
           screenplayDraft: undefined,
         },
-      })
+      }
+      if (options.onApplied) options.onApplied(applied)
+      else props.onUpdate(applied)
     } catch (error) {
       handleServerError(error)
     }
   }
   return (
     <form
+      id={options.formId}
       className='space-y-4'
       onSubmit={(event) => {
         event.preventDefault()
@@ -191,6 +204,18 @@ export function StudioScreenplayEditor(
       }}
     >
       <StudioShotGroups />
+      {options.compact && (
+        <p className='text-sm font-medium'>
+          {t('Pending shots: {{pending}} · Applied shots: {{applied}}', {
+            pending:
+              props.project.production?.screenplayDraft ||
+              !props.project.shots?.length
+                ? draft.shots.length
+                : 0,
+            applied: props.project.shots?.length || 0,
+          })}
+        </p>
+      )}
       <p className='text-muted-foreground text-sm'>
         {t(
           'Review the pending shot plan, then apply it. Image and video directions can be added later.'
@@ -208,38 +233,67 @@ export function StudioScreenplayEditor(
           />
         </CollapsibleContent>
       </Collapsible>
-      {draft.shots.map((shot, index) => (
-        <StudioScreenplayShot
-          key={shot.id}
-          shot={shot}
-          draft={draft}
-          index={index}
-          disabled={!writable}
-          onChange={(patch) =>
-            update({
-              ...draft,
-              shots: draft.shots.map((item) =>
-                item.id === shot.id ? { ...item, ...patch } : item
-              ),
-            })
-          }
-          onMove={(direction) => {
-            const shots = [...draft.shots]
-            ;[shots[index], shots[index + direction]] = [
-              shots[index + direction],
-              shots[index],
-            ]
-            update({ ...draft, shots })
-          }}
-          onRemove={() =>
-            update({
-              ...draft,
-              shots: draft.shots.filter((item) => item.id !== shot.id),
-            })
-          }
-          onDurationValidityChange={onDurationValidityChange}
-        />
-      ))}
+      {options.compact && (
+        <div className='grid gap-2 sm:grid-cols-3'>
+          {draft.shots.map((shot, index) => (
+            <Button
+              key={shot.id}
+              variant={
+                (selectedDraft || draft.shots[0]?.id) === shot.id
+                  ? 'secondary'
+                  : 'outline'
+              }
+              className='h-auto min-h-24 flex-col items-start gap-2 p-3 text-left whitespace-normal'
+              onClick={() => setSelectedDraft(shot.id)}
+            >
+              <span className='font-medium'>
+                {index + 1}. {shot.title} · {shot.seconds}s
+              </span>
+              <span className='text-muted-foreground line-clamp-2 text-sm'>
+                {shot.text || t('Describe the visible action for this shot')}
+              </span>
+            </Button>
+          ))}
+        </div>
+      )}
+      {draft.shots.map(
+        (shot, index) =>
+          (!options.compact ||
+            shot.id ===
+              (draft.shots.find((item) => item.id === selectedDraft)?.id ||
+                draft.shots[0]?.id)) && (
+            <StudioScreenplayShot
+              key={shot.id}
+              shot={shot}
+              draft={draft}
+              index={index}
+              disabled={!writable}
+              onChange={(patch) =>
+                update({
+                  ...draft,
+                  shots: draft.shots.map((item) =>
+                    item.id === shot.id ? { ...item, ...patch } : item
+                  ),
+                })
+              }
+              onMove={(direction) => {
+                const shots = [...draft.shots]
+                ;[shots[index], shots[index + direction]] = [
+                  shots[index + direction],
+                  shots[index],
+                ]
+                update({ ...draft, shots })
+              }}
+              onRemove={() =>
+                update({
+                  ...draft,
+                  shots: draft.shots.filter((item) => item.id !== shot.id),
+                })
+              }
+              onDurationValidityChange={onDurationValidityChange}
+            />
+          )
+      )}
       <div className='flex flex-wrap items-center gap-3'>
         <Button
           variant='outline'
@@ -268,7 +322,11 @@ export function StudioScreenplayEditor(
         >
           {t('Add shot draft')}
         </Button>
-        <Button type='submit' disabled={!writable || !valid}>
+        <Button
+          type='submit'
+          className={options.compact ? 'hidden' : undefined}
+          disabled={!writable || !valid}
+        >
           {t('Apply shot plan')}
         </Button>
         <span role='status' className='text-muted-foreground text-sm'>
@@ -277,6 +335,13 @@ export function StudioScreenplayEditor(
           })}
         </span>
       </div>
+      {!valid && (
+        <p role='status' className='text-muted-foreground text-sm'>
+          {t(
+            'Add a title, visible action and valid duration to each shot before continuing.'
+          )}
+        </p>
+      )}
       {impact && (
         <p className='text-muted-foreground text-sm'>
           {t('Affected shots: {{count}}', {

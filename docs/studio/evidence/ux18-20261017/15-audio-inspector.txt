@@ -1,0 +1,105 @@
+- link "跳到主内容":
+  - /url: "#content"
+- banner:
+  - button "展开或收起侧栏":
+    - img
+    - text: 展开或收起侧栏
+  - link "返回主页":
+    - /url: /
+    - img "徽标"
+    - text: New API
+  - button "通知"
+  - button "更改语言"
+  - button "打开主题设置"
+  - button "U"
+- list:
+  - listitem:
+    - link "账户与高级设置":
+      - /url: /dashboard/overview
+- text: 视频创作
+- list:
+  - listitem:
+    - link "引导式视频创作":
+      - /url: /studio?workspace=guided
+  - listitem:
+    - link "素材库":
+      - /url: /studio?workspace=assets
+  - listitem:
+    - link "创作模板":
+      - /url: /studio?workspace=templates
+  - listitem:
+    - link "高级画布":
+      - /url: /studio?workspace=canvas
+- button "展开或收起侧栏"
+- main:
+  - main:
+    - heading "视频创作工作台" [level=1]
+    - button "选择项目": 未命名项目
+    - status: 正在保存项目更改…
+    - button "任务中心"
+    - button "新建项目"
+    - button "项目操作"
+    - alert:
+      - text: Request failed with status code 502
+      - button "关闭"
+    - region "引导式视频创作":
+      - heading "未命名项目" [level=2]
+      - paragraph: 制作中心 · 草稿更改自动保存。
+      - button "创作助手"
+      - button "分享项目"
+      - button "项目工具"
+      - tablist:
+        - tab "1 想法"
+        - tab "2 镜头"
+        - tab "✓ 画面"
+        - tab "✓ 剪辑与声音" [selected]
+        - tab "5 导出"
+      - button "项目镜头"
+      - tabpanel "✓ 剪辑与声音":
+        - paragraph: UX18 第一镜
+        - button "全屏查看画面"
+        - button "播放时间轴"
+        - slider "播放位置": "0"
+        - text: 0 / 8s
+        - region "多轨时间线":
+          - paragraph: 拖动视频片段调整顺序，拖动音轨或字幕调整起点，点击片段定位并精细编辑。
+          - button "撤销剪辑操作" [disabled]
+          - button "在播放头处分割" [disabled]
+          - text: 0s 2s 4s 6s 8s
+          - paragraph: 画面轨
+          - button "trim-fixture.mp4" [pressed]
+          - slider "拖动片段起点": │
+          - slider "拖动片段终点": │
+          - button "second-fixture.mp4"
+          - paragraph: 字幕轨
+          - button "UX18 第一镜"
+          - button "UX18 第二镜"
+          - paragraph: music-fixture.wav · 0s
+          - button "移动音轨 1":
+            - img "真实音频波形"
+        - group "编辑对象":
+          - button "视频"
+          - button "字幕"
+          - button "声音" [pressed]
+          - button "全片"
+        - button "制作配音或音乐"
+        - group:
+          - text: 附加音轨
+          - combobox "附加音轨": music-fixture.wav
+        - button "添加音轨"
+        - group:
+          - text: 选择要编辑的音轨
+          - combobox "选择要编辑的音轨": music-fixture.wav
+        - group "music-fixture.wav":
+          - text: music-fixture.wav
+          - group:
+            - text: 音量 · 100%
+            - slider "music-fixture.wav 音量": "100"
+          - button "精确调整音轨时间与音量 ⌄"
+          - button "移除音轨"
+      - button "上一步"
+      - text: 整个项目
+      - button "检查并导出视频"
+- heading "搜索页面与操作" [level=2]
+- paragraph: 查找页面或操作
+- region "Notifications alt+T"

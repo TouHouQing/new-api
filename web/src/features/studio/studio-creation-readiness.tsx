@@ -147,7 +147,7 @@ export function StudioCreationReadiness(props: {
       ['queued', 'running', 'waiting'].includes(job.status)
     ).length || 0
   return (
-    <Collapsible className='mb-3' defaultOpen={props.expanded}>
+    <Collapsible className='mb-3' defaultOpen={props.expanded && missing > 0}>
       <CollapsibleTrigger render={<Button variant='outline' size='sm' />}>
         {t('Creation checklist')} ·{' '}
         {t('{{count}} items need attention', { count: missing })}

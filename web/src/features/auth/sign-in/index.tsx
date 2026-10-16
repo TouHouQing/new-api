@@ -31,11 +31,40 @@ export function SignIn() {
   const { status } = useStatus()
 
   return (
-    <AuthLayout>
+    <AuthLayout
+      intro={
+        redirect?.startsWith('/studio') ? (
+          <>
+            <h2 className='text-4xl leading-tight font-semibold'>
+              {t('Turn your idea into a video')}
+            </h2>
+            <p className='text-muted-foreground text-lg'>
+              {t(
+                'Start with an idea, your footage or a template. Finish with pictures, sound and a shareable film.'
+              )}
+            </p>
+            <figure>
+              <img
+                src='/studio-examples/store-cover-b66a5672.jpg'
+                alt={t('Local model example')}
+                className='max-h-80 w-full rounded-xl object-cover'
+              />
+              <figcaption className='text-muted-foreground mt-2 text-sm'>
+                {t('Local model example')} · 12s
+              </figcaption>
+            </figure>
+          </>
+        ) : undefined
+      }
+    >
       <div className='w-full space-y-8'>
         <div className='space-y-2'>
           <h2 className='text-center text-2xl font-semibold tracking-tight sm:text-left'>
-            {t('Sign in')}
+            {t(
+              redirect?.startsWith('/studio')
+                ? 'Sign in to the video studio'
+                : 'Sign in'
+            )}
           </h2>
           {!status?.self_use_mode_enabled &&
             status?.register_enabled !== false && (

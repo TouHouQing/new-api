@@ -1,0 +1,83 @@
+- link "跳到主内容":
+  - /url: "#content"
+- banner:
+  - button "展开或收起侧栏":
+    - img
+    - text: 展开或收起侧栏
+  - link "返回主页":
+    - /url: /
+    - img "徽标"
+    - text: New API
+  - button "通知"
+  - button "更改语言"
+  - button "打开主题设置"
+  - button "U"
+- list:
+  - listitem:
+    - link "账户与高级设置":
+      - /url: /dashboard/overview
+- text: 视频创作
+- list:
+  - listitem:
+    - link "引导式视频创作":
+      - /url: /studio?workspace=guided
+  - listitem:
+    - link "素材库":
+      - /url: /studio?workspace=assets
+  - listitem:
+    - link "创作模板":
+      - /url: /studio?workspace=templates
+  - listitem:
+    - link "高级画布":
+      - /url: /studio?workspace=canvas
+- button "展开或收起侧栏"
+- main:
+  - main:
+    - heading "视频创作工作台" [level=1]
+    - button "选择项目": trim-fixture
+    - status: 正在保存项目更改…
+    - button "任务中心"
+    - button "新建项目"
+    - button "项目操作"
+    - region "引导式视频创作":
+      - heading "未命名项目" [level=2]
+      - paragraph: 制作中心 · 草稿更改自动保存。
+      - button "创作助手"
+      - button "分享项目"
+      - button "项目工具"
+      - tablist:
+        - tab "1 想法"
+        - tab "2 镜头"
+        - tab "✓ 画面"
+        - tab "✓ 剪辑与声音"
+        - tab "5 导出" [selected]
+      - tabpanel "5 导出":
+        - heading "整片预览" [level=3]
+        - paragraph: UX18 第一镜 修改
+        - button "全屏查看画面"
+        - button "播放时间轴"
+        - slider "播放位置": "0"
+        - text: 0 / 9s
+        - button "整片检查 ⌄"
+        - button "审阅与时间点意见"
+        - group:
+          - text: 输出平台
+          - combobox "输出平台": 自定义
+        - group:
+          - text: 导出清晰度
+          - combobox "导出清晰度": 360p
+        - paragraph: 按当前画幅导出。提高输出分辨率不会补回原素材缺少的细节。
+        - button "导出高级设置 ⌄"
+        - button "预览精确的导出布局"
+        - paragraph: 之前的交付仍然存在。更改剪辑、音频、字幕或布局后请渲染新预览。
+        - button "保存上一版成片"
+        - button "下载素材与剪辑工程"
+        - button "创建审片链接（7天）"
+        - button "已到期或已撤销的审片链接 ⌄"
+        - button "更多交付功能 ⌄"
+      - button "上一步"
+      - text: 整个项目
+      - button "导出视频"
+- heading "搜索页面与操作" [level=2]
+- paragraph: 查找页面或操作
+- region "Notifications alt+T"

@@ -41,6 +41,7 @@ export function StudioTimelinePreview(props: {
   onPreviewed?: () => void
   compact?: boolean
 }) {
+  const previewElement = useRef<HTMLDivElement>(null)
   const { t, i18n } = useTranslation()
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
   const [urls, setUrls] = useState<Record<string, string>>({})
@@ -271,12 +272,12 @@ export function StudioTimelinePreview(props: {
   }
   if (!schedule.length) return null
   return (
-    <div className='space-y-2'>
+    <div ref={previewElement} className='studio-timeline-preview space-y-3'>
       <div
-        className='relative overflow-hidden rounded-lg bg-black'
+        className='studio-preview-frame relative mx-auto overflow-hidden rounded-lg bg-black'
         style={{
           aspectRatio: `${props.project.production?.width || 1920} / ${props.project.production?.height || 1080}`,
-          maxHeight: props.compact ? '32dvh' : undefined,
+          maxHeight: props.compact ? '43dvh' : undefined,
         }}
       >
         {props.project.production?.fit === 'blur' && active && (
@@ -370,7 +371,17 @@ export function StudioTimelinePreview(props: {
           }}
         />
       ))}
-      <div className='flex items-center gap-3'>
+      <Button
+        variant='ghost'
+        onClick={() => {
+          void previewElement.current
+            ?.requestFullscreen()
+            .catch(handleServerError)
+        }}
+      >
+        {t('Full-screen preview')}
+      </Button>
+      <div className='flex flex-wrap items-center gap-3'>
         <Button
           variant='outline'
           disabled={!schedule.every((item) => urls[item.mediaId])}

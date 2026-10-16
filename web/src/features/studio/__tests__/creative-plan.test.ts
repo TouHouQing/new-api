@@ -10,6 +10,8 @@ import { applyStudioRecommendedModels } from '../studio-creation-models'
 import {
   studioBrandGraphics,
   studioBriefSuggestions,
+  studioBriefNeedsReview,
+  studioConfirmBrief,
   studioDialogueTiming,
   studioFilmFindings,
   studioMusicGain,
@@ -337,4 +339,103 @@ test('a numbered establishing shot does not inherit the template protagonist', (
   })
   const draft = studioRecipeDraft(project, 'store', t)
   expect(draft.shots.every((shot) => shot.characterIds.length === 0)).toBe(true)
+})
+
+test('conflicting brief settings require an explicit choice which persists and resets on edits', async () => {
+  const project = createStudioProject('Untitled project', 'review')
+  project.production = {
+    ...studioProductionSchema.parse({}),
+    brief: '制作15秒竖屏门店广告。店名：青咖啡。',
+    targetDuration: 30,
+    width: 1920,
+    height: 1080,
+  }
+  expect(studioBriefNeedsReview(project)).toBe(true)
+  const kept = studioConfirmBrief(project, false)
+  expect(kept.production.targetDuration).toBe(30)
+  const persisted = JSON.stringify(kept)
+  expect(studioBriefNeedsReview(JSON.parse(persisted))).toBe(false)
+  expect(
+    studioBriefNeedsReview({
+      ...kept,
+      production: { ...kept.production, targetDuration: 20 },
+    })
+  ).toBe(true)
+  const adopted = studioConfirmBrief(project, true)
+  expect(adopted.production).toMatchObject({
+    targetDuration: 15,
+    width: 1080,
+    height: 1920,
+  })
+  expect(studioBriefNeedsReview(adopted)).toBe(false)
+  expect(project.production.targetDuration).toBe(30)
+})
+
+test('manual one-paragraph briefs preserve the raw idea and never create metadata shots', async () => {
+  const { studioPlanStoryDraft } = await import('../studio-creation')
+  const brief =
+    '我要为小区咖啡店做一条15秒竖屏开业短片，温暖真实，展示门店、手冲过程和咖啡成品，结尾提示周末到店。店名：青咖啡；受众：附近居民；卖点：当日现烘；行动提示：周末来喝一杯；地址：花园路18号。'
+  const project = createStudioProject('Coffee', 'manual')
+  project.production = {
+    ...studioProductionSchema.parse({}),
+    brief,
+    creativeBrief: {
+      recipeId: '',
+      subject: '青咖啡',
+      audience: '附近居民',
+      benefit: '当日现烘',
+      callToAction: '周末来喝一杯',
+    },
+  }
+  const first = studioPlanStoryDraft(project, brief, 15)
+  expect(first.shots.map((shot) => shot.text)).toEqual([
+    '门店',
+    '手冲过程',
+    '咖啡成品',
+  ])
+  expect(first.brief).toBe(brief)
+  const saved = applyStudioScreenplay(project, first)
+  const again = studioPlanStoryDraft(saved, saved.production?.brief || '', 15)
+  expect(again.shots.map((shot) => shot.text)).toEqual(
+    first.shots.map((shot) => shot.text)
+  )
+  expect(saved.production?.brief).toBe(brief)
+})
+
+test('a manual production request without visible action stays blank for editing', async () => {
+  const { studioPlanStoryDraft } = await import('../studio-creation')
+  const draft = studioPlanStoryDraft(
+    createStudioProject('Blank', 'blank'),
+    '请帮我制作一条15秒产品广告。受众：附近居民。',
+    15
+  )
+  expect(draft.shots).toHaveLength(1)
+  expect(draft.shots[0].text).toBe('')
+  expect(draft.shots[0].imagePrompt).toBe('')
+})
+
+test('a legacy project uses the same thirty-second default in the brief choice and planner', () => {
+  const project = createStudioProject('Legacy', 'legacy-duration')
+  project.production = studioProductionSchema.parse({
+    brief: 'Make a 30 second video.',
+  })
+  expect(studioBriefNeedsReview(project)).toBe(false)
+  expect(studioConfirmBrief(project, false).production.targetDuration).toBe(30)
+})
+
+test('confirming a brief respects fields explicitly cleared by the creator', () => {
+  const project = createStudioProject('Coffee', 'cleared-fields')
+  project.production = studioProductionSchema.parse({
+    brief: '店名：青咖啡；目标观众：附近住户；结尾：周末来喝一杯。',
+    creativeBrief: {
+      recipeId: '',
+      subject: '',
+      audience: '',
+      benefit: '',
+      callToAction: '',
+    },
+  })
+  expect(studioConfirmBrief(project, false).production.creativeBrief).toEqual(
+    project.production.creativeBrief
+  )
 })

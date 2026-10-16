@@ -24,9 +24,10 @@ import { useSystemConfig } from '@/hooks/use-system-config'
 
 type AuthLayoutProps = {
   children: React.ReactNode
+  intro?: React.ReactNode
 }
 
-export function AuthLayout({ children }: AuthLayoutProps) {
+export function AuthLayout({ children, intro }: AuthLayoutProps) {
   const { t } = useTranslation()
   const { systemName, logo, loading } = useSystemConfig()
 
@@ -53,7 +54,18 @@ export function AuthLayout({ children }: AuthLayoutProps) {
           <h1 className='text-xl font-medium'>{systemName}</h1>
         )}
       </Link>
-      <div className='container flex items-center pt-16 sm:pt-0'>
+      <div
+        className={
+          intro
+            ? 'container grid items-center gap-8 pt-20 lg:grid-cols-2 lg:pt-0'
+            : 'container flex items-center pt-16 sm:pt-0'
+        }
+      >
+        {intro && (
+          <aside className='hidden max-w-xl space-y-6 p-8 lg:block'>
+            {intro}
+          </aside>
+        )}
         <div className='mx-auto flex w-full flex-col justify-center space-y-2 px-4 py-8 sm:w-[480px] sm:p-8'>
           {children}
         </div>

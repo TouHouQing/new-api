@@ -1,0 +1,89 @@
+- link "跳到主内容":
+  - /url: "#content"
+- banner:
+  - button "展开或收起侧栏":
+    - img
+    - text: 展开或收起侧栏
+  - link "返回主页":
+    - /url: /
+    - img "徽标"
+    - text: New API
+  - button "通知"
+  - button "更改语言"
+  - button "打开主题设置"
+  - button "U"
+- list:
+  - listitem:
+    - link "账户与高级设置":
+      - /url: /dashboard/overview
+- text: 视频创作
+- list:
+  - listitem:
+    - link "引导式视频创作":
+      - /url: /studio?workspace=guided
+  - listitem:
+    - link "素材库":
+      - /url: /studio?workspace=assets
+  - listitem:
+    - link "创作模板":
+      - /url: /studio?workspace=templates
+  - listitem:
+    - link "高级画布":
+      - /url: /studio?workspace=canvas
+- button "展开或收起侧栏"
+- main:
+  - main:
+    - heading "视频创作工作台" [level=1]
+    - button "选择项目": 青咖啡
+    - status: 已保存到服务端
+    - button "任务中心"
+    - button "新建项目"
+    - button "项目操作"
+    - region "引导式视频创作":
+      - heading "未命名项目" [level=2]
+      - paragraph: 制作中心 · 草稿更改自动保存。
+      - button "创作助手"
+      - button "分享项目"
+      - button "项目工具"
+      - tablist:
+        - tab "✓ 想法" [selected]
+        - tab "2 镜头"
+        - tab "3 画面"
+        - tab "4 剪辑与声音"
+        - tab "5 导出"
+      - tabpanel "✓ 想法":
+        - button "更换起步方式"
+        - group:
+          - text: 你在制作什么？
+          - combobox "你在制作什么？": 故事影片
+        - group:
+          - text: 讲述你的故事
+          - textbox "讲述你的故事":
+            - /placeholder: 快递员在雨后意外发现了一封信。
+            - text: 帮我做一个15秒竖屏的咖啡店宣传片，展示门店、手冲过程和咖啡成品。店名：青咖啡；目标观众：附近上班族；地址：中山路18号。结尾提示周末来喝一杯。
+          - paragraph: 这将保存草稿。在确认生成计划之前，模型不会运行。
+        - group:
+          - text: 目标时长
+          - spinbutton "目标时长": "30"
+        - group:
+          - text: 画面形状
+          - combobox "画面形状": 横版 16:9
+        - region "创作要求摘要":
+          - paragraph: "本片设置: 30s · 横版 16:9 · 故事影片"
+          - alert:
+            - paragraph: 描述与当前设置不一致，请先选择采用哪一组要求。
+            - paragraph: "从描述中识别到的建议: 15s · 竖版 9:16 · 产品广告"
+            - button "使用描述中的要求"
+            - button "保留当前设置"
+          - button "补充或修改创作要求 ⌄"
+        - button "帮我整理分镜" [disabled]
+        - paragraph: 只整理可编辑的文字分镜草稿；图片和视频需另行确认后才会生成。
+        - paragraph: 空项目会直接载入免费样例并保留名称；已有内容时打开独立副本，原作保留。
+        - button "加载完整的创意模板"
+        - button "制作手动镜头草稿" [disabled]
+        - button "尝试免费的编辑示例"
+      - button "上一步" [disabled]
+      - text: 整个项目
+- heading "搜索页面与操作" [level=2]
+- paragraph: 查找页面或操作
+- region "Notifications alt+T"

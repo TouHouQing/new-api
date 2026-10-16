@@ -76,6 +76,7 @@ export function StudioProductionDeliveryTab(
     captionsReady,
     setActiveTab,
   } = useStudioProductionContext()
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [shareUrl, setShareUrl] = useState('')
   const [showOldShares, setShowOldShares] = useState(false)
   const defaults = studioProductionSchema.parse({})
@@ -134,390 +135,441 @@ export function StudioProductionDeliveryTab(
     >
       {!options.sharingOnly && (
         <>
-          <Field>
-            <FieldLabel>{t('studio.production.deliveryPreset')}</FieldLabel>
-            <Select
-              disabled={!writable}
-              value={props.project.production?.deliveryPreset || 'custom'}
-              onValueChange={(value) => {
-                const preset = value as
-                  | 'custom'
-                  | 'youtube'
-                  | 'shorts'
-                  | 'douyin'
-                  | 'bilibili'
-                const vertical = preset === 'shorts' || preset === 'douyin'
-                const dimensions =
-                  preset === 'custom'
-                    ? {}
-                    : {
-                        width: vertical ? 1080 : 1920,
-                        height: vertical ? 1920 : 1080,
-                        fps: 30,
-                      }
-                props.onUpdate({
-                  ...props.project,
-                  production: {
-                    ...(props.project.production ||
-                      studioProductionSchema.parse({})),
-                    deliveryPreset: preset,
-                    ...dimensions,
-                  },
-                })
-              }}
-            >
-              <SelectTrigger aria-label={t('studio.production.deliveryPreset')}>
-                <SelectValue>
-                  {t(
-                    `studio.production.preset.${props.project.production?.deliveryPreset || 'custom'}`
-                  )}
-                </SelectValue>
-              </SelectTrigger>
-              <SelectContent>
-                {(
-                  ['custom', 'youtube', 'shorts', 'douyin', 'bilibili'] as const
-                ).map((preset) => (
-                  <SelectItem key={preset} value={preset}>
-                    {t(`studio.production.preset.${preset}`)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-          <Field>
-            <FieldLabel>{t('Export quality')}</FieldLabel>
-            <Select
-              value={String(
-                Math.min(
-                  props.project.production?.width || defaults.width,
-                  props.project.production?.height || defaults.height
-                )
-              )}
-              onValueChange={(value) => {
-                const resolution = Number(value)
-                if (![360, 720, 1080, 2160].includes(resolution)) return
-                const production = props.project.production || defaults
-                const ratio = production.width / production.height
-                const width =
-                  Math.round(
-                    (ratio >= 1 ? resolution * ratio : resolution) / 2
-                  ) * 2
-                const height =
-                  Math.round(
-                    (ratio >= 1 ? resolution : resolution / ratio) / 2
-                  ) * 2
-                if (width <= 4096 && height <= 4096) {
-                  props.onUpdate({
-                    ...props.project,
-                    production: {
-                      ...production,
-                      width,
-                      height,
-                      exportSizeMode: 'custom',
-                    },
-                  })
-                }
-              }}
-            >
-              <SelectTrigger aria-label={t('Export quality')}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  {[
-                    ...new Set([
-                      Math.min(
-                        props.project.production?.width || defaults.width,
-                        props.project.production?.height || defaults.height
-                      ),
-                      360,
-                      720,
-                      1080,
-                      2160,
-                    ]),
-                  ]
-                    .sort((a, b) => a - b)
-                    .map((value) => (
-                      <SelectItem value={String(value)} key={value}>
-                        {value}p
-                      </SelectItem>
-                    ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </Field>
-          <p className='text-muted-foreground text-xs'>
-            {t(
-              'Export size preserves the chosen aspect ratio. Higher output resolution does not restore detail missing from source footage.'
+          {deliveryPreview && (
+            <section className='space-y-4' aria-label={t('Your exported film')}>
+              <div>
+                <h2 className='text-xl font-semibold'>
+                  {t('Your video is ready')}
+                </h2>
+                <p className='text-muted-foreground text-sm'>
+                  {props.project.production?.width}×
+                  {props.project.production?.height} ·{' '}
+                  {t('Current saved delivery version')}
+                </p>
+              </div>
+              <video
+                src={deliveryPreview}
+                controls
+                playsInline
+                className='mx-auto max-h-[44dvh] max-w-full rounded-lg bg-black'
+                aria-label={t('Exported film preview')}
+              />
+            </section>
+          )}
+          <Collapsible
+            open={!deliveryPreview || settingsOpen}
+            onOpenChange={setSettingsOpen}
+          >
+            {deliveryPreview && (
+              <CollapsibleTrigger render={<Button variant='ghost' />}>
+                {t('Change export settings')}
+              </CollapsibleTrigger>
             )}
-          </p>
-          <Collapsible>
-            <CollapsibleTrigger render={<Button variant='ghost' size='sm' />}>
-              {t('Advanced export settings')}
-            </CollapsibleTrigger>
-            <CollapsibleContent className='flex flex-col gap-3 pt-3'>
+            <CollapsibleContent className='space-y-4'>
               <Field>
-                <FieldLabel>{t('Fit footage to the frame')}</FieldLabel>
+                <FieldLabel>{t('studio.production.deliveryPreset')}</FieldLabel>
                 <Select
                   disabled={!writable}
-                  value={props.project.production?.fit || 'letterbox'}
-                  onValueChange={(fit) => {
-                    const next = studioProductionSchema.safeParse({
-                      ...(props.project.production ||
-                        studioProductionSchema.parse({})),
-                      fit,
+                  value={props.project.production?.deliveryPreset || 'custom'}
+                  onValueChange={(value) => {
+                    const preset = value as
+                      | 'custom'
+                      | 'youtube'
+                      | 'shorts'
+                      | 'douyin'
+                      | 'bilibili'
+                    const vertical = preset === 'shorts' || preset === 'douyin'
+                    const dimensions =
+                      preset === 'custom'
+                        ? {}
+                        : {
+                            width: vertical ? 1080 : 1920,
+                            height: vertical ? 1920 : 1080,
+                            fps: 30,
+                          }
+                    props.onUpdate({
+                      ...props.project,
+                      production: {
+                        ...(props.project.production ||
+                          studioProductionSchema.parse({})),
+                        deliveryPreset: preset,
+                        ...dimensions,
+                      },
                     })
-                    if (next.success) {
-                      props.onUpdate({
-                        ...props.project,
-                        production: next.data,
-                      })
-                    }
                   }}
-                  items={['letterbox', 'crop', 'blur'].map((value) => ({
-                    value,
-                    label: t(`studio.fit.${value}`),
-                  }))}
                 >
-                  <SelectTrigger aria-label={t('Fit footage to the frame')}>
-                    <SelectValue />
+                  <SelectTrigger
+                    aria-label={t('studio.production.deliveryPreset')}
+                  >
+                    <SelectValue>
+                      {t(
+                        `studio.production.preset.${props.project.production?.deliveryPreset || 'custom'}`
+                      )}
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectGroup>
-                      {['letterbox', 'crop', 'blur'].map((value) => (
-                        <SelectItem key={value} value={value}>
-                          {t(`studio.fit.${value}`)}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
+                    {(
+                      [
+                        'custom',
+                        'youtube',
+                        'shorts',
+                        'douyin',
+                        'bilibili',
+                      ] as const
+                    ).map((preset) => (
+                      <SelectItem key={preset} value={preset}>
+                        {t(`studio.production.preset.${preset}`)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
               <Field>
-                <FieldLabel>{t('Optional watermark')}</FieldLabel>
-                <Input
-                  disabled={!writable}
-                  maxLength={120}
-                  value={props.project.production?.watermark || ''}
-                  onChange={(event) =>
-                    props.onUpdate({
-                      ...props.project,
-                      production: {
-                        ...(props.project.production ||
-                          studioProductionSchema.parse({})),
-                        watermark: event.target.value,
-                      },
-                    })
-                  }
-                />
-              </Field>
-              <label className='flex items-center gap-2'>
-                <Checkbox
-                  disabled={!writable}
-                  checked={props.project.production?.requireApproved || false}
-                  onCheckedChange={(value) =>
-                    props.onUpdate({
-                      ...props.project,
-                      production: {
-                        ...(props.project.production ||
-                          studioProductionSchema.parse({})),
-                        requireApproved: value === true,
-                      },
-                    })
-                  }
-                />
-                {t('studio.production.requireApproved')}
-              </label>
-              <div className='grid gap-3 sm:grid-cols-3'>
-                {(['width', 'height', 'fps'] as const).map((key) => {
-                  const value = props.project.production?.[key] ?? defaults[key]
-                  const draft = numberDrafts[key]
-                  const text =
-                    draft?.base === value ? draft.text : String(value)
-                  const min = key === 'fps' ? 12 : 64
-                  const max = key === 'fps' ? 60 : 4096
-                  const valid =
-                    /^\d+$/.test(text) &&
-                    Number.isInteger(Number(text)) &&
-                    Number(text) >= min &&
-                    Number(text) <= max
-                  return (
-                    <Field key={key} data-invalid={!valid}>
-                      <FieldLabel htmlFor={`production-${key}`}>
-                        {t(`studio.production.${key}`)}
-                      </FieldLabel>
-                      <Input
-                        id={`production-${key}`}
-                        disabled={!writable}
-                        inputMode='numeric'
-                        value={text}
-                        aria-invalid={!valid}
-                        aria-describedby={
-                          !valid ? `production-${key}-error` : undefined
-                        }
-                        onChange={(event) =>
-                          setNumberDrafts((current) => ({
-                            ...current,
-                            [key]: { base: value, text: event.target.value },
-                          }))
-                        }
-                        onBlur={() => {
-                          if (!valid || Number(text) === value) return
-                          const number = Number(text)
-                          props.onUpdate({
-                            ...props.project,
-                            production: {
-                              ...(props.project.production || defaults),
-                              [key]: number,
-                            },
-                          })
-                          setNumberDrafts((current) => ({
-                            ...current,
-                            [key]: { base: number, text: String(number) },
-                          }))
-                        }}
-                      />
-                      {!valid && (
-                        <FieldError id={`production-${key}-error`}>
-                          {t(
-                            'Enter a whole number between {{min}} and {{max}}',
-                            {
-                              min,
-                              max,
-                            }
-                          )}
-                        </FieldError>
-                      )}
-                    </Field>
-                  )
-                })}
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-          <Button
-            ref={options.exportButtonRef}
-            disabled={exportDisabled}
-            onClick={() => mutate.mutate(() => submit('render'))}
-          >
-            {t('Export video')}
-          </Button>
-          {!captionsReady && (
-            <div role='alert' className='space-y-2 text-sm'>
-              <p>{t('Finish pending caption edits before exporting.')}</p>
-              <Button
-                variant='outline'
-                size='sm'
-                onClick={() => {
-                  setActiveTab('timeline')
-                  if (props.project.production?.guide) {
-                    props.onUpdate({
-                      ...props.project,
-                      production: {
-                        ...props.project.production,
-                        guide: {
-                          ...props.project.production.guide,
-                          step: 'edit',
+                <FieldLabel>{t('Export quality')}</FieldLabel>
+                <Select
+                  value={String(
+                    Math.min(
+                      props.project.production?.width || defaults.width,
+                      props.project.production?.height || defaults.height
+                    )
+                  )}
+                  onValueChange={(value) => {
+                    const resolution = Number(value)
+                    if (![360, 720, 1080, 2160].includes(resolution)) return
+                    const production = props.project.production || defaults
+                    const ratio = production.width / production.height
+                    const width =
+                      Math.round(
+                        (ratio >= 1 ? resolution * ratio : resolution) / 2
+                      ) * 2
+                    const height =
+                      Math.round(
+                        (ratio >= 1 ? resolution : resolution / ratio) / 2
+                      ) * 2
+                    if (width <= 4096 && height <= 4096) {
+                      props.onUpdate({
+                        ...props.project,
+                        production: {
+                          ...production,
+                          width,
+                          height,
+                          exportSizeMode: 'custom',
                         },
-                      },
-                    })
-                  }
-                }}
-              >
-                {t('Return to caption editing')}
-              </Button>
-            </div>
-          )}
-          {unapproved.length > 0 && (
-            <div role='alert' className='space-y-2 text-sm'>
-              <p>
-                {t(
-                  'Approve the current footage for every delivery clip before exporting.'
-                )}
-              </p>
-              {unapproved.map((clip, index) => (
-                <Button
-                  key={clip.id}
-                  size='sm'
-                  variant='outline'
-                  onClick={() => {
-                    setReviewTarget({
-                      nodeId: clip.nodeId,
-                      takeId: clip.takeId,
-                    })
-                    props.onSelectNode?.(clip.nodeId)
-                    setActiveTab('review')
+                      })
+                    }
                   }}
                 >
-                  {t('Review current footage')} ·{' '}
-                  {props.project.nodes.find((node) => node.id === clip.nodeId)
-                    ?.data.title || `${t('Shot')} ${index + 1}`}
-                </Button>
-              ))}
-            </div>
-          )}
-          <Button
-            variant='outline'
-            disabled={
-              !writable ||
-              !footageReady ||
-              capabilities.data?.storage_available === false ||
-              !captionsReady ||
-              invalidNumbers ||
-              mutate.isPending ||
-              !!activeRender ||
-              !capabilities.data?.render_available
-            }
-            onClick={() => mutate.mutate(() => submit('render', true))}
-          >
-            {t('Preview the exact export layout')}
-          </Button>
-          {!footageReady && (
-            <p role='status'>
-              {t('Add completed footage to the timeline before exporting.')}
-            </p>
-          )}
-          <StudioRenderProgress />
-          {capabilities.data?.storage_available === false && (
-            <p role='status'>
-              {t(
-                'Studio storage is unavailable. Restore free space or reconnect storage before generating.'
+                  <SelectTrigger aria-label={t('Export quality')}>
+                    <SelectValue>
+                      {Math.min(
+                        props.project.production?.width || defaults.width,
+                        props.project.production?.height || defaults.height
+                      )}
+                      p
+                    </SelectValue>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {[
+                        ...new Set([
+                          Math.min(
+                            props.project.production?.width || defaults.width,
+                            props.project.production?.height || defaults.height
+                          ),
+                          360,
+                          720,
+                          1080,
+                          2160,
+                        ]),
+                      ]
+                        .sort((a, b) => a - b)
+                        .map((value) => (
+                          <SelectItem value={String(value)} key={value}>
+                            {value}p
+                          </SelectItem>
+                        ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+              <p className='text-muted-foreground text-xs'>
+                {t(
+                  'Export size preserves the chosen aspect ratio. Higher output resolution does not restore detail missing from source footage.'
+                )}
+              </p>
+              <Collapsible>
+                <CollapsibleTrigger
+                  render={<Button variant='ghost' size='sm' />}
+                >
+                  {t('Advanced export settings')}
+                </CollapsibleTrigger>
+                <CollapsibleContent className='flex flex-col gap-3 pt-3'>
+                  <Field>
+                    <FieldLabel>{t('Fit footage to the frame')}</FieldLabel>
+                    <Select
+                      disabled={!writable}
+                      value={props.project.production?.fit || 'letterbox'}
+                      onValueChange={(fit) => {
+                        const next = studioProductionSchema.safeParse({
+                          ...(props.project.production ||
+                            studioProductionSchema.parse({})),
+                          fit,
+                        })
+                        if (next.success) {
+                          props.onUpdate({
+                            ...props.project,
+                            production: next.data,
+                          })
+                        }
+                      }}
+                      items={['letterbox', 'crop', 'blur'].map((value) => ({
+                        value,
+                        label: t(`studio.fit.${value}`),
+                      }))}
+                    >
+                      <SelectTrigger aria-label={t('Fit footage to the frame')}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          {['letterbox', 'crop', 'blur'].map((value) => (
+                            <SelectItem key={value} value={value}>
+                              {t(`studio.fit.${value}`)}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field>
+                    <FieldLabel>{t('Optional watermark')}</FieldLabel>
+                    <Input
+                      disabled={!writable}
+                      maxLength={120}
+                      value={props.project.production?.watermark || ''}
+                      onChange={(event) =>
+                        props.onUpdate({
+                          ...props.project,
+                          production: {
+                            ...(props.project.production ||
+                              studioProductionSchema.parse({})),
+                            watermark: event.target.value,
+                          },
+                        })
+                      }
+                    />
+                  </Field>
+                  <label className='flex items-center gap-2'>
+                    <Checkbox
+                      disabled={!writable}
+                      checked={
+                        props.project.production?.requireApproved || false
+                      }
+                      onCheckedChange={(value) =>
+                        props.onUpdate({
+                          ...props.project,
+                          production: {
+                            ...(props.project.production ||
+                              studioProductionSchema.parse({})),
+                            requireApproved: value === true,
+                          },
+                        })
+                      }
+                    />
+                    {t('studio.production.requireApproved')}
+                  </label>
+                  <div className='grid gap-3 sm:grid-cols-3'>
+                    {(['width', 'height', 'fps'] as const).map((key) => {
+                      const value =
+                        props.project.production?.[key] ?? defaults[key]
+                      const draft = numberDrafts[key]
+                      const text =
+                        draft?.base === value ? draft.text : String(value)
+                      const min = key === 'fps' ? 12 : 64
+                      const max = key === 'fps' ? 60 : 4096
+                      const valid =
+                        /^\d+$/.test(text) &&
+                        Number.isInteger(Number(text)) &&
+                        Number(text) >= min &&
+                        Number(text) <= max
+                      return (
+                        <Field key={key} data-invalid={!valid}>
+                          <FieldLabel htmlFor={`production-${key}`}>
+                            {t(`studio.production.${key}`)}
+                          </FieldLabel>
+                          <Input
+                            id={`production-${key}`}
+                            disabled={!writable}
+                            inputMode='numeric'
+                            value={text}
+                            aria-invalid={!valid}
+                            aria-describedby={
+                              !valid ? `production-${key}-error` : undefined
+                            }
+                            onChange={(event) =>
+                              setNumberDrafts((current) => ({
+                                ...current,
+                                [key]: {
+                                  base: value,
+                                  text: event.target.value,
+                                },
+                              }))
+                            }
+                            onBlur={() => {
+                              if (!valid || Number(text) === value) return
+                              const number = Number(text)
+                              props.onUpdate({
+                                ...props.project,
+                                production: {
+                                  ...(props.project.production || defaults),
+                                  [key]: number,
+                                },
+                              })
+                              setNumberDrafts((current) => ({
+                                ...current,
+                                [key]: { base: number, text: String(number) },
+                              }))
+                            }}
+                          />
+                          {!valid && (
+                            <FieldError id={`production-${key}-error`}>
+                              {t(
+                                'Enter a whole number between {{min}} and {{max}}',
+                                {
+                                  min,
+                                  max,
+                                }
+                              )}
+                            </FieldError>
+                          )}
+                        </Field>
+                      )
+                    })}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+              <Button
+                ref={options.exportButtonRef}
+                className={options.exportButtonRef ? 'hidden' : undefined}
+                disabled={exportDisabled}
+                onClick={() => mutate.mutate(() => submit('render'))}
+              >
+                {t('Export video')}
+              </Button>
+              {!captionsReady && (
+                <div role='alert' className='space-y-2 text-sm'>
+                  <p>{t('Finish pending caption edits before exporting.')}</p>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    onClick={() => {
+                      setActiveTab('timeline')
+                      if (props.project.production?.guide) {
+                        props.onUpdate({
+                          ...props.project,
+                          production: {
+                            ...props.project.production,
+                            guide: {
+                              ...props.project.production.guide,
+                              step: 'edit',
+                            },
+                          },
+                        })
+                      }
+                    }}
+                  >
+                    {t('Return to caption editing')}
+                  </Button>
+                </div>
               )}
-            </p>
-          )}
-          {preview && preview !== deliveryPreview && (
-            <video
-              src={preview}
-              controls
-              className='max-h-96 w-full rounded-lg bg-black'
-            />
-          )}
-          {result?.media_id && !deliveryPreview && (
-            <p className='text-muted-foreground text-sm'>
-              {t(
-                'A previous delivery remains available. Render a new preview after changing clips, audio, subtitles or layout.'
+              {unapproved.length > 0 && (
+                <div role='alert' className='space-y-2 text-sm'>
+                  <p>
+                    {t(
+                      'Approve the current footage for every delivery clip before exporting.'
+                    )}
+                  </p>
+                  {unapproved.map((clip, index) => (
+                    <Button
+                      key={clip.id}
+                      size='sm'
+                      variant='outline'
+                      onClick={() => {
+                        setReviewTarget({
+                          nodeId: clip.nodeId,
+                          takeId: clip.takeId,
+                        })
+                        props.onSelectNode?.(clip.nodeId)
+                        setActiveTab('review')
+                      }}
+                    >
+                      {t('Review current footage')} ·{' '}
+                      {props.project.nodes.find(
+                        (node) => node.id === clip.nodeId
+                      )?.data.title || `${t('Shot')} ${index + 1}`}
+                    </Button>
+                  ))}
+                </div>
               )}
-            </p>
-          )}
-          {deliveryPreview && (
-            <video
-              src={deliveryPreview}
-              controls
-              className='aspect-video w-full rounded-lg bg-black'
-            />
-          )}
-          <div className='flex gap-2'>
-            {result?.media_id && (
               <Button
                 variant='outline'
-                onClick={() =>
-                  mutate.mutate(() =>
-                    download(result.media_id, `${props.project.title}.mp4`)
-                  )
+                disabled={
+                  !writable ||
+                  !footageReady ||
+                  capabilities.data?.storage_available === false ||
+                  !captionsReady ||
+                  invalidNumbers ||
+                  mutate.isPending ||
+                  !!activeRender ||
+                  !capabilities.data?.render_available
                 }
+                onClick={() => mutate.mutate(() => submit('render', true))}
               >
-                {t('studio.production.downloadVideo')}
+                {t('Preview the exact export layout')}
               </Button>
-            )}
+              {!footageReady && (
+                <p role='status'>
+                  {t('Add completed footage to the timeline before exporting.')}
+                </p>
+              )}
+              <StudioRenderProgress />
+              {capabilities.data?.storage_available === false && (
+                <p role='status'>
+                  {t(
+                    'Studio storage is unavailable. Restore free space or reconnect storage before generating.'
+                  )}
+                </p>
+              )}
+              {preview && preview !== deliveryPreview && (
+                <video
+                  src={preview}
+                  controls
+                  className='max-h-96 w-full rounded-lg bg-black'
+                />
+              )}
+              {result?.media_id && !deliveryPreview && (
+                <p className='text-muted-foreground text-sm'>
+                  {t(
+                    'A previous delivery remains available. Render a new preview after changing clips, audio, subtitles or layout.'
+                  )}
+                </p>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+          <div className='flex gap-2'>
+            {result?.media_id &&
+              (!options.exportButtonRef || !deliveryPreview) && (
+                <Button
+                  variant={deliveryPreview ? 'default' : 'outline'}
+                  onClick={() =>
+                    mutate.mutate(() =>
+                      download(result.media_id, `${props.project.title}.mp4`)
+                    )
+                  }
+                >
+                  {t(deliveryPreview ? 'Save video' : 'Save previous delivery')}
+                </Button>
+              )}
             {result?.package_media_id && (
               <Button
                 variant='outline'
@@ -530,7 +582,7 @@ export function StudioProductionDeliveryTab(
                   )
                 }
               >
-                {t('studio.production.downloadPackage')}
+                {t('Download editable delivery package')}
               </Button>
             )}
           </div>

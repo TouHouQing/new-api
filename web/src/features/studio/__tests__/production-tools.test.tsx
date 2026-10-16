@@ -973,11 +973,11 @@ test('a newer draft preview preserves the final delivery package and final video
   mount('delivery')
   await waitFor(() =>
     expect(
-      screen.getByRole('button', { name: 'studio.production.downloadPackage' })
+      screen.getByRole('button', { name: 'Download editable delivery package' })
     ).toBeInTheDocument()
   )
   expect(
-    screen.getByRole('button', { name: 'studio.production.downloadVideo' })
+    screen.getByRole('button', { name: 'Save previous delivery' })
   ).toBeInTheDocument()
   await waitFor(() =>
     expect(

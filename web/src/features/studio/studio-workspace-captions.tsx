@@ -34,6 +34,8 @@ export function StudioWorkspaceCaptions() {
   const { t } = useTranslation()
   const { props, timeline, writable, setSelectedClip, clip, updateClip } =
     useStudioProductionContext()
+  const [additional, setAdditional] = useState(false)
+  useEffect(() => setAdditional(false), [clip?.id])
   const [durations, setDurations] = useState<Record<string, number>>({})
   useEffect(() => {
     const changed = (event: Event) => {
@@ -64,25 +66,41 @@ export function StudioWorkspaceCaptions() {
       <h3 className='font-medium'>
         {t('Timeline captions')} · {rows.length}
       </h3>
-      {clip && (
-        <Field>
-          <FieldLabel htmlFor='production-caption'>
-            {t('studio.production.caption')}
-          </FieldLabel>
-          <Textarea
-            id='production-caption'
-            aria-label={t('studio.production.caption')}
-            disabled={!writable}
-            value={clip.caption}
-            maxLength={2000}
-            onChange={(event) => updateClip({ caption: event.target.value })}
-          />
-        </Field>
-      )}
+      {clip &&
+        !additional &&
+        !clip.caption &&
+        rows.some(
+          (row) => row.source === 'dialogue' && row.clipId === clip.id
+        ) && (
+          <Button variant='ghost' onClick={() => setAdditional(true)}>
+            {t('Add another clip caption')}
+          </Button>
+        )}
+      {clip &&
+        (additional ||
+          clip.caption ||
+          !rows.some(
+            (row) => row.source === 'dialogue' && row.clipId === clip.id
+          )) && (
+          <Field>
+            <FieldLabel htmlFor='production-caption'>
+              {t('studio.production.caption')}
+            </FieldLabel>
+            <Textarea
+              id='production-caption'
+              aria-label={t('studio.production.caption')}
+              disabled={!writable}
+              value={clip.caption}
+              maxLength={2000}
+              onChange={(event) => updateClip({ caption: event.target.value })}
+            />
+          </Field>
+        )}
       {rows
         .filter(
           (row) =>
             row.source !== 'srt' &&
+            (!clip || row.clipId === clip.id) &&
             !(row.source === 'clip' && row.clipId === clip?.id)
         )
         .map((row, rowIndex) => (

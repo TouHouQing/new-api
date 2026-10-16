@@ -1,0 +1,12 @@
+- region "Notifications alt+T"
+- dialog "分享作品 · trim-fixture":
+  - heading "分享作品 · trim-fixture" [level=2]
+  - paragraph: 请选择让对方观看成片，还是一起编辑项目。
+  - button "创建审片链接（7天）"
+  - textbox "审片链接": [本地审片链接已撤销]
+  - button "复制到剪贴板"
+  - button "已到期或已撤销的审片链接"
+  - button "邀请一起编辑"
+  - button "Close":
+    - img
+    - text: Close

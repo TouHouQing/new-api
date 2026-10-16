@@ -1,0 +1,24 @@
+$ vitest run src/features/studio/__tests__/creative-plan.test.ts src/features/studio/__tests__/guided-creation.test.tsx src/features/studio/__tests__/production-center.test.tsx src/features/studio/studio-workspace.test.tsx "--pool=forks" "--maxWorkers=2"
+
+ RUN  v4.1.10 C:/Users/Administrator/Desktop/git/new-api/web
+
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+Not implemented: HTMLMediaElement's pause() method
+
+ Test Files  4 passed (4)
+      Tests  101 passed (101)
+   Start at  04:38:16
+   Duration  51.34s (transform 8.78s, setup 1.77s, import 26.15s, tests 60.84s, environment 8.87s)

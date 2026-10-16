@@ -274,7 +274,7 @@ describe('Studio account isolation', () => {
         'Keep this unsaved edit'
       )
       expect(
-        screen.getByRole('combobox', { name: 'studio.project.select' })
+        screen.getByRole('button', { name: 'studio.project.select' })
       ).toHaveTextContent('Locale draft')
       expect(generateStudioText).not.toHaveBeenCalled()
     } finally {
@@ -483,8 +483,15 @@ describe('Studio account isolation', () => {
       )
     )
   })
-  test('a new empty project opens the five-stage workspace and story input first', async () => {
+  test('a new empty project offers three starting paths before the story form', async () => {
     render(<Studio />)
+    expect(
+      await screen.findByRole('button', { name: 'Use my own footage' })
+    ).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Browse visual templates' })
+    ).toBeVisible()
+    fireEvent.click(screen.getByRole('button', { name: 'Describe a video' }))
     expect(
       await screen.findByRole('textbox', { name: 'Tell your story' })
     ).toBeVisible()
@@ -735,6 +742,9 @@ describe('Studio account isolation', () => {
     render(<Studio />)
     fireEvent.click(
       await screen.findByRole('button', { name: 'studio.asset.title' })
+    )
+    fireEvent.click(
+      await screen.findByRole('button', { name: 'Characters and scenes' })
     )
     fireEvent.change(screen.getByLabelText('studio.asset.name'), {
       target: { value: 'Lead' },
@@ -1815,7 +1825,7 @@ describe('Studio account isolation', () => {
     const requested = createStudioProject('Requested project', 'route-a')
     saveStudioProjects(localStorage, 12, [first, requested])
     render(<Studio project='route-a' workspace='templates' />)
-    const selector = await screen.findByRole('combobox', {
+    const selector = await screen.findByRole('button', {
       name: 'studio.project.select',
     })
     await waitFor(() => expect(selector).toHaveTextContent('Requested project'))
@@ -2610,7 +2620,7 @@ describe('Studio account isolation', () => {
         user: { id: 13, username: 'two', role: 1, group: 'default' },
       },
     }))
-    await screen.findByRole('textbox', { name: 'Tell your story' })
+    await screen.findByRole('button', { name: 'Describe a video' })
     expect(screen.queryByText('studio.kind.video')).toBeNull()
     expect(
       localStorage.getItem('newapi:studio:projects:v1:user:13')
