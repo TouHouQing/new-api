@@ -44,6 +44,7 @@ import { ASSET_CATEGORY_LABELS } from "@/lib/asset-category";
 import { formatShotOrdinal } from "@/lib/shot-label";
 import { buildImageResolutionOptions, formatImageResolutionSize, supportsImageResolutionPresets } from "@/lib/image-resolution-tiers";
 import { normalizeVideoValue, videoDurationOptions, type ImageCapabilityConfig, type VideoCapabilityConfig } from "@/lib/model-capabilities";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 import { mergedImageCapabilityConfig, type ModelRequirements } from "@/lib/model-selection";
 import { imageQualityLabel } from "@/lib/image-quality";
 import { modelQuoteDescription, modelQuoteRequest } from "@/lib/model-pricing";
@@ -870,11 +871,15 @@ function DurationMenu({ profile, seconds, onChange }: { profile: VideoCapability
     const durationControl =
         profile.duration.selection === "range" ? (
             <>
-                <input className="h-8 w-full" style={{ accentColor: "var(--creation-text)" }} type="range" min={min} max={max} step={step} value={value} aria-label="视频时长（秒）" onChange={(event) => onChange(event.target.value)} />
-                <div className="flex justify-between px-0.5 text-[var(--fs-tiny)] text-[var(--creation-muted)]">
-                    <span>{min}s</span>
-                    <span>{max}s</span>
-                </div>
+                {!isNewAPIWorkbench ? (
+                    <>
+                        <input className="h-8 w-full" style={{ accentColor: "var(--creation-text)" }} type="range" min={min} max={max} step={step} value={value} aria-label="视频时长（秒）" onChange={(event) => onChange(event.target.value)} />
+                        <div className="flex justify-between px-0.5 text-[var(--fs-tiny)] text-[var(--creation-muted)]">
+                            <span>{min}s</span>
+                            <span>{max}s</span>
+                        </div>
+                    </>
+                ) : null}
                 <label className="creation-custom-value is-duration">
                     <span>自定义时长</span>
                     <span className="creation-duration-custom-field">
@@ -918,6 +923,7 @@ function DurationMenu({ profile, seconds, onChange }: { profile: VideoCapability
                         <strong>{value} 秒</strong>
                     </div>
                     {durationControl}
+                    {isNewAPIWorkbench ? <p className="text-xs text-[var(--creation-muted)]">实际可生成时长以所选模型为准。</p> : null}
                 </div>
             }
         >

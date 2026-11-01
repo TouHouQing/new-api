@@ -145,7 +145,7 @@ export default function CreatePage() {
     const [addedSkills, setAddedSkills] = useState<Skill[]>([]);
     const addedSkillsRequestedRef = useRef(false);
     const [ratio, setRatio] = useState("16:9");
-    const [seconds, setSeconds] = useState("6");
+    const [seconds, setSeconds] = useState("5");
     const [quality, setQuality] = useState("auto");
     const [imageResolution, setImageResolution] = useState("auto");
     const [imageParameters, setImageParameters] = useState("{}");

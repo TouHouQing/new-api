@@ -41,6 +41,7 @@ type WorkbenchGroupHost interface {
 
 type WorkbenchHostModel struct {
 	Key, Name, Capability, Protocol, PriceLabel string
+	Description                                 string
 	Group                                       string
 	SpendingCapMicrocredits                     int64
 	CapabilityConfig                            map[string]any
@@ -168,7 +169,7 @@ func (s *Service) workbenchModels(ctx context.Context, userID string) ([]Workben
 		if item.SpendingCapMicrocredits < 0 || item.SpendingCapMicrocredits > 5*CreditScale {
 			return nil, errors.New("invalid host model spending cap")
 		}
-		if e = s.repo.SyncWorkbenchModel(item.Key, truncateRunes(item.Name, 160), item.Capability, item.Protocol, string(raw), item.SpendingCapMicrocredits); e != nil {
+		if e = s.repo.SyncWorkbenchModel(item.Key, truncateRunes(item.Name, 160), item.Description, item.Capability, item.Protocol, string(raw), item.SpendingCapMicrocredits); e != nil {
 			return nil, e
 		}
 	}

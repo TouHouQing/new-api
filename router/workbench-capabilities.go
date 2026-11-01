@@ -16,6 +16,7 @@ import (
 	"github.com/QuantumNous/new-api/common"
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/model"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"yingce/backend/pkg/integration"
 )
@@ -118,12 +119,17 @@ func workbenchGenerationCapabilities(price model.Pricing, profiles []workbenchLo
 }
 
 func workbenchCapabilityContract(name, capability, protocol string, profiles []workbenchLocalProfile, local bool) (map[string]any, error) {
-	if !local {
+	if !local && capability != "video" {
 		return nil, nil
 	}
 	profile, err := integration.DefaultCapability(protocol, name)
 	if err != nil {
 		return nil, err
+	}
+	if !local {
+		video, _ := profile["video"].(map[string]any)
+		video["duration"] = map[string]any{"selection": "range", "min": 1, "max": relaycommon.MaxTaskDurationSeconds, "step": 1, "default": 5}
+		return profile, nil
 	}
 	var limits map[string]any
 	vision := false
@@ -183,7 +189,7 @@ func workbenchCapabilityContract(name, capability, protocol string, profiles []w
 		refs["maxImages"] = min(1, int(numberFromCapability(limits["maxReferences"])))
 		refs["maxVideos"] = 0
 		refs["maxAudios"] = 0
-		video["duration"] = map[string]any{"selection": "range", "min": 1, "max": maxSeconds, "step": 1, "default": min(3, int(maxSeconds))}
+		video["duration"] = map[string]any{"selection": "range", "min": 1, "max": maxSeconds, "step": 1, "default": min(5, int(maxSeconds))}
 		video["ratios"] = []string{"16:9", "9:16", "1:1"}
 		video["defaultRatio"] = "16:9"
 		video["resolutions"] = []string{"384p"}

@@ -25,12 +25,12 @@ func (r *Repository) SyncWorkbenchUser(id, displayName string, role model.UserRo
 	return &user, err
 }
 
-func (r *Repository) SyncWorkbenchModel(key, name, capability, protocol, profile string, spendingCap int64) error {
+func (r *Repository) SyncWorkbenchModel(key, name, description, capability, protocol, profile string, spendingCap int64) error {
 	now := time.Now()
 	channelID := "newapi-" + capability
 	cmID := "host-" + key
 	var existing model.ChannelModel
-	if err := r.db.Where("id = ?", cmID).First(&existing).Error; err == nil && existing.DisplayName == name && string(existing.Protocol) == protocol && existing.CapabilityConfigJSON == profile && existing.UnitPriceMicrocredits == spendingCap {
+	if err := r.db.Where("id = ?", cmID).First(&existing).Error; err == nil && existing.DisplayName == name && existing.Description == description && string(existing.Protocol) == protocol && existing.CapabilityConfigJSON == profile && existing.UnitPriceMicrocredits == spendingCap {
 		return nil
 	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
@@ -38,9 +38,9 @@ func (r *Repository) SyncWorkbenchModel(key, name, capability, protocol, profile
 		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, DoUpdates: clause.AssignmentColumns([]string{"enabled", "base_url", "updated_at"})}).Create(&channel).Error; err != nil {
 			return err
 		}
-		cm := model.ChannelModel{ID: cmID, ChannelID: channelID, ModelKey: key, ProviderModelKey: key, DisplayName: name, Description: "通过 New API 调用并按实际用量结算", Capability: capability, Protocol: model.ChannelInterfaceType(protocol), Enabled: true, PriceConfigured: true, PriceVersion: 1, CapabilityVersion: 1, BillingMode: "fixed_request", PriceCurrency: "credits", CapabilityConfigJSON: profile, Tags: []model.ChannelModelTag{}, CreatedAt: now, UpdatedAt: now}
+		cm := model.ChannelModel{ID: cmID, ChannelID: channelID, ModelKey: key, ProviderModelKey: key, DisplayName: name, Description: description, Capability: capability, Protocol: model.ChannelInterfaceType(protocol), Enabled: true, PriceConfigured: true, PriceVersion: 1, CapabilityVersion: 1, BillingMode: "fixed_request", PriceCurrency: "credits", CapabilityConfigJSON: profile, Tags: []model.ChannelModelTag{}, CreatedAt: now, UpdatedAt: now}
 		cm.UnitPriceMicrocredits = spendingCap
-		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, DoUpdates: clause.AssignmentColumns([]string{"display_name", "protocol", "capability_config_json", "enabled", "unit_price_microcredits", "updated_at"})}).Create(&cm).Error; err != nil {
+		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "id"}}, DoUpdates: clause.AssignmentColumns([]string{"display_name", "description", "protocol", "capability_config_json", "enabled", "unit_price_microcredits", "updated_at"})}).Create(&cm).Error; err != nil {
 			return err
 		}
 		tier := model.ChannelModelPriceTier{ID: "tier-" + key, ChannelModelID: cmID, SelectorKey: "{}", SelectorJSON: "{}", Resolution: "*", ProviderModelKey: key, BillingMode: "fixed_request", Enabled: true, PriceConfigured: true, PriceVersion: 1, CreatedAt: now, UpdatedAt: now}

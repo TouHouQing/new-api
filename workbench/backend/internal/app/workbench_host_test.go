@@ -102,7 +102,7 @@ func TestWorkbenchCatalogShowsSelectableGroupsAndRemovesRevokedModels(t *testing
 		t.Fatal(err)
 	}
 	host := &testWorkbenchHost{actor: WorkbenchHostUser{ID: "42"}, models: []WorkbenchHostModel{
-		{Key: "t-default", Name: "Qwen", Group: "default", Capability: "text", Protocol: "chat-completion"},
+		{Key: "t-default", Name: "Qwen", Description: "管理员配置的描述", Group: "default", Capability: "text", Protocol: "chat-completion"},
 		{Key: "t-vip", Name: "Qwen", Group: "vip", Capability: "text", Protocol: "chat-completion"},
 	}}
 	host.groups = []WorkbenchHostGroup{{ID: "default", Label: "default"}, {ID: "vip", Label: "vip"}, {ID: "sd2", Label: "sd2"}}
@@ -123,6 +123,9 @@ func TestWorkbenchCatalogShowsSelectableGroupsAndRemovesRevokedModels(t *testing
 	labels := map[string]bool{}
 	for _, item := range catalog.Channels[0].Models {
 		labels[item.ChannelLabel] = true
+		if item.ModelKey == "t-default" && item.Description != host.models[0].Description {
+			t.Fatal("configured host description was replaced", item.Description)
+		}
 		if item.NewAPIGroup == "" {
 			t.Fatal("host group identity is missing from model DTO")
 		}

@@ -4,7 +4,7 @@ export const VIDEO_RESOLUTION_CAPABILITY_OPTIONS = VIDEO_RESOLUTION_OPTIONS.map(
 export const VIDEO_DURATION_MIN = 1;
 
 export function normalizeVideoDuration(value: string | number | undefined) {
-    const seconds = Math.floor(Number(value) || VIDEO_DURATION_OPTIONS[0]);
+    const seconds = Math.floor(Number(value) || 5);
     return String(Math.max(VIDEO_DURATION_MIN, seconds));
 }
 
@@ -29,8 +29,14 @@ export function normalizeVideoResolutionValue(value: string | number | undefined
 }
 
 export function isVideoResolutionMatch(selected: string | undefined, target: string | undefined) {
-    const s = String(selected || "").trim().toLowerCase().replace(/p$/i, "");
-    const t = String(target || "").trim().toLowerCase().replace(/p$/i, "");
+    const s = String(selected || "")
+        .trim()
+        .toLowerCase()
+        .replace(/p$/i, "");
+    const t = String(target || "")
+        .trim()
+        .toLowerCase()
+        .replace(/p$/i, "");
     if (!s && !t) return true;
     if (s === t) return true;
     if ((s === "2k" || s === "1440") && (t === "2k" || t === "1440")) return true;
@@ -53,7 +59,7 @@ export function formatVideoResolutionLabel(value: string | number | undefined) {
     const raw = String(value || "").trim();
     if (!raw) return "";
     const normalized = normalizeVideoResolution(raw);
-    if(normalized.toLowerCase()==="original")return "原画面";
+    if (normalized.toLowerCase() === "original") return "原画面";
     if (normalized === "1440" || normalized.toLowerCase() === "2k") return "2K";
     if (normalized === "2160" || normalized.toLowerCase() === "4k") return "4K";
     if (/^\d+$/.test(normalized)) return `${normalized}P`;

@@ -1,4 +1,4 @@
-import { App, Button } from "antd";
+import { App, Button, InputNumber } from "antd";
 import { Clapperboard, Image as ImageIcon, RotateCcw } from "lucide-react";
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent } from "react";
 import { useNavigate, useSearchParams } from "react-router";
@@ -16,6 +16,7 @@ import { imageQualityLabel } from "@/lib/image-quality";
 import { imageResolutionUsesQuality } from "@/lib/image-size-presets";
 import { modelCapabilityConfigFor, normalizeImageValue, normalizeVideoValue } from "@/lib/model-capabilities";
 import { modelQuoteRequest, requestCreditCost } from "@/lib/model-pricing";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 import { creationVideoConfig } from "@/pages/create/creation-generation-config";
 import { resolveBrowserMediaDownloadHref, startBrowserDownload } from "@/services/browser-download";
 import { prepareBackendGenerationTask } from "@/services/api/generation-task";
@@ -197,7 +198,7 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
     const [quality, setQuality] = useState("auto");
     const [imageResolution, setImageResolution] = useState("auto");
     const [count, setCount] = useState(1);
-    const [seconds, setSeconds] = useState("6");
+    const [seconds, setSeconds] = useState("5");
     const [videoQuality, setVideoQuality] = useState("720");
 
     const [tasks, setTasks] = useState<GenerationTask[]>([]);
@@ -899,7 +900,7 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
         setRatio(kind === "image" ? imageProfile?.size.default || "1:1" : videoProfile?.defaultRatio || "16:9");
         setQuality(imageProfile?.quality.default || "auto");
         setImageResolution(imageProfile?.resolution.default || "auto");
-        setSeconds(String(videoProfile?.duration.default || 6));
+        setSeconds(String(videoProfile?.duration.default || 5));
         setVideoQuality((videoProfile?.defaultResolution || "720p").replace(/p$/i, ""));
         const params = new URLSearchParams(searchParams);
         params.delete("tool");
@@ -1359,12 +1360,16 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
               ? `并行提交 ${requestedCount} 个任务，每条独立生成`
               : `最多 ${batchLimit} 条`;
     const limitHint = requestedCount >= batchLimit && batchLimit < (kind === "image" ? 12 : 8) ? `账号同时最多 ${activeTaskLimit} 个任务` : "";
-    const durationOptions = videoProfile
-        ? (videoProfile.duration.selection === "enum"
-              ? videoProfile.duration.values || []
-              : Array.from({ length: Math.floor(((videoProfile.duration.max || 15) - (videoProfile.duration.min || 1)) / (videoProfile.duration.step || 1)) + 1 }, (_, index) => (videoProfile.duration.min || 1) + index * (videoProfile.duration.step || 1))
-          ).map((value) => ({ value: String(value), label: `${value} 秒` }))
-        : [];
+    const durationOptions =
+        videoProfile && !isNewAPIWorkbench
+            ? (videoProfile.duration.selection === "enum"
+                  ? videoProfile.duration.values || []
+                  : Array.from(
+                        { length: Math.floor(((videoProfile.duration.max || 15) - (videoProfile.duration.min || 1)) / (videoProfile.duration.step || 1)) + 1 },
+                        (_, index) => (videoProfile.duration.min || 1) + index * (videoProfile.duration.step || 1),
+                    )
+              ).map((value) => ({ value: String(value), label: `${value} 秒` }))
+            : [];
     const bothKinds = features.imageWorkbenchEnabled && features.videoWorkbenchEnabled;
     const galleryCount = galleryBatches.reduce((sum, batch) => sum + batch.outputs.length, 0);
 
@@ -1386,7 +1391,23 @@ export function WorkbenchPage({ kind }: { kind: WorkbenchKind }) {
             </>
         ) : videoProfile ? (
             <>
-                {videoProfile.durationSupported !== false && durationOptions.length ? (
+                {videoProfile.durationSupported !== false && isNewAPIWorkbench ? (
+                    <ComposerSection title="时长（秒）">
+                        <InputNumber
+                            aria-label="视频时长（秒）"
+                            min={videoProfile.duration.min || 1}
+                            max={videoProfile.duration.max}
+                            step={videoProfile.duration.step || 1}
+                            precision={0}
+                            value={Number(seconds)}
+                            onChange={(value) => {
+                                if (value === null) return;
+                                setSeconds(String(value));
+                                rememberVideoSettings({ seconds: String(value) });
+                            }}
+                        />
+                    </ComposerSection>
+                ) : videoProfile.durationSupported !== false && durationOptions.length ? (
                     <ChoiceChips
                         label="时长"
                         value={seconds}

@@ -99,6 +99,26 @@ func resolveModelMetadata(records []Model, names []string) map[string]*Model {
 	return resolved
 }
 
+// GetModelDescriptions uses the catalog's exact and pattern rule precedence,
+// including configured metadata that is hidden from the public pricing page.
+func GetModelDescriptions(names []string) (map[string]string, error) {
+	descriptions := make(map[string]string, len(names))
+	if len(names) == 0 {
+		return descriptions, nil
+	}
+	var records []Model
+	if err := DB.Find(&records).Error; err != nil {
+		return nil, err
+	}
+	metadata := resolveModelMetadata(records, names)
+	for _, name := range names {
+		if item := metadata[name]; item != nil {
+			descriptions[name] = item.Description
+		}
+	}
+	return descriptions, nil
+}
+
 // FillModelSquareStates applies the same metadata policy as the public catalog
 // to live routes, then aggregates concrete models for metadata rule rows.
 func FillModelSquareStates(rows []*Model, configured map[string][]int, connections []ModelConnection) error {

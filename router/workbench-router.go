@@ -344,6 +344,14 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 	for _, price := range model.GetPricing() {
 		prices[price.ModelName] = price
 	}
+	groupIDs := make([]string, 0, len(groups))
+	for _, group := range groups {
+		groupIDs = append(groupIDs, group.ID)
+	}
+	descriptions, err := model.GetModelDescriptions(service.GetGroupsEnabledModels(groupIDs))
+	if err != nil {
+		return nil, err
+	}
 	items := make([]integration.Model, 0)
 	profiles, profileErr := workbenchLocalProfiles(ctx)
 	localModels := make(map[string]bool)
@@ -404,7 +412,7 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 				} else {
 					label += "；单次费用上限 $5"
 				}
-				items = append(items, integration.Model{Key: workbenchGroupModelKey(name, capability, group), Group: group, Name: name, Capability: capability, Protocol: protocol, PriceLabel: label, SpendingCapMicrocredits: cap, CapabilityConfig: contract})
+				items = append(items, integration.Model{Key: workbenchGroupModelKey(name, capability, group), Group: group, Name: name, Description: descriptions[name], Capability: capability, Protocol: protocol, PriceLabel: label, SpendingCapMicrocredits: cap, CapabilityConfig: contract})
 			}
 		}
 	}

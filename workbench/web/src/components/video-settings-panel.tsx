@@ -8,6 +8,7 @@ import { type CanvasTheme } from "@/lib/canvas-theme";
 import { formatVideoResolutionLabel, isVideoResolutionMatch, normalizeVideoDuration, videoDimensionsForRatioAndResolution, videoResolutionComparisonKey, VIDEO_DURATION_MIN } from "@/lib/video-generation-options";
 import { modelCapabilityConfigFor, resolveVideoRatioValue, resolveVideoResolutionValue, videoDurationOptions, type VideoCapabilityConfig } from "@/lib/model-capabilities";
 import { modelOptionName, resolveModelChannel, resolveModelRequestConfig, type AiConfig } from "@/stores/use-config-store";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 
 const sizeOptions = [
     { value: "1280x720", label: "横屏", width: 1280, height: 720 },
@@ -308,6 +309,9 @@ function VideoDurationControl({ profile, value, theme, disabled, onChange }: { p
         const max = Math.max(min, profile.duration.max || min);
         const step = Math.max(1, profile.duration.step || 1);
         const normalized = normalizeDurationValue(value, profile.duration.default, min, max, step);
+        if (isNewAPIWorkbench) {
+            return <DurationInput value={normalized} min={min} max={max} theme={theme} onChange={(next) => !disabled?.(next) && onChange(next)} />;
+        }
         return (
             <DurationRangeControl
                 value={normalized}

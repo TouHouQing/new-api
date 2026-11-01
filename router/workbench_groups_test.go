@@ -51,6 +51,7 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	user := model.User{Id: 77001, Username: "host-group-regression", Password: "unused", Group: "default", Status: common.UserStatusEnabled}
 	require.NoError(t, db.Create(&user).Error)
 	require.NoError(t, db.Create(&model.Channel{Id: 771, Type: constant.ChannelTypeOpenAI, Name: "test", Status: common.ChannelStatusEnabled}).Error)
+	require.NoError(t, db.Create(&model.Model{ModelName: "gpt-4o", Description: "管理员配置的文本模型描述", Status: 1}).Error)
 	require.NoError(t, db.Create(&[]model.Ability{
 		{Group: "default", Model: "gpt-4o", ChannelId: 771, Enabled: true},
 		{Group: "vip", Model: "gpt-4o", ChannelId: 771, Enabled: true},
@@ -65,6 +66,8 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	require.NotEqual(t, models[0].Key, models[1].Key)
 	require.NotEqual(t, models[0].PriceLabel, models[1].PriceLabel)
 	require.Equal(t, workbenchModelKey("gpt-4o", "text"), models[0].Key)
+	require.Equal(t, "管理员配置的文本模型描述", models[0].Description)
+	require.Equal(t, models[0].Description, models[1].Description)
 	groups, err := (newAPIWorkbenchHost{}).Groups(context.Background(), "77001")
 	require.NoError(t, err)
 	var groupIDs []string
@@ -77,7 +80,7 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(previousPrices)) })
 	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"sd4-seedance2.0fast-720p":0}`))
 	require.NoError(t, db.Create(&model.Ability{Group: "sd2", Model: "sd4-seedance2.0fast-720p", ChannelId: 771, Enabled: true}).Error)
-	require.NoError(t, db.Create(&model.Model{ModelName: "sd4-seedance2.0fast-720p", Status: 2}).Error)
+	require.NoError(t, db.Create(&model.Model{ModelName: "sd4-seedance2.0fast-720p", Description: "公开价格目录隐藏的模型描述", Status: 2}).Error)
 	model.InvalidatePricingCache()
 	for _, price := range model.GetPricing() {
 		require.NotEqual(t, "sd4-seedance2.0fast-720p", price.ModelName, "fixture hides this model from the public price list")
@@ -91,6 +94,10 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 			require.Equal(t, "video", item.Capability)
 			require.Equal(t, "newapi", item.Protocol)
 			require.Equal(t, "sd2", item.Group)
+			require.Equal(t, "公开价格目录隐藏的模型描述", item.Description)
+			duration := item.CapabilityConfig["video"].(map[string]any)["duration"].(map[string]any)
+			require.Equal(t, 5, duration["default"])
+			require.Greater(t, duration["max"].(int), 15)
 		}
 	}
 	require.Equal(t, 1, legacyVideos, "legacy video SKU must reach the selectable group catalog")

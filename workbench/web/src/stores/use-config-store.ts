@@ -217,7 +217,7 @@ export const defaultConfig: AiConfig = {
     audioEmotionMelancholic: "0",
     audioEmotionSurprised: "0",
     audioEmotionCalm: "0",
-    videoSeconds: "6",
+    videoSeconds: "5",
     vquality: "720",
     videoGenerateAudio: "true",
     videoWatermark: "false",
