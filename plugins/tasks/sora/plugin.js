@@ -7,7 +7,7 @@ export const meta = {
     en: "OpenAI Sora video generation (text-to-video, image-to-video, and remix)",
     zh: "OpenAI Sora 视频生成（文生视频、图生视频、remix）",
   },
-  version: "1.1.0",
+  version: "1.2.0",
   channelTypes: [55, 1], // OpenAI-type channels natively serve sora with the same wire format
   author: { name: "QuantumNous" },
   models: ["sora-2", "sora-2-pro"],
@@ -21,9 +21,10 @@ export const meta = {
       unit: "second",
       description: { en: "Video generation unit price", zh: "视频生成单价" },
     },
-    // Requested output video dimensions.
+    // OpenAI-compatible gateways also use aspect ratios in size, with an
+    // independent resolution field. Keep both wire forms valid before billing.
     size: {
-      enum: ["720x1280", "1280x720", "1792x1024", "1024x1792"],
+      enum: ["720x1280", "1280x720", "1792x1024", "1024x1792", "16:9", "9:16", "1:1", "4:3", "3:4", "21:9"],
       enumLabels: {
         "720x1280": { en: "720x1280", zh: "720x1280" },
         "1280x720": { en: "1280x720", zh: "1280x720" },
@@ -89,6 +90,9 @@ function responsesVideoText(ctx) {
 function requestValues(req, model) {
   const values = Object.assign({}, req || {});
   values.model = model;
+  // The legacy multipart DTO can derive duration from seconds. Send one
+  // canonical duration field rather than two equivalent upstream parameters.
+  if (values.seconds !== undefined) delete values.duration;
   return values;
 }
 
@@ -121,7 +125,9 @@ export function parseSubmitResponse(ctx, resp) {
   const body = resp.body || {};
   const taskId = body.id || body.task_id;
   if (!taskId) throw new Error("task_id is empty");
-  return { taskId, taskData: body };
+  const size = trimmed((ctx.requestBody || {}).size);
+  const publicVideoURL = meta.usageSchema.size.enum.includes(size) && size.includes(":");
+  return { taskId, taskData: body, state: { publicVideoURL } };
 }
 
 export function extractUsage(ctx) {
@@ -137,7 +143,7 @@ export function extractUsageOnComplete(task, taskResult, body) {
   const seconds = Number((body || {}).seconds || (body || {}).duration || 0);
   if (Number.isFinite(seconds) && seconds > 0) facts.seconds = Math.min(seconds, 3600);
   const size = trimmed((body || {}).size);
-  if (["720x1280", "1280x720", "1792x1024", "1024x1792"].includes(size)) facts.size = size;
+  if (meta.usageSchema.size.enum.includes(size)) facts.size = size;
   return facts;
 }
 
@@ -157,10 +163,23 @@ export function parseTaskResult(ctx, body) {
   };
   const mapped = statuses[body.status];
   const result = { status: mapped || "UNKNOWN" };
+  if (result.status === "SUCCESS" && ctx.state && ctx.state.publicVideoURL && !videoResultURL(body)) result.status = "IN_PROGRESS";
   if (!mapped) result.reason = "unrecognized status: " + String(body.status || "");
   if (body.progress > 0 && body.progress < 100) result.progress = body.progress + "%";
   if (result.status === "FAILURE") result.reason = body.error && body.error.message ? body.error.message : "task failed";
   return result;
+}
+
+function videoResultURL(body) {
+  if (!body || typeof body !== "object") return "";
+  for (const item of [body, body.data, body.result, body.video, body.output, (body.data || {}).result]) {
+    if (!item || typeof item !== "object") continue;
+    for (const key of ["url", "video_url", "videoUrl", "result_url", "resultUrl"]) {
+      const value = trimmed(item[key]);
+      if (/^https?:\/\//.test(value)) return value;
+    }
+  }
+  return "";
 }
 
 export function listArtifacts(task) {

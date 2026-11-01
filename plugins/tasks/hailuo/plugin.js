@@ -345,7 +345,8 @@ function h3HasVisualContent(content) {
 // aspect ratio can be inherited from a visual input.
 function h3Ratio(req, content) {
   const metadata = req.metadata || {};
-  const ratio = trimmed(metadata.ratio);
+  const size = trimmed(req.size);
+  const ratio = trimmed(metadata.ratio) || (H3_RATIOS.includes(size) ? size : "");
   if (!ratio) return h3HasVisualContent(content) ? "adaptive" : "16:9";
   if (!H3_RATIOS.includes(ratio)) throw new Error(H3_MODEL + " ratio must be one of " + H3_RATIOS.join(", "));
   if (ratio === "adaptive" && !h3HasVisualContent(content)) throw new Error(H3_MODEL + " ratio adaptive requires an image or video input");
@@ -771,6 +772,7 @@ protocols.openai_video = {
     const duration = req.duration === undefined ? undefined : Number(req.duration);
     const comboModel = ctx.upstreamModel || ctx.model;
     validateHailuoCombo(comboModel, duration, outboundResolution(req, comboModel), hasImage);
+    if (req.resolution !== undefined) req.resolution = outboundResolution(req, comboModel);
     return {
       kind: "submit",
       model: ctx.model,

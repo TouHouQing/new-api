@@ -299,6 +299,17 @@ func (a *TaskAdaptor) BuildRequestBody(c *gin.Context, info *relaycommon.RelayIn
 		if err = writer.Close(); err != nil {
 			return nil, err
 		}
+		if descriptor.Headers == nil {
+			descriptor.Headers = make(map[string]string)
+		}
+		for name := range descriptor.Headers {
+			if strings.EqualFold(name, "Content-Type") {
+				delete(descriptor.Headers, name)
+			}
+		}
+		// The rebuilt body has a new boundary. BuildRequestHeader forwards the
+		// descriptor headers, so it must use the matching generated content type.
+		descriptor.Headers["Content-Type"] = writer.FormDataContentType()
 		c.Request.Header.Set("Content-Type", writer.FormDataContentType())
 		return bytes.NewReader(body.Bytes()), nil
 	}

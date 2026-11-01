@@ -39,6 +39,12 @@ type WorkbenchGroupHost interface {
 	Groups(context.Context, string) ([]WorkbenchHostGroup, error)
 }
 
+// The embedding application supplies its configured canonical origin. Never
+// infer media origins from client-controlled Host or forwarded headers.
+type WorkbenchResourceHost interface {
+	PublicBaseURL() string
+}
+
 type WorkbenchHostModel struct {
 	Key, Name, Capability, Protocol, PriceLabel string
 	Description                                 string

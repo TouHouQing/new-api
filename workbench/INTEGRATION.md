@@ -25,6 +25,8 @@ OpenAI 兼容渠道在 New API 价格目录中可能只声明通用 `openai` 端
 
 部署继续配置 New API 的 Session 密钥、HTTPS、可信来源、管理员和模型渠道。内置工作台不提供第二套注册或支付入口。Node 镜像仓库可通过 `STUDIO_NODE_BUILD_IMAGE` 指定可信镜像源；默认使用官方 Node 22.19 bookworm slim。镜像构建排除本地数据、账号文件、缓存、媒体输出和开发机依赖。
 
+本地存储的参考素材自动沿用 New API 配置的服务器地址签发限时链接，无须重复设置 `CANVAS_PUBLIC_BASE_URL`；显式的工作台存储访问地址和环境配置仍优先。站点服务器地址应为模型能访问的公网 HTTPS 根地址。单张本地参考图直接使用一个 `input_reference` 文件字段；多张图片及音视频参考使用完整的签名 HTTPS URL 数组，保留资源归属、有效期和签名校验。
+
 Docker 构建使用临时内存目录存放工作台依赖和 Go 编译缓存，建议为构建器提供至少 8 GB 可用内存；内存紧张时可用 `--build-arg GO_BUILD_PROCS=1` 降低编译并行数。`NPM_REGISTRY` 构建参数同时用于前端和 Agent 依赖安装，保留锁文件及完整性校验。
 
 ## 模型与计费

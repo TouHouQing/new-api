@@ -58,6 +58,9 @@ func asyncPollTransientRetries() int {
 }
 
 func runProtocolAdapterTaskWithPolicy(ctx context.Context, input canvasGenerationInput, adapter protocol.Adapter, policy videoPollPolicy) (map[string]interface{}, error) {
+	if input.Mode == "video" && isWorkbenchVideoConfig(ctx, input.Config) {
+		adapter = workbenchVideoAdapter{adapter}
+	}
 	// create、poll、download 是同一个外部任务的三个阶段：任一阶段失败都向上返回真实错误，
 	// 不把“已提交但结果未知”伪装成成功，也不把下载失败降级成空结果。
 	request := protocolRequestFromInput(input)
@@ -215,6 +218,9 @@ func extractProviderTaskID(body []byte) (string, error) {
 // queryProtocolAdapterVideoTask 只读取一次已有的声明式 Provider 任务。
 // 人工恢复走此路径，因此检查本地失败任务时绝不会创建第二个计费任务。
 func queryProtocolAdapterVideoTask(ctx context.Context, input canvasGenerationInput, adapter protocol.Adapter, taskID string) (map[string]interface{}, string, error) {
+	if isWorkbenchVideoConfig(ctx, input.Config) {
+		adapter = workbenchVideoAdapter{adapter}
+	}
 	request := protocolRequestFromInput(input)
 	pollContext := protocol.PollContext{BaseURL: input.Config.BaseURL, Model: request.Model, Request: request, TaskID: taskID}
 	spec, err := adapter.BuildPoll(ctx, pollContext)

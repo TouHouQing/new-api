@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -14,6 +15,9 @@ import (
 	"github.com/QuantumNous/new-api/constant"
 	"github.com/QuantumNous/new-api/i18n"
 	"github.com/QuantumNous/new-api/model"
+	pluginruntime "github.com/QuantumNous/new-api/pkg/jsplugin"
+	taskplugin "github.com/QuantumNous/new-api/relay/channel/task/jsplugin"
+	relaycommon "github.com/QuantumNous/new-api/relay/common"
 	"github.com/QuantumNous/new-api/service"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
@@ -177,7 +181,7 @@ func TestWorkbenchCatalogUsesVerifiedLocalCapabilities(t *testing.T) {
 }
 
 func TestWorkbenchCatalogRecognizesLegacyVideoSKUsOnOpenAIChannels(t *testing.T) {
-	for _, name := range []string{"wan3.0", "xw-wan-3.0-1080p", "wan3.0-video-720p", "sd4-seedance2.0fast-720p", "特价seedance-2.5-720p", "at2-seedance-2.5-480p", "sora-2", "veo3.1", "MiniMax-H3"} {
+	for _, name := range []string{"wan3.0", "xw-wan-3.0-1080p", "wan3.0-video-720p", "sd4-seedance2.0fast-720p", "特价seedance-2.5-720p", "at2-seedance-2.5-480p", "sora-2", "veo3.1", "MiniMax-H3", "TTseadanco2.5-480", "nsfw-2.0-2k", "grok-imagine-video", "grok-imagine-video-1.5"} {
 		t.Run(name, func(t *testing.T) {
 			price := model.Pricing{ModelName: name, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI}}
 			require.Equal(t, []string{"video"}, workbenchGenerationCapabilities(price, nil, false))
@@ -196,6 +200,150 @@ func TestWorkbenchCatalogRecognizesLegacyVideoSKUsOnOpenAIChannels(t *testing.T)
 		price := model.Pricing{ModelName: name, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI}}
 		require.Equal(t, []string{"text"}, workbenchGenerationCapabilities(price, nil, false))
 	}
+}
+
+func TestWorkbenchVideoSKUsUseTheirResolutionAndFixedDuration(t *testing.T) {
+	for _, tc := range []struct{ name, resolution string }{
+		{"sd4-seedance2.0-1080p", "1080p"}, {"at-seedance-2.0-4k", "4k"},
+		{"wan-3.0-720p", "720p"}, {"at2-seedance-2.5-480p", "480p"},
+		{"nsfw-2.0-768p", "768p"}, {"TTseadanco2.5-480", "480p"},
+		{"nsfw-2.0-2k", "2k"}, {"TTseadanco2.5-720", "720p"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			contract, err := workbenchCapabilityContract(tc.name, "video", "newapi", nil, false)
+			require.NoError(t, err)
+			video := contract["video"].(map[string]any)
+			assert.Equal(t, []string{tc.resolution}, video["resolutions"])
+			assert.Equal(t, tc.resolution, video["defaultResolution"])
+			assert.Equal(t, 5, video["duration"].(map[string]any)["default"])
+		})
+	}
+	contract, err := workbenchCapabilityContract("特价seedance-2.5-720p", "video", "newapi", nil, false)
+	require.NoError(t, err)
+	duration := contract["video"].(map[string]any)["duration"].(map[string]any)
+	assert.Equal(t, []int{30}, duration["values"])
+	assert.Equal(t, 30, duration["default"])
+	h3, err := workbenchCapabilityContract("MiniMax-H3", "video", "newapi", nil, false)
+	require.NoError(t, err)
+	assert.Equal(t, "768p", h3["video"].(map[string]any)["defaultResolution"])
+}
+
+func TestWorkbenchVideoRequestPassesGatewayPluginValidation(t *testing.T) {
+	source, err := os.ReadFile("../plugins/tasks/sora/plugin.js")
+	require.NoError(t, err)
+	plugin, err := pluginruntime.NewRegistry().Register(string(source), pluginruntime.Options{})
+	require.NoError(t, err)
+	for _, tc := range []struct {
+		size, seconds string
+		valid         bool
+	}{
+		{"16:9", "5", true}, {"9:16", "30", true}, {"1:1", "5", true},
+		{"4:3", "5", true}, {"3:4", "5", true}, {"21:9", "5", true},
+		{"1280x720", "5", true}, {"1792x1024", "8", true},
+		{"999999x999999", "5", false}, {"16:9", "3601", false},
+		{"16:9", "-5", false}, {"16:9", "NaN", false},
+	} {
+		t.Run(tc.size+"/"+tc.seconds, func(t *testing.T) {
+			info := &relaycommon.RelayInfo{ChannelMeta: &relaycommon.ChannelMeta{ChannelBaseUrl: "https://supplier.example", ApiKey: "unused"}, OriginModelName: "sd4-seedance2.0-1080p", TaskRelayInfo: &relaycommon.TaskRelayInfo{PublicTaskID: "task_fixture"}}
+			info.UpstreamModelName = info.OriginModelName
+			adapter := taskplugin.New(plugin)
+			adapter.Init(info)
+			ctx, _ := gin.CreateTestContext(httptest.NewRecorder())
+			payload := map[string]any{"model": info.OriginModelName, "prompt": "fixture", "seconds": tc.seconds, "size": tc.size, "resolution": "1080p", "images": []any{"https://media.example/ref.png"}, "reference_videos": []any{"https://media.example/ref.mp4"}, "reference_audios": []any{"https://media.example/ref.wav"}}
+			encoded, err := common.Marshal(payload)
+			require.NoError(t, err)
+			ctx.Request = httptest.NewRequest(http.MethodPost, "/v1/videos", strings.NewReader(string(encoded)))
+			ctx.Request.Header.Set("Content-Type", "application/json")
+			taskErr := adapter.ValidateRequestAndSetAction(ctx, info)
+			if !tc.valid {
+				require.NotNil(t, taskErr)
+				return
+			}
+			require.Nil(t, taskErr, "a documented THQ ratio must reach the channel")
+			_, err = adapter.ExtractUsageFactsValidated(ctx, info)
+			require.NoError(t, err)
+			reader, err := adapter.BuildRequestBody(ctx, info)
+			require.NoError(t, err)
+			var upstream map[string]any
+			require.NoError(t, common.DecodeJson(reader, &upstream))
+			assert.Equal(t, payload, upstream, "keep seconds string, ratio, resolution and all media intact")
+			uri, err := adapter.BuildRequestURL(info)
+			require.NoError(t, err)
+			assert.True(t, strings.HasSuffix(uri, "/v1/videos"))
+		})
+	}
+	created, err := plugin.Engine.Call(context.Background(), "parseSubmitResponse", map[string]any{"requestBody": map[string]any{"size": "16:9"}}, map[string]any{"body": map[string]any{"id": "task_original", "status": "queued"}})
+	require.NoError(t, err)
+	state := created.(map[string]any)["state"]
+	form, err := plugin.Engine.Call(context.Background(), "buildSubmitRequest", map[string]any{
+		"baseUrl": "https://supplier.example", "upstreamModel": "wan3.0",
+		"requestBody": map[string]any{"prompt": "fixture", "seconds": "5", "duration": 5, "resolution": "720p"},
+		"files":       []any{map[string]any{"field": "input_reference", "ref": "request_file:input_reference", "filename": "reference.png"}},
+	})
+	require.NoError(t, err)
+	for _, part := range form.(map[string]any)["parts"].([]any) {
+		assert.NotEqual(t, "duration", part.(map[string]any)["name"], "multipart must not duplicate seconds through an alias")
+	}
+	for _, tc := range []struct {
+		state any
+		body  map[string]any
+		want  string
+	}{
+		{state, map[string]any{"status": "completed"}, "IN_PROGRESS"},
+		{state, map[string]any{"status": "completed", "url": "https://media.example/out.mp4"}, "SUCCESS"},
+		{nil, map[string]any{"status": "completed"}, "SUCCESS"},
+	} {
+		value, err := plugin.Engine.Call(context.Background(), "parseTaskResult", map[string]any{"state": tc.state}, tc.body)
+		require.NoError(t, err)
+		assert.Equal(t, tc.want, value.(map[string]any)["status"])
+	}
+}
+
+func TestWorkbenchVideoReceiptProjectsOnlyACompletedMediaURL(t *testing.T) {
+	body := []byte(`{"id":"task_owned","status":"completed","custom":"preserved"}`)
+	for _, tc := range []struct {
+		status model.TaskStatus
+		url    string
+		want   bool
+	}{
+		{model.TaskStatusSuccess, "https://cdn.example/video.mp4", true},
+		{model.TaskStatusInProgress, "https://cdn.example/video.mp4", false},
+		{model.TaskStatusSuccess, "data:video/mp4;base64,private", false},
+		{model.TaskStatusSuccess, "https://secret:password@cdn.example/video.mp4", false},
+	} {
+		receipt := &model.Task{Status: tc.status, PrivateData: model.TaskPrivateData{Key: "never-expose-provider-key", ResultURL: tc.url}}
+		result := workbenchVideoReceiptResponse(body, receipt)
+		var response map[string]any
+		require.NoError(t, common.Unmarshal(result, &response))
+		assert.Equal(t, "task_owned", response["id"])
+		assert.Equal(t, "preserved", response["custom"])
+		assert.NotContains(t, string(result), receipt.PrivateData.Key)
+		if tc.want {
+			assert.Equal(t, tc.url, response["url"])
+		} else {
+			assert.NotContains(t, response, "url")
+		}
+	}
+}
+
+func TestWorkbenchH3PreservesRatioAndUsesNativeResolution(t *testing.T) {
+	source, err := os.ReadFile("../plugins/tasks/hailuo/plugin.js")
+	require.NoError(t, err)
+	plugin, err := pluginruntime.NewRegistry().Register(string(source), pluginruntime.Options{})
+	require.NoError(t, err)
+	decoded, err := plugin.Engine.CallPath(context.Background(), "protocols", []string{"openai_video", "decodeRequest"}, map[string]any{"model": "MiniMax-H3", "body": map[string]any{"kind": "json", "value": map[string]any{"model": "MiniMax-H3", "prompt": "fixture", "size": "9:16", "seconds": "5", "resolution": "768p"}}})
+	require.NoError(t, err)
+	canonical := decoded.(map[string]any)["requestBody"].(map[string]any)
+	assert.Equal(t, "768P", canonical["resolution"], "normalize before plugin usage enum validation")
+	value, err := plugin.Engine.Call(context.Background(), "buildSubmitRequest", map[string]any{
+		"upstreamModel": "MiniMax-H3", "baseUrl": "https://supplier.example", "apiKey": "unused",
+		"requestBody": map[string]any{"prompt": "fixture", "size": "9:16", "seconds": "5", "resolution": "768p"},
+	})
+	require.NoError(t, err)
+	body := value.(map[string]any)["body"].(map[string]any)
+	assert.Equal(t, "9:16", body["ratio"])
+	assert.Equal(t, "768P", body["resolution"])
+	assert.EqualValues(t, 5, body["duration"])
 }
 
 func TestWorkbenchTextContextUsesBoundedRuntimeCapabilities(t *testing.T) {

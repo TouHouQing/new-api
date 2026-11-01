@@ -26,6 +26,7 @@ import (
 	"github.com/QuantumNous/new-api/service"
 	"github.com/QuantumNous/new-api/setting/billing_setting"
 	"github.com/QuantumNous/new-api/setting/ratio_setting"
+	"github.com/QuantumNous/new-api/setting/system_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
@@ -46,6 +47,8 @@ type workbenchRelayGrant struct {
 }
 type workbenchRelayGrantKey struct{}
 type newAPIWorkbenchHost struct{}
+
+func (newAPIWorkbenchHost) PublicBaseURL() string { return system_setting.ServerAddress }
 
 func InitializeWorkbench() error {
 	if os.Getenv("WORKBENCH_ENABLED") == "false" {
@@ -523,6 +526,7 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 	if selected != nil {
 		request.Header.Set("X-Studio-Group", selected.Group)
 	}
+	var videoReceipt *model.Task
 	if request.Method == http.MethodGet {
 		parts := strings.Split(strings.Trim(request.URL.Path, "/"), "/")
 		if len(parts) < 3 || parts[0] != "v1" || (parts[1] != "videos" && parts[1] != "tasks") {
@@ -531,6 +535,9 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 		owned, exists, err := model.GetByTaskId(n, parts[2])
 		if err != nil || !exists || owned.PrivateData.StudioWorkflowID != job.ID {
 			return nil, errors.New("generation receipt is not owned by this workbench task")
+		}
+		if parts[1] == "videos" && len(parts) == 3 {
+			videoReceipt = owned
 		}
 	}
 	requestID := uuid.NewSHA1(uuid.NameSpaceOID, []byte(job.ID+":"+request.Method+":"+request.URL.Path)).String()
@@ -621,6 +628,12 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 	}
 	writer := &studioRelayRecorder{header: make(http.Header)}
 	studioPrivateRelay.ServeHTTP(writer, request)
+	if videoReceipt != nil && writer.status == http.StatusOK {
+		body := workbenchVideoReceiptResponse(writer.body.Bytes(), videoReceipt)
+		writer.body.Reset()
+		_, _ = writer.body.Write(body)
+		writer.header.Del("Content-Length")
+	}
 	if request.Method == http.MethodPost && writer.status >= 200 && writer.status < 300 {
 		var receipt struct {
 			ID string `json:"id"`

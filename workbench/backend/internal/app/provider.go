@@ -315,6 +315,13 @@ type providerMediaHydrationPolicy struct {
 }
 
 func providerMediaHydrationPolicyFor(ctx context.Context, input canvasGenerationInput) providerMediaHydrationPolicy {
+	if input.Mode == "video" && isWorkbenchVideoConfig(ctx, input.Config) {
+		publicURLs := len(input.ReferenceImages) > 1 || len(input.ReferenceVideos) > 0 || len(input.ReferenceAudios) > 0
+		if publicURLs {
+			return providerMediaHydrationPolicy{requireURL: true, preferURL: true}
+		}
+		return providerMediaHydrationPolicy{imageOnly: true}
+	}
 	if protocol.IsLocal(strings.TrimSpace(input.Config.InterfaceType)) {
 		if input.Config.InterfaceType == protocol.LocalLipSync {
 			return providerMediaHydrationPolicy{ownedBytes: true, maxBytes: 24 * 1024 * 1024}

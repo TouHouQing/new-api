@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/url"
 	"os"
 	"regexp"
 	"slices"
@@ -32,7 +33,8 @@ type workbenchLocalProfile struct {
 // OpenAI-compatible channels default to the chat endpoint in the pricing
 // catalog, including legacy video SKUs. Match known video families only;
 // explicit image/video endpoints and verified local capabilities take priority.
-var workbenchVideoModelName = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])(?:wanx?[-_.]?[0-9]|seedance[-_.]?[0-9]|sora[-_.]?[0-9]|veo[-_.]?[0-9]|kling[-_.]?[0-9]|hunyuan[-_]?video|minimax[-_]?h[0-9]|hailuo[-_.]?[0-9])`)
+var workbenchVideoModelName = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])(?:wanx?[-_.]?[0-9]|seedance[-_.]?[0-9]|ttseadanco[-_.]?[0-9]|nsfw[-_]2\.0(?:[-_]|$)|grok[-_]imagine[-_]video(?:[-_]|$)|sora[-_.]?[0-9]|veo[-_.]?[0-9]|kling[-_.]?[0-9]|hunyuan[-_]?video|minimax[-_]?h[0-9]|hailuo[-_.]?[0-9])`)
+var workbenchVideoResolutionSuffix = regexp.MustCompile(`(?i)[-_](480p|720p|768p|1080p|2k|4k)$`)
 var workbenchImageModelName = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])(?:seedream[-_.]?[0-9]|gpt[-_]?image|dall[-_]?e(?:[-_]|$)|flux(?:[-_.]|$)|imagen[-_.]?[0-9])`)
 
 func workbenchResponsesOnly(price model.Pricing) bool {
@@ -107,6 +109,9 @@ func workbenchGenerationCapabilities(price model.Pricing, profiles []workbenchLo
 			return []string{"image"}
 		}
 	}
+	if workbenchResponsesOnly(price) {
+		return []string{"text"}
+	}
 	if strings.Contains(strings.ToLower(price.ModelName), "tts") || strings.HasPrefix(price.ModelName, "chatterbox-") {
 		return []string{"audio"}
 	}
@@ -129,6 +134,25 @@ func workbenchCapabilityContract(name, capability, protocol string, profiles []w
 	if !local {
 		video, _ := profile["video"].(map[string]any)
 		video["duration"] = map[string]any{"selection": "range", "min": 1, "max": relaycommon.MaxTaskDurationSeconds, "step": 1, "default": 5}
+		// Resolution-specific SKUs must not inherit a different generic default.
+		if suffix := workbenchVideoResolutionSuffix.FindStringSubmatch(name); len(suffix) == 2 {
+			resolution := strings.ToLower(suffix[1])
+			video["resolutions"] = []string{resolution}
+			video["defaultResolution"] = resolution
+		} else if strings.HasPrefix(strings.ToLower(name), "ttseadanco") && (strings.HasSuffix(name, "-480") || strings.HasSuffix(name, "-720")) {
+			_, resolution, _ := strings.Cut(name, "-")
+			video["resolutions"] = []string{resolution + "p"}
+			video["defaultResolution"] = resolution + "p"
+		}
+		if name == "特价seedance-2.5-720p" {
+			video["duration"] = map[string]any{"selection": "enum", "values": []int{30}, "default": 30}
+		}
+		if strings.EqualFold(name, "MiniMax-H3") {
+			video["resolutions"] = []string{"768p", "2k"}
+			video["defaultResolution"] = "768p"
+			video["duration"] = map[string]any{"selection": "range", "min": 4, "max": 15, "step": 1, "default": 5}
+			video["references"].(map[string]any)["maxImages"] = 2
+		}
 		return profile, nil
 	}
 	var limits map[string]any
@@ -203,6 +227,33 @@ func workbenchCapabilityContract(name, capability, protocol string, profiles []w
 }
 
 func numberFromCapability(value any) float64 { number, _ := value.(float64); return number }
+
+// Some native task plugins publish only status on /v1/videos while retaining
+// the completed CDN URL in the owned receipt. Project that URL for workbench
+// downloads without exposing provider credentials or requiring /content.
+func workbenchVideoReceiptResponse(body []byte, receipt *model.Task) []byte {
+	if receipt.Status != model.TaskStatusSuccess {
+		return body
+	}
+	link := receipt.GetResultURL()
+	u, err := url.Parse(link)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil {
+		return body
+	}
+	var response map[string]any
+	if common.Unmarshal(body, &response) != nil || response == nil {
+		return body
+	}
+	if existing, _ := response["url"].(string); existing != "" {
+		return body
+	}
+	response["url"] = link
+	encoded, err := common.Marshal(response)
+	if err != nil {
+		return body
+	}
+	return encoded
+}
 
 // Local workflows have verified frame sizes rather than arbitrary aspect ratio
 // dimensions. Preserve orientation and return the engine's actual frame size.

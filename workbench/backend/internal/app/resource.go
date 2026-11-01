@@ -77,6 +77,11 @@ func (s *Service) publicResourceBaseURL() (*url.URL, error) {
 	}
 	raw := firstNonEmpty(setting.PublicBaseURL, os.Getenv("CANVAS_PUBLIC_BASE_URL"))
 	if raw == "" {
+		if host, ok := s.host.(WorkbenchResourceHost); ok {
+			raw = strings.TrimSpace(host.PublicBaseURL())
+		}
+	}
+	if raw == "" {
 		return nil, BadAuthRequest("服务器本地存储尚未配置服务器访问地址，请设置 CANVAS_PUBLIC_BASE_URL 或在存储设置中配置公网访问地址（或改用 OSS 存储）")
 	}
 	return validatePublicResourceBaseURL(raw)
