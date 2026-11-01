@@ -257,7 +257,7 @@ export function StudioProductionVersionsTab() {
             >
               {t('studio.production.restore')}
             </Button>
-            {studioProjectChanges(version.data.document, props.project).map(
+            {studioProjectChanges(props.project, version.data.document).map(
               (change) => (
                 <div
                   key={JSON.stringify([
@@ -276,12 +276,12 @@ export function StudioProductionVersionsTab() {
                 </div>
               )
             )}
-            {!studioProjectChanges(version.data.document, props.project)
+            {!studioProjectChanges(props.project, version.data.document)
               .length && <p>{t('The creative content is unchanged.')}</p>}
             <div className='grid gap-3 sm:grid-cols-2'>
               {[
-                { label: t('Before'), document: version.data.document },
-                { label: t('After'), document: props.project },
+                { label: t('Before'), document: props.project },
+                { label: t('After'), document: version.data.document },
               ].map(({ label, document }) => (
                 <div key={label} className='min-w-0 space-y-2'>
                   <p className='font-medium'>{label}</p>

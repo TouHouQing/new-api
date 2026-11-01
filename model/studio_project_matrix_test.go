@@ -2,6 +2,7 @@ package model
 
 import (
 	"fmt"
+	"github.com/QuantumNous/new-api/common"
 	"os"
 	"strings"
 	"testing"
@@ -37,13 +38,27 @@ func TestStudioProjectDatabaseMatrix(t *testing.T) {
 			sqlDB, err := db.DB()
 			require.NoError(t, err)
 			sqlDB.SetMaxOpenConns(1)
+			if database.name == "postgres" {
+				require.NoError(t, db.Exec(`CREATE SCHEMA "`+prefix+`"`).Error)
+				require.NoError(t, db.Exec(`SET search_path TO "`+prefix+`"`).Error)
+			}
 			original := DB
+			originalMainType, originalLogType := common.MainDatabaseType(), common.LogDatabaseType()
+			common.SetMainDatabaseType(common.DatabaseType(database.name))
+			common.SetLogDatabaseType(common.DatabaseType(database.name))
+			initCol()
 			DB = db
-			models := []any{&Token{}, &StudioWorkflowCharge{}, &StudioWorkflowEvent{}, &StudioReviewShare{}, &StudioWorkflowJob{}, &StudioReviewComment{}, &StudioProjectMediaLink{}, &StudioMedia{}, &StudioProjectMember{}, &StudioProjectVersion{}, &StudioProject{}, &StudioAttempt{}, &StudioProvider{}}
+			models := []any{&Token{}, &StudioWorkflowCharge{}, &StudioWorkflowEvent{}, &StudioReviewShare{}, &StudioWorkflowJob{}, &StudioReviewComment{}, &StudioProjectMediaLink{}, &StudioMedia{}, &StudioProjectMember{}, &StudioProjectVersion{}, &StudioProject{}, &StudioAttempt{}, &StudioProvider{}, &StudioProductionRecord{}}
 			t.Cleanup(func() {
 				DB = original
+				common.SetMainDatabaseType(originalMainType)
+				common.SetLogDatabaseType(originalLogType)
+				initCol()
 				for _, item := range models {
 					assert.NoError(t, db.Migrator().DropTable(item))
+				}
+				if database.name == "postgres" {
+					assert.NoError(t, db.Exec(`DROP SCHEMA "`+prefix+`" CASCADE`).Error)
 				}
 				sqlDB.Close()
 			})
@@ -66,6 +81,27 @@ func TestStudioProjectDatabaseMatrix(t *testing.T) {
 			var freshCount int64
 			require.NoError(t, db.Model(&StudioWorkflowJob{}).Where("id = ?", "fresh-scheduled").Count(&freshCount).Error)
 			assert.Equal(t, int64(1), freshCount)
+			film, err := SaveStudioProject(90, "edit-film", "Original", 0, `{"id":"edit-film","title":"Original","nodes":[],"edges":[]}`)
+			require.NoError(t, err)
+			record, err := CreateStudioProductionRecord(90, &StudioProductionRecord{ID: "edit-once", ProjectID: film.ID, Kind: "edit_plan", Revision: film.Revision, State: "ready", Fingerprint: strings.Repeat("a", 64), Document: `{"next_document":{"id":"edit-film","title":"Edited","nodes":[],"edges":[],"production":{"documentVersion":2}}}`})
+			require.NoError(t, err)
+			for range 2 {
+				require.NoError(t, db.AutoMigrate(models...))
+			}
+			_, _, err = ApplyStudioEditRecord(91, record.ID, film.Revision)
+			require.ErrorIs(t, err, ErrStudioAccess)
+			_, _, err = ApplyStudioEditRecord(90, record.ID, film.Revision+1)
+			require.ErrorIs(t, err, ErrStudioRevision)
+			edited, receipt, err := ApplyStudioEditRecord(90, record.ID, film.Revision)
+			require.NoError(t, err)
+			require.Equal(t, int64(2), edited.Revision)
+			require.Equal(t, "applied", receipt.State)
+			replay, _, err := ApplyStudioEditRecord(90, record.ID, film.Revision)
+			require.NoError(t, err)
+			require.Equal(t, edited.Revision, replay.Revision)
+			var historyCount int64
+			require.NoError(t, db.Model(&StudioProjectVersion{}).Where("project_id = ?", film.ID).Count(&historyCount).Error)
+			require.Equal(t, int64(2), historyCount)
 			for _, item := range models {
 				require.NoError(t, db.Migrator().DropTable(item))
 			}

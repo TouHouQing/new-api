@@ -2,6 +2,10 @@
 import argparse
 import hashlib
 import json
+import math
+import os
+import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -42,6 +46,14 @@ def main():
             time.sleep(2)
         assert job['status'] == 'succeeded', job.get('error')
         return job
+
+    def actual_duration(media_id, project_id):
+        probe = os.environ.get('STUDIO_FFPROBE_PATH') or shutil.which('ffprobe') or str(lab.parent / 'ffmpeg/ffmpeg-9.0.2-essentials_build/bin/ffprobe.exe')
+        content = api('/studio/cloud/media/' + media_id + '?project_id=' + project_id, binary=True)
+        result = subprocess.run([probe, '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', '-i', 'pipe:0'], input=content, stdout=subprocess.PIPE, check=True, timeout=30)
+        seconds = float(result.stdout)
+        assert math.isfinite(seconds) and seconds >= .1, 'Lip source duration is unavailable'
+        return seconds
 
     project_file = output / 'project-id.txt'
     if args.phase == 'prepare':
@@ -113,6 +125,9 @@ def main():
                 operation = {'action': action, 'node_id': target, 'model': model, 'prompt': prompt, 'seconds': 3, 'reference_media_ids': references, 'voice_id': voice_id, 'confirm_voice_rights': action == 'voice_clone'}
                 if action == 'voice_speech':
                     operation['dialogue_cue_id'] = 'dialogue-1'
+                if action == 'lip_sync':
+                    seconds = math.floor(min(30, actual_duration(references[0], project_id), actual_duration(source_video, project_id)) * 1000) / 1000
+                    operation.update(seconds=seconds, edit={'start': 0, 'end': seconds, 'x': 0, 'y': 0, 'width': 0, 'height': 0}, options={'lip_audio_start': 0})
                 job = api(root + '/jobs', 'POST', {'request_id': str(uuid.uuid4()), 'revision': current['revision'], 'kind': 'media', 'budget': 100000, 'confirm_generation': True, 'operation': operation})
                 job_file.write_text(json.dumps(job))
             job = wait(job)

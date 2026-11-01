@@ -31,7 +31,11 @@ import type { StudioCreationStep } from '../studio-creation'
 import { StudioCreationWorkspace } from '../studio-creation-workspace'
 import { studioProductionSchema } from '../studio-production'
 import { parseStudioSubtitleCues } from '../studio-subtitle-cues'
-import { createStudioProject } from '../workspace'
+import {
+  addStudioNode,
+  createStudioProject,
+  updateStudioNode,
+} from '../workspace'
 
 vi.mock('../studio-cloud', () => ({
   studioCloudRequest: vi.fn(),
@@ -110,11 +114,81 @@ beforeEach(() => {
       } as never
     }
     if (path.endsWith('/events')) return { events: [], cursor: '' } as never
-    if (/\/(jobs|versions|comments|members|review-shares)$/.test(path)) {
+    if (
+      /\/(jobs|versions|comments|members|review-shares|analyses|campaigns|templates|beat-plans|scene-studies)$/.test(
+        path
+      )
+    ) {
       return [] as never
+    }
+    if (path.endsWith('/capability-profiles')) return { profiles: [] } as never
+    if (path.endsWith('/publications')) {
+      return { publications: [], accounts: [], renders: [], jobs: [] } as never
     }
     return { id: 'film', revision: 1, role, document: saved } as never
   })
+})
+
+test('pending script changes block final export and can be consciously resolved without regeneration', async () => {
+  const initial = updateStudioNode(
+    addStudioNode(createStudioProject('Film', 'film'), 'video', 'footage'),
+    'footage',
+    {
+      title: 'Existing footage',
+      mediaId: 'owned',
+      status: 'completed',
+      sourceMode: 'upload',
+      seconds: 5,
+    }
+  )
+  initial.production = studioProductionSchema.parse({
+    guide: { step: 'deliver', goal: 'story' },
+    changes: [
+      {
+        id: 'change-1',
+        kind: 'script',
+        message: 'Review the changed third shot',
+        nodeIds: ['footage'],
+        status: 'pending',
+        createdAt: '2026-10-19T00:00:00Z',
+      },
+    ],
+  })
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <Host initial={initial} initialStep='deliver' />
+    </QueryClientProvider>
+  )
+  const exportButtons = await screen.findAllByRole('button', {
+    name: /^Export video$/,
+  })
+  await waitFor(() =>
+    exportButtons.forEach((button) => expect(button).toBeDisabled())
+  )
+  expect(
+    screen.getByText(
+      'Resolve pending script or review changes before exporting.'
+    )
+  ).toBeVisible()
+  await userEvent.click(
+    screen.getByRole('button', {
+      name: 'studio.production.acceptCurrentVersion',
+    })
+  )
+  await waitFor(() =>
+    exportButtons.forEach((button) => expect(button).toBeEnabled())
+  )
+  expect(saved.production?.changes[0].status).toBe('resolved')
+  expect(saved.nodes[0].data.mediaId).toBe('owned')
+  expect(
+    vi
+      .mocked(studioCloudRequest)
+      .mock.calls.some(([, method]) => method === 'POST')
+  ).toBe(false)
+  client.clear()
 })
 
 test('a failed free sample upload explains the storage recovery instead of displaying the raw server error', async () => {

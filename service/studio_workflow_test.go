@@ -32,7 +32,7 @@ func studioProductionFixture(t *testing.T, seedOwner ...bool) {
 	t.Helper()
 	db, err := gorm.Open(sqlite.Open(filepath.Join(t.TempDir(), "studio.db")), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent)})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSubscription{}, &model.StudioProject{}, &model.StudioProjectVersion{}, &model.StudioProjectMember{}, &model.StudioMedia{}, &model.StudioProjectMediaLink{}, &model.StudioWorkflowJob{}, &model.StudioWorkflowCharge{}, &model.StudioWorkflowEvent{}, &model.StudioAttempt{}, &model.Token{}, &model.Task{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSubscription{}, &model.StudioProject{}, &model.StudioProjectVersion{}, &model.StudioProductionRecord{}, &model.StudioProjectMember{}, &model.StudioMedia{}, &model.StudioProjectMediaLink{}, &model.StudioWorkflowJob{}, &model.StudioWorkflowCharge{}, &model.StudioWorkflowEvent{}, &model.StudioAttempt{}, &model.Token{}, &model.Task{}))
 	if len(seedOwner) == 0 || seedOwner[0] {
 		require.NoError(t, db.Create(&model.User{Id: 1, Username: "studio-test-owner", Quota: 10_000_000, Role: common.RoleCommonUser, Status: common.UserStatusEnabled}).Error)
 	}
@@ -180,6 +180,10 @@ func TestStudioVaceLimitsRejectBeforeDependencyGeneration(t *testing.T) {
 func TestStudioSharedGPUVideoDimensionsAndNativeVaceDuration(t *testing.T) {
 	for _, modelName := range []string{"wan2.2-ti2v-5b", "wan2.1-vace-1.3b"} {
 		data := map[string]any{"kind": "video", "model": modelName, "resolution": "384x224", "seconds": float64(10)}
+		if modelName == "wan2.2-ti2v-5b" {
+			require.Error(t, validateStudioLocalVideoConfiguration(data))
+			data["resolution"] = "640x384"
+		}
 		require.NoError(t, validateStudioLocalVideoConfiguration(data))
 		if modelName == "wan2.1-vace-1.3b" {
 			data["seconds"] = float64(30)
@@ -351,6 +355,29 @@ func TestStudioAssistantRequestUsesStructuredWorkflowPlanWithoutChangingOrdinary
 	assert.NotContains(t, request, "response_format")
 }
 
+func TestStudioPlainCopyRequestPreservesExplicitTaskAndShotMode(t *testing.T) {
+	document := map[string]any{"nodes": []any{}, "edges": []any{}}
+	prompt := "只输出一句中文广告卖点，不要画面描述：让每天更轻松。"
+	data := map[string]any{"kind": "text", "textMode": "plain", "model": "qwen3.5:9b", "prompt": prompt}
+	node := map[string]any{"id": "copy", "data": data}
+	raw, err := studioNodeRequest(t.Context(), 1, document, node)
+	require.NoError(t, err)
+	var request map[string]any
+	require.NoError(t, common.Unmarshal(raw, &request))
+	messages := request["messages"].([]any)
+	assert.Equal(t, prompt, messages[1].(map[string]any)["content"])
+	system := messages[0].(map[string]any)["content"].(string)
+	assert.Contains(t, system, "return only that requested text")
+	assert.Contains(t, system, "Never turn requested copy into a visual prompt")
+	assert.Contains(t, system, "gives only a visual idea")
+	assert.NotContains(t, request, "response_format")
+	delete(data, "textMode")
+	raw, err = studioNodeRequest(t.Context(), 1, document, node)
+	require.NoError(t, err)
+	require.NoError(t, common.Unmarshal(raw, &request))
+	assert.Equal(t, studioShotSystemPrompt, request["messages"].([]any)[0].(map[string]any)["content"])
+}
+
 func TestStudioFrozenConfigurationRejectsChangedTimedFramesAndLayerEdits(t *testing.T) {
 	for _, key := range []string{"videoKeyframes", "imageLayers"} {
 		t.Run(key, func(t *testing.T) {
@@ -425,9 +452,8 @@ func TestStudioScheduledWorkflowDoesNotRunEarlyOrRepeatAfterRestart(t *testing.T
 
 func TestStudioShotSceneAndPropInputsPreserveConcurrentCreativeEdits(t *testing.T) {
 	studioProductionFixture(t)
-	pixel, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScL/nwAAAABJRU5ErkJggg==")
-	require.NoError(t, err)
-	_, err = SaveStudioMedia(1, "vase-image", "image/png", bytes.NewReader(pixel))
+	pixel := studioValidImageFixture(t, "png")
+	_, err := SaveStudioMedia(1, "vase-image", "image/png", bytes.NewReader(pixel))
 	require.NoError(t, err)
 	node := map[string]any{"id": "frame", "position": map[string]any{"x": 0}, "data": map[string]any{"kind": "image", "model": "mock-image", "prompt": "A shot", "metadataJson": `{"seed":0,"width":512,"height":512}`}}
 	document := map[string]any{"nodes": []any{node}, "edges": []any{}, "shots": []any{map[string]any{"id": "shot", "imageNodeId": "frame", "camera": "Close-up", "dialogue": "Hello"}}, "production": map[string]any{
@@ -610,6 +636,20 @@ func TestStudioVideoDepthCollectionPublishesVideoTake(t *testing.T) {
 	project, err := model.SaveStudioProject(1, "depth-film", "Depth film", 0, string(raw))
 	require.NoError(t, err)
 	operation := &StudioMediaOperation{NodeID: "depth", Model: "studio-video-depth", Action: "video_depth", Seconds: 1, ReferenceMediaIDs: []string{"depth-source"}}
+	for index, invalid := range []StudioToolOptions{{Width: 320, Height: 192}, {Width: 640, Height: 0}, {Width: 640, Height: 384}} {
+		operation.Options = &invalid
+		operation.Seconds = 1
+		if index == 2 {
+			operation.Seconds = 11
+		}
+		requestID := fmt.Sprintf("invalid-depth-size-%d", index)
+		_, err = QueueStudioWorkflow(1, project.ID, requestID, "media", project.Revision, 1000, nil, nil, operation)
+		require.Error(t, err)
+		var invalidJobs int64
+		require.NoError(t, model.DB.Model(&model.StudioWorkflowJob{}).Where("request_id = ?", requestID).Count(&invalidJobs).Error)
+		assert.Zero(t, invalidJobs, "unsupported dimensions must fail before inference is queued")
+	}
+	operation.Options = &StudioToolOptions{Width: 224, Height: 384}
 	operation.Seconds = 2
 	_, err = QueueStudioWorkflow(1, project.ID, "extract-depth-too-long", "media", project.Revision, 1000, nil, nil, operation)
 	require.ErrorContains(t, err, "Requested duration exceeds the source video")
@@ -860,8 +900,10 @@ func TestStudioFFmpegDeliveryContainsPlayableMediaAndVersion(t *testing.T) {
 	assert.Equal(t, int64(1), result.Revision)
 	require.Len(t, result.Clips, 1)
 	assert.True(t, result.Clips[0].Muted, "separate dialogue replaces the embedded speech instead of doubling it")
-	assert.Len(t, result.Audio, 1)
-	assert.InDelta(t, .2, result.Audio[0].Start, .001, "a trimmed shot starts at the corresponding dialogue sample")
+	require.Len(t, result.Audio, 1)
+	assert.InDelta(t, .25, result.Audio[0].Start, .001, "audio-source seconds follow the video's source trim before playback tempo")
+	assert.InDelta(t, .25, *result.Audio[0].Duration, .001, "only the retained source half of the dialogue remains")
+	assert.InDelta(t, 1.25, result.Audio[0].Speed, .001, "dialogue follows the exact clip tempo")
 	media, err := GetStudioMedia(1, result.MediaID)
 	require.NoError(t, err)
 	mediaPath, err := StudioMediaPath(media)

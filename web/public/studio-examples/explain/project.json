@@ -1,0 +1,294 @@
+{
+  "id": "sample-explain-project",
+  "title": "Plants and daylight",
+  "createdAt": "2026-10-18T08:50:39Z",
+  "updatedAt": "2026-10-18T08:50:39Z",
+  "nodes": [
+    {
+      "id": "sample-explain-script-node",
+      "type": "studio",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "text",
+        "title": "Story and action",
+        "prompt": "A green seedling in a glass pot beside a sunlit window. A hand gently rotates the pot toward the light, showing the stem and leaves oriented toward daylight. Clear close up educational demonstration, steady camera, no written text.",
+        "purpose": "script",
+        "textMode": "plain",
+        "outputText": "A green seedling in a glass pot beside a sunlit window. A hand gently rotates the pot toward the light, showing the stem and leaves oriented toward daylight. Clear close up educational demonstration, steady camera, no written text."
+      }
+    },
+    {
+      "id": "sample-explain-image-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 0
+      },
+      "data": {
+        "kind": "image",
+        "title": "Replaceable subject first frame",
+        "prompt": "A small green seedling in a transparent glass pot on a bright white tabletop beside a sunlit window, visible soil and roots, science teaching visual, clear realistic botanical detail, no text.",
+        "model": "flux.2-klein-4b",
+        "imageSize": "512x320",
+        "status": "completed",
+        "mediaId": "sample-explain-image",
+        "selectedTakeId": "sample-explain-image-take",
+        "takes": [
+          {
+            "id": "sample-explain-image-take",
+            "mediaId": "sample-explain-image",
+            "prompt": "A small green seedling in a transparent glass pot on a bright white tabletop beside a sunlit window, visible soil and roots, science teaching visual, clear realistic botanical detail, no text.",
+            "createdAt": "2026-10-18T08:50:39Z",
+            "status": "completed",
+            "model": "flux.2-klein-4b",
+            "taskId": "image-5ebcdb8fa4bec6361fade822772e49f4",
+            "requestSnapshot": "{\"model\": \"flux.2-klein-4b\", \"seed\": 182002, \"source_sha256\": \"79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d\"}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-explain-video-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Main shot",
+        "prompt": "A green seedling in a glass pot beside a sunlit window. A hand gently rotates the pot toward the light, showing the stem and leaves oriented toward daylight. Clear close up educational demonstration, steady camera, no written text.",
+        "model": "wan2.2-ti2v-5b",
+        "resolution": "640x384",
+        "ratio": "5:3",
+        "seconds": 3,
+        "status": "completed",
+        "mediaId": "sample-explain-video",
+        "selectedTakeId": "sample-explain-video-take",
+        "takes": [
+          {
+            "id": "sample-explain-video-take",
+            "mediaId": "sample-explain-video",
+            "prompt": "A green seedling in a glass pot beside a sunlit window. A hand gently rotates the pot toward the light, showing the stem and leaves oriented toward daylight. Clear close up educational demonstration, steady camera, no written text.",
+            "createdAt": "2026-10-18T08:50:39Z",
+            "status": "completed",
+            "model": "wan2.2-ti2v-5b",
+            "taskId": "local-716d685accf34ee8ac68da440678d1fe",
+            "requestSnapshot": "{\"model\": \"wan2.2-ti2v-5b\", \"seed\": 183002, \"operation\": null, \"frames\": 49, \"fps\": 16, \"size\": \"640x384\", \"assets\": [{\"id\": \"sample-explain-subject\", \"versionId\": \"sample-explain-reference-v1\", \"mediaId\": \"sample-explain-image\"}]}"
+          }
+        ],
+        "assetIds": ["sample-explain-subject"],
+        "assetVersionIds": {
+          "sample-explain-subject": "sample-explain-reference-v1"
+        }
+      }
+    },
+    {
+      "id": "sample-explain-music-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Original instrumental soundtrack",
+        "prompt": "Original three-note arpeggio, made for the bundled editing example.",
+        "sourceMode": "upload",
+        "status": "completed",
+        "mediaId": "sample-explain-music"
+      }
+    },
+    {
+      "id": "sample-explain-assembly-node",
+      "type": "studio",
+      "position": {
+        "x": 1140,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Edited sample film",
+        "prompt": "Editable source clip, caption and original music.",
+        "purpose": "assembly",
+        "status": "completed",
+        "mediaId": "sample-explain-film",
+        "sourceMode": "upload"
+      }
+    },
+    {
+      "id": "sample-explain-voice-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Editable spoken line",
+        "prompt": "Plants need light.",
+        "model": "chatterbox-local",
+        "voice": "default",
+        "status": "completed",
+        "mediaId": "sample-explain-voice",
+        "selectedTakeId": "sample-explain-voice-take",
+        "takes": [
+          {
+            "id": "sample-explain-voice-take",
+            "mediaId": "sample-explain-voice",
+            "prompt": "Plants need light.",
+            "createdAt": "2026-10-18T08:50:39Z",
+            "status": "completed",
+            "model": "chatterbox-local",
+            "taskId": "audio-29b5e2a0e5cb43dc8912877b21d9ed1d"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sample-explain-text-edge",
+      "source": "sample-explain-script-node",
+      "sourceHandle": "video_prompt",
+      "target": "sample-explain-video-node",
+      "targetHandle": "prompt"
+    },
+    {
+      "id": "sample-explain-image-edge",
+      "source": "sample-explain-image-node",
+      "sourceHandle": "image",
+      "target": "sample-explain-video-node",
+      "targetHandle": "first_frame"
+    },
+    {
+      "id": "sample-explain-clip-edge",
+      "source": "sample-explain-video-node",
+      "sourceHandle": "video",
+      "target": "sample-explain-assembly-node",
+      "targetHandle": "clip"
+    },
+    {
+      "id": "sample-explain-music-edge",
+      "source": "sample-explain-music-node",
+      "sourceHandle": "audio",
+      "target": "sample-explain-assembly-node",
+      "targetHandle": "soundtrack"
+    },
+    {
+      "id": "sample-explain-voice-edge",
+      "source": "sample-explain-voice-node",
+      "sourceHandle": "audio",
+      "target": "sample-explain-assembly-node",
+      "targetHandle": "voiceover"
+    }
+  ],
+  "assets": [
+    {
+      "id": "sample-explain-subject",
+      "kind": "character",
+      "title": "A seedling turning toward daylight",
+      "prompt": "A small green seedling in a transparent glass pot on a bright white tabletop beside a sunlit window, visible soil and roots, science teaching visual, clear realistic botanical detail, no text.",
+      "mediaId": "sample-explain-image",
+      "profile": {
+        "subjectType": "object",
+        "appearance": "A seedling turning toward daylight",
+        "continuity": "Use the first-frame design for this short example."
+      },
+      "versions": [
+        {
+          "id": "sample-explain-reference-v1",
+          "createdAt": "2026-10-18T08:50:39Z",
+          "prompt": "A small green seedling in a transparent glass pot on a bright white tabletop beside a sunlit window, visible soil and roots, science teaching visual, clear realistic botanical detail, no text.",
+          "mediaId": "sample-explain-image"
+        }
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "id": "sample-explain-shot",
+      "title": "Plants and daylight",
+      "textNodeId": "sample-explain-script-node",
+      "imageNodeId": "sample-explain-image-node",
+      "videoNodeId": "sample-explain-video-node",
+      "dialogue": "Plants need light.",
+      "shotCaptionText": "Plants need light.",
+      "shotCaptionDurationSeconds": 3.0625
+    }
+  ],
+  "finalVideoNodeId": "sample-explain-assembly-node",
+  "assembledMediaId": "sample-explain-film",
+  "production": {
+    "documentVersion": 2,
+    "width": 640,
+    "height": 384,
+    "fps": 16,
+    "fit": "letterbox",
+    "timelineEdited": true,
+    "creativeBrief": {
+      "recipeId": "explain",
+      "subject": "A seedling turning toward daylight",
+      "audience": "New video creators",
+      "benefit": "One clear subject and one readable visual action",
+      "callToAction": ""
+    },
+    "guide": {
+      "goal": "explain",
+      "step": "edit"
+    },
+    "scenes": [
+      {
+        "id": "sample-explain-scene",
+        "title": "Plants and daylight",
+        "description": "A green seedling in a glass pot beside a sunlit window. A hand gently rotates the pot toward the light, showing the stem and leaves oriented toward daylight. Clear close up educational demonstration, steady camera, no written text.",
+        "shotIds": ["sample-explain-shot"],
+        "assetIds": ["sample-explain-subject"]
+      }
+    ],
+    "shotNarrative": {
+      "sample-explain-shot": {
+        "purpose": "establish",
+        "information": "Plants need light.",
+        "emotion": "Calm and inviting",
+        "visualBeat": "A green seedling in a glass pot beside a sunlit window. A hand gently rotates the pot toward the light, showing the stem and leaves oriented toward daylight. Clear close up educational demonstration, steady camera, no written text.",
+        "continuityNeeds": "Keep the subject design from the approved first frame."
+      }
+    },
+    "approvedKeyImages": {
+      "sample-explain-shot": "sample-explain-image"
+    },
+    "timeline": [
+      {
+        "id": "sample-explain-clip",
+        "nodeId": "sample-explain-video-node",
+        "takeId": "sample-explain-video-take",
+        "trimStart": 0,
+        "trimEnd": 3.0625,
+        "caption": "Plants need light.",
+        "captionDuration": 3.0625
+      }
+    ],
+    "audioTracks": [
+      {
+        "id": "sample-explain-music-track",
+        "mediaId": "sample-explain-music",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 0.12
+      },
+      {
+        "id": "sample-explain-voice-track",
+        "mediaId": "sample-explain-voice",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 1
+      }
+    ]
+  }
+}

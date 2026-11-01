@@ -41,6 +41,7 @@ export async function request(path, options = {}) {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: 'application/json',
+      'X-Studio-Document-Version': '2',
       ...(options.contentLength !== undefined ? { 'Content-Length': String(options.contentLength) } : {}),
       ...(options.binary ? { 'Content-Type': options.contentType } : options.body ? { 'Content-Type': 'application/json' } : {}),
     },

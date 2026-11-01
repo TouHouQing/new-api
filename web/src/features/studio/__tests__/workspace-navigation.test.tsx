@@ -54,8 +54,34 @@ vi.mock('../studio-creation-workspace', () => ({
     initialStep?: string
     project: StudioProject
     onUpdate: (project: StudioProject) => void
+    onInstantiateTemplate?: (project: StudioProject) => void
   }) => (
     <div role='region' aria-label={`Requested step ${props.initialStep}`}>
+      <button
+        type='button'
+        onClick={() => {
+          const instance = createStudioProject(
+            'Parameter instance',
+            'parameter-instance'
+          )
+          instance.nodes = [
+            {
+              id: 'video',
+              type: 'studio',
+              position: { x: 0, y: 0 },
+              data: {
+                kind: 'video',
+                title: 'Prepared description',
+                prompt: 'A cat walking',
+                status: 'idle',
+              },
+            },
+          ]
+          props.onInstantiateTemplate?.(instance)
+        }}
+      >
+        Open parameter template
+      </button>
       <button
         type='button'
         onClick={() =>
@@ -178,4 +204,44 @@ test('a canvas entry selected during project loading survives that asynchronous 
   expect(
     await screen.findByRole('region', { name: 'Restored canvas' })
   ).toBeInTheDocument()
+})
+
+test('an adopted parameter template keeps its visual destination while route props still name the old project', async () => {
+  const project = createStudioProject('Original', 'original')
+  storage.load.mockResolvedValue([project])
+  const navigate = vi.fn()
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: Infinity } },
+  })
+  client.setQueryData(['studio-cloud-capabilities', 12], {
+    generation_credit_available: false,
+  })
+  render(
+    <QueryClientProvider client={client}>
+      <Studio
+        workspace='guided'
+        project='original'
+        step='story'
+        onNavigate={navigate}
+      />
+    </QueryClientProvider>
+  )
+  await screen.findByRole('region', { name: 'Requested step story' })
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Open parameter template' })
+  )
+  expect(
+    await screen.findByRole('region', { name: 'Requested step visual' })
+  ).toBeVisible()
+  expect(navigate).toHaveBeenCalledWith(
+    'guided',
+    'parameter-instance',
+    false,
+    'visual'
+  )
+  expect(
+    navigate.mock.calls.filter(
+      ([, id, , step]) => id === 'parameter-instance' && step !== 'visual'
+    )
+  ).toHaveLength(0)
 })

@@ -1,0 +1,22 @@
+package service
+
+import "yingce/backend/internal/app"
+
+type MediaAnalysisCreateRequest = app.MediaAnalysisCreateRequest
+type MediaAnalysisCapabilities = app.MediaAnalysisCapabilities
+type ProjectMediaAnalysisView = app.ProjectMediaAnalysisView
+type ProjectMediaAnalysisPage = app.ProjectMediaAnalysisPage
+type ProjectMediaAnalysisHistoryPage = app.ProjectMediaAnalysisHistoryPage
+type ProjectMediaAnalysisWriteRequest = app.ProjectMediaAnalysisWriteRequest
+type ProjectMediaAnalysisWriteResult = app.ProjectMediaAnalysisWriteResult
+type MediaAnalysisMarkerRequest = app.MediaAnalysisMarkerRequest
+type MediaAnalysisMarkerApplyRequest = app.MediaAnalysisMarkerApplyRequest
+type ProjectMediaAnalysisMarkerPreview = app.ProjectMediaAnalysisMarkerPreview
+type ProjectMediaAnalysisReframePreview = app.ProjectMediaAnalysisReframePreview
+type ProjectManualFramingRequest = app.ProjectManualFramingRequest
+type ProjectManualFramingResult = app.ProjectManualFramingResult
+
+type ReferenceShotRequest = app.ReferenceShotRequest
+type ReferenceShotApplyRequest = app.ReferenceShotApplyRequest
+type ReferenceShotPreview = app.ReferenceShotPreview
+type ReferenceShotResult = app.ReferenceShotResult

@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"image"
 	"math"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -29,11 +31,33 @@ func studioCloudError(c *gin.Context, err error) {
 	if errors.Is(err, service.ErrStudioGenerationCredit) {
 		status, code = http.StatusPaymentRequired, "studio_insufficient_quota"
 	}
+	if errors.Is(err, service.ErrStudioClientVersion) {
+		status, code = http.StatusConflict, "studio_client_version"
+	}
+	if errors.Is(err, model.ErrStudioStorageUnavailable) {
+		status, code = http.StatusServiceUnavailable, "studio_storage_unavailable"
+		c.Header("Retry-After", "2")
+	}
 	c.JSON(status, gin.H{"success": false, "code": code, "message": err.Error()})
 }
 
-func studioProjectPayload(project *model.StudioProject, role string) gin.H {
-	return gin.H{"id": project.ID, "owner_id": project.OwnerID, "title": project.Title, "revision": project.Revision, "role": role, "updated_at": project.UpdatedAt, "document": json.RawMessage(project.Document)}
+func studioProjectPayload(project *model.StudioProject, role string, versions ...int) gin.H {
+	document := project.Document
+	if len(versions) > 0 {
+		projected, err := service.StudioProjectDocumentForClient(document, versions[0])
+		if err != nil {
+			return gin.H{"id": project.ID, "revision": project.Revision, "document": nil, "document_error": "studio_client_version"}
+		}
+		document = projected
+	}
+	return gin.H{"id": project.ID, "owner_id": project.OwnerID, "title": project.Title, "revision": project.Revision, "role": role, "updated_at": project.UpdatedAt, "document": json.RawMessage(document)}
+}
+
+func studioClientDocumentVersion(c *gin.Context) int {
+	if c.GetHeader("X-Studio-Document-Version") == "2" {
+		return service.StudioDocumentVersion
+	}
+	return 1
 }
 
 func ListStudioProjects(c *gin.Context) {
@@ -48,7 +72,7 @@ func ListStudioProjects(c *gin.Context) {
 	for _, project := range projects {
 		_, role, err := model.StudioProjectAccess(model.DB, userID, project.ID, false)
 		if err == nil {
-			data = append(data, studioProjectPayload(&project, role))
+			data = append(data, studioProjectPayload(&project, role, studioClientDocumentVersion(c)))
 		}
 	}
 	if c.Query("summary") == "true" {
@@ -81,7 +105,7 @@ func ReadStudioProject(c *gin.Context) {
 		studioCloudError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(project, role)})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(project, role, studioClientDocumentVersion(c))})
 }
 
 func PutStudioProject(c *gin.Context) {
@@ -92,6 +116,14 @@ func PutStudioProject(c *gin.Context) {
 	}
 	if err := common.DecodeJson(c.Request.Body, &input); err != nil || input.Revision < 0 {
 		studioCloudError(c, errors.New("invalid project revision or document"))
+		return
+	}
+	var previous model.StudioDocument
+	if current, _, err := model.StudioProjectAccess(model.DB, c.GetInt("id"), c.Param("project_id"), false); err == nil {
+		previous = current.Document
+	}
+	if err := service.ValidateStudioClientWrite(previous, model.StudioDocument(input.Document), studioClientDocumentVersion(c)); err != nil {
+		studioCloudError(c, err)
 		return
 	}
 	title, err := service.ValidateStudioDocument(c.Param("project_id"), input.Document)
@@ -132,7 +164,7 @@ func PutStudioProject(c *gin.Context) {
 		return
 	}
 	_, role, _ := model.StudioProjectAccess(model.DB, c.GetInt("id"), project.ID, false)
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(project, role)})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(project, role, studioClientDocumentVersion(c))})
 }
 
 func DeleteStudioProject(c *gin.Context) {
@@ -192,7 +224,7 @@ func StudioProjectTrash(c *gin.Context) {
 			studioCloudError(c, err)
 			return
 		}
-		c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(project, "owner")})
+		c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(project, "owner", studioClientDocumentVersion(c))})
 		return
 	}
 	var projects []model.StudioProject
@@ -228,6 +260,13 @@ func RestoreStudioProjectVersion(c *gin.Context) {
 		return
 	}
 	var document, current map[string]any
+	for _, raw := range []model.StudioDocument{project.Document, version.Document} {
+		version, err := service.StudioProjectDocumentVersion(raw)
+		if err != nil || version > studioClientDocumentVersion(c) {
+			studioCloudError(c, service.ErrStudioClientVersion)
+			return
+		}
+	}
 	if err := common.Unmarshal([]byte(version.Document), &document); err != nil {
 		studioCloudError(c, err)
 		return
@@ -266,7 +305,7 @@ func RestoreStudioProjectVersion(c *gin.Context) {
 		studioCloudError(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(restored, "editor")})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": studioProjectPayload(restored, "editor", studioClientDocumentVersion(c))})
 }
 
 func StudioProjectMembers(c *gin.Context) {
@@ -447,7 +486,11 @@ func StudioProjectMedia(c *gin.Context) {
 	}
 	media, err := service.GetStudioMedia(ownerID, mediaID)
 	if err != nil {
-		studioCloudError(c, model.ErrStudioAccess)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			studioCloudError(c, model.ErrStudioAccess)
+		} else {
+			studioCloudError(c, model.ErrStudioStorageUnavailable)
+		}
 		return
 	}
 	path, err := service.StudioMediaPath(media)
@@ -456,6 +499,25 @@ func StudioProjectMedia(c *gin.Context) {
 		return
 	}
 	if strings.HasSuffix(c.FullPath(), "/probe") {
+		if err := service.ValidateStudioImageContent(path, media.MimeType); err != nil {
+			studioCloudError(c, err)
+			return
+		}
+		if strings.HasPrefix(media.MimeType, "image/") {
+			file, err := os.Open(path)
+			if err != nil {
+				studioCloudError(c, model.ErrStudioStorageUnavailable)
+				return
+			}
+			defer file.Close()
+			configuration, _, err := image.DecodeConfig(file)
+			if err != nil {
+				studioCloudError(c, errors.New("This image cannot be decoded. Upload a valid PNG, JPEG, WebP, or GIF."))
+				return
+			}
+			c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"width": configuration.Width, "height": configuration.Height, "has_video": false, "has_audio": false, "mime_type": media.MimeType}})
+			return
+		}
 		ctx, cancel := context.WithTimeout(c.Request.Context(), 30*time.Second)
 		defer cancel()
 		probe, err := service.ProbeStudioMedia(ctx, path)

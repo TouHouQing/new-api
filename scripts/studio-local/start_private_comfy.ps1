@@ -19,6 +19,8 @@ $receipt = Join-Path $privateRoot 'runtime.json'
 if (Test-Path -LiteralPath $receipt) {
   $previous = Get-Content -LiteralPath $receipt -Raw | ConvertFrom-Json
   if (!$PSBoundParameters.ContainsKey('ReserveVRAMGB') -and $previous.reserve_vram_gb -ge 1 -and $previous.reserve_vram_gb -le 8) { $ReserveVRAMGB = [double]$previous.reserve_vram_gb }
+  if (!$PSBoundParameters.ContainsKey('DisableDynamicVRAM') -and $previous.disable_dynamic_vram -eq $true) { $DisableDynamicVRAM = $true }
+  if (!$PSBoundParameters.ContainsKey('CPUVAE') -and $previous.cpu_vae -eq $true) { $CPUVAE = $true }
   $warming = Get-CimInstance Win32_Process -Filter ('ProcessId = ' + [int]$previous.pid)
   $warmingProcess = Get-Process -Id ([int]$previous.pid) -ErrorAction SilentlyContinue
   if ($warming -and $warmingProcess -and !$warmingProcess.HasExited -and $warming.CommandLine -like ('*' + $privateRoot + '*') -and $warming.CommandLine -like '*--port 8288*') { return }

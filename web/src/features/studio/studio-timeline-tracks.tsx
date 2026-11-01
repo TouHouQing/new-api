@@ -22,8 +22,13 @@ import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import { toIntlLocale } from '@/i18n/languages'
 import { formatNumber } from '@/lib/format'
+import { handleServerError } from '@/lib/handle-server-error'
 
 import type { StudioProject } from './local-projects'
+import {
+  reconcileStudioAudioAnchors,
+  type StudioAudioOrigins,
+} from './studio-audio-anchors'
 import { studioCaptionTrack } from './studio-caption-track'
 import { StudioClipTrimHandles } from './studio-clip-trim-handles'
 import {
@@ -35,6 +40,10 @@ import {
   parseStudioSubtitleCues,
   serializeStudioSubtitleCues,
 } from './studio-subtitle-cues'
+import {
+  studioUndoTimelineEdit,
+  useStudioTimelineHistory,
+} from './studio-timeline-history'
 import {
   studioTimelineSchedule,
   studioTimelineAudio,
@@ -136,11 +145,20 @@ export function StudioTimelineTracks() {
     writable,
     setTimelineInspector,
     setSelectedAudioTrack,
+    timelineHistory,
   } = useStudioProductionContext()
-  const [audioDurations, setAudioDurations] = useState<Record<string, number>>(
-    {}
-  )
+  const [waveformDurations, setWaveformDurations] = useState<
+    Record<string, number>
+  >({})
+  const [sourceDurations, setSourceDurations] = useState<
+    Record<string, number>
+  >({})
+  // Decoded PCM can be a few samples shorter than its video's presentation
+  // duration. A waveform must never shorten the source used by video edits.
+  const audioDurations = { ...waveformDurations, ...sourceDurations }
   useEffect(() => {
+    setSourceDurations({})
+    setWaveformDurations({})
     const update = (event: Event) => {
       const detail = (
         event as CustomEvent<{
@@ -149,7 +167,7 @@ export function StudioTimelineTracks() {
         }>
       ).detail
       if (detail?.projectId !== props.project.id) return
-      setAudioDurations((current) => ({ ...current, ...detail.durations }))
+      setSourceDurations((current) => ({ ...current, ...detail.durations }))
     }
     window.addEventListener('studio-timeline-durations', update)
     return () => window.removeEventListener('studio-timeline-durations', update)
@@ -164,20 +182,9 @@ export function StudioTimelineTracks() {
   const total = schedule.at(-1)?.end || 1
   const production =
     props.project.production || studioProductionSchema.parse({})
-  type EditSnapshot = Pick<
-    StudioProject,
-    | 'shots'
-    | 'captionsText'
-    | 'soundtrackOffsetSeconds'
-    | 'voiceoverOffsetSeconds'
-  > & {
-    timeline: typeof timeline
-    audioTracks: typeof production.audioTracks
-    dialogueCues: typeof production.dialogueCues
-  }
-  const [undo, setUndo] = useState<EditSnapshot[]>([])
+  const localHistory = useStudioTimelineHistory(props.userId, props.project.id)
+  const history = timelineHistory || localHistory
   useEffect(() => {
-    setUndo([])
     setPlayhead(0)
   }, [props.project.id])
   const [playhead, setPlayhead] = useState(0)
@@ -192,25 +199,39 @@ export function StudioTimelineTracks() {
     return () => window.removeEventListener('studio-timeline-position', update)
   }, [props.project.id])
   const locale = toIntlLocale(i18n.resolvedLanguage || i18n.language)
-  const remember = () =>
-    setUndo((history) => [
-      ...history.slice(-19),
-      {
-        timeline,
-        audioTracks: production.audioTracks,
-        dialogueCues: production.dialogueCues,
-        shots: props.project.shots,
-        captionsText: props.project.captionsText,
-        soundtrackOffsetSeconds: props.project.soundtrackOffsetSeconds,
-        voiceoverOffsetSeconds: props.project.voiceoverOffsetSeconds,
-      },
-    ])
-  const save = (next: typeof production) => {
-    remember()
-    props.onUpdate({ ...props.project, production: next })
+  const save = (next: typeof production, origins?: StudioAudioOrigins) => {
+    try {
+      const updated =
+        next.timeline !== timeline
+          ? reconcileStudioAudioAnchors(
+              props.project,
+              next.timeline,
+              origins,
+              audioDurations
+            )
+          : undefined
+      const nextProject = {
+        ...props.project,
+        production: {
+          ...next,
+          ...(updated
+            ? {
+                audioTracks: updated.production?.audioTracks || [],
+                reframes: updated.production?.reframes,
+                documentVersion:
+                  updated.production?.documentVersion || next.documentVersion,
+              }
+            : {}),
+        },
+      }
+      history.remember(props.project, nextProject)
+      props.onUpdate(nextProject)
+    } catch (error) {
+      handleServerError(error)
+    }
   }
   const saveProject = (next: StudioProject) => {
-    remember()
+    history.remember(props.project, next)
     props.onUpdate(next)
   }
   const seek = (seconds: number) =>
@@ -235,6 +256,8 @@ export function StudioTimelineTracks() {
   }
   const moveAudio = (id: string, offset: number) => {
     if (production.audioTracks.some((track) => track.id === id)) {
+      const bound = production.audioTracks.find((track) => track.id === id)
+      if (bound?.anchorKind === 'clip' || bound?.anchorKind === 'source') return
       save({
         ...production,
         audioTracks: production.audioTracks.map((track) =>
@@ -253,7 +276,8 @@ export function StudioTimelineTracks() {
     }
     for (const item of schedule) {
       const local =
-        Math.max(0, Math.min(item.duration - 0.01, offset - item.start)) +
+        Math.max(0, Math.min(item.duration - 0.01, offset - item.start)) *
+          item.clip.speed +
         item.sourceOffset
       if (id === `voice-${item.clip.id}` && item.shot) {
         saveProject({
@@ -353,28 +377,18 @@ export function StudioTimelineTracks() {
         <Button
           size='xs'
           variant='outline'
-          disabled={!writable || !undo.length}
+          disabled={!writable || !history.edits.length}
           onClick={() => {
-            const previous = undo.at(-1)
+            const previous = history.edits.at(-1)
             if (!previous) return
-            const {
-              timeline: priorTimeline,
-              audioTracks,
-              dialogueCues,
-              ...projectFields
-            } = previous
-            props.onUpdate({
-              ...props.project,
-              ...projectFields,
-              production: {
-                ...production,
-                timelineEdited: true,
-                timeline: priorTimeline,
-                audioTracks,
-                dialogueCues,
-              },
-            })
-            setUndo(undo.slice(0, -1))
+            try {
+              props.onUpdate(studioUndoTimelineEdit(props.project, previous))
+              history.pop()
+            } catch (error) {
+              handleServerError(
+                error instanceof Error ? new Error(t(error.message)) : error
+              )
+            }
           }}
         >
           {t('Undo timeline edit')}
@@ -404,13 +418,16 @@ export function StudioTimelineTracks() {
               },
               item.clip.trimStart + (playhead - item.start) * item.clip.speed
             )
-            save({
-              ...production,
-              timelineEdited: true,
-              timeline: timeline.flatMap((clip) =>
-                clip.id === item.clip.id ? split : [clip]
-              ),
-            })
+            save(
+              {
+                ...production,
+                timelineEdited: true,
+                timeline: timeline.flatMap((clip) =>
+                  clip.id === item.clip.id ? split : [clip]
+                ),
+              },
+              Object.fromEntries(split.map((part) => [part.id, item.clip.id]))
+            )
           }}
         >
           {t('Split at playhead')}
@@ -621,6 +638,8 @@ export function StudioTimelineTracks() {
               event.preventDefault()
               if (
                 !writable ||
+                track.anchorKind === 'clip' ||
+                track.anchorKind === 'source' ||
                 event.dataTransfer.getData('studio-audio') !== track.id
               ) {
                 return
@@ -637,7 +656,11 @@ export function StudioTimelineTracks() {
             }}
           >
             <Button
-              draggable={!!writable}
+              draggable={
+                !!writable &&
+                track.anchorKind !== 'clip' &&
+                track.anchorKind !== 'source'
+              }
               onDragStart={(event) =>
                 event.dataTransfer.setData('studio-audio', track.id)
               }
@@ -647,7 +670,12 @@ export function StudioTimelineTracks() {
                 left: `${Math.min(track.offset / total, 1) * 100}%`,
                 width: boundedWidth(
                   track.offset,
-                  track.duration || audioDurations[track.mediaId] || total
+                  Math.max(
+                    0,
+                    (track.duration ||
+                      (audioDurations[track.mediaId] || total) - track.start) /
+                      (track.speed ?? 1)
+                  )
                 ),
               }}
               aria-label={t('Move audio track: {{number}}', {
@@ -658,12 +686,19 @@ export function StudioTimelineTracks() {
                 setSelectedAudioTrack?.(track.id)
                 seek(track.offset)
               }}
+              title={
+                track.anchorKind === 'clip' || track.anchorKind === 'source'
+                  ? t(
+                      'Attached audio follows its clip. Change its anchor in precise audio settings.'
+                    )
+                  : undefined
+              }
             >
               <StudioAudioWaveform
                 mediaId={track.mediaId}
                 getMedia={props.getMedia}
                 onDuration={(id, seconds) =>
-                  setAudioDurations((current) =>
+                  setWaveformDurations((current) =>
                     current[id] === seconds
                       ? current
                       : { ...current, [id]: seconds }

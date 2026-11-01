@@ -7,6 +7,7 @@ import (
 	"errors"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -106,6 +107,10 @@ func studioJobPayload(job *model.StudioWorkflowJob) gin.H {
 		plan.NodeIDs = []string{plan.Operation.NodeID}
 	}
 	value := gin.H{"id": job.ID, "project_id": job.ProjectID, "user_id": job.UserID, "request_id": job.RequestID, "kind": job.Kind, "node_ids": plan.NodeIDs, "status": job.Status, "revision": job.Revision, "budget": job.Budget, "progress": job.Progress, "run_after": job.RunAfter, "error": job.Error, "created_at": job.CreatedAt, "updated_at": job.UpdatedAt, "result": json.RawMessage(job.Result)}
+	if plan.Operation != nil {
+		value["source_media_id"] = plan.Operation.MediaID
+		value["operation_action"] = plan.Operation.Action
+	}
 	if job.TokenID == 0 && !service.StudioWorkflowNeedsGeneration(job.Kind) {
 		value["used_quota"], value["settlement_final"] = 0, true
 	} else if job.TokenID == 0 && model.DB != nil {
@@ -136,7 +141,7 @@ func StudioCloudCapabilities(c *gin.Context) {
 		studioCloudError(c, fundingErr)
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"storage": "server", "storage_available": service.StudioStorageWritable(), "available_quota": quota, "generation_credit_available": funded, "quota_per_unit": common.QuotaPerUnit, "render_available": service.StudioRenderAvailable(), "previs_render_available": service.StudioPrevisBrowserPath() != "", "previs_operations": []string{"previs_frame", "previs_animation", "previs_whitebox", "previs_depth"}, "max_nodes": 500, "max_workflow_nodes": 100, "max_media_bytes": service.StudioMaxMediaBytes, "operations": []string{"generate", "render", "quality", "transcribe", "media", "previs", "graphics", "connector", "transform", "analyze"}, "media_operations": []string{"music", "sound_effects", "voice_clone", "voice_speech", "lip_sync", "audio_separate", "audio_translate", "image_bg_remove", "image_upscale", "image_outpaint", "image_layers", "image_grid", "image_to_3d", "video_remove", "video_replace", "video_depth"}, "native_operations": []string{"crop", "resize", "rotate", "frame", "trim", "speed", "reverse", "extract_audio", "sound_preset"}, "sound_presets": []string{"rain", "wind", "footsteps", "whoosh", "impact", "notification"}, "reference_audio_semantics": service.StudioReferenceAudioSemanticsAvailable(), "roles": []string{"owner", "editor", "reviewer", "viewer"}}})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"storage": "server", "storage_available": service.StudioStorageWritable(), "available_quota": quota, "generation_credit_available": funded, "quota_per_unit": common.QuotaPerUnit, "render_available": service.StudioRenderAvailable(), "previs_render_available": service.StudioPrevisBrowserPath() != "", "previs_operations": []string{"previs_frame", "previs_animation", "previs_whitebox", "previs_depth"}, "max_nodes": 500, "max_workflow_nodes": 100, "max_media_bytes": service.StudioMaxMediaBytes, "operations": []string{"generate", "render", "quality", "transcribe", "media", "previs", "graphics", "connector", "transform", "analyze", "inspect", "publish"}, "media_operations": []string{"music", "sound_effects", "voice_clone", "voice_speech", "lip_sync", "audio_separate", "audio_translate", "image_bg_remove", "image_upscale", "image_outpaint", "image_layers", "image_grid", "image_to_3d", "video_remove", "video_replace", "video_depth"}, "inspection_operations": []string{"scene_detect", "audio_structure", "subject_track"}, "native_operations": []string{"crop", "resize", "rotate", "frame", "trim", "speed", "reverse", "extract_audio", "sound_preset"}, "sound_presets": []string{"rain", "wind", "footsteps", "whoosh", "impact", "notification"}, "reference_audio_semantics": service.StudioReferenceAudioSemanticsAvailable(), "roles": []string{"owner", "editor", "reviewer", "viewer"}}})
 }
 
 func StudioCloudProjectSchema(c *gin.Context) {
@@ -297,6 +302,9 @@ func StudioWorkflowJob(c *gin.Context) {
 			if job.Kind == "connector" && service.StudioConnectorCanResume(&job) {
 				status = "queued"
 			}
+			if job.Kind == "publish" && service.StudioPublicationCanResume(&job) {
+				status = "queued"
+			}
 		}
 		if job.Status == "failed" && (progress.Phase == "preparing" || progress.Phase == "rejected" || progress.Take != nil || progress.TaskID != "" || progress.ResponseMediaID != "") {
 			// A confirmed terminal failure needs a new submission. An active,
@@ -321,6 +329,12 @@ func StudioWorkflowJob(c *gin.Context) {
 			status = "queued"
 		}
 		if !service.StudioWorkflowNeedsGeneration(job.Kind) && (job.Status == "failed" || job.Status == "paused") {
+			status = "queued"
+		}
+		// Local computation can restart from the frozen plan after its worker
+		// lease expires. External publications and model submissions still need
+		// their existing reconciliation receipt before they may be resumed.
+		if job.Status == "uncertain" && job.LeaseUntil <= time.Now().Unix() && slices.Contains([]string{"render", "quality", "previs", "graphics", "transform", "inspect"}, job.Kind) {
 			status = "queued"
 		}
 	}

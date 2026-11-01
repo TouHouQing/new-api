@@ -39,6 +39,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { handleServerError } from '@/lib/handle-server-error'
 import { useAuthStore } from '@/stores/auth-store'
 
 import {
@@ -148,6 +149,7 @@ import {
   planStudioVideoBatch,
 } from './studio-execution'
 import { captureStudioLastFrame } from './studio-frame-grab'
+import { validateStudioImageBlob } from './studio-image-validation'
 import { StudioInspector } from './studio-inspector'
 import {
   createStudioEditedNode,
@@ -174,6 +176,7 @@ import {
   pollStudioTasksBounded,
 } from './studio-task-scheduler'
 import { StudioTemplateLibrary } from './studio-template-library'
+import { useStudioTimelineHistory } from './studio-timeline-history'
 import {
   StudioVideoPreflight,
   type StudioVideoPreflightData,
@@ -503,6 +506,7 @@ export function Studio(
     [visible, workspace.projects]
   )
   const project = projects.find((item) => item.id === workspace.activeId)
+  const timelineHistory = useStudioTimelineHistory(userId, project?.id || '')
   const cloudConflicts = mediaStore?.saveConflicts?.() || []
   const activeProjectId = useRef(project?.id)
   activeProjectId.current = project?.id
@@ -510,6 +514,10 @@ export function Studio(
   projectsRef.current = projects
   const lastRouteProject = useRef(options.project)
   const pendingRouteProject = useRef<string | undefined>(options.project)
+  const templateNavigation = useRef<{
+    projectId: string
+    step: import('./studio-creation').StudioCreationStep
+  } | null>(null)
   if (lastRouteProject.current !== options.project) {
     lastRouteProject.current = options.project
     if (options.project) pendingRouteProject.current = options.project
@@ -517,6 +525,11 @@ export function Studio(
   useEffect(() => {
     const requested = pendingRouteProject.current
     if (!visible || !requested) return
+    if (!projects.some((entry) => entry.id === requested)) {
+      setWorkspace((current) => ({ ...current, activeId: requested }))
+      pendingRouteProject.current = undefined
+      return
+    }
     if (
       project?.id !== requested &&
       projects.some((entry) => entry.id === requested)
@@ -528,10 +541,25 @@ export function Studio(
   }, [visible, project?.id, projects, options.project])
   useEffect(() => {
     if (!visible || !project || pendingRouteProject.current) return
+    const pending = templateNavigation.current
+    if (pending?.projectId === project.id) {
+      // A newly adopted template must keep its explicit destination while the
+      // router catches up. Generic project URL sync must not erase that step.
+      if (options.project !== project.id || options.step !== pending.step) {
+        return
+      }
+      templateNavigation.current = null
+    }
+    if (
+      options.project &&
+      !projects.some((item) => item.id === options.project)
+    ) {
+      return
+    }
     if (options.project !== project.id) {
       options.onNavigate?.(view, project.id, true)
     }
-  }, [visible, project, options, view])
+  }, [visible, project, projects, options, view])
   const settlePreflight = useCallback((approved: boolean) => {
     const pending = pendingPreflight.current
     if (!pending) return
@@ -778,6 +806,16 @@ export function Studio(
     return refs
   }, [project])
   const mediaRefsKey = JSON.stringify(mediaRefs)
+  // Guided creation and the project media gallery own their thumbnail URLs.
+  // The shared cache is only consumed by the canvas, storyboard and role library.
+  let sharedPreviewRefs: StudioMediaRef[] = []
+  if (view === 'canvas' || view === 'storyboard') sharedPreviewRefs = mediaRefs
+  else if (view === 'assets' && roleLibrary) {
+    sharedPreviewRefs = mediaRefs.filter(
+      (ref) => ref.kind === 'asset' || ref.kind === 'asset-version'
+    )
+  }
+  const sharedPreviewRefsKey = JSON.stringify(sharedPreviewRefs)
   useEffect(() => {
     if (!visible) return
     let cancelled = false
@@ -913,7 +951,10 @@ export function Studio(
         return
       }
       if (cancelled) return
-      if (!projects.length) {
+      const requestedProject =
+        pendingRouteProject.current ||
+        new URLSearchParams(window.location.search).get('project')
+      if (!projects.length && !requestedProject) {
         const fresh = createStudioProject(
           workspaceLabel('studio.project.untitled'),
           newId()
@@ -927,13 +968,7 @@ export function Studio(
       setWorkspace({
         ownerId: userId,
         projects,
-        activeId:
-          projects.find(
-            (project) =>
-              project.id ===
-              (pendingRouteProject.current ||
-                new URLSearchParams(window.location.search).get('project'))
-          )?.id || projects[0].id,
+        activeId: requestedProject || projects[0]?.id || '',
         ready: true,
       })
       setSelectedNodeId(null)
@@ -945,10 +980,10 @@ export function Studio(
               new URLSearchParams(window.location.search).get('project'))
         ) || projects[0]
       let restoredView: typeof view = 'canvas'
-      if (restoredProject.production?.guide) restoredView = 'guided'
+      if (restoredProject?.production?.guide) restoredView = 'guided'
       else if (
-        restoredProject.shots?.length ||
-        restoredProject.nodes.length === 0
+        restoredProject?.shots?.length ||
+        restoredProject?.nodes.length === 0
       ) {
         restoredView = 'storyboard'
       }
@@ -1186,11 +1221,22 @@ export function Studio(
   }, [userId, project?.id])
 
   useEffect(() => {
+    ownedUrls.current.forEach((url) => URL.revokeObjectURL(url))
+    ownedUrls.current = []
+    loadedMediaIds.current.clear()
+    setPreviews({})
+    setRequestPreviews({})
+    setAssemblyPreviews(new Map())
+    setSoundtrackPreviews(new Map())
+    setVoiceoverPreviews(new Map())
+  }, [userId, project?.id, view, roleLibrary])
+
+  useEffect(() => {
     if (!visible || !mediaStore) return
     let cancelled = false
     const started = new Set<string>()
     const loadedIds = loadedMediaIds.current
-    const refs = JSON.parse(mediaRefsKey) as StudioMediaRef[]
+    const refs = JSON.parse(sharedPreviewRefsKey) as StudioMediaRef[]
     Promise.all(
       refs.map(async (ref) => {
         const { projectId, nodeId, mediaId, kind } = ref
@@ -1238,7 +1284,7 @@ export function Studio(
       cancelled = true
       for (const key of started) loadedIds.delete(key)
     }
-  }, [visible, userId, mediaRefsKey, mediaStore])
+  }, [visible, userId, sharedPreviewRefsKey, mediaStore])
 
   const editProject = useCallback(
     (
@@ -1546,6 +1592,7 @@ export function Studio(
         throw new Error(t('studio.image.uploadType'))
       }
       if (file.size > 20_000_000) throw new Error(t('studio.image.uploadSize'))
+      await validateStudioImageBlob(file)
       const mediaId = newId()
       const latest = projectsRef.current.find((item) => item.id === source.id)
       if (!latest?.nodes.some((item) => item.id === node.id)) return
@@ -3470,6 +3517,7 @@ export function Studio(
       throw new Error(t('studio.image.uploadType'))
     }
     if (file.size > 20_000_000) throw new Error(t('studio.image.uploadSize'))
+    await validateStudioImageBlob(file)
     const oldMediaId = project.assets?.find(
       (asset) => asset.id === assetId
     )?.mediaId
@@ -4276,7 +4324,8 @@ export function Studio(
       activeId: next.id,
     }))
     setSelectedNodeId(null)
-    setView('guided')
+    options.onNavigate?.('guided', next.id, false, 'story')
+    setViewState('guided')
   }
 
   const applyRecipeDraft = (draft: StudioProject) => {
@@ -4290,6 +4339,32 @@ export function Studio(
     }))
     setSelectedNodeId(null)
     options.onNavigate?.('guided', next.id, false, 'shots')
+    setViewState('guided')
+  }
+
+  const openTemplateInstance = (next: StudioProject) => {
+    const hasVideo = next.nodes.some(
+      (node) => node.data.kind === 'video' && !!node.data.mediaId
+    )
+    const hasVisual = next.nodes.some((node) =>
+      ['image', 'video'].includes(node.data.kind)
+    )
+    let step: import('./studio-creation').StudioCreationStep = 'shots'
+    if (hasVisual) step = 'visual'
+    if (hasVideo) step = 'edit'
+    templateNavigation.current = { projectId: next.id, step }
+    const nextProjects = [
+      ...projectsRef.current.filter((item) => item.id !== next.id),
+      next,
+    ]
+    projectsRef.current = nextProjects
+    setWorkspace((current) => ({
+      ...current,
+      projects: nextProjects,
+      activeId: next.id,
+    }))
+    setSelectedNodeId(null)
+    options.onNavigate?.('guided', next.id, false, step)
     setViewState('guided')
   }
 
@@ -4469,11 +4544,49 @@ export function Studio(
     )
   }
 
-  if (!visible || !project) {
+  if (!visible) {
     return (
       <div className='text-muted-foreground p-6 text-sm'>
         {t('studio.loading')}
       </div>
+    )
+  }
+  if (!project) {
+    return (
+      <section className='space-y-4 p-6' aria-label={t('Project unavailable')}>
+        <p role='alert'>
+          {t(
+            'This project is no longer available. It may have been deleted or your access removed.'
+          )}
+        </p>
+        <p className='text-muted-foreground text-sm'>
+          {t(
+            'Choose an available project or create a new one. Your other projects are preserved.'
+          )}
+        </p>
+        <div className='flex flex-wrap gap-2'>
+          {projects.map((item) => (
+            <Button
+              key={item.id}
+              variant='outline'
+              onClick={() => {
+                pendingRouteProject.current = undefined
+                setWorkspace((current) => ({ ...current, activeId: item.id }))
+                options.onNavigate?.(
+                  'guided',
+                  item.id,
+                  false,
+                  studioWorkspaceEntry(item)
+                )
+                setViewState('guided')
+              }}
+            >
+              {item.title}
+            </Button>
+          ))}
+          <Button onClick={addProject}>{t('studio.project.new')}</Button>
+        </div>
+      </section>
     )
   }
 
@@ -4738,6 +4851,7 @@ export function Studio(
           {view === 'guided' && (
             <StudioCreationWorkspace
               key={project.id}
+              timelineHistory={timelineHistory}
               initialTab={productionInitialTab}
               open
               onOpenChange={() => {}}
@@ -4747,8 +4861,18 @@ export function Studio(
               onSelectNode={setSelectedNodeId}
               onInspectNode={inspectProductionNode}
               onApplyRecipe={applyRecipeDraft}
+              onInstantiateTemplate={openTemplateInstance}
+              onOpenProject={(id) => {
+                void studioCloudRequest<StudioCloudProject>(
+                  `/projects/${encodeURIComponent(id)}`
+                )
+                  .then((record) => openTemplateInstance(record.document))
+                  .catch(handleServerError)
+              }}
               initialStep={
-                options.step ||
+                (templateNavigation.current?.projectId === project.id
+                  ? templateNavigation.current.step
+                  : options.step) ||
                 (requestedWorkspace === 'templates' ? 'story' : undefined)
               }
               onStepChange={(step) =>
@@ -4867,6 +4991,11 @@ export function Studio(
               readOnly={projectReadOnly}
               onClose={() => setView('guided')}
               onApply={applyRecipeDraft}
+              onInstantiate={openTemplateInstance}
+              onSave={async () => {
+                if (!mediaStore) throw new Error(t('studio.project.saveFailed'))
+                await mediaStore.saveProjects(userId, projectsRef.current)
+              }}
             />
           )}
           {view === 'assets' && (
@@ -4895,6 +5024,13 @@ export function Studio(
                   </div>
                   <StudioProjectMedia
                     project={project}
+                    timelineHistory={timelineHistory}
+                    onSave={async () => {
+                      if (!mediaStore) {
+                        throw new Error(t('studio.project.saveFailed'))
+                      }
+                      await mediaStore.saveProjects(userId, projectsRef.current)
+                    }}
                     getMedia={async (id) =>
                       mediaStore ? mediaStore.get(userId, id) : null
                     }
@@ -5132,6 +5268,7 @@ export function Studio(
           {view === 'storyboard' && (
             <StudioStoryboard
               project={project}
+              onUpdateProject={(next) => editProject(project.id, () => next)}
               previews={previews}
               takePreviews={previews}
               groups={videoGroups}

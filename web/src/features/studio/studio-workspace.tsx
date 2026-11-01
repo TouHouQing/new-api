@@ -70,6 +70,7 @@ import { StudioProjectAssistant } from './studio-project-assistant'
 import { studioProjectDisplayTitle } from './studio-project-identity'
 import { StudioScreenplayEditor } from './studio-screenplay-editor'
 import { StudioStoryboardOverview } from './studio-storyboard-overview'
+import { studioUnconfirmedRequest } from './studio-submit-intent'
 import { StudioTimelinePreview } from './studio-timeline-preview'
 import { StudioWorkspaceAssets } from './studio-workspace-assets'
 import {
@@ -99,6 +100,11 @@ export function StudioCreationWorkspace(props: Props) {
   const [tool, setTool] = useState<StudioWorkspaceTool | null>(
     props.initialTab === 'media' ? 'media' : null
   )
+  const lastTool = useRef(tool)
+  useEffect(() => {
+    if (tool) lastTool.current = tool
+  }, [tool])
+  const displayedTool = tool || lastTool.current
   const [showShotList, setShowShotList] = useState(false)
   const [shotsOpen, setShotsOpen] = useState(false)
   const [screenplayValid, setScreenplayValid] = useState(true)
@@ -137,6 +143,7 @@ export function StudioCreationWorkspace(props: Props) {
     selectedMedia?.data.kind === 'video' && !!selectedMedia.data.mediaId
   const completedImage =
     selectedMedia?.data.kind === 'image' && !!selectedMedia.data.mediaId
+  const uploadedSource = selectedMedia?.data.sourceMode === 'upload'
   const generationLabel = studioGenerationAction(
     props.project,
     controller.selectedNodes,
@@ -346,7 +353,9 @@ export function StudioCreationWorkspace(props: Props) {
       >
         <header className='flex shrink-0 flex-wrap items-center gap-2 border-b px-3 py-2'>
           <div className='sr-only'>
-            <h2 className='truncate font-semibold'>{props.project.title}</h2>
+            <h2 className='truncate font-semibold'>
+              {studioProjectDisplayTitle(props.project)}
+            </h2>
             <p className='text-muted-foreground text-xs'>
               {t('studio.production.title')} ·{' '}
               {saveError
@@ -397,18 +406,31 @@ export function StudioCreationWorkspace(props: Props) {
             </DropdownMenuContent>
           </DropdownMenu>
         </header>
-        {(saveError ||
+        {(controller.pendingSubmission ||
+          saveError ||
           controller.record.isError ||
           controller.mutate.isError) && (
           <Alert variant='destructive'>
             <AlertDescription>
               {saveError ||
                 controller.record.error?.message ||
-                controller.mutate.error?.message}
+                controller.mutate.error?.message ||
+                (controller.pendingSubmission
+                  ? t(studioUnconfirmedRequest)
+                  : '')}
               <Button
                 size='sm'
                 variant='outline'
                 onClick={() => {
+                  if (
+                    !saveError &&
+                    (controller.pendingSubmission ||
+                      controller.mutate.error?.message ===
+                        t(studioUnconfirmedRequest))
+                  ) {
+                    void controller.recoverSubmission().catch(handleServerError)
+                    return
+                  }
                   void props
                     .onSave()
                     .then(() => {
@@ -419,7 +441,10 @@ export function StudioCreationWorkspace(props: Props) {
                     .catch(handleServerError)
                 }}
               >
-                {t('Retry')}
+                {controller.pendingSubmission ||
+                controller.mutate.error?.message === t(studioUnconfirmedRequest)
+                  ? t('Check the previous request')
+                  : t('Retry')}
               </Button>
             </AlertDescription>
           </Alert>
@@ -539,21 +564,29 @@ export function StudioCreationWorkspace(props: Props) {
               </TabsContent>
               <TabsContent value='visual' className='mt-0'>
                 <StudioStoryboardOverview />
-                <div className='grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]'>
+                <div
+                  className={
+                    uploadedSource
+                      ? 'mx-auto max-w-4xl'
+                      : 'grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]'
+                  }
+                >
                   <div className='min-w-0 self-start xl:sticky xl:top-0'>
                     <StudioWorkspaceShot
                       key={selectedShot?.id || props.selectedNodeId || 'empty'}
                       onTool={setTool}
                     />
                   </div>
-                  <div className='min-w-0'>
-                    <StudioProductionWorkflowTab
-                      value='visual'
-                      compact
-                      runButtonRef={runButton}
-                      onRunAvailabilityChange={setRunDisabled}
-                    />
-                  </div>
+                  {!uploadedSource && (
+                    <div className='min-w-0'>
+                      <StudioProductionWorkflowTab
+                        value='visual'
+                        compact
+                        runButtonRef={runButton}
+                        onRunAvailabilityChange={setRunDisabled}
+                      />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
               <StudioProductionTimelineTab value='edit' compact />
@@ -765,8 +798,8 @@ export function StudioCreationWorkspace(props: Props) {
           <SheetContent className='w-full sm:max-w-2xl'>
             <SheetHeader>
               <SheetTitle>
-                {t(`studio.workspace.tool.${tool || 'assistant'}`)} ·{' '}
-                {tool === 'share' || tool === 'members'
+                {t(`studio.workspace.tool.${displayedTool || 'assistant'}`)} ·{' '}
+                {displayedTool === 'share' || displayedTool === 'members'
                   ? studioProjectDisplayTitle(props.project)
                   : selectedShot?.title ||
                     studioProjectDisplayTitle(props.project)}

@@ -18,14 +18,49 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { useTranslation } from 'react-i18next'
 
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { Button } from '@/components/ui/button'
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible'
 import { Progress } from '@/components/ui/progress'
 
 import { useStudioProductionContext } from './studio-production-context'
+import { studioWorkflowProblem } from './studio-workflow-problem'
 
 export function StudioRenderProgress() {
   const { t } = useTranslation()
-  const { activeRender } = useStudioProductionContext()
-  if (!activeRender) return null
+  const { activeRender, jobs, setActiveTab } = useStudioProductionContext()
+  if (!activeRender) {
+    const latest = jobs?.data?.find((job) => job.kind === 'render')
+    if (!latest || !['failed', 'uncertain'].includes(latest.status)) return null
+    return (
+      <Alert variant='destructive'>
+        <AlertDescription className='space-y-2'>
+          <p>{t(studioWorkflowProblem(latest.error || ''))}</p>
+          <Button
+            size='sm'
+            variant='outline'
+            onClick={() => setActiveTab('workflow')}
+          >
+            {t('Open render task details')}
+          </Button>
+          {latest.error && (
+            <Collapsible>
+              <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
+                {t('Technical details')}
+              </CollapsibleTrigger>
+              <CollapsibleContent>
+                <p className='text-xs break-words'>{latest.error}</p>
+              </CollapsibleContent>
+            </Collapsible>
+          )}
+        </AlertDescription>
+      </Alert>
+    )
+  }
   return (
     <div role='status' className='flex flex-col gap-2'>
       <p className='text-muted-foreground text-sm'>

@@ -25,6 +25,7 @@ import { studioBrandGraphics } from './studio-brand-kit'
 import { studioMediaDraftSchema } from './studio-media-draft'
 import { studioMotionGraphicSchema } from './studio-motion-schema'
 import { studioPrevisSchema } from './studio-previs'
+import { studioProductionV2Fields } from './studio-production-contract'
 import { studioSkillSchema } from './studio-skill-contract'
 import { studioVisualPresetSchema } from './studio-visual-presets'
 
@@ -71,6 +72,10 @@ export const studioSeriesVersionSchema = z.strictObject({
         offset: z.number().min(0).max(3600),
         duration: z.number().min(0.01).max(3600).optional(),
         volume: z.number().min(0).max(1),
+        anchorKind: z.enum(['project', 'clip', 'source']).optional(),
+        anchorClipId: z.string().min(1).max(128).optional(),
+        anchorSourceStart: z.number().min(0).max(3600).optional(),
+        speed: z.number().min(0.25).max(4).optional(),
       })
     )
     .max(100)
@@ -79,6 +84,7 @@ export const studioSeriesVersionSchema = z.strictObject({
   height: z.number().int().min(64).max(4096).default(1080),
   fps: z.number().int().min(12).max(60).default(30),
   fit: z.enum(['letterbox', 'crop', 'blur']).default('letterbox'),
+  reframes: studioProductionV2Fields.reframes,
   translationSource: z.string().max(100000).optional(),
   translationNodes: z
     .array(
@@ -101,6 +107,7 @@ export const studioSeriesVersionSchema = z.strictObject({
 })
 export type StudioSeriesVersion = z.infer<typeof studioSeriesVersionSchema>
 export const studioProductionSchema = z.strictObject({
+  ...studioProductionV2Fields,
   briefSettingsKey: z.string().max(62000).optional(),
   creativeBrief: z
     .strictObject({
@@ -365,6 +372,10 @@ export const studioProductionSchema = z.strictObject({
       z.strictObject({
         id: z.string().min(1).max(128),
         mediaId: z.string().min(1).max(128),
+        anchorKind: z.enum(['project', 'clip', 'source']).optional(),
+        anchorClipId: z.string().min(1).max(128).optional(),
+        anchorSourceStart: z.number().min(0).max(3600).optional(),
+        speed: z.number().min(0.25).max(4).optional(),
         start: z.number().min(0).max(3600).default(0),
         offset: z.number().min(0).max(3600).default(0),
         duration: z.number().min(0.01).max(3600).optional(),
@@ -482,6 +493,12 @@ export function studioProjectRenderPlan(project: StudioProject, draft = false) {
       throw new Error('A clip must finish and be stored before rendering')
     }
     return {
+      ...(production.reframes?.[clip.id]
+        ? {
+            clip_id: clip.id,
+            tracking_id: production.reframes[clip.id].analysisId,
+          }
+        : {}),
       node_id: node.id,
       take_id: clip.takeId || resolved.data.selectedTakeId || '',
       media_id: mediaId,
@@ -523,6 +540,7 @@ export function studioProjectRenderPlan(project: StudioProject, draft = false) {
       offset: track.offset,
       volume: track.volume,
       duration: track.duration,
+      speed: track.speed ?? 1,
       role,
     }
   })
@@ -533,6 +551,7 @@ export function studioProjectRenderPlan(project: StudioProject, draft = false) {
       offset: project.soundtrackOffsetSeconds || 0,
       volume: project.soundtrackVolume ?? 1,
       duration: undefined,
+      speed: 1,
       role: production.audioMix ? 'music' : undefined,
     })
   }
@@ -543,6 +562,7 @@ export function studioProjectRenderPlan(project: StudioProject, draft = false) {
       offset: project.voiceoverOffsetSeconds || 0,
       volume: project.voiceoverVolume ?? 1,
       duration: undefined,
+      speed: 1,
       role: production.audioMix ? 'voice' : undefined,
     })
   }

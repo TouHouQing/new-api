@@ -105,6 +105,7 @@ type StudioWorkflowJob struct {
 
 var ErrStudioRevision = errors.New("project changed; read the current revision before editing")
 var ErrStudioAccess = errors.New("project is unavailable")
+var ErrStudioStorageUnavailable = errors.New("project storage is temporarily unavailable; try again shortly")
 
 func RestoreStudioDeletedProject(userID int, projectID string) (*StudioProject, error) {
 	var result *StudioProject
@@ -134,14 +135,20 @@ func RestoreStudioDeletedProject(userID int, projectID string) (*StudioProject, 
 func StudioProjectAccess(db *gorm.DB, userID int, projectID string, write bool) (*StudioProject, string, error) {
 	var project StudioProject
 	if err := db.Where("id = ?", projectID).First(&project).Error; err != nil {
-		return nil, "", ErrStudioAccess
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, "", ErrStudioAccess
+		}
+		return nil, "", ErrStudioStorageUnavailable
 	}
 	if project.OwnerID == userID {
 		return &project, "owner", nil
 	}
 	var member StudioProjectMember
 	if err := db.Where("project_id = ? AND user_id = ?", projectID, userID).First(&member).Error; err != nil {
-		return nil, "", ErrStudioAccess
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, "", ErrStudioAccess
+		}
+		return nil, "", ErrStudioStorageUnavailable
 	}
 	if write && member.Role != "editor" {
 		return nil, "", ErrStudioAccess

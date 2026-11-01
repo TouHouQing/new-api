@@ -16,23 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/*
-Copyright (C) 2023-2026 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-*/
-
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -162,13 +145,15 @@ export function StudioAssetLibrary(props: Props) {
               props.previews[`${props.projectId}:asset:${asset.id}`] ||
               asset.outputUrl
             return (
-              <fieldset
-                disabled={props.readOnly}
+              <div
                 key={asset.id}
                 className='min-w-0 space-y-2 rounded-lg border p-3'
               >
                 <p className='text-muted-foreground text-xs'>
-                  {t(`studio.asset.${asset.kind}`)}
+                  {asset.kind === 'character' &&
+                  asset.profile?.subjectType === 'object'
+                    ? t('Object or product')
+                    : t(`studio.asset.${asset.kind}`)}
                 </p>
                 {preview && (
                   <img
@@ -193,6 +178,7 @@ export function StudioAssetLibrary(props: Props) {
                   </p>
                 )}
                 <Input
+                  disabled={props.readOnly}
                   aria-label={`${asset.title} ${t('studio.asset.name')}`}
                   maxLength={200}
                   value={asset.title}
@@ -210,6 +196,7 @@ export function StudioAssetLibrary(props: Props) {
                   </CollapsibleTrigger>
                   <CollapsibleContent className='flex flex-col gap-2 pt-2'>
                     <Textarea
+                      disabled={props.readOnly}
                       aria-label={`${asset.title} ${t('studio.asset.prompt')}`}
                       maxLength={10000}
                       value={asset.prompt}
@@ -230,6 +217,7 @@ export function StudioAssetLibrary(props: Props) {
                   <Button
                     size='sm'
                     variant='secondary'
+                    disabled={props.readOnly}
                     onClick={() => props.onPlaceOnCanvas?.(asset.id)}
                   >
                     {t('studio.asset.placeOnCanvas')}
@@ -237,6 +225,7 @@ export function StudioAssetLibrary(props: Props) {
                 )}
                 <Input
                   type='file'
+                  disabled={props.readOnly}
                   accept='image/png,image/jpeg,image/webp'
                   aria-label={`${asset.title} ${t('studio.asset.reference')}`}
                   onChange={(event) => {
@@ -249,6 +238,7 @@ export function StudioAssetLibrary(props: Props) {
                   <Button
                     size='xs'
                     variant='outline'
+                    disabled={props.readOnly}
                     aria-label={`${asset.title} ${t('studio.asset.lockVersion')}`}
                     onClick={() => props.onCreateVersion?.(asset.id)}
                   >
@@ -293,6 +283,7 @@ export function StudioAssetLibrary(props: Props) {
                 <Button
                   size='xs'
                   variant='outline'
+                  disabled={props.readOnly || !props.onApplyToShots}
                   aria-label={`${asset.title} ${props.applyLabel || t('studio.asset.applyToShots')}`}
                   onClick={() => props.onApplyToShots?.(asset.id)}
                 >
@@ -301,11 +292,12 @@ export function StudioAssetLibrary(props: Props) {
                 <Button
                   size='xs'
                   variant='outline'
+                  disabled={props.readOnly}
                   onClick={() => props.onDelete(asset.id)}
                 >
                   {t('studio.asset.delete')}
                 </Button>
-              </fieldset>
+              </div>
             )
           })}
       </div>

@@ -1,0 +1,26 @@
+# Overlay the full production stack and its source-build definitions.
+# No production service is replaced by an embedded or SQLite fallback.
+services:
+  migrate:
+    image: yingce-platform-backend:local
+  backend:
+    image: yingce-platform-backend:local
+    environment:
+      TMPDIR: /data/tmp
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+  yingce-agent:
+    image: yingce-platform-agent:local
+  web:
+    image: yingce-platform-web:local
+  tls:
+    image: caddy:2-alpine
+    ports:
+      - "127.0.0.1:${YINGCE_LOCAL_HTTPS_PORT:-13444}:443"
+    volumes:
+      - ./docker/local-production.Caddyfile:/etc/caddy/Caddyfile:ro
+      - ${YINGCE_LOCAL_CERTS_PATH:?Configure the local certificate directory}:/certs:ro
+    depends_on:
+      web:
+        condition: service_healthy
+    restart: unless-stopped

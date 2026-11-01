@@ -57,8 +57,10 @@ if (-not (Test-StudioPort 13003)) {
 }
 $env:HF_HOME = Join-Path $lab 'audio-models'
 $env:HF_HUB_DISABLE_XET = '1'
+$env:HF_HUB_OFFLINE = '1'
+$env:TRANSFORMERS_OFFLINE = '1'
 if (-not (Test-StudioPort 13004)) {
-  Start-StudioHelper $audioPython @('-X', 'utf8', 'scripts/studio-local/real_audio_worker.py', '--comfy', 'http://127.0.0.1:8288', '--music-comfy', 'http://127.0.0.1:8188', '--directory', ('"' + (Join-Path $lab 'real-audio') + '"'), '--ffmpeg', ('"' + $ffmpeg + '"')) 'audio-production'
+  Start-StudioHelper $audioPython @('-X', 'utf8', 'scripts/studio-local/real_audio_worker.py', '--comfy', 'http://127.0.0.1:8288', '--directory', ('"' + (Join-Path $lab 'real-audio') + '"'), '--ffmpeg', ('"' + $ffmpeg + '"')) 'audio-production'
 }
 if (-not (Test-StudioPort 13013)) {
   Start-StudioHelper $runtime @('-X', 'utf8', 'scripts/studio-local/private_model_relay.py', '--bind', $hostAddress, '--allow', $allowed) 'private-model-relay'
@@ -82,7 +84,7 @@ function Convert-StudioWslPath([string]$Path) {
   $full = [System.IO.Path]::GetFullPath($Path)
   return '/mnt/' + $full.Substring(0, 1).ToLowerInvariant() + $full.Substring(2).Replace('\', '/')
 }
-& wsl -d $Distribution -u root -- docker compose --env-file (Convert-StudioWslPath (Join-Path $lab 'production\.env')) --project-directory (Convert-StudioWslPath (Join-Path $lab 'production')) -f (Convert-StudioWslPath (Join-Path $repo 'docker-compose.studio-local.yml')) up -d
+& wsl -d $Distribution -u root -- env "STUDIO_LOCAL_WORKER_URL=http://${hostAddress}:13014" "STUDIO_LOCAL_MODEL_URL=http://${hostAddress}:13013" docker compose --env-file (Convert-StudioWslPath (Join-Path $lab 'production\.env')) --project-directory (Convert-StudioWslPath (Join-Path $lab 'production')) -f (Convert-StudioWslPath (Join-Path $repo 'docker-compose.studio-local.yml')) up -d
 if ($LASTEXITCODE -ne 0) { throw 'Docker production startup failed' }
 $ready = $false
 $deadline = [DateTime]::UtcNow.AddSeconds(60)

@@ -5,6 +5,351 @@
     "production": {
       "type": "object",
       "properties": {
+        "documentVersion": {
+          "default": 1,
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 2
+        },
+        "analysisRefs": {
+          "maxItems": 500,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "scenes",
+                  "transcript",
+                  "audio",
+                  "subjects",
+                  "continuity",
+                  "index"
+                ]
+              },
+              "sourceMediaId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "sourceDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "sourceTakeId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "artifactMediaId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "analyzerVersion": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              },
+              "createdAt": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "required": [
+              "id",
+              "kind",
+              "sourceMediaId",
+              "sourceDigest",
+              "artifactMediaId",
+              "analyzerVersion",
+              "createdAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "shotNarrative": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "purpose": {
+                "type": "string",
+                "enum": [
+                  "opening",
+                  "establish",
+                  "action",
+                  "emotion",
+                  "benefit",
+                  "ending"
+                ]
+              },
+              "information": {
+                "default": "",
+                "type": "string",
+                "maxLength": 2000
+              },
+              "emotion": {
+                "default": "",
+                "type": "string",
+                "maxLength": 500
+              },
+              "visualBeat": {
+                "default": "",
+                "type": "string",
+                "maxLength": 2000
+              },
+              "continuityNeeds": {
+                "default": "",
+                "type": "string",
+                "maxLength": 2000
+              }
+            },
+            "required": [
+              "purpose"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "continuityReviews": {
+          "maxItems": 1000,
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "shotId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "assetId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "nodeId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "takeId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "mediaId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "referenceMediaIds": {
+                "default": [],
+                "maxItems": 12,
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                }
+              },
+              "referenceVersionId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "requirementsKey": {
+                "type": "string",
+                "maxLength": 12000
+              },
+              "status": {
+                "type": "string",
+                "enum": [
+                  "approved",
+                  "retake",
+                  "unreviewed"
+                ]
+              },
+              "note": {
+                "type": "string",
+                "maxLength": 2000
+              },
+              "reviewedAt": {
+                "type": "string",
+                "maxLength": 40
+              }
+            },
+            "required": [
+              "shotId",
+              "assetId",
+              "nodeId",
+              "mediaId",
+              "status",
+              "note",
+              "reviewedAt"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "appliedEditPlans": {
+          "maxItems": 100,
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          }
+        },
+        "reframes": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "analysisId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "sourceMediaId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "sourceDigest": {
+                "type": "string",
+                "pattern": "^[a-f0-9]{64}$"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 64,
+                "maximum": 4096
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 64,
+                "maximum": 4096
+              }
+            },
+            "required": [
+              "analysisId",
+              "sourceMediaId",
+              "sourceDigest",
+              "width",
+              "height"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "musicVideoPlan": {
+          "type": "object",
+          "properties": {
+            "recordId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "direction": {
+              "type": "string",
+              "enum": [
+                "narrative",
+                "concept",
+                "performance"
+              ]
+            },
+            "analysisId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "correctionId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "musicMediaId": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "musicDigest": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            },
+            "start": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3600
+            },
+            "end": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 3600
+            }
+          },
+          "required": [
+            "recordId",
+            "direction",
+            "analysisId",
+            "musicMediaId",
+            "musicDigest",
+            "start",
+            "end"
+          ],
+          "additionalProperties": false
+        },
+        "finalDurations": {
+          "type": "object",
+          "propertyNames": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 3600
+          }
+        },
+        "templateOrigin": {
+          "type": "object",
+          "properties": {
+            "id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "version": {
+              "type": "integer",
+              "exclusiveMinimum": 0,
+              "maximum": 9007199254740991
+            },
+            "inputHash": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          },
+          "required": [
+            "id",
+            "version",
+            "inputHash"
+          ],
+          "additionalProperties": false
+        },
         "briefSettingsKey": {
           "type": "string",
           "maxLength": 62000
@@ -305,6 +650,11 @@
             "options": {
               "type": "object",
               "properties": {
+                "lip_audio_start": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3600
+                },
                 "panel_prompts": {
                   "maxItems": 16,
                   "type": "array",
@@ -433,6 +783,50 @@
                 }
               },
               "additionalProperties": false
+            },
+            "edit": {
+              "type": "object",
+              "properties": {
+                "start": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3600
+                },
+                "end": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 3600
+                },
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8192
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8192
+                },
+                "width": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8192
+                },
+                "height": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 8192
+                }
+              },
+              "required": [
+                "start",
+                "end",
+                "x",
+                "y",
+                "width",
+                "height"
+              ],
+              "additionalProperties": false
             }
           },
           "required": [
@@ -510,6 +904,11 @@
               "options": {
                 "type": "object",
                 "properties": {
+                  "lip_audio_start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 3600
+                  },
                   "panel_prompts": {
                     "maxItems": 16,
                     "type": "array",
@@ -638,6 +1037,50 @@
                   }
                 },
                 "additionalProperties": false
+              },
+              "edit": {
+                "type": "object",
+                "properties": {
+                  "start": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 3600
+                  },
+                  "end": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 3600
+                  },
+                  "x": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8192
+                  },
+                  "y": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8192
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8192
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 8192
+                  }
+                },
+                "required": [
+                  "start",
+                  "end",
+                  "x",
+                  "y",
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
               }
             },
             "required": [
@@ -719,6 +1162,9 @@
                 "type": "string",
                 "minLength": 1,
                 "maxLength": 128
+              },
+              "archived": {
+                "type": "boolean"
               },
               "history": {
                 "default": [],
@@ -878,6 +1324,16 @@
                 "maximum": 3600
               },
               "end": {
+                "type": "number",
+                "minimum": 0.01,
+                "maximum": 3600
+              },
+              "phaseOffset": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 3600
+              },
+              "phaseDuration": {
                 "type": "number",
                 "minimum": 0.01,
                 "maximum": 3600
@@ -1215,6 +1671,16 @@
                       "minimum": 0.01,
                       "maximum": 3600
                     },
+                    "phaseOffset": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 3600
+                    },
+                    "phaseDuration": {
+                      "type": "number",
+                      "minimum": 0.01,
+                      "maximum": 3600
+                    },
                     "x": {
                       "type": "number",
                       "minimum": 0,
@@ -1309,6 +1775,29 @@
                       "type": "number",
                       "minimum": 0,
                       "maximum": 1
+                    },
+                    "anchorKind": {
+                      "type": "string",
+                      "enum": [
+                        "project",
+                        "clip",
+                        "source"
+                      ]
+                    },
+                    "anchorClipId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "anchorSourceStart": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 3600
+                    },
+                    "speed": {
+                      "type": "number",
+                      "minimum": 0.25,
+                      "maximum": 4
                     }
                   },
                   "required": [
@@ -1347,6 +1836,51 @@
                   "crop",
                   "blur"
                 ]
+              },
+              "reframes": {
+                "type": "object",
+                "propertyNames": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 128
+                },
+                "additionalProperties": {
+                  "type": "object",
+                  "properties": {
+                    "analysisId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "sourceMediaId": {
+                      "type": "string",
+                      "minLength": 1,
+                      "maxLength": 128
+                    },
+                    "sourceDigest": {
+                      "type": "string",
+                      "pattern": "^[a-f0-9]{64}$"
+                    },
+                    "width": {
+                      "type": "integer",
+                      "minimum": 64,
+                      "maximum": 4096
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 64,
+                      "maximum": 4096
+                    }
+                  },
+                  "required": [
+                    "analysisId",
+                    "sourceMediaId",
+                    "sourceDigest",
+                    "width",
+                    "height"
+                  ],
+                  "additionalProperties": false
+                }
               },
               "translationSource": {
                 "type": "string",
@@ -2524,6 +3058,29 @@
                 "minLength": 1,
                 "maxLength": 128
               },
+              "anchorKind": {
+                "type": "string",
+                "enum": [
+                  "project",
+                  "clip",
+                  "source"
+                ]
+              },
+              "anchorClipId": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 128
+              },
+              "anchorSourceStart": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 3600
+              },
+              "speed": {
+                "type": "number",
+                "minimum": 0.25,
+                "maximum": 4
+              },
               "start": {
                 "default": 0,
                 "type": "number",
@@ -2950,6 +3507,11 @@
                   "sourceMediaId": {
                     "type": "string",
                     "maxLength": 128
+                  },
+                  "replacementDuration": {
+                    "type": "number",
+                    "exclusiveMinimum": 0,
+                    "maximum": 3600
                   },
                   "start": {
                     "type": "number",

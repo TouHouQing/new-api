@@ -45,11 +45,18 @@ export function studioMotionSVG(
   const parts: string[] = []
   for (const item of items) {
     if (seconds < item.start || seconds >= item.end) continue
-    const time = seconds - item.start
+    const time = seconds - item.start + (item.phaseOffset || 0)
     const beat = ((2 * Math.PI * item.bpm) / 60) * time
     let x = item.x * width,
       y = item.y * height
-    let alpha = Math.max(0, Math.min(1, time / 0.4, (item.end - seconds) / 0.4))
+    let alpha = Math.max(
+      0,
+      Math.min(
+        1,
+        time / 0.4,
+        ((item.phaseDuration || item.end - item.start) - time) / 0.4
+      )
+    )
     let scale = 1,
       rotation = 0
     if (item.animation === 'slide') x -= width * (1 - Math.min(1, time / 0.6))

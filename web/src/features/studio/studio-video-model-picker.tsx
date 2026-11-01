@@ -16,23 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/*
-Copyright (C) 2023-2026 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-*/
-
 import { useQuery } from '@tanstack/react-query'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
 import { useState } from 'react'
@@ -49,6 +32,8 @@ import type { PricingData, PricingModel } from '@/features/pricing/types'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 
 import { fetchStudioModels } from './api'
+import { useStudioCapabilityProfiles } from './studio-capabilities-query'
+import { StudioCapabilityStatus } from './studio-capability-status'
 import { estimateStudioVideoCost } from './studio-cost'
 
 type Props = {
@@ -120,6 +105,7 @@ function modelDescription(model: PricingModel | undefined): string {
 export function StudioVideoModelPicker(props: Props) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const capabilityProfiles = useStudioCapabilityProfiles(open)
   const [query, setQuery] = useState('')
   const modelQuery = useQuery<LoadedModels>({
     queryKey: ['studio', 'video-model-picker', props.group],
@@ -270,6 +256,12 @@ export function StudioVideoModelPicker(props: Props) {
                     {modelDescription(details) ||
                       t('studio.model.descriptionMissing')}
                   </span>
+                  <StudioCapabilityStatus
+                    modelId={id}
+                    action='video'
+                    profiles={capabilityProfiles.data?.profiles}
+                    seconds={props.durationSeconds}
+                  />
                 </span>
                 <span className='shrink-0 text-left sm:text-right'>
                   {priceLabel && (

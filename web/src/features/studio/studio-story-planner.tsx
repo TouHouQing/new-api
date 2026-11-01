@@ -28,6 +28,7 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from '@/components/ui/collapsible'
+import { Textarea } from '@/components/ui/textarea'
 import { getPricing } from '@/features/pricing/api'
 
 import { studioCloudRequest, type StudioCloudProject } from './studio-cloud'
@@ -56,6 +57,11 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
   } = useStudioProductionContext()
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState('')
+  const [draftEditorOpen, setDraftEditorOpen] = useState(false)
+  const [editedDraft, setEditedDraft] = useState<{
+    nodeId: string
+    text: string
+  }>()
   const production =
     workspace.project.production || studioProductionSchema.parse({})
   const catalog = useQuery({
@@ -77,6 +83,10 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
   const node = [...workspace.project.nodes]
     .reverse()
     .find((node) => node.data.assistantSkillId === 'screenplay-draft')
+  const draftText =
+    editedDraft?.nodeId === node?.id
+      ? editedDraft?.text || ''
+      : node?.data.outputText || ''
   const job = jobs.data?.find((job) => job.node_ids?.includes(node?.id || ''))
   const pending =
     !!job &&
@@ -92,7 +102,7 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
       return
     }
     const id = crypto.randomUUID()
-    const prompt = `Return ONLY valid JSON, no markdown. Create an editable video screenplay in the user's language. Respect explicit shot numbering; do not split a shot at sentence boundaries. Keep global identity, wardrobe, style and negative requirements in brief and appropriate reference descriptions, not extra shots. Return {"title":"...","brief":"original idea and global requirements","characters":[{"id":"character_1","title":"...","description":"...","voice":"..."}],"scenes":[{"id":"scene_1","title":"...","description":"..."}],"props":[],"shots":[{"id":"shot_1","title":"...","text":"visible action","imagePrompt":"composition and appearance","videoPrompt":"one clear action and camera motion","seconds":4,"camera":"...","shotType":"...","dialogue":"spoken words only","characterIds":[],"propIds":[],"sceneId":"scene_1"}]}. IDs must match /^[A-Za-z0-9_-]{1,80}$/. Use existing referenced IDs where possible, omit sceneId if none. At most 12 shots. Every shot 1-30 whole seconds, total target ${production.targetDuration || 30} seconds, split actions when needed. Do not generate images/video or invent downloaded references. User idea: ${studioCreativeBriefText(workspace.project, t)}\n${/[\u4e00-\u9fff]/.test(production.brief || '') ? '请用中文填写标题、角色名称、场景名称、text、dialogue、camera、shotType 和 brief。JSON 键名保持英文，图像和视频提示词可以使用英文。没有台词时 dialogue 必须是空字符串，不要使用 null。保留原文明确指定的每个镜头，整体要求不能变成新镜头。' : 'Use empty strings for absent optional dialogue, camera and shotType; do not use null.'}`
+    const prompt = `Return ONLY valid JSON, no markdown. Create an editable video screenplay in the user's language. Respect explicit shot numbering; do not split a shot at sentence boundaries. Keep global identity, wardrobe, style and negative requirements in brief and appropriate reference descriptions, not extra shots. Return {"title":"...","brief":"original idea and global requirements","characters":[{"id":"character_1","title":"...","description":"...","voice":"..."}],"scenes":[{"id":"scene_1","title":"...","description":"..."}],"props":[{"id":"prop_1","title":"...","description":"..."}],"shots":[{"id":"shot_1","title":"...","text":"visible action","imagePrompt":"composition and appearance","videoPrompt":"one clear action and camera motion","seconds":4,"camera":"...","shotType":"...","dialogue":"spoken words only","characterIds":[],"propIds":[],"sceneId":"scene_1"}]}. IDs must match /^[A-Za-z0-9_-]{1,80}$/. Use existing referenced IDs where possible, omit sceneId if none. At most 12 shots. Every shot 1-30 whole seconds, total target ${production.targetDuration || 30} seconds, split actions when needed. Do not generate images/video or invent downloaded references. User idea: ${studioCreativeBriefText(workspace.project, t)}\n${/[\u4e00-\u9fff]/.test(production.brief || '') ? '请用中文填写标题、角色名称、场景名称、text、dialogue、camera、shotType 和 brief。JSON 键名保持英文，图像和视频提示词可以使用英文。没有台词时 dialogue 必须是空字符串，不要使用 null。保留原文明确指定的每个镜头，整体要求不能变成新镜头。' : 'Use empty strings for absent optional dialogue, camera and shotType; do not use null.'}`
     workspace.onUpdate(
       updateStudioNode(
         addStudioNode(studioConfirmBrief(workspace.project, false), 'text', id),
@@ -120,9 +130,10 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
     })
   }
   const review = () => {
+    if (!writable) return
     try {
       const draft = parseStudioScreenplayResponse(
-        node?.data.outputText || '',
+        draftText,
         production.brief || '',
         t('studio.shot.defaultName'),
         production.targetDuration || 30
@@ -137,9 +148,10 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
       })
       setError('')
     } catch {
+      setDraftEditorOpen(true)
       setError(
         t(
-          'The AI draft needs correction. Open its text in the advanced canvas or use a manual draft. Your story is retained.'
+          'The AI draft needs correction. Your idea and original result are retained. Edit the draft below or continue with a manual draft.'
         )
       )
     }
@@ -196,7 +208,7 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
       )}
       {job?.error && <p role='alert'>{job.error}</p>}
       {!!node?.data.outputText && (
-        <Button variant='outline' onClick={review}>
+        <Button variant='outline' disabled={!writable} onClick={review}>
           {t('Review AI shot draft')}
         </Button>
       )}
@@ -204,6 +216,33 @@ export function StudioStoryPlanner(props: { disabled?: boolean }) {
         <Alert variant='destructive'>
           <AlertDescription>{error}</AlertDescription>
         </Alert>
+      )}
+      {!!node?.data.outputText && (
+        <Collapsible open={draftEditorOpen} onOpenChange={setDraftEditorOpen}>
+          <CollapsibleTrigger render={<Button variant='ghost' />}>
+            {t('Edit the AI draft text')}
+          </CollapsibleTrigger>
+          <CollapsibleContent className='space-y-2'>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Editing this draft does not run a model or change the original generated result. Validate it before applying.'
+              )}
+            </p>
+            <Textarea
+              aria-label={t('AI draft text')}
+              className='min-h-48 font-mono text-xs'
+              value={draftText}
+              maxLength={200000}
+              disabled={!writable}
+              onChange={(event) =>
+                setEditedDraft({ nodeId: node.id, text: event.target.value })
+              }
+            />
+            <Button disabled={!writable || !draftText.trim()} onClick={review}>
+              {t('Validate and review this draft')}
+            </Button>
+          </CollapsibleContent>
+        </Collapsible>
       )}
       <ConfirmDialog
         open={confirm}

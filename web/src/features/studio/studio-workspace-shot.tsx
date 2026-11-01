@@ -43,7 +43,10 @@ import { Textarea } from '@/components/ui/textarea'
 import { api } from '@/lib/api'
 import { handleServerError } from '@/lib/handle-server-error'
 
-import { connectedGenerationInput } from './canvas-flow'
+import {
+  connectedGenerationInput,
+  resolveStudioEdgeSource,
+} from './canvas-flow'
 import { studioTakeSizeLabel } from './studio-draft-profile'
 import { StudioMediaImport } from './studio-media-import'
 import { StudioMediaThumbnail } from './studio-media-thumbnail'
@@ -57,6 +60,12 @@ import {
   setStudioShotAssets,
   updateStudioNode,
 } from './workspace'
+
+function connectedMediaRole(handle: string | null | undefined, kind: string) {
+  if (handle === 'first_frame') return 'First frame'
+  if (handle === 'last_frame') return 'Last frame'
+  return kind === 'video' ? 'Video reference' : 'Reference image'
+}
 
 export function StudioWorkspaceShot(props: {
   onTool: (tool: 'assets' | 'previs' | 'media' | 'assistant') => void
@@ -72,15 +81,18 @@ export function StudioWorkspaceShot(props: {
   const production = project.production || studioProductionSchema.parse({})
   const liveProject = useRef(project)
   liveProject.current = project
+  const initial = project.nodes.find(
+    (node) => node.id === workspace.selectedNodeId
+  )
   const shot =
     project.shots?.find((shot) =>
       [shot.textNodeId, shot.imageNodeId, shot.videoNodeId].includes(
         workspace.selectedNodeId || ''
       )
-    ) || project.shots?.[0]
-  const initial = project.nodes.find(
-    (node) => node.id === workspace.selectedNodeId
-  )
+    ) ||
+    (initial?.data.reworkRange || initial?.data.reworkRegion
+      ? undefined
+      : project.shots?.[0])
   const [kind, setKind] = useState<'image' | 'video'>(
     initial?.data.kind === 'image' ? 'image' : 'video'
   )
@@ -118,6 +130,18 @@ export function StudioWorkspaceShot(props: {
     project.assets?.filter((asset) =>
       node?.data.assetIds?.includes(asset.id)
     ) || []
+  const connectedReferences = project.edges
+    .filter((edge) => edge.target === node?.id)
+    .flatMap((edge) => {
+      const source = project.nodes.find((item) => item.id === edge.source)
+      if (!source || !['image', 'video'].includes(source.data.kind)) return []
+      try {
+        const resolved = resolveStudioEdgeSource(source, edge)
+        return [{ edge, source: resolved, available: !!resolved.data.mediaId }]
+      } catch {
+        return [{ edge, source, available: false }]
+      }
+    })
   const affected =
     project.production?.timeline.filter(
       (clip) => clip.nodeId === node?.id && !clip.takeId
@@ -228,7 +252,7 @@ export function StudioWorkspaceShot(props: {
       <div className='flex flex-wrap gap-2'>
         <Badge variant='secondary'>{t(status)}</Badge>
         {sizeLabel && <Badge variant='outline'>{t(sizeLabel)}</Badge>}
-        {node?.data.kind === 'video' && (
+        {node?.data.kind === 'video' && node.data.sourceMode !== 'upload' && (
           <Badge variant='outline'>
             {node.data.seconds || 5} {t('Seconds')}
           </Badge>
@@ -376,6 +400,12 @@ export function StudioWorkspaceShot(props: {
             }}
           />
         </Field>
+      )}
+      {node?.data.kind === 'video' && (
+        <StudioMediaImport
+          targetNodeId={node.id}
+          readOnly={!writable || !!node.data.locked}
+        />
       )}
       {comparison && (
         <div
@@ -553,9 +583,52 @@ export function StudioWorkspaceShot(props: {
       {shot && (
         <Collapsible>
           <CollapsibleTrigger render={<Button variant='ghost' size='sm' />}>
-            {t('References for this shot')} · {references.length}
+            {t('References for this shot')} ·{' '}
+            {references.length + connectedReferences.length}
           </CollapsibleTrigger>
           <CollapsibleContent className='flex flex-col gap-3 pt-3'>
+            {!!connectedReferences.length && (
+              <section
+                aria-label={t('Connected media inputs')}
+                className='space-y-3'
+              >
+                <p className='text-muted-foreground text-xs'>
+                  {t(
+                    'Planned inputs. The submitted references are recorded with each generated version.'
+                  )}
+                </p>
+                {connectedReferences.map(({ edge, source, available }) => (
+                  <div
+                    key={edge.id}
+                    className='space-y-2 rounded-lg border p-3'
+                  >
+                    <p className='text-sm font-medium'>{source.data.title}</p>
+                    <p className='text-muted-foreground text-xs'>
+                      {t(
+                        connectedMediaRole(edge.targetHandle, source.data.kind)
+                      )}
+                      {edge.data?.sourceTakeId && ` · ${t('Pinned version')}`}
+                    </p>
+                    {available && source.data.mediaId ? (
+                      <StudioMediaThumbnail
+                        mediaId={source.data.mediaId}
+                        kind={source.data.kind}
+                        title={source.data.title}
+                        getMedia={workspace.getMedia}
+                      />
+                    ) : (
+                      <Alert variant='destructive'>
+                        <AlertDescription>
+                          {t(
+                            'This connected reference version is unavailable. Reconnect or choose an existing version before generating.'
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                  </div>
+                ))}
+              </section>
+            )}
             {(project.assets || []).map((asset) => {
               const pinned = asset.versions?.find(
                 (version) =>

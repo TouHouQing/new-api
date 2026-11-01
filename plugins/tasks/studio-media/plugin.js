@@ -5,7 +5,7 @@ export const meta = {
   key: "studio-media",
   name: "Studio Media",
   icon: "text:SM",
-  version: "1.3.0",
+  version: "1.3.1",
   author: { name: "QuantumNous" },
   description: {
     en: "Production image, video and audio tools through a configured media worker",
@@ -89,6 +89,11 @@ function request(ctx) {
   const normalized = {};
   for (const key of Object.keys(options)) {
     const value = options[key];
+    if (key === "lip_audio_start") {
+      if (action !== "lip_sync" || typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 3600) throw new Error("Audio source start is only valid for lip sync");
+      normalized[key] = value;
+      continue;
+    }
     if (key === "panel_prompts") {
       if (action !== "image_grid" || !Array.isArray(value) || value.length < 1 || value.length > 16 || value.some((prompt) => typeof prompt !== "string" || !prompt.trim() || prompt.length > 3000)) throw new Error("Describe every storyboard panel");
       normalized[key] = value.slice(); continue;

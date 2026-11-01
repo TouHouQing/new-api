@@ -13,21 +13,23 @@ import (
 )
 
 type StudioMotionGraphic struct {
-	ID           string  `json:"id"`
-	Kind         string  `json:"kind,omitempty"`
-	Icon         string  `json:"icon,omitempty"`
-	Shape        string  `json:"shape,omitempty"`
-	ImageMediaID string  `json:"imageMediaId,omitempty"`
-	Text         string  `json:"text"`
-	Start        float64 `json:"start"`
-	End          float64 `json:"end"`
-	X            float64 `json:"x"`
-	Y            float64 `json:"y"`
-	FontSize     int     `json:"font_size"`
-	FontFamily   string  `json:"font_family,omitempty"`
-	Color        string  `json:"color"`
-	Animation    string  `json:"animation"`
-	BPM          int     `json:"bpm"`
+	PhaseOffset   float64 `json:"phaseOffset,omitempty"`
+	PhaseDuration float64 `json:"phaseDuration,omitempty"`
+	ID            string  `json:"id"`
+	Kind          string  `json:"kind,omitempty"`
+	Icon          string  `json:"icon,omitempty"`
+	Shape         string  `json:"shape,omitempty"`
+	ImageMediaID  string  `json:"imageMediaId,omitempty"`
+	Text          string  `json:"text"`
+	Start         float64 `json:"start"`
+	End           float64 `json:"end"`
+	X             float64 `json:"x"`
+	Y             float64 `json:"y"`
+	FontSize      int     `json:"font_size"`
+	FontFamily    string  `json:"font_family,omitempty"`
+	Color         string  `json:"color"`
+	Animation     string  `json:"animation"`
+	BPM           int     `json:"bpm"`
 }
 
 var studioGraphicColor = regexp.MustCompile(`^#[0-9A-Fa-f]{6}$`)
@@ -50,7 +52,10 @@ func validateStudioMotionGraphics(items []StudioMotionGraphic) error {
 		if item.Animation == "morph" && item.Kind != "shape" {
 			return errors.New("morph animation requires a shape")
 		}
-		for _, value := range []float64{item.Start, item.End, item.X, item.Y} {
+		if item.PhaseOffset < 0 || item.PhaseOffset > 3600 || item.PhaseDuration < 0 || item.PhaseDuration > 3600 {
+			return errors.New("invalid graphic source phase")
+		}
+		for _, value := range []float64{item.Start, item.End, item.X, item.Y, item.PhaseOffset, item.PhaseDuration} {
 			if math.IsNaN(value) || math.IsInf(value, 0) {
 				return errors.New("invalid motion graphic timing or position")
 			}
@@ -75,9 +80,13 @@ func studioMotionGraphicFilters(items []StudioMotionGraphic, offset, duration fl
 		if err := os.WriteFile(filepath.Join(workdir, filename), []byte(item.Text), 0600); err != nil {
 			return "", err
 		}
-		time := fmt.Sprintf("(t+%g-%g)", offset, item.Start)
+		time := fmt.Sprintf("(t+%g-%g+%g)", offset, item.Start, item.PhaseOffset)
 		x, y := fmt.Sprintf("w*%g-text_w/2", item.X), fmt.Sprintf("h*%g-text_h/2", item.Y)
-		alpha := fmt.Sprintf("min(1,min(%s/0.4,(%g-t-%g)/0.4))", time, item.End, offset)
+		phaseDuration := item.PhaseDuration
+		if phaseDuration == 0 {
+			phaseDuration = item.End - item.Start
+		}
+		alpha := fmt.Sprintf("min(1,min(%s/0.4,(%g-%s)/0.4))", time, phaseDuration, time)
 		switch item.Animation {
 		case "slide":
 			x += fmt.Sprintf("-w*(1-min(1,max(0,%s/0.6)))", time)

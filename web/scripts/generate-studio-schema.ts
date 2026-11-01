@@ -25,7 +25,10 @@ import { studioAssistantPlanSchema } from '../src/features/studio/studio-assista
 import { studioCanvasOperationSchema } from '../src/features/studio/studio-canvas-commands'
 import { studioSkillTaskSchema } from '../src/features/studio/studio-skill-task'
 
-await mkdir(new URL('../../integrations/studio-agent/schema/',import.meta.url), {recursive:true})
+await mkdir(
+  new URL('../../integrations/studio-agent/schema/', import.meta.url),
+  { recursive: true }
+)
 const schema = z.toJSONSchema(studioProjectSchema, {
   io: 'input',
   unrepresentable: 'any',

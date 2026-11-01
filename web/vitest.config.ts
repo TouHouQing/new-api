@@ -27,6 +27,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      // Resolve runtime icon imports through the same package directory as
+      // static imports, including Windows installations with junctioned deps.
+      '@lobehub/icons': path.resolve(
+        __dirname,
+        './node_modules/@lobehub/icons'
+      ),
     },
   },
   test: {

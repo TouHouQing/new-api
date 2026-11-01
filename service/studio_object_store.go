@@ -134,14 +134,18 @@ func persistStudioObject(media *model.StudioMedia, localPath string) error {
 // These short-lived URLs are only sent to an upstream worker. They are never
 // written into project documents or returned as long-lived download links.
 func StudioMediaProviderReference(ownerID int, mediaID string) (string, error) {
-	if os.Getenv("STUDIO_S3_REFERENCE_MODE") == "data-url" {
-		return StudioMediaDataURL(ownerID, mediaID)
-	}
 	media, err := GetStudioMedia(ownerID, mediaID)
 	if err != nil {
 		return "", err
 	}
-	if !strings.HasPrefix(media.ObjectKey, "s3://") {
+	localPath, err := StudioMediaPath(media)
+	if err != nil {
+		return "", err
+	}
+	if err := ValidateStudioImageContent(localPath, media.MimeType); err != nil {
+		return "", err
+	}
+	if os.Getenv("STUDIO_S3_REFERENCE_MODE") == "data-url" || !strings.HasPrefix(media.ObjectKey, "s3://") {
 		return StudioMediaDataURL(ownerID, mediaID)
 	}
 	config := system_setting.LoadTaskArtifactStoreConfig()

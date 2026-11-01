@@ -2,6 +2,8 @@ package controller
 
 import (
 	"bytes"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -39,7 +41,13 @@ func testStudioProjectReviewAndMediaPermissions(t *testing.T, kind string) {
 	t.Setenv("STUDIO_STORAGE_DIR", t.TempDir())
 	t.Setenv("TASK_ARTIFACT_STORE_MODE", "upstream")
 	mime := map[string]string{"video": "video/mp4", "image": "image/png", "audio": "audio/wav"}[kind]
-	_, err = service.SaveStudioMedia(1, "clip", mime, strings.NewReader("video-bytes"))
+	content := []byte("video-bytes")
+	if kind == "image" {
+		var encoded bytes.Buffer
+		require.NoError(t, png.Encode(&encoded, image.NewRGBA(image.Rect(0, 0, 2, 2))))
+		content = encoded.Bytes()
+	}
+	_, err = service.SaveStudioMedia(1, "clip", mime, bytes.NewReader(content))
 	require.NoError(t, err)
 	_, err = service.SaveStudioMedia(1, "private", "video/mp4", strings.NewReader("private-bytes"))
 	require.NoError(t, err)
@@ -66,6 +74,7 @@ func testStudioProjectReviewAndMediaPermissions(t *testing.T, kind string) {
 	engine.POST("/projects/:project_id/review", ReviewStudioProjectTake)
 	engine.PUT("/projects/:project_id", PutStudioProject)
 	engine.GET("/media/:media_id", StudioProjectMedia)
+	engine.GET("/media/:media_id/probe", StudioProjectMedia)
 	engine.PUT("/media/:media_id", StudioProjectMedia)
 	engine.POST("/sessions/:session_id/commands", QueueStudioBridgeCommand)
 	request := func(actor int, method, path string, body any) *httptest.ResponseRecorder {
@@ -124,8 +133,20 @@ func testStudioProjectReviewAndMediaPermissions(t *testing.T, kind string) {
 	writer := httptest.NewRecorder()
 	engine.ServeHTTP(writer, req)
 	assert.Equal(t, http.StatusPartialContent, writer.Code)
-	assert.Equal(t, "video", writer.Body.String())
-	assert.Equal(t, "bytes 0-4/11", writer.Header().Get("Content-Range"))
+	assert.Equal(t, content[:5], writer.Body.Bytes())
+	assert.Equal(t, "bytes 0-4/"+strconv.Itoa(len(content)), writer.Header().Get("Content-Range"))
+	if kind == "image" {
+		probe := request(3, http.MethodGet, "/media/clip/probe?project_id=film", nil)
+		require.Equal(t, http.StatusOK, probe.Code, "A static PNG has no video duration: %s", probe.Body.String())
+		var payload struct {
+			Data map[string]any `json:"data"`
+		}
+		require.NoError(t, common.Unmarshal(probe.Body.Bytes(), &payload))
+		assert.EqualValues(t, 2, payload.Data["width"])
+		assert.EqualValues(t, 2, payload.Data["height"])
+		assert.Equal(t, false, payload.Data["has_video"])
+		assert.NotContains(t, payload.Data, "duration", "static images must not receive an invented playback duration")
+	}
 	previousBridge := service.DefaultStudioBridge
 	service.DefaultStudioBridge = service.NewStudioBridge()
 	t.Cleanup(func() { service.DefaultStudioBridge = previousBridge })

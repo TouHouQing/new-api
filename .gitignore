@@ -10,7 +10,7 @@ build
 *.db-journal
 *.db-shm
 *.db-wal
-logs
+/logs/
 web/dist
 web/node_modules
 .env
@@ -50,3 +50,14 @@ scripts/studio-local/__pycache__/
 # Local browser reports, credentials, and generated acceptance artifacts.
 /output/
 /web/output/
+
+scripts/studio-local/tests/__pycache__/
+
+# Workbench source is versioned; runtime state and build caches are local.
+/workbench-data/
+/workbench/web/node_modules/
+/workbench/web/dist/
+/workbench/backend/agent-runtime/pi/node_modules/
+
+/web/workbench/
+/outputs/

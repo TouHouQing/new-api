@@ -24,6 +24,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
 import { api } from '@/lib/api'
 
+import { validateStudioImageBlob } from './studio-image-validation'
 import { studioProductionSchema } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
 import type { StudioProductionPanelProps } from './studio-production-controller'
@@ -37,21 +38,23 @@ type ImportOptions = {
   >
   readOnly?: boolean
   library?: boolean
+  targetNodeId?: string
 }
 
 export function StudioMediaImport(options: ImportOptions = {}) {
   if (options.workspace) {
     return <StudioMediaImportForm {...options} workspace={options.workspace} />
   }
-  return <StudioContextMediaImport />
+  return <StudioContextMediaImport {...options} />
 }
 
-function StudioContextMediaImport() {
+function StudioContextMediaImport(options: ImportOptions) {
   const context = useStudioProductionContext()
   return (
     <StudioMediaImportForm
+      {...options}
       workspace={context.props}
-      readOnly={!context.writable}
+      readOnly={options.readOnly || !context.writable}
     />
   )
 }
@@ -64,6 +67,10 @@ function StudioMediaImportForm(
   const { t } = useTranslation()
   const props = options.workspace
   const writable = !options.readOnly
+  let uploadLabel = options.library
+    ? t('Upload media')
+    : t('Use your own footage or audio')
+  if (options.targetNodeId) uploadLabel = t('Upload a new version of this shot')
   const file = useRef<HTMLInputElement>(null)
   const folder = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
@@ -77,6 +84,10 @@ function StudioMediaImportForm(
   )
   const importFiles = async (files: FileList | null): Promise<void> => {
     if (!files?.length) return
+    if (options.targetNodeId && files.length !== 1) {
+      setError(t('Choose one video for the current shot.'))
+      return
+    }
     if (files.length > 20) {
       setError(t('Import at most 20 media files at a time'))
       return
@@ -86,6 +97,7 @@ function StudioMediaImportForm(
     const pending = new AbortController()
     controller.current = pending
     let next = props.project
+    let imported = 0
     try {
       // A fresh project may still be waiting for autosave. Its server record
       // must exist before an upload can be linked to its permissions.
@@ -95,6 +107,17 @@ function StudioMediaImportForm(
           throw new DOMException('Aborted', 'AbortError')
         }
         const kind = item.type.split('/')[0]
+        const target = projectAccess.current.nodes.find(
+          (node) => node.id === options.targetNodeId
+        )
+        if (
+          options.targetNodeId &&
+          (!target || target.data.locked || kind !== target.data.kind)
+        ) {
+          throw new Error(
+            t('Choose a matching media file for an unlocked shot.')
+          )
+        }
         if (
           !['image', 'video', 'audio'].includes(kind) ||
           item.type === 'image/svg+xml'
@@ -106,6 +129,7 @@ function StudioMediaImportForm(
             t('Each media file must be between 1 byte and 512 MiB')
           )
         }
+        if (kind === 'image') await validateStudioImageBlob(item)
         const id = crypto.randomUUID()
         const response = await api.put(
           `/api/studio/cloud/media/${id}?project_id=${encodeURIComponent(next.id)}`,
@@ -121,14 +145,23 @@ function StudioMediaImportForm(
             response.data?.message || t('studio.project.saveFailed')
           )
         }
-        const nodeId = crypto.randomUUID()
+        const nodeId = options.targetNodeId || crypto.randomUUID()
         next = projectAccess.current
+        if (next.id !== props.project.id || pending.signal.aborted) {
+          throw new DOMException('Aborted', 'AbortError')
+        }
         next = recordStudioTake(
-          updateStudioNode(
-            addStudioNode(next, kind as 'image' | 'video' | 'audio', nodeId),
-            nodeId,
-            { title: item.name.slice(0, 200), sourceMode: 'upload' }
-          ),
+          options.targetNodeId
+            ? next
+            : updateStudioNode(
+                addStudioNode(
+                  next,
+                  kind as 'image' | 'video' | 'audio',
+                  nodeId
+                ),
+                nodeId,
+                { title: item.name.slice(0, 200), sourceMode: 'upload' }
+              ),
           nodeId,
           {
             id: crypto.randomUUID(),
@@ -141,6 +174,7 @@ function StudioMediaImportForm(
         )
         if (
           kind === 'video' &&
+          !options.targetNodeId &&
           !next.shots?.length &&
           next.nodes.filter((node) => node.data.kind === 'video').length ===
             1 &&
@@ -175,10 +209,12 @@ function StudioMediaImportForm(
           }
         }
         projectAccess.current = next
+        imported++
         props.onUpdate(next)
       }
       if (
         !options.library &&
+        !options.targetNodeId &&
         !next.shots?.length &&
         next.nodes.some(
           (node) => node.data.kind === 'video' && node.data.mediaId
@@ -197,7 +233,7 @@ function StudioMediaImportForm(
         props.onUpdate(next)
       }
       await props.onSave()
-      if (next.nodes.length === props.project.nodes.length) {
+      if (imported === 0) {
         setError(t('Choose supported image, video or audio files'))
       }
     } catch (error) {
@@ -230,33 +266,47 @@ function StudioMediaImportForm(
           disabled={!writable || busy}
           onClick={() => file.current?.click()}
         >
-          {t(
-            options.library ? 'Upload media' : 'Use your own footage or audio'
-          )}
+          {uploadLabel}
         </Button>
-        <Button
-          variant='outline'
-          disabled={!writable || busy}
-          onClick={() => folder.current?.click()}
-        >
-          {t('Import a media folder')}
-        </Button>
+        {!options.targetNodeId && (
+          <Button
+            variant='outline'
+            disabled={!writable || busy}
+            onClick={() => folder.current?.click()}
+          >
+            {t('Import a media folder')}
+          </Button>
+        )}
       </div>
       <input
         ref={file}
         type='file'
         hidden
-        multiple
-        accept='image/*,video/*,audio/*'
+        multiple={!options.targetNodeId}
+        accept={options.targetNodeId ? 'video/*' : 'image/*,video/*,audio/*'}
+        aria-label={
+          options.targetNodeId
+            ? t('Upload a new version of this shot')
+            : undefined
+        }
         onChange={(event) => void importFiles(event.target.files)}
       />
-      <input
-        ref={folder}
-        type='file'
-        hidden
-        {...{ webkitdirectory: '' }}
-        onChange={(event) => void importFiles(event.target.files)}
-      />
+      {!options.targetNodeId && (
+        <input
+          ref={folder}
+          type='file'
+          hidden
+          {...{ webkitdirectory: '' }}
+          onChange={(event) => void importFiles(event.target.files)}
+        />
+      )}
+      {options.targetNodeId && (
+        <p className='text-muted-foreground text-sm'>
+          {t(
+            'The upload becomes a new candidate for this shot. Pinned timeline clips keep their existing version; choose the new candidate in the timeline source selector when you want to replace one.'
+          )}
+        </p>
+      )}
       {busy && <p role='status'>{t('Saving selected media…')}</p>}
       {error && (
         <Alert variant='destructive'>

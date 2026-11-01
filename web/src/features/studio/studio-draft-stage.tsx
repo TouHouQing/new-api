@@ -29,10 +29,7 @@ export function StudioDraftStage() {
       node.data.kind === 'video'
   )
   if (!node) return null
-  const available =
-    node.data.model === 'wan2.2-ti2v-5b' &&
-    node.data.ratio !== '1:1' &&
-    node.data.resolution !== '512x512'
+  const available = node.data.model === 'wan2.2-ti2v-5b'
   return (
     <Collapsible>
       <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
@@ -49,7 +46,7 @@ export function StudioDraftStage() {
         <p className='text-muted-foreground text-xs'>
           {t(
             available
-              ? 'This local model supports a smaller draft size at the same duration and with the same references. It reduces processing size, not necessarily your bill. Final generation keeps the draft Take and may produce different motion.'
+              ? 'Try up to 2 seconds at the current frame size to check the subject and motion. Final generation restores the requested duration and keeps your trial Take. Check the price before starting either version.'
               : 'This model has no separate draft profile configured. Use the free storyboard rhythm preview or test one shot without silently changing duration or model.'
           )}
         </p>
@@ -61,7 +58,7 @@ export function StudioDraftStage() {
               disabled={!writable}
               onClick={() => setStage('draft')}
             >
-              {t('Prepare a smaller draft')}
+              {t('Prepare a short trial')}
             </Button>
             <Button
               size='sm'
@@ -84,11 +81,11 @@ export function StudioDraftStage() {
           }}
           title={t(
             stage === 'draft'
-              ? 'Prepare a smaller draft'
+              ? 'Prepare a short trial'
               : 'Prepare the final version'
           )}
           desc={t(
-            'Only output size changes. The prompt, duration, seed, references and existing versions remain. Review the generation confirmation and price before starting.'
+            'A trial limits the duration to 2 seconds and keeps a verified frame size. The final version restores your requested duration. Review the actual settings and price before starting; existing Takes are retained.'
           )}
           handleConfirm={() => {
             if (!stage) return

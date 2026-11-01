@@ -58,18 +58,19 @@ export function studioCaptionTrack(
         if (cue.shotId !== item.shot?.id) continue
         const start = Math.max(
           item.start,
-          item.start + cue.offset - item.sourceOffset
+          item.start + (cue.offset - item.sourceOffset) / item.clip.speed
         )
         const end = Math.min(
           item.end,
           item.start +
-            cue.offset +
-            Math.min(
-              cue.duration || Infinity,
-              durations[cue.audioMediaId || ''] || Infinity,
-              item.duration
-            ) -
-            item.sourceOffset
+            (cue.offset +
+              Math.min(
+                cue.duration || Infinity,
+                durations[cue.audioMediaId || ''] || Infinity,
+                item.duration * item.clip.speed
+              ) -
+              item.sourceOffset) /
+              item.clip.speed
         )
         if (cue.text.trim() && end > start) {
           result.push({

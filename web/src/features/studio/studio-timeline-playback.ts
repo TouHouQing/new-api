@@ -22,6 +22,36 @@ import {
   studioProductionSchema,
 } from './studio-production'
 
+// Loading source metadata must not depend on computing a valid schedule first.
+// Imported clips can reference source seconds beyond a node's generation setting.
+export function studioTimelineMediaIds(project: StudioProject) {
+  const media = new Set<string>()
+  for (const clip of studioProjectTimeline(project)) {
+    const node = project.nodes.find((item) => item.id === clip.nodeId)
+    if (!node) throw new Error('A timeline source is unavailable')
+    const take = clip.takeId
+      ? node.data.takes?.find((item) => item.id === clip.takeId)
+      : undefined
+    if (clip.takeId && !take) throw new Error('The pinned Take is unavailable')
+    const id = take?.mediaId || (!clip.takeId ? node.data.mediaId : undefined)
+    if (!id) throw new Error('A timeline source is unavailable')
+    media.add(id)
+  }
+  for (const track of project.production?.audioTracks || []) {
+    media.add(track.mediaId)
+  }
+  for (const id of [project.soundtrackMediaId, project.voiceoverMediaId]) {
+    if (id) media.add(id)
+  }
+  for (const shot of project.shots || []) {
+    if (shot.shotVoiceoverMediaId) media.add(shot.shotVoiceoverMediaId)
+  }
+  for (const cue of project.production?.dialogueCues || []) {
+    if (cue.audioMediaId) media.add(cue.audioMediaId)
+  }
+  return [...media].sort()
+}
+
 export function studioTimelineSchedule(
   project: StudioProject,
   durations: Readonly<Record<string, number>> = {}
@@ -35,7 +65,16 @@ export function studioTimelineSchedule(
       ? node?.data.takes?.find((take) => take.id === clip.takeId)
       : undefined
     if (clip.takeId && !take) throw new Error('The pinned Take is unavailable')
-    const mediaId = take?.mediaId || node?.data.mediaId || ''
+    const mediaId =
+      take?.mediaId || (!clip.takeId ? node?.data.mediaId : undefined) || ''
+    if (!mediaId) throw new Error('A timeline source is unavailable')
+    if (
+      durations[mediaId] !== undefined &&
+      clip.trimEnd !== undefined &&
+      clip.trimEnd > durations[mediaId] + 0.000001
+    ) {
+      throw new Error('Trim end exceeds the source duration')
+    }
     const available = durations[mediaId] || node?.data.seconds || 5
     const end = Math.min(clip.trimEnd ?? available, available)
     if (end <= clip.trimStart) {
@@ -58,14 +97,19 @@ export function studioTimelineSchedule(
         (cue) => cue.shotId === shot?.id && cue.audioMediaId
       )
     )
+    const range = node?.data.reworkRange
+    const sourceRatio = range?.replacementDuration
+      ? (range.end - range.start) / range.replacementDuration
+      : 1
+    const sourceSpeed = clip.speed * sourceRatio
     const result = {
       clip,
       mediaId,
       start: position,
       end: position + duration,
       duration,
-      sourceOffset:
-        (node?.data.reworkRange?.start || 0) + clip.trimStart / clip.speed,
+      sourceOffset: (range?.start || 0) + clip.trimStart * sourceRatio,
+      sourceSpeed,
       shot,
       replacesAudio,
     }
@@ -101,16 +145,17 @@ export function studioTimelineAudio(
   for (const item of studioTimelineSchedule(project, durations)) {
     const trimOffset = item.sourceOffset
     if (item.shot?.shotVoiceoverMediaId) {
-      const offset = Math.max(
+      const sourceOffset = Math.max(
         0,
         (item.shot.shotVoiceoverOffsetSeconds || 0) - trimOffset
       )
+      const offset = sourceOffset / item.sourceSpeed
       const sourceStart = Math.max(
         0,
         trimOffset - (item.shot.shotVoiceoverOffsetSeconds || 0)
       )
       const duration = Math.min(
-        item.duration - offset,
+        (item.duration - offset) * item.sourceSpeed,
         (durations[item.shot.shotVoiceoverMediaId] || Infinity) - sourceStart
       )
       if (duration > 0) {
@@ -121,6 +166,7 @@ export function studioTimelineAudio(
           offset: item.start + offset,
           duration,
           volume: item.shot.shotVoiceoverVolume ?? 1,
+          speed: item.sourceSpeed,
         })
       }
     }
@@ -130,12 +176,13 @@ export function studioTimelineAudio(
       if (!cue.audioMediaId) {
         continue
       }
-      const offset = Math.max(0, cue.offset - trimOffset)
+      const offset = Math.max(0, cue.offset - trimOffset) / item.sourceSpeed
       const sourceStart = Math.max(0, trimOffset - cue.offset)
       const duration = Math.min(
-        (cue.duration || durations[cue.audioMediaId] || item.duration) -
-          sourceStart,
-        item.duration - offset
+        (cue.duration ||
+          durations[cue.audioMediaId] ||
+          item.duration * item.sourceSpeed) - sourceStart,
+        (item.duration - offset) * item.sourceSpeed
       )
       if (duration <= 0) {
         continue
@@ -147,6 +194,7 @@ export function studioTimelineAudio(
         offset: item.start + offset,
         duration,
         volume: 1,
+        speed: item.sourceSpeed,
       })
     }
   }

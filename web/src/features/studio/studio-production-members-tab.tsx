@@ -32,10 +32,12 @@ import {
 import { TabsContent } from '@/components/ui/tabs'
 
 import { studioCloudRequest } from './studio-cloud'
+import { StudioCollaboration } from './studio-collaboration'
 import { useStudioProductionContext } from './studio-production-context'
 
 export function StudioProductionMembersTab() {
   const { t } = useTranslation()
+  const context = useStudioProductionContext()
   const {
     path,
     memberId,
@@ -48,54 +50,65 @@ export function StudioProductionMembersTab() {
   } = useStudioProductionContext()
   return (
     <TabsContent value='members' className='space-y-4'>
-      <Field>
-        <FieldLabel>{t('Collaborator username or account ID')}</FieldLabel>
-        <Input
-          value={memberId}
-          aria-label={t('Collaborator username or account ID')}
-          disabled={record.data?.role !== 'owner'}
-          onChange={(event) => setMemberId(event.target.value)}
-        />
-      </Field>
-      <Select
-        value={memberRole}
-        disabled={record.data?.role !== 'owner'}
-        items={['editor', 'reviewer', 'viewer'].map((role) => ({
-          value: role,
-          label: t(`studio.production.role.${role}`),
-        }))}
-        onValueChange={(value) => {
-          if (value) setMemberRole(value)
-        }}
-      >
-        <SelectTrigger aria-label={t('studio.production.permission')}>
-          <SelectValue />
-        </SelectTrigger>
-        <SelectContent>
-          {['editor', 'reviewer', 'viewer'].map((role) => (
-            <SelectItem key={role} value={role}>
-              {t(`studio.production.role.${role}`)}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <Button
-        disabled={
-          record.data?.role !== 'owner' || !memberId.trim() || mutate.isPending
-        }
-        onClick={() =>
-          mutate.mutate(() =>
-            studioCloudRequest(`${path}/members`, 'PUT', {
-              ...(/^\d+$/.test(memberId.trim())
-                ? { user_id: Number(memberId) }
-                : { username: memberId.trim() }),
-              role: memberRole,
-            })
-          )
-        }
-      >
-        {t('studio.production.invite')}
-      </Button>
+      <StudioCollaboration
+        project={context.props.project}
+        selectedNodeId={context.props.selectedNodeId}
+        onInspectNode={context.props.onInspectNode}
+      />
+      {record.data?.role === 'owner' && (
+        <>
+          <Field>
+            <FieldLabel>{t('Collaborator username or account ID')}</FieldLabel>
+            <Input
+              value={memberId}
+              aria-label={t('Collaborator username or account ID')}
+              disabled={record.data?.role !== 'owner'}
+              onChange={(event) => setMemberId(event.target.value)}
+            />
+          </Field>
+          <Select
+            value={memberRole}
+            disabled={record.data?.role !== 'owner'}
+            items={['editor', 'reviewer', 'viewer'].map((role) => ({
+              value: role,
+              label: t(`studio.production.role.${role}`),
+            }))}
+            onValueChange={(value) => {
+              if (value) setMemberRole(value)
+            }}
+          >
+            <SelectTrigger aria-label={t('studio.production.permission')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {['editor', 'reviewer', 'viewer'].map((role) => (
+                <SelectItem key={role} value={role}>
+                  {t(`studio.production.role.${role}`)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Button
+            disabled={
+              record.data?.role !== 'owner' ||
+              !memberId.trim() ||
+              mutate.isPending
+            }
+            onClick={() =>
+              mutate.mutate(() =>
+                studioCloudRequest(`${path}/members`, 'PUT', {
+                  ...(/^\d+$/.test(memberId.trim())
+                    ? { user_id: Number(memberId) }
+                    : { username: memberId.trim() }),
+                  role: memberRole,
+                })
+              )
+            }
+          >
+            {t('studio.production.invite')}
+          </Button>
+        </>
+      )}
       {members.data?.map((member) => (
         <div
           key={member.user_id}
@@ -113,21 +126,23 @@ export function StudioProductionMembersTab() {
           <Badge variant='secondary'>
             {t(`studio.production.role.${member.role}`)}
           </Badge>
-          <Button
-            className='ml-auto'
-            size='xs'
-            variant='outline'
-            disabled={record.data?.role !== 'owner' || mutate.isPending}
-            onClick={() =>
-              mutate.mutate(() =>
-                studioCloudRequest(`${path}/members`, 'DELETE', {
-                  user_id: member.user_id,
-                })
-              )
-            }
-          >
-            {t('studio.production.removeMember')}
-          </Button>
+          {record.data?.role === 'owner' && (
+            <Button
+              className='ml-auto'
+              size='xs'
+              variant='outline'
+              disabled={record.data?.role !== 'owner' || mutate.isPending}
+              onClick={() =>
+                mutate.mutate(() =>
+                  studioCloudRequest(`${path}/members`, 'DELETE', {
+                    user_id: member.user_id,
+                  })
+                )
+              }
+            >
+              {t('studio.production.removeMember')}
+            </Button>
+          )}
         </div>
       ))}
     </TabsContent>

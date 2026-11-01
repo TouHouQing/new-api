@@ -41,6 +41,77 @@ export type StudioPrevisRuntime = {
   ground: (x: number, y: number) => { x: number; z: number } | null
   moveObject: (id: string, x: number, z: number) => void
 }
+
+function disposeStudioPrevisResources(root: THREE.Object3D): void {
+  const geometries = new Set<THREE.BufferGeometry>()
+  const materials = new Set<THREE.Material>()
+  const textures = new Set<THREE.Texture>()
+  const skeletons = new Set<THREE.Skeleton>()
+  const bitmaps = new Set<ImageBitmap>()
+  root.traverse((object) => {
+    if (
+      object instanceof THREE.Mesh ||
+      object instanceof THREE.Line ||
+      object instanceof THREE.Points
+    ) {
+      geometries.add(object.geometry)
+    }
+    if (
+      object instanceof THREE.Mesh ||
+      object instanceof THREE.Line ||
+      object instanceof THREE.Points ||
+      object instanceof THREE.Sprite
+    ) {
+      for (const material of Array.isArray(object.material)
+        ? object.material
+        : [object.material]) {
+        materials.add(material)
+      }
+    }
+    if (object instanceof THREE.SkinnedMesh) skeletons.add(object.skeleton)
+    if (
+      object instanceof THREE.DirectionalLight ||
+      object instanceof THREE.PointLight ||
+      object instanceof THREE.SpotLight
+    ) {
+      object.shadow.dispose()
+    }
+  })
+  for (const material of materials) {
+    for (const value of Object.values(material)) {
+      if (value instanceof THREE.Texture) textures.add(value)
+    }
+    if (material instanceof THREE.ShaderMaterial) {
+      for (const uniform of Object.values(material.uniforms)) {
+        const values = Array.isArray(uniform.value)
+          ? uniform.value
+          : [uniform.value]
+        for (const value of values) {
+          if (value instanceof THREE.Texture) textures.add(value)
+        }
+      }
+    }
+  }
+  if (root instanceof THREE.Scene) {
+    if (root.background instanceof THREE.Texture) textures.add(root.background)
+    if (root.environment) textures.add(root.environment)
+  }
+  for (const geometry of geometries) geometry.dispose()
+  for (const texture of textures) {
+    texture.dispose()
+    for (const image of Array.isArray(texture.image)
+      ? texture.image
+      : [texture.image]) {
+      if (typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
+        bitmaps.add(image)
+      }
+    }
+  }
+  for (const bitmap of bitmaps) bitmap.close()
+  for (const skeleton of skeletons) skeleton.dispose()
+  for (const material of materials) material.dispose()
+}
+
 export function createStudioPrevisRuntime(
   element: HTMLElement,
   scene: StudioPrevis,
@@ -189,6 +260,7 @@ export function createStudioPrevisRuntime(
     }
   }
   const render = (seconds: number): void => {
+    if (disposed) return
     currentTime = seconds
     const progress = seconds / scene.duration
     for (const [id, object] of objects) {
@@ -318,9 +390,13 @@ export function createStudioPrevisRuntime(
   const loading = Promise.all(
     advanced.models.map(async (model) => {
       const blob = await getMedia(model.modelMediaId)
+      if (disposed) return
       if (!blob) throw new Error(t('Stored 3D model is unavailable'))
       const gltf = await loader.parseAsync(await blob.arrayBuffer(), '')
-      if (disposed) return
+      if (disposed) {
+        disposeStudioPrevisResources(gltf.scene)
+        return
+      }
       const root = gltf.scene
       root.name = model.id
       root.scale.setScalar(model.scale)
@@ -359,24 +435,28 @@ export function createStudioPrevisRuntime(
     if (!disposed) options.onError?.(String(error))
   })
   const dispose = () => {
+    if (disposed) return
     disposed = true
-    renderer.dispose()
-    element.replaceChildren()
-    world.traverse((object) => {
-      if (object instanceof THREE.Mesh || object instanceof THREE.Line) {
-        object.geometry.dispose()
-        const materials = Array.isArray(object.material)
-          ? object.material
-          : [object.material]
-        materials.forEach((material) => {
-          for (const value of Object.values(material)) {
-            if (value instanceof THREE.Texture) value.dispose()
-          }
-          material.dispose()
-        })
+    try {
+      for (const mixer of mixers) {
+        mixer.stopAllAction()
+        mixer.uncacheRoot(mixer.getRoot())
       }
-    })
-    mixers.forEach((mixer) => mixer.stopAllAction())
+      // Materials must release their programs before renderer.dispose clears
+      // Three's material bookkeeping. Shared GLTF resources are disposed once.
+      disposeStudioPrevisResources(world)
+    } finally {
+      renderer.dispose()
+      // Three keeps internal fallback textures for the renderer's context.
+      // This preview owns the context, so closing it also releases those.
+      renderer.forceContextLoss()
+      renderer.domElement.remove()
+      world.clear()
+      objects.clear()
+      fallback.clear()
+      mixers.length = 0
+      clips.length = 0
+    }
   }
   const ray = new THREE.Raycaster()
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0)
@@ -408,6 +488,7 @@ export function createStudioPrevisRuntime(
       return point ? { x: point.x, z: point.z } : null
     },
     moveObject: (id, x, z) => {
+      if (disposed) return
       const object = objects.get(id)
       if (!object) return
       object.position.x = x

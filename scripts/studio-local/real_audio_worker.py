@@ -178,8 +178,20 @@ class MediaWorker:
         segments, info = self.asr.transcribe(str(audio), language=language or None, beam_size=3, word_timestamps=True)
         values, words = [], []
         for index, item in enumerate(segments):
-            values.append({'id': index, 'start': max(0, min(item.start, info.duration)), 'end': min(item.end, info.duration), 'text': item.text})
-            words.extend({'start': word.start, 'end': word.end, 'text': word.word} for word in (item.words or []) if word.end > word.start)
+            segment = {'id': index, 'start': max(0, min(item.start, info.duration)), 'end': min(item.end, info.duration), 'text': item.text}
+            for key in ['avg_logprob', 'no_speech_prob']:
+                diagnostic = getattr(item, key, None)
+                if isinstance(diagnostic, (int, float)) and not isinstance(diagnostic, bool) and math.isfinite(diagnostic):
+                    segment[key] = diagnostic
+            values.append(segment)
+            for word in item.words or []:
+                if word.end <= word.start:
+                    continue
+                value = {'start': word.start, 'end': word.end, 'text': word.word}
+                probability = getattr(word, 'probability', None)
+                if isinstance(probability, (int, float)) and not isinstance(probability, bool) and math.isfinite(probability):
+                    value['confidence'] = max(0, min(1, probability))
+                words.append(value)
         values = [item for item in values if item['end'] > item['start']]
         return {'text': ' '.join(item['text'] for item in values), 'language': info.language, 'duration': info.duration, 'segments': values, 'words': words}
 
@@ -292,6 +304,9 @@ class MediaWorker:
         if action == 'music' and seconds > 30:
             raise ValueError('Local music drafts support at most thirty seconds')
         validate_options(body)
+        if action == 'lip_sync':
+            from studio_musetalk import validate_lip_request
+            validate_lip_request(body)
         if action in VIDEO_ACTIONS: validate_edit(body)
         job_id = 'audio-' + uuid.uuid4().hex
         with self.db() as db:
@@ -424,7 +439,7 @@ class MediaWorker:
                     audio = self.reference(next(item for item in body['references'] if item['type'] == 'audio'), work / 'audio.bin')
                     video = self.reference(next(item for item in body['references'] if item['type'] == 'video'), work / 'video.bin')
                     with gpu_lease(self.root.parent):
-                        synchronize(self.root.parent / 'MuseTalk', video, audio, output, self.ffmpeg, float(body['seconds']))
+                        synchronize(self.root.parent / 'MuseTalk', video, audio, output, self.ffmpeg, float(body['seconds']), edit=body.get('edit'), audio_start=(body.get('options') or {}).get('lip_audio_start', 0))
                 if action == 'lip_sync':
                     probe = subprocess.check_output([str(Path(self.ffmpeg).with_name('ffprobe' + Path(self.ffmpeg).suffix)), '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', str(output)], timeout=30)
                     seconds = float(probe)
@@ -439,6 +454,8 @@ class MediaWorker:
                 with self.db() as db:
                     partial = db.execute('SELECT result FROM jobs WHERE id=?', (job_id,)).fetchone()
                     result = {**json.loads(partial['result'] or '{}'), 'id': job_id, 'status': 'completed', 'progress': 100, 'seconds': float(body['seconds']) if body.get('options', {}).get('repair_end') is not None else seconds, 'actual_seconds': seconds, 'voice_id': voice, 'output': {'type': 'video' if action == 'lip_sync' else 'audio', 'mime_type': 'video/mp4' if action == 'lip_sync' else 'audio/wav'}, 'path': str(output)}
+                    if action == 'lip_sync':
+                        result['source_selection'] = {'video_interval': body['edit'], 'audio_start': (body.get('options') or {}).get('lip_audio_start', 0), 'output_scope': 'selected_interval_candidate', 'original_video_retained': True}
                     if action == 'music' and body.get('options', {}).get('music_mode') == 'song':
                         from studio_lyrics import song_artifacts
                         result['artifacts'] = song_artifacts(self, body, work, output)
@@ -521,6 +538,11 @@ def main():
                         audio.unlink(missing_ok=True)
                         work.rmdir()
                 body = json.loads(raw)
+                if self.path == '/production-analysis':
+                    from studio_production_analysis import analyze_payload
+                    with worker.lock:
+                        result = analyze_payload(worker, body)
+                    return self.send(result)
                 if self.path == '/audio-analysis':
                     work = worker.root / ('analysis-' + uuid.uuid4().hex)
                     work.mkdir()

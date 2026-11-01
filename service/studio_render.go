@@ -23,6 +23,8 @@ import (
 )
 
 type StudioRenderClip struct {
+	ClipID           string   `json:"clip_id,omitempty"`
+	TrackingID       string   `json:"tracking_id,omitempty"`
 	NodeID           string   `json:"node_id"`
 	TakeID           string   `json:"take_id"`
 	MediaID          string   `json:"media_id"`
@@ -42,6 +44,7 @@ type StudioRenderClip struct {
 }
 type StudioRenderAudio struct {
 	Role     string   `json:"role,omitempty"`
+	Speed    float64  `json:"speed,omitempty"`
 	MediaID  string   `json:"media_id"`
 	Start    float64  `json:"start"`
 	Offset   float64  `json:"offset"`
@@ -74,7 +77,7 @@ func studioRenderVideoFilter(plan *StudioRenderPlan, speed float64) string {
 	return fmt.Sprintf("setpts=(PTS-STARTPTS)/%g,%s,fps=%d,setsar=1,format=yuv420p", speed, fit, plan.FPS)
 }
 
-func studioRenderDialogueSource(document map[string]any, clip StudioRenderClip) (string, float64) {
+func studioRenderDialogueSource(document map[string]any, clip StudioRenderClip) (string, float64, float64) {
 	for _, node := range studioObjects(document, "nodes") {
 		if node["id"] != clip.NodeID {
 			continue
@@ -84,11 +87,15 @@ func studioRenderDialogueSource(document map[string]any, clip StudioRenderClip) 
 			original, _ := rework["sourceNodeId"].(string)
 			start, _ := rework["start"].(float64)
 			if original != "" {
-				return original, start + clip.Start/clip.Speed
+				ratio := 1.0
+				if duration := studioDocumentNumber(rework["replacementDuration"], 0); duration > 0 {
+					ratio = (studioDocumentNumber(rework["end"], start+duration) - start) / duration
+				}
+				return original, start + clip.Start*ratio, clip.Speed * ratio
 			}
 		}
 	}
-	return clip.NodeID, clip.Start / clip.Speed
+	return clip.NodeID, clip.Start, clip.Speed
 }
 
 type StudioRenderPlan struct {
@@ -209,6 +216,9 @@ func ValidateStudioRenderPlan(plan *StudioRenderPlan) error {
 		}
 	}
 	for _, track := range plan.Audio {
+		if !finite(track.Speed) || track.Speed != 0 && (track.Speed < .25 || track.Speed > 4) {
+			return errors.New("audio playback speed must be between 0.25 and 4")
+		}
 		if track.Role != "" && track.Role != "music" && track.Role != "voice" && track.Role != "effect" {
 			return errors.New("invalid audio role")
 		}
@@ -225,31 +235,58 @@ func ProbeStudioMedia(ctx context.Context, path string) (StudioMediaProbe, error
 	if err != nil {
 		return StudioMediaProbe{}, errors.New("media could not be decoded")
 	}
+	return studioParseMediaProbe(output)
+}
+
+func studioParseMediaProbe(output []byte) (StudioMediaProbe, error) {
 	var result struct {
 		Format struct {
 			Duration string `json:"duration"`
 		} `json:"format"`
 		Streams []struct {
-			FrameRate string `json:"avg_frame_rate"`
-			Kind      string `json:"codec_type"`
-			Width     int    `json:"width"`
-			Height    int    `json:"height"`
+			FrameRate   string `json:"avg_frame_rate"`
+			Kind        string `json:"codec_type"`
+			Width       int    `json:"width"`
+			Height      int    `json:"height"`
+			DurationTS  int64  `json:"duration_ts"`
+			TimeBase    string `json:"time_base"`
+			Duration    string `json:"duration"`
+			Disposition struct {
+				AttachedPic int `json:"attached_pic"`
+			} `json:"disposition"`
 		} `json:"streams"`
 	}
 	if err := common.Unmarshal(output, &result); err != nil {
 		return StudioMediaProbe{}, err
 	}
-	duration, err := strconv.ParseFloat(result.Format.Duration, 64)
-	if err != nil || math.IsNaN(duration) || math.IsInf(duration, 0) || duration <= 0 || duration > 3600 {
-		return StudioMediaProbe{}, errors.New("media duration is invalid or exceeds one hour")
-	}
-	probe := StudioMediaProbe{Duration: duration}
+	probe := StudioMediaProbe{}
+	audioDuration := 0.0
 	for _, stream := range result.Streams {
+		// A muxer's container clock can round up or include a longer audio tail.
+		// Use the selected media stream's presentation clock, never frame-count /
+		// average-fps estimates, which are incorrect for variable-frame-rate video.
+		streamDuration := 0.0
+		if numerator, denominator, ok := strings.Cut(stream.TimeBase, "/"); ok && stream.DurationTS > 0 {
+			first, firstErr := strconv.ParseInt(numerator, 10, 64)
+			second, secondErr := strconv.ParseInt(denominator, 10, 64)
+			if firstErr == nil && secondErr == nil && first > 0 && second > 0 {
+				streamDuration = float64(stream.DurationTS) * (float64(first) / float64(second))
+			}
+		}
+		if streamDuration <= 0 {
+			if duration, err := strconv.ParseFloat(stream.Duration, 64); err == nil && !math.IsNaN(duration) && !math.IsInf(duration, 0) && duration > 0 {
+				streamDuration = duration
+			}
+		}
 		if stream.Kind == "audio" {
 			probe.HasAudio = true
+			if audioDuration == 0 {
+				audioDuration = streamDuration
+			}
 		}
-		if stream.Kind == "video" {
+		if stream.Kind == "video" && !probe.HasVideo && stream.Disposition.AttachedPic == 0 && stream.Width > 0 && stream.Height > 0 {
 			probe.HasVideo = true
+			probe.Duration = streamDuration
 			probe.Width, probe.Height = stream.Width, stream.Height
 			numerator, denominator, ok := strings.Cut(stream.FrameRate, "/")
 			if ok {
@@ -260,6 +297,15 @@ func ProbeStudioMedia(ctx context.Context, path string) (StudioMediaProbe, error
 				}
 			}
 		}
+	}
+	if !probe.HasVideo {
+		probe.Duration = audioDuration
+	}
+	if probe.Duration <= 0 {
+		probe.Duration, _ = strconv.ParseFloat(result.Format.Duration, 64)
+	}
+	if math.IsNaN(probe.Duration) || math.IsInf(probe.Duration, 0) || probe.Duration <= 0 || probe.Duration > 3600 {
+		return StudioMediaProbe{}, errors.New("media duration is invalid or exceeds one hour")
 	}
 	return probe, nil
 }
@@ -279,18 +325,10 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 	if !StudioRenderAvailable() {
 		return errors.New("configure FFmpeg and FFprobe on this worker")
 	}
-	root, err := StudioStorageRoot()
+	workdir, err := CreateStudioCacheWorkdir("", project.OwnerID, job.ID, "render", true, nil)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(filepath.Join(root, "renders"), 0700); err != nil {
-		return err
-	}
-	workdir, err := os.MkdirTemp(filepath.Join(root, "renders"), "render-*")
-	if err != nil {
-		return err
-	}
-	defer os.RemoveAll(workdir)
 	fontReady := false
 	for _, font := range []string{os.Getenv("STUDIO_FONT_PATH"), "C:\\Windows\\Fonts\\msyh.ttc", "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"} {
 		if font == "" {
@@ -403,7 +441,7 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 		if err := ctx.Err(); err != nil {
 			return err
 		}
-		logicalNodeID, _ := studioRenderDialogueSource(document, clip)
+		logicalNodeID, _, _ := studioRenderDialogueSource(document, clip)
 		// Separate dialogue replaces speech embedded by a lip-sync model.
 		for _, shot := range studioObjects(document, "shots") {
 			if plan.SkipDialogue {
@@ -442,7 +480,7 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 			return errors.New("clip trim is outside its media duration")
 		}
 		duration := (end - clip.Start) / clip.Speed
-		if clip.VoiceoverMediaID != "" && clip.Start == 0 && clip.End == nil && clip.VoiceoverOffset >= duration {
+		if clip.VoiceoverMediaID != "" && clip.Start == 0 && clip.End == nil && clip.VoiceoverOffset/clip.Speed >= duration {
 			return errors.New("per-shot voiceover starts after the clip ends")
 		}
 		if duration < 0.05 || clip.FadeIn > duration || clip.FadeOut > duration {
@@ -472,6 +510,13 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 			args = append(args, "-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo")
 		}
 		video := studioRenderVideoFilter(plan, clip.Speed) + ",tpad=stop_mode=clone:stop_duration=1"
+		if clip.TrackingID != "" {
+			filter, err := studioTrackingRenderFilter(job.UserID, project, document, plan, clip, &probe, workdir, index, duration)
+			if err != nil {
+				return err
+			}
+			video = filter + ",tpad=stop_mode=clone:stop_duration=1"
+		}
 		if plan.Watermark != "" {
 			if !fontReady {
 				return errors.New("configure a subtitle font on the worker")
@@ -532,7 +577,7 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 		if clip.FadeOut > 0 {
 			audio += fmt.Sprintf(",afade=t=out:st=%g:d=%g", duration-clip.FadeOut, clip.FadeOut)
 		}
-		args = append(args, "-map", "0:v:0")
+		args = append(args, "-map", "0:V:0")
 		if graphicBrowser != nil {
 			graphicDirectory := fmt.Sprintf("graphic-frames-%03d", index)
 			if err := os.MkdirAll(filepath.Join(workdir, graphicDirectory), 0700); err != nil {
@@ -553,7 +598,7 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 			if !probe.HasAudio {
 				inputIndex = 2
 			}
-			args = append(args, "-framerate", fmt.Sprint(plan.FPS), "-i", filepath.Join(graphicDirectory, "%06d.png"), "-filter_complex", fmt.Sprintf("[0:v]%s[clipframe];[clipframe][%d:v]overlay=x=0:y=0:shortest=1[graphicvideo]", video, inputIndex), "-map", "[graphicvideo]")
+			args = append(args, "-framerate", fmt.Sprint(plan.FPS), "-i", filepath.Join(graphicDirectory, "%06d.png"), "-filter_complex", fmt.Sprintf("[0:V:0]%s[clipframe];[clipframe][%d:v]overlay=x=0:y=0:shortest=1[graphicvideo]", video, inputIndex), "-map", "[graphicvideo]")
 		} else {
 			args = append(args, "-vf", video)
 		}
@@ -578,7 +623,9 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 		return err
 	}
 	args := []string{"-nostdin", "-y", "-v", "error", "-i", "joined.mp4"}
-	filters := []string{fmt.Sprintf("[0:a]apad,atrim=duration=%g[base]", total)}
+	// AAC clip priming can overlap at concat boundaries. Reconcile the decoded
+	// base with its timestamps before it becomes the clock for independent tracks.
+	filters := []string{fmt.Sprintf("[0:a]aresample=async=1:first_pts=0,apad,atrim=duration=%g[base]", total)}
 	mix := "[base]"
 	tracks := append([]StudioRenderAudio{}, plan.Audio...)
 	autoDialogueSubtitles := strings.TrimSpace(plan.Subtitles) == ""
@@ -592,13 +639,13 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 	offset := 0.0
 	cueIndex := 10000
 	for index, clip := range plan.Clips {
-		logicalNodeID, trimOffset := studioRenderDialogueSource(document, clip)
+		logicalNodeID, trimOffset, voiceSpeed := studioRenderDialogueSource(document, clip)
 		if clip.VoiceoverMediaID != "" {
 			volume := 1.0
 			if clip.VoiceoverVolume != nil {
 				volume = *clip.VoiceoverVolume
 			}
-			start := math.Max(0, clip.VoiceoverOffset-trimOffset)
+			start := math.Max(0, clip.VoiceoverOffset-trimOffset) / voiceSpeed
 			sourceStart := math.Max(0, trimOffset-clip.VoiceoverOffset)
 			media, err := GetStudioMedia(project.OwnerID, clip.VoiceoverMediaID)
 			if err != nil {
@@ -612,9 +659,9 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 			if err != nil {
 				return err
 			}
-			duration := math.Min(probe.Duration-sourceStart, durations[index]-start)
+			duration := math.Min(probe.Duration-sourceStart, (durations[index]-start)*voiceSpeed)
 			if duration > 0 {
-				tracks = append(tracks, StudioRenderAudio{MediaID: clip.VoiceoverMediaID, Start: sourceStart, Offset: offset + start, Volume: volume, Duration: &duration, Role: "voice"})
+				tracks = append(tracks, StudioRenderAudio{MediaID: clip.VoiceoverMediaID, Start: sourceStart, Offset: offset + start, Volume: volume, Duration: &duration, Role: "voice", Speed: voiceSpeed})
 			}
 		}
 		for _, shot := range studioObjects(document, "shots") {
@@ -651,19 +698,19 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 				}
 				start -= trimOffset
 				sourceStart := math.Max(0, -start)
-				start = math.Max(0, start)
-				if clip.Start == 0 && clip.End == nil && start+end > durations[index]+.01 {
+				start = math.Max(0, start) / voiceSpeed
+				if clip.Start == 0 && clip.End == nil && start+(end-sourceStart)/voiceSpeed > durations[index]+1/float64(plan.FPS)+.000001 {
 					return errors.New("dialogue audio exceeds the shot duration; align dialogue before delivery")
 				}
-				end = math.Min(end-sourceStart, durations[index]-start)
+				end = math.Min(end-sourceStart, (durations[index]-start)*voiceSpeed)
 				if end <= 0 {
 					continue
 				}
-				tracks = append(tracks, StudioRenderAudio{MediaID: mediaID, Start: sourceStart, Offset: offset + start, Duration: &end, Volume: 1, Role: "voice"})
+				tracks = append(tracks, StudioRenderAudio{MediaID: mediaID, Start: sourceStart, Offset: offset + start, Duration: &end, Volume: 1, Role: "voice", Speed: voiceSpeed})
 				text, _ := cue["text"].(string)
 				if text != "" && autoDialogueSubtitles {
 					cueIndex++
-					plan.Subtitles += fmt.Sprintf("\n\n%d\n%s --> %s\n%s\n", cueIndex, studioSubtitleTime(offset+start), studioSubtitleTime(offset+start+end), text)
+					plan.Subtitles += fmt.Sprintf("\n\n%d\n%s --> %s\n%s\n", cueIndex, studioSubtitleTime(offset+start), studioSubtitleTime(offset+start+end/voiceSpeed), text)
 				}
 			}
 		}
@@ -690,6 +737,9 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 				duration = math.Min(duration, *track.Duration)
 			}
 			if duration > 0 {
+				if track.Speed > 0 {
+					duration /= track.Speed
+				}
 				voiceWindows = append(voiceWindows, [2]float64{track.Offset, math.Min(total, track.Offset+duration)})
 			}
 		}
@@ -716,7 +766,11 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 		if track.Role == "music" && plan.AudioMix != nil {
 			gain = studioMusicVolumeFilter(track.Volume, total, plan.AudioMix, voiceWindows)
 		}
-		filters = append(filters, fmt.Sprintf("[%d:a]%s,asetpts=PTS-STARTPTS,adelay=%d|%d,%s[a%d]", index+1, trim, int(math.Round(track.Offset*1000)), int(math.Round(track.Offset*1000)), gain, index))
+		speed := track.Speed
+		if speed == 0 {
+			speed = 1
+		}
+		filters = append(filters, fmt.Sprintf("[%d:a]%s,asetpts=PTS-STARTPTS,%s,adelay=%d|%d,%s[a%d]", index+1, trim, studioTempoFilter(speed), int(math.Round(track.Offset*1000)), int(math.Round(track.Offset*1000)), gain, index))
 		mix += fmt.Sprintf("[a%d]", index)
 	}
 	finishMix := "alimiter=limit=0.95"
@@ -724,7 +778,7 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 		finishMix = "dynaudnorm=f=250:g=15:p=0.9:m=4," + finishMix
 	}
 	filters = append(filters, fmt.Sprintf("%samix=inputs=%d:duration=first:normalize=0,%s[outa]", mix, len(tracks)+1, finishMix))
-	args = append(args, "-filter_complex", strings.Join(filters, ";"), "-map", "0:v", "-map", "[outa]")
+	args = append(args, "-filter_complex", strings.Join(filters, ";"), "-map", "0:V:0", "-map", "[outa]")
 	if plan.Subtitles != "" {
 		subtitles, err := ShiftStudioSubtitles(plan.Subtitles, plan.SubtitleOffset)
 		if err != nil {
@@ -814,6 +868,10 @@ func RunStudioRender(ctx context.Context, job *model.StudioWorkflowJob, project 
 }
 
 func studioTempoFilter(speed float64) string {
+	// Avoid WSOLA processing and its phase shifts when no retiming is needed.
+	if speed == 1 {
+		return "anull"
+	}
 	filters := []string{}
 	for speed > 2 {
 		filters = append(filters, "atempo=2")

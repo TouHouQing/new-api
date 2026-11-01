@@ -73,7 +73,7 @@ func TestStudioNativeCropRetainsSourceAndPublishesEditableResult(t *testing.T) {
 
 func TestStudioNativeEditRejectsForeignMediaAndInvalidParameters(t *testing.T) {
 	studioProductionFixture(t)
-	_, err := SaveStudioMedia(1, "source", "image/png", bytes.NewReader([]byte("owned")))
+	_, err := SaveStudioMedia(1, "source", "image/png", bytes.NewReader(studioValidImageFixture(t, "png")))
 	require.NoError(t, err)
 	document := map[string]any{"nodes": []any{map[string]any{"id": "target", "data": map[string]any{"kind": "image", "mediaId": "source"}}}}
 	operation := &StudioMediaOperation{Action: "resize", NodeID: "target", MediaID: "source", Edit: &StudioMediaEdit{Width: 120, Height: 90}}

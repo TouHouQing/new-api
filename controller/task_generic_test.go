@@ -602,6 +602,77 @@ func TestProxyTaskMediaAllowsOnlyCredentiallessCrossOriginRedirect(t *testing.T)
 	assert.Empty(t, destinationRange)
 }
 
+func TestPluginTaskMediaTrustsOnlyConfiguredProviderOrigin(t *testing.T) {
+	task := setupGenericTaskTest(t)
+	previousFetch := *system_setting.GetFetchSetting()
+	previousCache := common.MemoryCacheEnabled
+	common.MemoryCacheEnabled = false
+	system_setting.GetFetchSetting().EnableSSRFProtection = true
+	system_setting.GetFetchSetting().AllowPrivateIp = false
+	t.Cleanup(func() {
+		*system_setting.GetFetchSetting() = previousFetch
+		common.MemoryCacheEnabled = previousCache
+		service.InitHttpClient()
+	})
+	service.InitHttpClient()
+
+	escaped := false
+	destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		escaped = true
+		_, _ = w.Write([]byte("must-not-fetch"))
+	}))
+	defer destination.Close()
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/redirect":
+			http.Redirect(w, r, "/video", http.StatusFound)
+		case "/escape":
+			http.Redirect(w, r, destination.URL, http.StatusFound)
+		default:
+			w.Header().Set("Content-Type", "video/mp4")
+			_, _ = w.Write([]byte("local-video"))
+		}
+	}))
+	defer provider.Close()
+	require.NoError(t, model.DB.Model(&model.Channel{}).Where("id = ?", task.ChannelId).Update("base_url", provider.URL).Error)
+
+	for _, tc := range []struct {
+		name           string
+		path           string
+		plugin         bool
+		credentialless bool
+		success        bool
+	}{
+		{"provider same-origin redirect", provider.URL + "/redirect", true, false, true},
+		{"provider cannot redirect to another port", provider.URL + "/escape", true, false, false},
+		{"plugin arbitrary private URL", destination.URL, true, false, false},
+		{"result URL is still untrusted", provider.URL, true, true, false},
+		{"legacy URL is still untrusted", provider.URL, false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			task.PrivateData.Execution = nil
+			if tc.plugin {
+				task.PrivateData.Execution = &model.TaskExecutionSnapshot{TaskPlugin: &model.TaskPluginSnapshot{Key: "local-video"}}
+			}
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			c.Request = httptest.NewRequest(http.MethodGet, "/content", nil)
+			err := proxyTaskMedia(c, task, &relaychannel.TaskContentRequest{
+				URL: tc.path, Method: http.MethodGet, Credentialless: tc.credentialless,
+			})
+			if tc.success {
+				require.NoError(t, err)
+				assert.Equal(t, "local-video", recorder.Body.String())
+			} else {
+				var proxyErr *taskMediaProxyError
+				require.ErrorAs(t, err, &proxyErr)
+				assert.Equal(t, "artifact_request_rejected", proxyErr.code)
+			}
+			assert.False(t, escaped)
+		})
+	}
+}
+
 func TestTaskMediaRequestHeaderPolicy(t *testing.T) {
 	header := http.Header{}
 	require.NoError(t, applyTaskMediaRequestHeaders(header, map[string]string{

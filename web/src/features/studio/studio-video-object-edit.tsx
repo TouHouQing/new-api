@@ -380,6 +380,7 @@ export function StudioVideoObjectEdit() {
             aria-label={t('Avoid in the edited region (optional)')}
             maxLength={3000}
             value={negative}
+            disabled={!writable || mutate.isPending}
             onChange={(event) => setNegative(event.target.value)}
           />
         </Field>
@@ -388,6 +389,7 @@ export function StudioVideoObjectEdit() {
             <FieldLabel>{t('Replacement image (optional)')}</FieldLabel>
             <Select
               value={referenceId || 'none'}
+              disabled={!writable || mutate.isPending}
               onValueChange={(value) =>
                 setReferenceId(value === 'none' ? '' : value || '')
               }
@@ -413,6 +415,7 @@ export function StudioVideoObjectEdit() {
           <FieldLabel>{t('Video output')}</FieldLabel>
           <Select
             value={targetId}
+            disabled={!writable || mutate.isPending}
             onValueChange={(value) => setTargetId(value || '')}
           >
             <SelectTrigger aria-label={t('Video output')}>

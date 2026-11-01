@@ -30,6 +30,15 @@ This product includes third-party open source software. Copyright notices and
 license terms for direct third-party dependencies are listed in
 THIRD-PARTY-LICENSES.md.
 
+==== Integrated Yingce Workbench ====
+
+The workbench includes open-ai-canvas (Yingce), maintained by ddcat-ai and its
+contributors: https://github.com/ddcat-ai/open-ai-canvas
+It is distributed under GNU AGPL version 3; see workbench/LICENSE in source
+distributions and workbench-LICENSE in the image's /licenses directory.
+TouHouQing's integration and retained creation tools are marked in
+workbench/INTEGRATION.md and workbench/UPSTREAM-REVIEW.md.
+
 Apache-2.0 upstream NOTICE entries identified for direct dependencies are
 reproduced below. Preserve this file with Docker images, standalone binaries,
 frontend bundles, and Electron desktop installers distributed to users.

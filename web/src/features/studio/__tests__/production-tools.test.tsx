@@ -51,6 +51,7 @@ let role = 'owner'
 let jobs: unknown[] = []
 let connectors: unknown[] = []
 let selectedNodeId: string | null = null
+let previewMedia: Blob | null = null
 const project = addStudioNode(
   addStudioNode(createStudioProject('Film', 'film'), 'audio', 'voice'),
   'video',
@@ -84,7 +85,7 @@ function Host({
     onSave: async () => {},
     onRefresh: async () => {},
     onUpdate: setDocument,
-    getMedia: async () => null,
+    getMedia: async () => previewMedia,
   })
   return (
     <StudioProductionContext.Provider value={controller}>
@@ -208,6 +209,7 @@ test('opening a platform workflow selects the requested canvas node and preserve
 })
 beforeEach(() => {
   selectedNodeId = null
+  previewMedia = null
   role = 'owner'
   jobs = []
   connectors = []
@@ -217,6 +219,7 @@ beforeEach(() => {
     let data: unknown = []
     if (url.endsWith('/jobs')) data = jobs
     if (url.endsWith('/connectors')) data = connectors
+    if (url.includes('/probe?')) data = { width: 512, height: 320 }
     if (url.endsWith('/film')) {
       data = { id: 'film', document: project, role, revision: 1 }
     }
@@ -244,6 +247,146 @@ beforeEach(() => {
   } as unknown as CanvasRenderingContext2D)
 })
 afterEach(() => vi.restoreAllMocks())
+
+test('completed historical media stays selectable after its current output is invalidated, without changing the active Take', async () => {
+  const previous = project.nodes[1].data
+  try {
+    project.nodes[1].data = {
+      ...previous,
+      title: 'Original source',
+      mediaId: undefined,
+      status: 'idle',
+      selectedTakeId: 'old-third',
+      takes: [
+        {
+          id: 'old-first',
+          status: 'completed',
+          mediaId: 'old-first-media',
+          createdAt: '2026-10-19T00:00:00Z',
+          prompt: '',
+        },
+        {
+          id: 'failed-second',
+          status: 'failed',
+          mediaId: 'failed-second-media',
+          createdAt: '2026-10-19T00:00:00Z',
+          prompt: '',
+        },
+        {
+          id: 'old-third',
+          status: 'completed',
+          mediaId: 'old-third-media',
+          createdAt: '2026-10-19T00:00:00Z',
+          prompt: '',
+        },
+      ],
+    }
+    mount('media')
+    await userEvent.click(
+      screen.getByRole('combobox', { name: 'studio.production.mediaAction' })
+    )
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: 'studio.production.mediaAction.lip_sync',
+      })
+    )
+    expect(
+      screen.queryByRole('checkbox', { name: 'Original source · Take 3' })
+    ).toBeNull()
+    await userEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Include derived and historical references',
+      })
+    )
+    expect(
+      screen.queryByRole('checkbox', { name: 'Original source · Take 2' })
+    ).toBeNull()
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'Original source · Take 3' })
+    )
+    await waitFor(() =>
+      expect(screen.getByTestId('saved-media-draft')).toHaveTextContent(
+        'old-third-media'
+      )
+    )
+    await userEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Include derived and historical references',
+      })
+    )
+    expect(
+      screen.getByRole('checkbox', { name: 'Original source · Take 3' })
+    ).toBeChecked()
+    expect(
+      screen.queryByRole('checkbox', { name: 'Original source · Take 1' })
+    ).toBeNull()
+    expect(project.nodes[1].data.mediaId).toBeUndefined()
+    expect(project.nodes[1].data.selectedTakeId).toBe('old-third')
+    expect(
+      vi
+        .mocked(api.request)
+        .mock.calls.filter(
+          ([config]) =>
+            config.url?.endsWith('/jobs') && config.method === 'POST'
+        )
+    ).toHaveLength(0)
+  } finally {
+    project.nodes[1].data = previous
+  }
+})
+
+test('large reference history is paged and searching retains the original Take number', async () => {
+  const previous = project.nodes[1].data
+  try {
+    project.nodes[1].data = {
+      ...previous,
+      title: 'Original source',
+      mediaId: undefined,
+      takes: Array.from({ length: 28 }, (_, index) => ({
+        id: `history-${index}`,
+        status: 'completed',
+        mediaId: `history-media-${index}`,
+        createdAt: '2026-10-19T00:00:00Z',
+        prompt: '',
+      })),
+    }
+    mount('media')
+    await userEvent.click(
+      screen.getByRole('combobox', { name: 'studio.production.mediaAction' })
+    )
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: 'studio.production.mediaAction.lip_sync',
+      })
+    )
+    await userEvent.click(
+      screen.getByRole('checkbox', {
+        name: 'Include derived and historical references',
+      })
+    )
+    expect(
+      screen.queryByRole('checkbox', { name: 'Original source · Take 28' })
+    ).toBeNull()
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Show more references' })
+    )
+    expect(
+      screen.getByRole('checkbox', { name: 'Original source · Take 28' })
+    ).toBeVisible()
+    await userEvent.type(
+      screen.getByRole('textbox', { name: 'Search compatible references' }),
+      'Take 28'
+    )
+    expect(
+      screen.getByRole('checkbox', { name: 'Original source · Take 28' })
+    ).toBeVisible()
+    expect(
+      screen.queryByRole('checkbox', { name: 'Original source · Take 1' })
+    ).toBeNull()
+  } finally {
+    project.nodes[1].data = previous
+  }
+})
 
 test('invalid subtitle text blocks delivery before any rendering job is accepted', async () => {
   const previous = project.captionsText
@@ -288,6 +431,193 @@ test('speech production has one primary voice picker and creates output copies a
     )
   ).toBeVisible()
 })
+
+test.each([2.5, 15])(
+  'depth extraction preserves supported dimensions for a %ss source before submission',
+  async (sourceSeconds) => {
+    previewMedia = new Blob(['metadata boundary'], { type: 'video/mp4' })
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:depth-source')
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+    const view = mount('media')
+    await userEvent.click(
+      screen.getByRole('combobox', { name: 'studio.production.mediaAction' })
+    )
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: 'studio.production.mediaAction.video_depth',
+      })
+    )
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: project.nodes[1].data.title })
+    )
+    await waitFor(() =>
+      expect(view.container.querySelector('video')).not.toBeNull()
+    )
+    const source = view.container.querySelector('video')
+    if (!source) throw new Error('The source video preview must be present')
+    Object.defineProperty(source, 'duration', {
+      value: sourceSeconds,
+      configurable: true,
+    })
+    fireEvent.loadedMetadata(source)
+    await userEvent.click(
+      screen.getByRole('combobox', { name: 'Depth reference size' })
+    )
+    if (sourceSeconds > 10) {
+      expect(screen.queryByRole('option', { name: '640 × 384' })).toBeNull()
+      expect(screen.getAllByRole('option')).toHaveLength(2)
+    }
+    await userEvent.click(screen.getByRole('option', { name: '224 × 384' }))
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'studio.production.confirm' })
+    )
+    const submit = screen.getByRole('button', {
+      name: 'studio.production.runMedia',
+    })
+    await waitFor(() => expect(submit).toBeEnabled())
+    await userEvent.click(submit)
+    await waitFor(() => {
+      const request = vi
+        .mocked(api.request)
+        .mock.calls.find(
+          ([config]) =>
+            config.method === 'POST' && config.url?.endsWith('/jobs')
+        )?.[0]
+      expect(request?.data).toMatchObject({
+        operation: {
+          action: 'video_depth',
+          options: { width: 224, height: 384 },
+        },
+      })
+    })
+  }
+)
+
+test.each([
+  ['image_upscale', ''],
+  ['image_layers', 'A plain green garden background'],
+])(
+  'switching to %s records only its effective description',
+  async (action, expectedPrompt) => {
+    const previous = project.nodes[1].data
+    try {
+      project.nodes[1].data = { ...previous, kind: 'image' }
+      mount('media')
+      await userEvent.type(
+        screen.getByRole('textbox', { name: 'studio.production.mediaPrompt' }),
+        'Unrelated previous voice script'
+      )
+      await userEvent.click(
+        screen.getByRole('combobox', { name: 'studio.production.mediaAction' })
+      )
+      await userEvent.click(
+        screen.getByRole('option', {
+          name: `studio.production.mediaAction.${action}`,
+        })
+      )
+      expect(
+        screen.queryByRole('textbox', { name: 'studio.production.mediaPrompt' })
+      ).toBeNull()
+      if (action === 'image_layers') {
+        await userEvent.type(
+          screen.getByRole('textbox', { name: 'Background description only' }),
+          expectedPrompt
+        )
+      }
+      await userEvent.click(
+        screen.getByRole('checkbox', { name: project.nodes[1].data.title })
+      )
+      await userEvent.click(
+        screen.getByRole('checkbox', { name: 'studio.production.confirm' })
+      )
+      const submit = screen.getByRole('button', {
+        name: 'studio.production.runMedia',
+      })
+      await waitFor(() => expect(submit).toBeEnabled())
+      await userEvent.click(submit)
+      await waitFor(() => {
+        const request = vi
+          .mocked(api.request)
+          .mock.calls.find(
+            ([config]) =>
+              config.method === 'POST' && config.url?.endsWith('/jobs')
+          )?.[0]
+        expect(request?.data).toMatchObject({
+          operation: { action, prompt: expectedPrompt },
+        })
+      })
+    } finally {
+      project.nodes[1].data = previous
+    }
+  }
+)
+
+test.each(['owner', 'viewer'])(
+  'guided media exposes object editing with %s permissions',
+  async (selectedRole) => {
+    role = selectedRole
+    mount('media')
+    const entry = screen.getByRole('button', {
+      name: 'Remove or replace a video object',
+    })
+    expect(entry).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(entry)
+    expect(screen.getByRole('combobox', { name: 'Source video' })).toBeVisible()
+    expect(
+      screen.getByRole('button', { name: 'Generate object edit Take' })
+    ).toBeDisabled()
+    if (selectedRole === 'viewer') {
+      expect(
+        screen.getByRole('textbox', { name: 'Object edit description' })
+      ).toBeDisabled()
+      expect(
+        screen.getByRole('combobox', { name: 'Video output' })
+      ).toBeDisabled()
+      expect(
+        screen.getByRole('spinbutton', { name: 'Object edit width' })
+      ).toBeDisabled()
+    }
+    expect(
+      vi
+        .mocked(api.request)
+        .mock.calls.some(
+          ([config]) =>
+            config.method === 'POST' && config.url?.endsWith('/jobs')
+        )
+    ).toBe(false)
+  }
+)
+
+test.each(['sound_effects', 'image_grid'])(
+  'an empty %s request stays blocked even after spending approval',
+  async (action) => {
+    mount('media')
+    await userEvent.click(
+      screen.getByRole('combobox', { name: 'studio.production.mediaAction' })
+    )
+    await userEvent.click(
+      screen.getByRole('option', {
+        name: `studio.production.mediaAction.${action}`,
+      })
+    )
+    await userEvent.click(
+      screen.getByRole('checkbox', { name: 'studio.production.confirm' })
+    )
+    expect(
+      screen.getByText(
+        'Describe the sound or at least one image panel before generating.'
+      )
+    ).toBeVisible()
+    expect(
+      vi
+        .mocked(api.request)
+        .mock.calls.some(
+          ([config]) =>
+            config.method === 'POST' && config.url?.endsWith('/jobs')
+        )
+    ).toBe(false)
+  }
+)
 
 test('subtitle recognition starts with the configured local model and keeps a manual choice', async () => {
   mount('timeline')

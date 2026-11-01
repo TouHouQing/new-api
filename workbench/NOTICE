@@ -1,0 +1,48 @@
+Open AI Canvas
+Copyright (C) 2026 ddcat and contributors
+
+Native composition uses github.com/kovidgoyal/imaging v1.8.21 for ICC colour
+conversion and github.com/kovidgoyal/go-parallel v1.1.1. Their MIT and BSD
+notices are retained in LICENSES/Imaging-MIT.txt and Go-Parallel-BSD.txt.
+Imaging credits mandykoh/prism (MIT) and go-andiamo/iccarus (Apache-2.0)
+for portions of its colour-management implementation.
+
+The original Open AI Canvas material remains available under the MIT License;
+its complete copyright and permission notice is retained in LICENSES/DDCat-MIT.txt.
+
+This integrated distribution includes AGPL-3.0-or-later Studio production code
+and contracts derived from TouHouQing/new-api (Copyright (C) 2023-2026 QuantumNous).
+The combined distribution is provided under AGPL-3.0-or-later; see LICENSE.
+Original component licenses and copyright notices remain applicable.
+
+Native MySQL support includes gorm.io/driver/mysql v1.6.0 (MIT),
+github.com/go-sql-driver/mysql v1.8.1 (MPL-2.0), and
+filippo.io/edwards25519 v1.1.0 (BSD-3-Clause). Their complete notices are
+retained in LICENSES/GORM-MySQL-MIT.txt, Go-SQL-Driver-MySQL-MPL-2.0.txt,
+and Edwards25519-BSD-3-Clause.txt. The unmodified driver source is available
+at https://github.com/go-sql-driver/mysql/tree/v1.8.1; its MPL license also
+applies when it is included in an executable distribution.
+
+Pinned primary upstream: ddcat-ai/open-ai-canvas,
+82fc5c03233c33380a5335146c50bb507deb5692.
+This incorporates 158 commits since the previous primary upstream base,
+9fdebd07841b71caf4fa5e116b8a3b8af3a959ea.
+Studio migration source: the preserved TouHouQing/new-api working tree;
+see docs/requirements/2026-10-20-yingce-platform-integration.md.
+
+Image split interaction enhancements are adapted from the nonuniform split
+design in HuFakai/infinite-canvas (AGPL-3.0-or-later), pinned revision
+aadd02f42c575bdadb93470391e968b406fc26ad. Original author information and license
+remain applicable. Yingce retains its own resource, task and account systems.
+
+This distribution includes third-party and inherited material under permissive open-source licenses. Required copyright and license notices are retained in LICENSE files and in the corresponding package directories.
+
+Material changes in this repository are maintained by the Open AI Canvas contributors. They include a multi-user Go backend, task processing and analytics, private resource storage, canvas sharing, film-production workflows, canvas UI refactoring, and cloud Agent integrations.
+
+Third-party packages remain subject to the licenses declared by their respective authors. Product names and logos under web/public/icons are the property of their respective owners and do not imply endorsement.
+
+The local lip-sync computation migrates the MuseTalk helper from the preserved
+TouHouQing/new-api working tree. It calls a separately installed MuseTalk 1.5
+checkout (Tencent Music Entertainment Group, MIT); its notice is retained in
+LICENSES/MuseTalk-MIT.txt. This repository does not bundle or download its model
+weights. Licenses of the installed model dependencies remain applicable.

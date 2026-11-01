@@ -19,7 +19,17 @@
     "prompt_id": "926e5e72-8426-4831-ab27-27724995329f",
     "elapsed_sec": 2.14,
     "sha256": "5477553120201037a0ee3144602bf7e6f05ab4a6333392e8f51ef0f9510fb261",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/camera-push.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "4d0094e6440813fab291d34172064d0bc4a81cd1888e42629ffbb8271c4d2098",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T08:27:21Z",
+      "notes": "Clear push from medium view to close fox and lantern; actual model result, not an exact 3D trajectory."
+    }
   },
   "camera-orbit": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, three quarter view, lantern product at center, 35mm lens",
@@ -30,7 +40,25 @@
     "prompt_id": "4015b0c8-955d-42ab-b730-9bfde4cf97de",
     "elapsed_sec": 2.09,
     "sha256": "5dba013e7dd72502e5b07725d95738ea0ab0b108b4573fa81755ae64a7b0e8f6",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "modelTest": {
+      "url": "/studio-presets/videos/camera-orbit.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "ab1a994087efb9ba476e82eb1f350e23e18a587147087547ec126bd74acaebfa",
+      "kind": "model-output",
+      "verification": "unverified",
+      "createdAt": "2026-10-18T08:59:58Z",
+      "notes": "The actual Wan orbit test still has background color blocks and subject deformation. It did not pass. Use the separately labeled original 3D camera illustration to understand intended parallax; it does not certify Wan motion control."
+    },
+    "video": {
+      "url": "/studio-presets/videos/camera-orbit-illustration.mp4",
+      "model": "Original controlled illustration",
+      "sha256": "3c5d6431dcd90612210729141e7c991dd74a50516abca9fb7a0955c105495a6d",
+      "kind": "motion-diagram",
+      "verification": "verified",
+      "notes": "Illustrates the intended direction with original controlled geometry or particle compositing. The separate Wan model test did not pass and is not certified by this illustration."
+    }
   },
   "camera-static": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, front facing medium close up, balanced still composition",
@@ -41,7 +69,17 @@
     "prompt_id": "045f49b9-d657-47b8-99e5-bc83745bbfb2",
     "elapsed_sec": 4.09,
     "sha256": "1266a96e70fb2692eceadecf64b965f1c6f6af20e7fc2ff12149afe980edd244",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/camera-static.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "676a1a18da6fa851cb15ebb4fa6abf4d8d718001880fb7664345cf7b65826d57",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T08:31:44Z",
+      "notes": "Table and background remain fixed while the fox blinks and moves its head slightly."
+    }
   },
   "camera-follow": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, wide side view, fox walking beside the lantern, tracking composition",
@@ -52,7 +90,17 @@
     "prompt_id": "9a1fc3d1-8f1a-4d7a-a2e2-016c9914ed3d",
     "elapsed_sec": 2.08,
     "sha256": "acc438590c48f8e73586c3fd99f1d30a18ca7e5024b0a10de26647ca9b1d0203",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/camera-follow.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "f7dc5b42077d1179f5d0ef2f3e84c59dfdb7591c5b1fcaceda365e5d33121c58",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T09:02:11Z",
+      "notes": "A short side-follow view retains the full walking fox and shows small background parallax. Some framing drift remains; this is an approximate prompt-driven move, not an exact rig path."
+    }
   },
   "lighting-soft": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, soft diffused daylight, gentle shadows",
@@ -63,7 +111,17 @@
     "prompt_id": "075347fb-1b87-4da0-a5a7-ec7cbe32cad1",
     "elapsed_sec": 2.16,
     "sha256": "8672502d2cce45a07e2d2c766018c29c423cc85396cbc268e79384f9d08b46c2",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/lighting-soft.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "a05355a02047b236ad15ba4d227fbdb6b12425039507ec8d34e94d41df760ba5",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T08:34:30Z",
+      "notes": "Soft diffused daylight is retained during small fox head and ear movement."
+    }
   },
   "lighting-rim": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, warm rim light, dark background, cinematic contrast",
@@ -74,7 +132,17 @@
     "prompt_id": "a5d0681f-fa48-4bab-aa56-7fd0daebc225",
     "elapsed_sec": 2.06,
     "sha256": "aaca0c50a29a84203b3afaecff5b7c3d3afd259129e9279d93f6ee5077c885ed",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/lighting-rim.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "d72c8f69a3aa8e098ad41e39cf750ee3b1ea170a5e559360c8da386f3781b95b",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T08:35:55Z",
+      "notes": "Warm edge light visibly outlines fur against the darker background."
+    }
   },
   "lighting-product": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, large softbox lighting, clean neutral background, visible surface detail",
@@ -85,7 +153,17 @@
     "prompt_id": "2bdf432d-a570-4759-9690-85348f797938",
     "elapsed_sec": 2.06,
     "sha256": "eea6e276877e0788822b89a40a30c1aae9dbe69939556914b75ca50564910206",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/lighting-product.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "c76615da5926397f5e98288d3d05e8cc6109fc2d5c96cdebc057b23119a41dfd",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T08:37:16Z",
+      "notes": "Clean neutral studio background and broad soft light reveal the blue metal form."
+    }
   },
   "style-watercolor": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, watercolor illustration, subtle paper texture, muted warm palette",
@@ -96,7 +174,17 @@
     "prompt_id": "d56ec6a7-911e-4704-a2fa-f000ad3ea3ee",
     "elapsed_sec": 2.08,
     "sha256": "91a04f1bbee6f02d09147dd1bcfd367ccd5955b2c34b1f4ebe8a2048acef1796",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/style-watercolor.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "0ea8c1f88c19caee3ae0d42d491b1ad74dba2ddd442a60e8de89c326587dbc41",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T09:03:42Z",
+      "notes": "The watercolor fox and lantern remain painted throughout with small natural motion; the corrected test has no artist hand."
+    }
   },
   "style-cinema": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, natural cinematic color, realistic texture, restrained contrast",
@@ -107,7 +195,17 @@
     "prompt_id": "1438e1e7-a581-4847-be34-767242f4be11",
     "elapsed_sec": 2.06,
     "sha256": "98515b89d64fc5c2b7f7d88875af0d85d7fb7e8a3b229aace4c53caf39a0d7d3",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "video": {
+      "url": "/studio-presets/videos/style-cinema.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "4785b2e06d270dec74b09f0608f6dd3a5e4526a507ed965d9df94848a8781c90",
+      "kind": "model-output",
+      "verification": "verified",
+      "createdAt": "2026-10-18T08:40:06Z",
+      "notes": "Natural fur and enamel detail, restrained cinematic contrast and coherent small motion."
+    }
   },
   "effect-dust": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, subtle floating dust particles catching sunlight, unobstructed subject",
@@ -118,7 +216,25 @@
     "prompt_id": "dfcf9b93-6d18-4703-ab81-38050aa9181c",
     "elapsed_sec": 2.23,
     "sha256": "43edaed96acbe4bf297b4c4d6aa081115048c51ca6fd3c44a8aecf1ab8839224",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "modelTest": {
+      "url": "/studio-presets/videos/effect-dust.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "673771ada0c44fac077441bde79101fae8bec53b44e809e1113873a92a5eb404",
+      "kind": "model-output",
+      "verification": "unverified",
+      "createdAt": "2026-10-18T08:41:31Z",
+      "notes": "Sparkling particle intent is visible but colored grid/block artifacts are unacceptable."
+    },
+    "video": {
+      "url": "/studio-presets/videos/effect-dust-illustration.mp4",
+      "model": "Original controlled illustration",
+      "sha256": "03fbe66a7c5174e75719f87d5ce417136426e845336d3486faa834774fff7321",
+      "kind": "motion-diagram",
+      "verification": "verified",
+      "notes": "Illustrates the intended direction with original controlled geometry or particle compositing. The separate Wan model test did not pass and is not certified by this illustration."
+    }
   },
   "effect-rain": {
     "prompt": "A small red fox sitting beside a blue enamel lantern on a wooden table, one fox, clear subject, medium shot, natural daylight, detailed cinematic illustration, no text, gentle rain, subtle wet surface reflections, clearly visible subject",
@@ -129,6 +245,24 @@
     "prompt_id": "6f74696c-ade5-471c-802f-fe7003cd6686",
     "elapsed_sec": 2.08,
     "sha256": "c1a4aa1a25774a781a039cfe1453d7cff1a4e92756186b6d1809d2aa95f1d1be",
-    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image."
+    "scope": "Illustrative still frame; camera motion is not demonstrated by a still image.",
+    "modelTest": {
+      "url": "/studio-presets/videos/effect-rain.mp4",
+      "model": "Wan 2.2 TI2V 5B",
+      "modelId": "wan2.2-ti2v-5b",
+      "sha256": "96a66dc3375aacc80a4a711e9095822bdb6dacd05603b4dce2c67f54ddc59783",
+      "kind": "model-output",
+      "verification": "unverified",
+      "createdAt": "2026-10-18T08:42:55Z",
+      "notes": "Rain is visible, but colored foreground blocks are unacceptable."
+    },
+    "video": {
+      "url": "/studio-presets/videos/effect-rain-illustration.mp4",
+      "model": "Original controlled illustration",
+      "sha256": "eebf091c6e9ad2dbebffdf43ca1fe50fedef9218b2b68255cffd0a9577ec12bd",
+      "kind": "motion-diagram",
+      "verification": "verified",
+      "notes": "Illustrates the intended direction with original controlled geometry or particle compositing. The separate Wan model test did not pass and is not certified by this illustration."
+    }
   }
 }

@@ -467,11 +467,12 @@ export function studioVoiceWindows(
       start: track.offset,
       end:
         track.offset +
-        (track.duration ||
+        ((track.duration ||
           durations[track.mediaId] ||
           schedule.at(-1)?.end ||
           0) -
-        (track.duration ? 0 : track.start),
+          (track.duration ? 0 : track.start)) /
+          (track.speed ?? 1),
     }))
 
   return [

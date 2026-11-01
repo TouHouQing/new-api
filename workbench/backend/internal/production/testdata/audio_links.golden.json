@@ -1,0 +1,367 @@
+{
+  "note": "Hand-authored timeline and expected source/program clocks; shared native/browser contract, not model output.",
+  "base": {
+    "version": 2,
+    "durationMs": 12000,
+    "tracks": [
+      {
+        "id": "picture",
+        "kind": "video",
+        "label": "画面",
+        "order": 0
+      },
+      {
+        "id": "voice",
+        "kind": "audio",
+        "label": "对白",
+        "order": 1
+      },
+      {
+        "id": "music",
+        "kind": "audio",
+        "label": "音乐",
+        "order": 2
+      },
+      {
+        "id": "captions",
+        "kind": "subtitle",
+        "label": "字幕",
+        "order": 3
+      }
+    ],
+    "clips": [
+      {
+        "id": "video",
+        "kind": "video",
+        "nodeId": "n",
+        "trackId": "picture",
+        "startMs": 1000,
+        "durationMs": 4000,
+        "sourceStartMs": 2000,
+        "sourceDurationMs": 10000,
+        "playbackRate": 1
+      },
+      {
+        "id": "repeated-source",
+        "kind": "video",
+        "nodeId": "n",
+        "trackId": "picture",
+        "startMs": 7000,
+        "durationMs": 4000,
+        "sourceStartMs": 2000,
+        "sourceDurationMs": 10000,
+        "playbackRate": 1
+      },
+      {
+        "id": "a",
+        "kind": "audio",
+        "nodeId": "voice",
+        "trackId": "voice",
+        "startMs": 1500,
+        "durationMs": 2000,
+        "sourceStartMs": 300,
+        "sourceDurationMs": 10000,
+        "playbackRate": 1,
+        "volume": 0.25,
+        "audioLink": {
+          "sourceClipId": "video",
+          "mode": "source",
+          "anchorMs": 2500
+        }
+      },
+      {
+        "id": "music",
+        "kind": "audio",
+        "nodeId": "music",
+        "trackId": "music",
+        "startMs": 0,
+        "durationMs": 12000,
+        "volume": 0.1
+      },
+      {
+        "id": "caption",
+        "kind": "subtitle",
+        "nodeId": "caption",
+        "trackId": "captions",
+        "startMs": 2000,
+        "durationMs": 1500,
+        "text": "独立字幕"
+      }
+    ]
+  },
+  "cases": [
+    {
+      "name": "quarter-speed-fractional-source-anchor",
+      "videoRate": 0.25,
+      "audioStartMs": 1002,
+      "linkAnchorMs": 2000.5,
+      "commands": [{ "op": "moveClip", "id": "video", "startMs": 3000 }],
+      "expected": [{ "startMs": 3002, "durationMs": 2000, "sourceStartMs": 300, "playbackRate": 1, "anchorMs": 2000.5, "sourceClipId": "video" }]
+    },
+    {
+      "name": "source-move",
+      "commands": [
+        {
+          "op": "moveClip",
+          "id": "video",
+          "startMs": 3000
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 3500,
+          "durationMs": 2000,
+          "sourceStartMs": 300,
+          "playbackRate": 1,
+          "anchorMs": 2500,
+          "sourceClipId": "video"
+        }
+      ]
+    },
+    {
+      "name": "source-trim",
+      "commands": [
+        {
+          "op": "trimClip",
+          "id": "video",
+          "durationMs": 2000,
+          "sourceStartMs": 3000
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 1000,
+          "durationMs": 1500,
+          "sourceStartMs": 800,
+          "playbackRate": 1,
+          "anchorMs": 3000,
+          "sourceClipId": "video"
+        }
+      ]
+    },
+    {
+      "name": "source-split",
+      "commands": [
+        {
+          "op": "splitClip",
+          "id": "video",
+          "splitAtMs": 3000
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 1500,
+          "durationMs": 1500,
+          "sourceStartMs": 300,
+          "playbackRate": 1,
+          "anchorMs": 2500,
+          "sourceClipId": "video"
+        },
+        {
+          "startMs": 3000,
+          "durationMs": 500,
+          "sourceStartMs": 1800,
+          "playbackRate": 1,
+          "anchorMs": 4000,
+          "sourceClipId": "video:split:3000"
+        }
+      ]
+    },
+    {
+      "name": "source-rate",
+      "commands": [
+        {
+          "op": "setClipPlaybackRate",
+          "id": "video",
+          "playbackRate": 2
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 1250,
+          "durationMs": 1000,
+          "sourceStartMs": 300,
+          "playbackRate": 2,
+          "anchorMs": 2500,
+          "sourceClipId": "video"
+        }
+      ]
+    },
+    {
+      "name": "clip-rate",
+      "mode": "clip",
+      "commands": [
+        {
+          "op": "setClipPlaybackRate",
+          "id": "video",
+          "playbackRate": 2
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 1500,
+          "durationMs": 1500,
+          "sourceStartMs": 300,
+          "playbackRate": 1,
+          "anchorMs": 500,
+          "sourceClipId": "video"
+        }
+      ]
+    },
+    {
+      "name": "clip-trim",
+      "mode": "clip",
+      "commands": [
+        {
+          "op": "trimClip",
+          "id": "video",
+          "durationMs": 2000,
+          "sourceStartMs": 3000
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 1000,
+          "durationMs": 1500,
+          "sourceStartMs": 800,
+          "playbackRate": 1,
+          "anchorMs": 0,
+          "sourceClipId": "video"
+        }
+      ]
+    },
+    {
+      "name": "remove",
+      "commands": [
+        {
+          "op": "removeClip",
+          "id": "video"
+        }
+      ],
+      "expected": []
+    },
+    {
+      "name": "audio-split",
+      "commands": [
+        {
+          "op": "splitClip",
+          "id": "a",
+          "splitAtMs": 2500
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 1500,
+          "durationMs": 1000,
+          "sourceStartMs": 300,
+          "playbackRate": 1,
+          "anchorMs": 2500,
+          "sourceClipId": "video"
+        },
+        {
+          "startMs": 2500,
+          "durationMs": 1000,
+          "sourceStartMs": 1300,
+          "playbackRate": 1,
+          "anchorMs": 3500,
+          "sourceClipId": "video"
+        }
+      ]
+    },
+    {
+      "name": "detach-and-move",
+      "commands": [
+        {
+          "op": "setAudioLink",
+          "id": "a"
+        },
+        {
+          "op": "moveClip",
+          "id": "video",
+          "startMs": 3000
+        }
+      ],
+      "expected": []
+    },
+    {
+      "name": "reattach-concrete-occurrence",
+      "unlink": true,
+      "commands": [
+        {
+          "op": "setAudioLink",
+          "id": "a",
+          "sourceClipId": "video",
+          "mode": "source"
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 1500,
+          "durationMs": 2000,
+          "sourceStartMs": 300,
+          "playbackRate": 1,
+          "anchorMs": 2500,
+          "sourceClipId": "video"
+        }
+      ]
+    },
+    {
+      "name": "rate-outside-supported",
+      "audioRate": 4,
+      "commands": [
+        {
+          "op": "setClipPlaybackRate",
+          "id": "video",
+          "playbackRate": 2
+        }
+      ],
+      "error": "声音速度"
+    },
+    {
+      "name": "locked-dependent-track",
+      "voiceLocked": true,
+      "commands": [
+        {
+          "op": "moveClip",
+          "id": "video",
+          "startMs": 2000
+        }
+      ],
+      "error": "锁定"
+    },
+    {
+      "name": "another-use-of-the-same-source",
+      "commands": [
+        {
+          "op": "setAudioLink",
+          "id": "a",
+          "sourceClipId": "repeated-source",
+          "mode": "source"
+        }
+      ],
+      "error": "镜头范围"
+    },
+    {
+      "name": "linked-audio-trim",
+      "commands": [
+        {
+          "op": "trimClip",
+          "id": "a",
+          "startMs": 2000,
+          "durationMs": 1000,
+          "sourceStartMs": 800
+        }
+      ],
+      "expected": [
+        {
+          "startMs": 2000,
+          "durationMs": 1000,
+          "sourceStartMs": 800,
+          "playbackRate": 1,
+          "anchorMs": 3000,
+          "sourceClipId": "video"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,312 @@
+{
+  "id": "sample-presenter-project",
+  "title": "A friendly plant guide",
+  "createdAt": "2026-10-18T09:36:37Z",
+  "updatedAt": "2026-10-18T09:36:37Z",
+  "nodes": [
+    {
+      "id": "sample-presenter-script-node",
+      "type": "studio",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "text",
+        "title": "Story and action",
+        "prompt": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed.",
+        "purpose": "script",
+        "textMode": "plain",
+        "outputText": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed."
+      }
+    },
+    {
+      "id": "sample-presenter-image-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 0
+      },
+      "data": {
+        "kind": "image",
+        "title": "Replaceable subject first frame",
+        "prompt": "A friendly adult female science presenter with short dark hair in a plain navy shirt, facing the camera in a bright uncluttered home studio with a small green plant, medium close up, natural realistic face, no text.",
+        "model": "flux.2-klein-4b",
+        "imageSize": "512x320",
+        "status": "completed",
+        "mediaId": "sample-presenter-image",
+        "selectedTakeId": "sample-presenter-image-take",
+        "takes": [
+          {
+            "id": "sample-presenter-image-take",
+            "mediaId": "sample-presenter-image",
+            "prompt": "A friendly adult female science presenter with short dark hair in a plain navy shirt, facing the camera in a bright uncluttered home studio with a small green plant, medium close up, natural realistic face, no text.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "flux.2-klein-4b",
+            "taskId": "image-ebe177091276c5e30f5ba59bc12e7d16",
+            "requestSnapshot": "{\"model\": \"flux.2-klein-4b\", \"seed\": 182003, \"source_sha256\": \"43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce\"}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-presenter-video-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Main shot",
+        "prompt": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed.",
+        "model": "wan2.2-ti2v-5b",
+        "resolution": "640x384",
+        "ratio": "5:3",
+        "seconds": 3,
+        "status": "completed",
+        "mediaId": "sample-presenter-lip",
+        "selectedTakeId": "sample-presenter-lip-take",
+        "takes": [
+          {
+            "id": "sample-presenter-video-take",
+            "mediaId": "sample-presenter-video",
+            "prompt": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "ffmpeg-image-edit",
+            "requestSnapshot": "{\"model\": \"ffmpeg-image-edit\", \"seed\": null, \"operation\": \"controlled_image_edit\", \"frames\": 49, \"fps\": 16, \"size\": \"640x384\", \"assets\": [{\"id\": \"sample-presenter-subject\", \"versionId\": \"sample-presenter-reference-v1\", \"mediaId\": \"sample-presenter-image\"}]}"
+          },
+          {
+            "id": "sample-presenter-lip-take",
+            "mediaId": "sample-presenter-lip",
+            "prompt": "Let's help plants grow.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "MuseTalk V15 CPU",
+            "taskId": "audio-2dc7d8e8c1c04da6a336fc2670dc5d63",
+            "requestSnapshot": "{\"operation\": \"lip_sync\", \"sourceMediaId\": \"sample-presenter-video\", \"audioMediaId\": \"sample-presenter-voice-padded\", \"actual_seconds\": 3.0625}"
+          }
+        ],
+        "assetIds": ["sample-presenter-subject"],
+        "assetVersionIds": {
+          "sample-presenter-subject": "sample-presenter-reference-v1"
+        }
+      }
+    },
+    {
+      "id": "sample-presenter-music-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Original instrumental soundtrack",
+        "prompt": "Original three-note arpeggio, made for the bundled editing example.",
+        "sourceMode": "upload",
+        "status": "completed",
+        "mediaId": "sample-presenter-music"
+      }
+    },
+    {
+      "id": "sample-presenter-assembly-node",
+      "type": "studio",
+      "position": {
+        "x": 1140,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Edited sample film",
+        "prompt": "Editable source clip, caption and original music.",
+        "purpose": "assembly",
+        "status": "completed",
+        "mediaId": "sample-presenter-film",
+        "sourceMode": "upload"
+      }
+    },
+    {
+      "id": "sample-presenter-voice-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Editable spoken line",
+        "prompt": "Let's help plants grow.",
+        "model": "chatterbox-local",
+        "voice": "default",
+        "status": "completed",
+        "mediaId": "sample-presenter-voice-padded",
+        "selectedTakeId": "sample-presenter-padded-voice-take",
+        "takes": [
+          {
+            "id": "sample-presenter-voice-take",
+            "mediaId": "sample-presenter-voice",
+            "prompt": "Let's help plants grow.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "chatterbox-local",
+            "taskId": "audio-fd1d04b284bb4cd0b8ecb358ee5373f8"
+          },
+          {
+            "id": "sample-presenter-padded-voice-take",
+            "mediaId": "sample-presenter-voice-padded",
+            "prompt": "Let's help plants grow.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "FFmpeg silence padding",
+            "requestSnapshot": "{\"operation\": \"silence_pad\", \"sourceMediaId\": \"sample-presenter-voice\"}"
+          }
+        ]
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sample-presenter-text-edge",
+      "source": "sample-presenter-script-node",
+      "sourceHandle": "video_prompt",
+      "target": "sample-presenter-video-node",
+      "targetHandle": "prompt"
+    },
+    {
+      "id": "sample-presenter-image-edge",
+      "source": "sample-presenter-image-node",
+      "sourceHandle": "image",
+      "target": "sample-presenter-video-node",
+      "targetHandle": "first_frame"
+    },
+    {
+      "id": "sample-presenter-clip-edge",
+      "source": "sample-presenter-video-node",
+      "sourceHandle": "video",
+      "target": "sample-presenter-assembly-node",
+      "targetHandle": "clip"
+    },
+    {
+      "id": "sample-presenter-music-edge",
+      "source": "sample-presenter-music-node",
+      "sourceHandle": "audio",
+      "target": "sample-presenter-assembly-node",
+      "targetHandle": "soundtrack"
+    },
+    {
+      "id": "sample-presenter-voice-edge",
+      "source": "sample-presenter-voice-node",
+      "sourceHandle": "audio",
+      "target": "sample-presenter-assembly-node",
+      "targetHandle": "voiceover"
+    }
+  ],
+  "assets": [
+    {
+      "id": "sample-presenter-subject",
+      "kind": "character",
+      "title": "An original fictional science presenter",
+      "prompt": "A friendly adult female science presenter with short dark hair in a plain navy shirt, facing the camera in a bright uncluttered home studio with a small green plant, medium close up, natural realistic face, no text.",
+      "mediaId": "sample-presenter-image",
+      "profile": {
+        "subjectType": "human",
+        "appearance": "An original fictional science presenter",
+        "continuity": "Use the first-frame design for this short example."
+      },
+      "versions": [
+        {
+          "id": "sample-presenter-reference-v1",
+          "createdAt": "2026-10-18T09:36:37Z",
+          "prompt": "A friendly adult female science presenter with short dark hair in a plain navy shirt, facing the camera in a bright uncluttered home studio with a small green plant, medium close up, natural realistic face, no text.",
+          "mediaId": "sample-presenter-image"
+        }
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "id": "sample-presenter-shot",
+      "title": "A friendly plant guide",
+      "textNodeId": "sample-presenter-script-node",
+      "imageNodeId": "sample-presenter-image-node",
+      "videoNodeId": "sample-presenter-video-node",
+      "dialogue": "Let's help plants grow.",
+      "shotCaptionText": "Let's help plants grow.",
+      "shotCaptionDurationSeconds": 3.0625
+    }
+  ],
+  "finalVideoNodeId": "sample-presenter-assembly-node",
+  "assembledMediaId": "sample-presenter-film",
+  "production": {
+    "documentVersion": 2,
+    "width": 640,
+    "height": 384,
+    "fps": 16,
+    "fit": "letterbox",
+    "timelineEdited": true,
+    "creativeBrief": {
+      "recipeId": "presenter",
+      "subject": "An original fictional science presenter",
+      "audience": "New video creators",
+      "benefit": "One clear subject and one readable visual action",
+      "callToAction": ""
+    },
+    "guide": {
+      "goal": "presenter",
+      "step": "edit"
+    },
+    "scenes": [
+      {
+        "id": "sample-presenter-scene",
+        "title": "A friendly plant guide",
+        "description": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed.",
+        "shotIds": ["sample-presenter-shot"],
+        "assetIds": ["sample-presenter-subject"]
+      }
+    ],
+    "shotNarrative": {
+      "sample-presenter-shot": {
+        "purpose": "opening",
+        "information": "Let's help plants grow.",
+        "emotion": "Calm and inviting",
+        "visualBeat": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed.",
+        "continuityNeeds": "Keep the subject design from the approved first frame."
+      }
+    },
+    "approvedKeyImages": {
+      "sample-presenter-shot": "sample-presenter-image"
+    },
+    "timeline": [
+      {
+        "id": "sample-presenter-clip",
+        "nodeId": "sample-presenter-video-node",
+        "takeId": "sample-presenter-lip-take",
+        "trimStart": 0,
+        "trimEnd": 3.0625,
+        "caption": "Let's help plants grow.",
+        "captionDuration": 3.0625
+      }
+    ],
+    "audioTracks": [
+      {
+        "id": "sample-presenter-music-track",
+        "mediaId": "sample-presenter-music",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 0.12
+      },
+      {
+        "id": "sample-presenter-voice-track",
+        "mediaId": "sample-presenter-voice-padded",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 1
+      }
+    ]
+  }
+}

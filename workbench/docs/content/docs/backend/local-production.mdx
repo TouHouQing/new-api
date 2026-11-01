@@ -1,0 +1,76 @@
+---
+title: 整合分支的本地生产验收
+description: 使用影策完整生产编排验证源码改动、数据迁移和本地模型
+---
+
+# 整合分支的本地生产验收
+
+本流程用于尚未发布的整合源码。生产主体仍是影策：PostgreSQL、Redis、独立 yingce-agent、迁移服务、后端和前端。源码镜像不由 Host Updater 管理；发布正式 Release 后再按服务器更新流程切换，不能把本地镜像标记成官方受管版本。
+
+Windows已配置本地生产环境后，可在PowerShell 7中运行 `./scripts/start-production-local.ps1 -NoBrowser`。默认读取仓库私有本地生产配置，复用已有镜像和完整编排，等待数据库、Agent、后端和HTTPS就绪；不拉取镜像、不构建或下载模型。省略 `-NoBrowser` 会打开本地项目页。`-EnvFile` 可指定已有私有配置，`-HttpsPort` 应与该配置一致；`-ProbeOnly` 只检查本机HTTPS就绪状态，`-KeepaliveOnly` 只保证WSL保活进程存在。
+
+此启动器为WSL保留一个专用前台进程，并检查既有进程以避免重复启动。仅依赖systemd服务时，WSL空闲退出可能中断数据库和任务。请使用此入口启动本地生产服务；健康检查不能代替实际登录、原片、任务和导出验收。启动器的循环保活与手工启动相关，不创建计划任务，也不更改公开部署或旧平台数据。
+
+机器重启后，已有 PostgreSQL 可能需要执行崩溃恢复。启动器会先核对数据库容器的项目归属，等待其恢复就绪，再启动依赖服务，最长等待5分钟。超时会保留现有状态并提示查看日志，核对后可继续运行同一启动器。
+
+## 编排与数据
+
+按顺序叠加 `docker-compose.deploy.yml`、`docker-compose.build.yml`、`docker-compose.production-local.yml`。最后一个文件只设置本地镜像、模型主机解析和仅本机监听的 HTTPS，不替换生产服务。使用独立 Compose project name、私有环境文件与数据目录，不挂载旧 New API 的数据库或数据卷。
+
+```sh
+docker compose --project-name yingce-platform-production \
+  --env-file /path/to/private.env \
+  -f docker-compose.deploy.yml -f docker-compose.build.yml \
+  -f docker-compose.production-local.yml config --quiet
+
+docker compose --project-name yingce-platform-production \
+  --env-file /path/to/private.env \
+  -f docker-compose.deploy.yml -f docker-compose.build.yml \
+  -f docker-compose.production-local.yml build
+```
+
+配置独立的 `CANVAS_DATA_PATH`、`CANVAS_POSTGRES_DATA_PATH`、`CANVAS_REDIS_DATA_PATH` 和 `CANVAS_WEB_DATA_PATH`。PostgreSQL 的目录必须支持正确的所有者、权限、锁和 fsync。Windows 本地验收使用启用了 metadata 的 WSL 文件系统挂载；公网部署使用服务器的原生 Linux 持久存储。构建前检查宿主机实际可用空间，不能用 WSL 虚拟磁盘内部的剩余空间替代宿主机剩余空间；构建失败不代表已部署。
+
+默认基础镜像和 npm 注册表仍来自官方地址。网络受限时，后端支持 `GO_IMAGE`、`NODE_IMAGE`、`ALPINE_IMAGE` 构建参数，Agent 支持 `NODE_IMAGE`，可显式传入已核对 digest 的镜像地址；`NPM_REGISTRY` 可指定包镜像源。依赖继续使用原锁文件与完整性校验，两个镜像共享下载缓存，构建不执行 npm 生命周期脚本。容器构建上下文排除所有 `node_modules`，不会复制宿主机的可执行依赖。
+
+SQLite 来源先做一致性备份和完整性检查，再复制资源、技能包、上传插件包与 `.settings-key`。不复制旧任务执行器、临时文件或平台相关的已解压可执行插件缓存。密钥文件与数据库必须一同保留，否则已有加密渠道配置无法恢复。
+
+SQLite→PostgreSQL 工具要求首次迁入时目标业务库为空。先仅启动 PostgreSQL、Redis，用后端镜像的 `migrate-sqlite-postgres` 入口，设置只读 `SQLITE_SOURCE_PATH` 和目标 `DATABASE_URL`。工具在同一事务内创建结构、复制并核对所有业务表；失败回滚。再次运行只核对，不覆盖数据。完成后再运行标准 schema 迁移并启动其余服务。不要先启动业务后端写入目标库，再尝试全量复制。
+
+## HTTPS 与本地模型
+
+本地 TLS 入口使用独立端口，默认 `https://localhost:13444`；HTTP 仅绑定 `127.0.0.1:13440`。`YINGCE_LOCAL_CERTS_PATH` 指向仅本机使用的证书目录，包含 `localhost.crt` 和 `localhost.key`。Caddy 的 API 路由直接代理后端，保留 HTTPS 来源，避免 Secure Cookie 被错误处理。自动化验收可在专用浏览器上下文接受本地证书，不自动安装系统信任根。
+
+后端容器通过 `host.docker.internal` 访问本地模型传输，必须仅在 `CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS` 精确允许这个主机。WSL 与 Windows 分离时，可用 `model-gateway/private_relay.py` 在指定私网接口间转发固定端口；它不接受目标 URL，不承载模型调度或费用逻辑，也不绑定公网通配地址。本地传输仍只监听回环地址。模型返回媒体使用相对的网关产物路径，避免容器把 Windows 的 `127.0.0.1` 当作自身。
+
+Windows 启动器在生产环境文件旁发现 `.local-models.json` 时，会同时核对本地网关和两段私网转发，补启动缺失进程；`-ModelConfig` 可指定其他已配置文件。重复启动复用同一进程，`-ProbeOnly` 只检查，不补启动。网页正常而模型连接断开时，检查结果会明确失败。没有配置本地模型的部署继续使用原渠道设置。
+
+本地模型配置使用 `version: 1`，并明确设置 `python`、`receiptDirectory`、`gatewayPort`、`windowsRelayPort`、`dockerRelayPort`、`comfyUrl`、`ollamaUrl` 和 `textModel`。可选 `moduleDirectory` 指向已安装的 Python 依赖目录，`asrPython` / `asrModelDirectory` 指向已有转写运行时及权重，`agentTokenizerDirectory` 指向已验证分词文件；`targetedCancel` 仅在核对 ComfyUI 支持定向取消后开启。文件使用绝对路径，不包含模型密钥。启动器不会安装依赖、下载权重或重新生成未确认的推理任务。
+
+也可独立运行 `./scripts/start-model-transport-local.ps1 -ConfigFile /path/to/.local-models.json`。配置目录保存进程归属、启动阶段和私有日志；端口冲突时保留已启动进程的记录，重试沿用这些进程，拒绝停止或替换其他监听器。网关继续使用固定回执目录。更换端口组合应使用独立配置目录；ComfyUI 和 Ollama 仍须按原安装方式启动。
+
+通过管理员渠道配置 `yingce-local-text`、`yingce-local-image`、`yingce-local-video`，用户生成进入原生任务和统一费用体系，不需要临时个人 API Key。本地零价格必须由管理员明确配置。自动字幕设置 `CANVAS_WHISPER_BASE_URL`；后端镜像包含 FFmpeg 与 CJK 字体，渲染和转录均由原生 worker 执行。生产 Agent 仅调用独立服务，不回退到内嵌执行。
+
+本机共享显卡的 ComfyUI 验收进程使用 `--cache-none --disable-pinned-memory`，减少图片与视频切换时保留模型造成的内存压力；这不修改模型权重或用户其他实例。ComfyUI 的 HTTP 健康检查不能证明推理线程仍能执行。若服务重启后原 prompt 已不在队列和历史中，本地传输明确结束该次任务，并提示检查已有输出，不自动重放推理。内存访问异常的原日志保留为失败证据。
+
+## 验收证据
+
+### 构建与运行层完整性
+
+三个后端程序都支持 `--version`，检查过程不连接数据库或启动 worker。后端镜像在构建时核对三个程序的 SHA256、实际启动版本输出，以及 FFmpeg/FFprobe 执行；仅有构建退出成功不足以证明文件完整。磁盘不足后产生的候选镜像必须重新构建并验证，不切入业务容器。
+
+发布镜像从源码编译，Docker 上下文继续完整排除 `.local`。本地若把编译临时目录放到其他磁盘，仍须使用同一 Go 版本、目标 Linux/架构及正确 CGO 工具链，记录来源与校验和，核对容器内文件并完成相同启动、恢复和渲染验收；不能把未经核对的外来程序作为源码构建结果。
+
+前端发布采用内核文件锁，容器被强制终止后锁会自动释放。取得锁后，仅清理同一静态目录中被中断的私有 `.canvas-stage.*` 暂存目录。升级前若仍存在旧版 `.canvas-publish-lock` 目录，先停止旧发布进程并检查目录，再迁移；不自动删除可能仍被其他实例使用的锁。发布继续先写完整资产、最后原子切换 HTML，并保留上一版资源。
+
+发布按目录分批移动完整文件，避免为每个资源启动多个比较、移动进程；每个文件仍在同一卷中原子改名，根 HTML 最后切换。前端健康检查为首次发布保留 60 秒启动时间。本地已用 2048 个资源文件验证首次发布约 25 秒，并通过并发写入拒绝、强制终止后锁释放、遗留暂存回收、上一版资源保留和连续重启；这些检查不代替实际登录、媒体与导出验收。
+
+### 一致性备份与隔离恢复
+
+`python3 scripts/backup-production-local.py --help` 给出完整参数。工具先检查备份空间，再暂停后端和 Agent 写入，备份 PostgreSQL、后端持久目录与 `.settings-key`，记录 SHA256，并在结束或失败时恢复原写入服务。WSL 默认在任何 Docker 操作前检查宿主机 C 盘至少保留 2048 MiB，避免虚拟磁盘内部显示充足而宿主机已满；虚拟磁盘在其他盘时用 `--host-storage-path` 指定对应挂载路径。可用 `--utility-image alpine:3.22` 指定本机已有的轻量 tar 镜像，工具不会拉取镜像，校验与归档容器均关闭网络且使用只读根目录。启用恢复检查后使用独立数据库及独立文件目录，核对表行和文件校验和，拒绝路径穿越、符号链接、硬链接与特殊文件。备份不包含环境凭据、运行镜像或 Redis，需分别安全保留；SQL/文件校验通过后，仍须单独验收恢复实例的登录、工程、媒体与实际导出。
+
+备份默认识别环境文件旁的 `.local-models.json`、`.local-speech-models.json`、`.local-agent-models.json`、`.local-media-models.json`，将其配置、持久回执、配音与分轨结果、诊断日志写入独立的 `model-transports.tar`，并在恢复检查中逐文件校验。归档期间回执变化会明确报错；不会复制模型权重、临时输入或 ComfyUI 内存历史。中断或无法确认的回执在恢复后仍保持原有保护，不自动重新推理。显式使用 `--native-only` 可只备份主服务，清单会如实标记未包含模型网关。
+
+运行 `python scripts/stage-model-transport-restore-local.py --help` 查看隔离恢复参数。输入应是已执行 `--verify-restore` 的备份，输出必须是新目录，并为各网关分别提供新的端口起点。工具校验原归档及所有解包文件，复制原回执，重绑定结果目录和端口，不覆盖原服务、不启动模型。随后可用现有的 `scripts/start-model-transport-local.ps1 -ConfigFile <新目录>/<primary|speech|agent|media>/config.json` 启动副本，用 `-ProbeOnly` 核对连接。恢复实例继续使用本机原有权重及模型服务；读取旧回执和已完成结果不需要重新生成。
+
+必须分别记录镜像构建、表行核对、媒体 SHA、权限、登录 Cookie、实际模型任务、任务重开、字幕与混音成片、下载、备份恢复及原平台回退状态。健康检查只证明入口可用。失败样片、未验证领域和仅保留来源快照的高级设定继续保留在待验收清单，不能据此宣称全部整合完成。

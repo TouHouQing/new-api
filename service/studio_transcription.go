@@ -47,10 +47,11 @@ func RunStudioTranscription(ctx context.Context, job *model.StudioWorkflowJob, p
 			if err != nil {
 				return err
 			}
-			if media.Size > 20<<20 || !strings.HasPrefix(media.MimeType, "audio/") {
-				return errors.New("transcription requires an audio file up to 20 MiB")
+			audio, err := studioTranscriptionAudio(ctx, project, media, job.ID)
+			if err != nil {
+				return err
 			}
-			request, err := common.Marshal(map[string]any{"audio_media_id": operation.MediaID, "model": operation.Model, "studio_group": operation.Group, "language": operation.Language, "response_format": "verbose_json", "timestamp_granularities[]": "segment"})
+			request, err := common.Marshal(map[string]any{"audio_media_id": audio.MediaID, "model": operation.Model, "studio_group": operation.Group, "language": operation.Language, "response_format": "verbose_json", "timestamp_granularities[]": []string{"segment", "word"}})
 			if err != nil {
 				return err
 			}
@@ -79,16 +80,17 @@ func RunStudioTranscription(ctx context.Context, job *model.StudioWorkflowJob, p
 				return err
 			}
 		}
-		var parsed struct {
-			Text     string `json:"text"`
-			Segments []struct {
-				Start float64 `json:"start"`
-				End   float64 `json:"end"`
-				Text  string  `json:"text"`
-			} `json:"segments"`
+		source, err := GetStudioMedia(project.OwnerID, operation.MediaID)
+		if err != nil {
+			return err
 		}
-		if common.Unmarshal(response.Body, &parsed) != nil || len(parsed.Text) > 300000 || len(parsed.Segments) > 10000 {
-			return errors.New("transcription returned invalid text or segments")
+		parsed, err := ParseStudioTranscript(response.Body, source.Digest)
+		if err != nil {
+			return err
+		}
+		record, err := SaveStudioAnalysisResult(job.UserID, project, studioAnalysisID(job.ID+":transcript"), operation.MediaID, parsed, []string{"Speaker labels require human review. Word timestamps are available only when returned by the ASR provider."})
+		if err != nil {
+			return err
 		}
 		var subtitles strings.Builder
 		for index, segment := range parsed.Segments {
@@ -100,12 +102,17 @@ func RunStudioTranscription(ctx context.Context, job *model.StudioWorkflowJob, p
 		if len(subtitles.String()) > 100000 {
 			return errors.New("transcription subtitles exceed the project limit")
 		}
-		progress.Take, progress.Phase = map[string]any{"text": parsed.Text, "subtitles": subtitles.String(), "media_id": operation.MediaID}, "collected"
+		progress.Take, progress.Phase = map[string]any{"text": parsed.Text, "subtitles": subtitles.String(), "media_id": operation.MediaID, "analysis_id": record.ID, "precision": parsed.Precision}, "collected"
 		if err := studioSaveProgress(job, progress, 90); err != nil {
 			return err
 		}
 	}
 	var frozen StudioWorkflowPlan
+	if operation.Action == "transcript_only" {
+		progress.Take["applied"] = false
+		progress.Phase = "completed"
+		return studioSaveProgress(job, progress, 100)
+	}
 	if err := common.Unmarshal([]byte(job.Plan), &frozen); err != nil {
 		return err
 	}

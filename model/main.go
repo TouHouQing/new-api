@@ -348,6 +348,7 @@ func migrateDB() error {
 		&StudioAttempt{},
 		&StudioProject{},
 		&StudioProjectVersion{},
+		&StudioProductionRecord{},
 		&StudioProjectMember{},
 		&StudioMedia{},
 		&StudioProjectMediaLink{},

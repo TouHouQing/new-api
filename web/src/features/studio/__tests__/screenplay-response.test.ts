@@ -90,3 +90,46 @@ test('normalization never turns an invalid duration or an injected model field i
     )
   ).toThrow()
 })
+
+test('the actual Qwen prop without a description remains editable without inventing its appearance or running the model again', () => {
+  const raw = {
+    title: '给新手的一盆绿植',
+    brief: '三镜头竖屏公益宣传',
+    characters: [],
+    scenes: [{ id: 'scene_1', title: '晨光', description: '室内桌面' }],
+    props: [{ id: 'prop_1', title: '小盆栽' }],
+    shots: [1, 2, 3].map((index) => ({
+      id: `shot_${index}`,
+      title: `镜头 ${index}`,
+      text: '植物养护',
+      imagePrompt: 'A potted plant',
+      videoPrompt: 'Static camera',
+      seconds: 5,
+      sceneId: 'scene_1',
+      propIds: ['prop_1'],
+    })),
+  }
+  const parsed = parseStudioScreenplayResponse(
+    JSON.stringify(raw),
+    '',
+    '镜头',
+    15
+  )
+  expect(parsed.props).toEqual([
+    { id: 'prop_1', title: '小盆栽', description: '' },
+  ])
+  expect(parsed.shots).toHaveLength(3)
+  expect(parsed.shots.map((shot) => shot.seconds)).toEqual([5, 5, 5])
+  expect(raw.props[0]).not.toHaveProperty('description')
+  expect(() =>
+    parseStudioScreenplayResponse(
+      JSON.stringify({
+        ...raw,
+        props: [{ ...raw.props[0], description: 123 }],
+      }),
+      '',
+      '镜头',
+      15
+    )
+  ).toThrow()
+})

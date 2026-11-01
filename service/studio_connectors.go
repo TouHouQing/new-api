@@ -79,7 +79,7 @@ func (value *studioConnectorHTTPError) Error() string {
 }
 
 var studioConnectorOrigin = func(provider string) string {
-	return map[string]string{"frameio": "https://api.frame.io", "feishu": "https://open.feishu.cn", "notion": "https://api.notion.com", "lark": "https://open.larksuite.com", "unsplash": "https://api.unsplash.com", "vimeo": "https://api.vimeo.com", "slack": "https://slack.com", "linear": "https://api.linear.app", "asana": "https://app.asana.com", "airtable": "https://api.airtable.com", "atlassian": "https://api.atlassian.com", "baidu": "https://pan.baidu.com", "hubspot": "https://api.hubapi.com", "descript": "https://descriptapi.com"}[provider]
+	return map[string]string{"youtube": "https://www.googleapis.com", "frameio": "https://api.frame.io", "feishu": "https://open.feishu.cn", "notion": "https://api.notion.com", "lark": "https://open.larksuite.com", "unsplash": "https://api.unsplash.com", "vimeo": "https://api.vimeo.com", "slack": "https://slack.com", "linear": "https://api.linear.app", "asana": "https://app.asana.com", "airtable": "https://api.airtable.com", "atlassian": "https://api.atlassian.com", "baidu": "https://pan.baidu.com", "hubspot": "https://api.hubapi.com", "descript": "https://descriptapi.com"}[provider]
 }
 
 var studioConnectorDefaultClient = newStudioConnectorHTTPClient()
@@ -109,7 +109,7 @@ func studioConnectorConfigs(ownerID int) ([]StudioConnectorConfig, error) {
 	selected := []StudioConnectorConfig{}
 	seen := map[string]bool{}
 	for _, value := range values {
-		if !StudioIDPattern.MatchString(value.ID) || seen[value.ID] || value.OwnerID < 1 || strings.TrimSpace(value.Label) == "" || len([]rune(value.Label)) > 200 || !slices.Contains(append([]string{"frameio", "feishu", "lark", "notion", "webdav", "webhook"}, studioContextProviders...), value.Provider) {
+		if !StudioIDPattern.MatchString(value.ID) || seen[value.ID] || value.OwnerID < 1 || strings.TrimSpace(value.Label) == "" || len([]rune(value.Label)) > 200 || !slices.Contains(append([]string{"frameio", "feishu", "lark", "notion", "webdav", "webhook", "youtube"}, studioContextProviders...), value.Provider) {
 			return nil, errors.New("connector configuration is invalid")
 		}
 		seen[value.ID] = true

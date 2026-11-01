@@ -1,0 +1,250 @@
+{
+  "id": "sample-store-project",
+  "title": "Willow Corner coffee",
+  "createdAt": "2026-10-18T08:56:19Z",
+  "updatedAt": "2026-10-18T08:56:19Z",
+  "nodes": [
+    {
+      "id": "sample-store-script-node",
+      "type": "studio",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "text",
+        "title": "Story and action",
+        "prompt": "At Willow Corner coffee shop, a barista hand gently slides a plain white ceramic cup of coffee across the wooden counter toward the viewer. A subtle curl of steam rises from the cup. Warm morning sunlight and softly blurred pastries in the background, inviting local cafe advertisement, stable close up, one clear action, no text or logos.",
+        "purpose": "script",
+        "textMode": "plain",
+        "outputText": "At Willow Corner coffee shop, a barista hand gently slides a plain white ceramic cup of coffee across the wooden counter toward the viewer. A subtle curl of steam rises from the cup. Warm morning sunlight and softly blurred pastries in the background, inviting local cafe advertisement, stable close up, one clear action, no text or logos."
+      }
+    },
+    {
+      "id": "sample-store-image-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 0
+      },
+      "data": {
+        "kind": "image",
+        "title": "Replaceable subject first frame",
+        "prompt": "An inviting small independent coffee shop named Willow Corner, a plain unbranded white ceramic cup of coffee on a warm wooden counter, pastries softly visible behind it, a barista hand beside the cup, warm morning daylight, realistic commercial photography, no text or logos.",
+        "model": "flux.2-klein-4b",
+        "imageSize": "512x320",
+        "status": "completed",
+        "mediaId": "sample-store-image",
+        "selectedTakeId": "sample-store-image-take",
+        "takes": [
+          {
+            "id": "sample-store-image-take",
+            "mediaId": "sample-store-image",
+            "prompt": "An inviting small independent coffee shop named Willow Corner, a plain unbranded white ceramic cup of coffee on a warm wooden counter, pastries softly visible behind it, a barista hand beside the cup, warm morning daylight, realistic commercial photography, no text or logos.",
+            "createdAt": "2026-10-18T08:56:19Z",
+            "status": "completed",
+            "model": "flux.2-klein-4b",
+            "taskId": "image-7ae159876c31ef68b2e66bd98c9ce6aa",
+            "requestSnapshot": "{\"model\": \"flux.2-klein-4b\", \"seed\": 182005, \"source_sha256\": \"e6119e1257a738c6ae44f67320c5cd26b42e812449a3b2793511ed4fd9020945\"}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-store-video-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Main shot",
+        "prompt": "At Willow Corner coffee shop, a barista hand gently slides a plain white ceramic cup of coffee across the wooden counter toward the viewer. A subtle curl of steam rises from the cup. Warm morning sunlight and softly blurred pastries in the background, inviting local cafe advertisement, stable close up, one clear action, no text or logos.",
+        "model": "wan2.2-ti2v-5b",
+        "resolution": "640x384",
+        "ratio": "5:3",
+        "seconds": 3,
+        "status": "completed",
+        "mediaId": "sample-store-video",
+        "selectedTakeId": "sample-store-video-take",
+        "takes": [
+          {
+            "id": "sample-store-video-take",
+            "mediaId": "sample-store-video",
+            "prompt": "At Willow Corner coffee shop, a barista hand gently slides a plain white ceramic cup of coffee across the wooden counter toward the viewer. A subtle curl of steam rises from the cup. Warm morning sunlight and softly blurred pastries in the background, inviting local cafe advertisement, stable close up, one clear action, no text or logos.",
+            "createdAt": "2026-10-18T08:56:19Z",
+            "status": "completed",
+            "model": "wan2.2-ti2v-5b",
+            "taskId": "local-f9ed2d96752d419fa68c493260c3edec",
+            "requestSnapshot": "{\"model\": \"wan2.2-ti2v-5b\", \"seed\": 183005, \"operation\": null, \"frames\": 49, \"fps\": 16, \"size\": \"640x384\", \"assets\": [{\"id\": \"sample-store-subject\", \"versionId\": \"sample-store-reference-v1\", \"mediaId\": \"sample-store-image\"}]}"
+          }
+        ],
+        "assetIds": ["sample-store-subject"],
+        "assetVersionIds": {
+          "sample-store-subject": "sample-store-reference-v1"
+        }
+      }
+    },
+    {
+      "id": "sample-store-music-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Original instrumental soundtrack",
+        "prompt": "Original three-note arpeggio, made for the bundled editing example.",
+        "sourceMode": "upload",
+        "status": "completed",
+        "mediaId": "sample-store-music"
+      }
+    },
+    {
+      "id": "sample-store-assembly-node",
+      "type": "studio",
+      "position": {
+        "x": 1140,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Edited sample film",
+        "prompt": "Editable source clip, caption and original music.",
+        "purpose": "assembly",
+        "status": "completed",
+        "mediaId": "sample-store-film",
+        "sourceMode": "upload"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sample-store-text-edge",
+      "source": "sample-store-script-node",
+      "sourceHandle": "video_prompt",
+      "target": "sample-store-video-node",
+      "targetHandle": "prompt"
+    },
+    {
+      "id": "sample-store-image-edge",
+      "source": "sample-store-image-node",
+      "sourceHandle": "image",
+      "target": "sample-store-video-node",
+      "targetHandle": "first_frame"
+    },
+    {
+      "id": "sample-store-clip-edge",
+      "source": "sample-store-video-node",
+      "sourceHandle": "video",
+      "target": "sample-store-assembly-node",
+      "targetHandle": "clip"
+    },
+    {
+      "id": "sample-store-music-edge",
+      "source": "sample-store-music-node",
+      "sourceHandle": "audio",
+      "target": "sample-store-assembly-node",
+      "targetHandle": "soundtrack"
+    }
+  ],
+  "assets": [
+    {
+      "id": "sample-store-subject",
+      "kind": "character",
+      "title": "Willow Corner coffee shop",
+      "prompt": "An inviting small independent coffee shop named Willow Corner, a plain unbranded white ceramic cup of coffee on a warm wooden counter, pastries softly visible behind it, a barista hand beside the cup, warm morning daylight, realistic commercial photography, no text or logos.",
+      "mediaId": "sample-store-image",
+      "profile": {
+        "subjectType": "object",
+        "appearance": "Willow Corner coffee shop",
+        "continuity": "Use the first-frame design for this short example."
+      },
+      "versions": [
+        {
+          "id": "sample-store-reference-v1",
+          "createdAt": "2026-10-18T08:56:19Z",
+          "prompt": "An inviting small independent coffee shop named Willow Corner, a plain unbranded white ceramic cup of coffee on a warm wooden counter, pastries softly visible behind it, a barista hand beside the cup, warm morning daylight, realistic commercial photography, no text or logos.",
+          "mediaId": "sample-store-image"
+        }
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "id": "sample-store-shot",
+      "title": "Willow Corner coffee",
+      "textNodeId": "sample-store-script-node",
+      "imageNodeId": "sample-store-image-node",
+      "videoNodeId": "sample-store-video-node",
+      "dialogue": "",
+      "shotCaptionText": "Willow Corner - a fresh pause.",
+      "shotCaptionDurationSeconds": 3.0625
+    }
+  ],
+  "finalVideoNodeId": "sample-store-assembly-node",
+  "assembledMediaId": "sample-store-film",
+  "production": {
+    "documentVersion": 2,
+    "width": 640,
+    "height": 384,
+    "fps": 16,
+    "fit": "letterbox",
+    "timelineEdited": true,
+    "creativeBrief": {
+      "recipeId": "store",
+      "subject": "Willow Corner coffee shop",
+      "audience": "New video creators",
+      "benefit": "One clear subject and one readable visual action",
+      "callToAction": ""
+    },
+    "guide": {
+      "goal": "product",
+      "step": "edit"
+    },
+    "scenes": [
+      {
+        "id": "sample-store-scene",
+        "title": "Willow Corner coffee",
+        "description": "At Willow Corner coffee shop, a barista hand gently slides a plain white ceramic cup of coffee across the wooden counter toward the viewer. A subtle curl of steam rises from the cup. Warm morning sunlight and softly blurred pastries in the background, inviting local cafe advertisement, stable close up, one clear action, no text or logos.",
+        "shotIds": ["sample-store-shot"],
+        "assetIds": ["sample-store-subject"]
+      }
+    ],
+    "shotNarrative": {
+      "sample-store-shot": {
+        "purpose": "benefit",
+        "information": "Willow Corner - a fresh pause.",
+        "emotion": "Calm and inviting",
+        "visualBeat": "At Willow Corner coffee shop, a barista hand gently slides a plain white ceramic cup of coffee across the wooden counter toward the viewer. A subtle curl of steam rises from the cup. Warm morning sunlight and softly blurred pastries in the background, inviting local cafe advertisement, stable close up, one clear action, no text or logos.",
+        "continuityNeeds": "Keep the subject design from the approved first frame."
+      }
+    },
+    "approvedKeyImages": {
+      "sample-store-shot": "sample-store-image"
+    },
+    "timeline": [
+      {
+        "id": "sample-store-clip",
+        "nodeId": "sample-store-video-node",
+        "takeId": "sample-store-video-take",
+        "trimStart": 0,
+        "trimEnd": 3.0625,
+        "caption": "Willow Corner - a fresh pause.",
+        "captionDuration": 3.0625
+      }
+    ],
+    "audioTracks": [
+      {
+        "id": "sample-store-music-track",
+        "mediaId": "sample-store-music",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 0.35
+      }
+    ]
+  }
+}

@@ -4,7 +4,7 @@ export const meta = {
   key: "local-video",
   name: "Local Video",
   icon: "text:LV",
-  version: "1.0.0",
+  version: "1.1.0",
   author: { name: "QuantumNous" },
   description: { en: "Wan video generation through a local model adapter", zh: "通过本地模型适配服务生成 Wan 视频" },
   models: ["wan2.2-ti2v-5b", "wan2.1-vace-1.3b"],
@@ -65,13 +65,34 @@ export function buildContentRequest(ctx) {
 export const protocols = {
   openai_video: {
     decodeRequest(ctx) {
-      if (!ctx.body || ctx.body.kind !== "json" || !ctx.body.value || Array.isArray(ctx.body.value)) throw new Error("Local video requires a JSON request");
-      validate(ctx.body.value);
+      let body;
+      if (ctx.body && ctx.body.kind === "json" && ctx.body.value && typeof ctx.body.value === "object" && !Array.isArray(ctx.body.value)) {
+        body = { ...ctx.body.value, model: ctx.model };
+      } else if (ctx.body && ctx.body.kind === "multipart") {
+        body = Object.fromEntries(Object.entries(ctx.body.fields || {}).map(([field, values]) => {
+          if (!Array.isArray(values) || values.length !== 1 || typeof values[0] !== "string") throw new Error("Local video fields must have one value: " + field);
+          return [field, values[0]];
+        }));
+        body.model = ctx.model;
+        const files = ctx.body.files || [];
+        if (files.length > 1) throw new Error("Local video accepts one first-frame image");
+        if (files.length) {
+          const file = files[0];
+          if (!["input_reference", "image"].includes(file.field) || !file.ref || !file.mimeType || !file.mimeType.startsWith("image/") || file.size > 8 * 1024 * 1024) throw new Error("Use a first-frame image of at most 8 MB");
+          if (body.input_reference || body.image) throw new Error("Local video has duplicate first-frame references");
+          body.input_reference = { __fileRef: file.ref, encoding: "dataUrl", maxBytes: 8 * 1024 * 1024 };
+        }
+      } else {
+        throw new Error("Local video requires JSON or a multipart form");
+      }
+      if (typeof body.metadata === "string") body.metadata = JSON.parse(body.metadata);
+      if (body.metadata !== undefined && (!body.metadata || typeof body.metadata !== "object" || Array.isArray(body.metadata))) throw new Error("Local video metadata must be an object");
+      validate(body);
       return {
         kind: "submit",
         model: ctx.model,
-        action: ctx.body.value.image || ctx.body.value.input_reference ? "image_to_video" : "text_to_video",
-        requestBody: ctx.body.value,
+        action: body.image || body.input_reference ? "image_to_video" : "text_to_video",
+        requestBody: body,
       };
     },
     render(ctx, task) {

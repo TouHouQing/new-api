@@ -31,7 +31,7 @@ const (
 只输出一个合法 JSON 对象，不要 Markdown、解释、寒暄、问句、选项、工作计划或工具/API 描述。字段必须是：
 {"text":"简短的画面设定","image_prompt":"用于生成首帧图片的主体、环境、构图、光线和风格描述","video_prompt":"同一镜头中主体与环境的具体运动、镜头运动及时间变化"}
 video_prompt 应聚焦可见的动作和镜头变化；image_prompt 应描述静态画面。使用与用户输入相同的语言。三个字段都必须是非空字符串。`
-	studioPlainTextSystemPrompt = `You write a single production-ready creative prompt for an AI video creation canvas. Rewrite the user's idea into concrete visible subjects, setting, composition, style, and action. Preserve their intent and language. Return only the prompt as plain text. Do not return JSON, Markdown fences, greetings, questions, alternatives, implementation plans, or API instructions.`
+	studioPlainTextSystemPrompt = `You help create text for an AI video production canvas. Follow the user's explicit task, output type, language, length, and formatting constraints. For advertising copy, hooks, selling points, dialogue, subtitles, translations, or other requested text, return only that requested text. Never turn requested copy into a visual prompt, add a scene description, or invent a brand or unrelated details. If the user asks for a visual prompt, or gives only a visual idea without another requested output type, develop it into concrete visible subjects, setting, composition, style, and action while preserving their intent. Return plain text without Markdown fences, greetings, questions, alternatives, implementation plans, or API instructions unless explicitly requested.`
 )
 
 var ErrStudioImageRequestInvalid = errors.New("Studio image request is invalid")

@@ -16,6 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
 import { ALL_FORMATS, BlobSource, Input as MediaInput } from 'mediabunny'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
@@ -28,18 +29,26 @@ import { handleServerError } from '@/lib/handle-server-error'
 
 import type { StudioProject } from './local-projects'
 import { studioCaptionTrack } from './studio-caption-track'
+import { studioCloudRequest } from './studio-cloud'
 import { studioMusicGain, studioVoiceWindows } from './studio-creative-plan'
 import { StudioFilmOverlay } from './studio-film-overlay'
 import {
   studioTimelineAudio,
+  studioTimelineMediaIds,
   studioTimelineSchedule,
 } from './studio-timeline-playback'
+import {
+  studioSampleTracking,
+  type StudioTrackingPoint,
+} from './studio-tracking'
 
 export function StudioTimelinePreview(props: {
   project: StudioProject
   getMedia: (id: string) => Promise<Blob | null>
   onPreviewed?: () => void
   compact?: boolean
+  syncGroup?: string
+  muted?: boolean
 }) {
   const previewElement = useRef<HTMLDivElement>(null)
   const { t, i18n } = useTranslation()
@@ -49,6 +58,36 @@ export function StudioTimelinePreview(props: {
   const [audibleMedia, setAudibleMedia] = useState<Record<string, boolean>>({})
   const [time, setTime] = useState(0)
   const [playing, setPlaying] = useState(false)
+  const reframeIds = [
+    ...new Set(
+      Object.values(props.project.production?.reframes || {}).map(
+        (item) => item.analysisId
+      )
+    ),
+  ]
+    .sort()
+    .join('|')
+  const tracks = useQuery({
+    queryKey: ['studio-tracking-preview', props.project.id, reframeIds],
+    queryFn: async () => {
+      const result: Record<string, StudioTrackingPoint[]> = {}
+      await Promise.all(
+        reframeIds
+          .split('|')
+          .filter(Boolean)
+          .map(async (id) => {
+            const data = await studioCloudRequest<{
+              document: { analysis: { points: StudioTrackingPoint[] } }
+            }>(
+              `/projects/${encodeURIComponent(props.project.id)}/analyses/${encodeURIComponent(id)}`
+            )
+            result[id] = data.document.analysis.points
+          })
+      )
+      return result
+    },
+    enabled: !!reframeIds,
+  })
   useEffect(() => {
     const pauseHiddenPreview = () => {
       if (document.hidden) setPlaying(false)
@@ -98,19 +137,22 @@ export function StudioTimelinePreview(props: {
       return []
     }
   }, [props.project, durations])
-  const mediaKey = [
-    ...new Set([
-      ...schedule.map((item) => item.mediaId),
-      ...audio.map((item) => item.mediaId),
-    ]),
-  ]
-    .filter(Boolean)
-    .sort()
-    .join('|')
+  const sources = useMemo(() => {
+    try {
+      return { key: studioTimelineMediaIds(props.project).join('|'), error: '' }
+    } catch (error) {
+      return {
+        key: '',
+        error: error instanceof Error ? error.message : String(error),
+      }
+    }
+  }, [props.project])
+  const mediaKey = sources.key
   useEffect(() => {
     let disposed = false
     const next: Record<string, string> = {}
     const audible: Record<string, boolean> = {}
+    const measured: Record<string, number> = {}
     setPlaying(false)
     async function loadMedia() {
       await Promise.all(
@@ -126,7 +168,16 @@ export function StudioTimelinePreview(props: {
                 formats: ALL_FORMATS,
               })
               try {
-                audible[id] = !!(await input.getPrimaryAudioTrack())
+                const audioTrack = await input.getPrimaryAudioTrack()
+                const videoTrack = await input.getPrimaryVideoTrack()
+                audible[id] = !!audioTrack
+                const track = videoTrack || audioTrack
+                if (track) {
+                  const duration = await track.computeDuration()
+                  if (Number.isFinite(duration) && duration > 0) {
+                    measured[id] = duration
+                  }
+                }
               } finally {
                 input.dispose()
               }
@@ -136,6 +187,7 @@ export function StudioTimelinePreview(props: {
       if (!disposed) {
         setUrls(next)
         setAudibleMedia(audible)
+        setDurations((current) => ({ ...current, ...measured }))
       }
     }
     void loadMedia().catch(handleServerError)
@@ -145,6 +197,29 @@ export function StudioTimelinePreview(props: {
     }
   }, [mediaKey])
   const total = schedule.at(-1)?.end || 0
+  useEffect(() => {
+    if (!props.syncGroup) return
+    const transport = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          group: string
+          seconds: number
+          playing: boolean
+        }>
+      ).detail
+      if (
+        detail?.group !== props.syncGroup ||
+        !Number.isFinite(detail.seconds)
+      ) {
+        return
+      }
+      setTime(Math.max(0, Math.min(total, detail.seconds)))
+      setPlaying(detail.playing && total > 0)
+    }
+    window.addEventListener('studio-timeline-transport', transport)
+    return () =>
+      window.removeEventListener('studio-timeline-transport', transport)
+  }, [props.syncGroup, total])
   useEffect(() => {
     if (!playing) return
     let previous = performance.now()
@@ -184,6 +259,20 @@ export function StudioTimelinePreview(props: {
         continue
       }
       const local = (time - item.start) * item.clip.speed + item.clip.trimStart
+      const reframe = props.project.production?.reframes?.[item.clip.id]
+      if (reframe) {
+        const crop = studioSampleTracking(
+          tracks.data?.[reframe.analysisId] || [],
+          local
+        )
+        if (!crop) {
+          video.pause()
+          setPlaying(false)
+          continue
+        }
+        video.style.objectFit = 'cover'
+        video.style.objectPosition = `${crop.width < 1 ? (crop.x / (1 - crop.width)) * 100 : 50}% ${crop.height < 1 ? (crop.y / (1 - crop.height)) * 100 : 50}%`
+      }
       if (Math.abs(video.currentTime - local) > 0.15) video.currentTime = local
       video.playbackRate = item.clip.speed
       const elapsed = time - item.start
@@ -195,7 +284,7 @@ export function StudioTimelinePreview(props: {
         ? Math.min(1, remaining / item.clip.fadeOut)
         : 1
       video.volume = item.clip.volume * Math.min(fadeIn, fadeOut)
-      video.muted = item.clip.muted || item.replacesAudio
+      video.muted = !!props.muted || item.clip.muted || item.replacesAudio
       video.style.opacity = String(Math.min(fadeIn, fadeOut))
       if (playing) void video.play().catch(() => setPlaying(false))
       else video.pause()
@@ -203,11 +292,11 @@ export function StudioTimelinePreview(props: {
     for (const track of audio) {
       const element = audios.current[track.id]
       if (!element) continue
-      const local = time - track.offset + track.start
-      const duration = Math.min(
-        track.duration || Infinity,
-        element.duration - track.start
-      )
+      const speed = track.speed ?? 1
+      const local = (time - track.offset) * speed + track.start
+      const duration =
+        Math.min(track.duration || Infinity, element.duration - track.start) /
+        speed
       if (time < track.offset || time >= track.offset + duration) {
         element.pause()
         continue
@@ -215,6 +304,8 @@ export function StudioTimelinePreview(props: {
       if (Math.abs(element.currentTime - local) > 0.15) {
         element.currentTime = Math.max(0, local)
       }
+      element.playbackRate = speed
+      element.muted = !!props.muted
       const isMusic =
         track.mediaId === props.project.soundtrackMediaId ||
         props.project.production?.audioMix?.musicMediaIds.includes(
@@ -238,8 +329,10 @@ export function StudioTimelinePreview(props: {
     total,
     playing,
     schedule,
+    tracks.data,
     audio,
     props.project,
+    props.muted,
     durations,
     audibleMedia,
   ])
@@ -270,6 +363,29 @@ export function StudioTimelinePreview(props: {
       captionBottom = '20%'
     }
   }
+  let scheduleError = sources.error
+  if (!scheduleError) {
+    try {
+      studioTimelineSchedule(props.project, durations)
+    } catch (error) {
+      // Wait for raw source metadata before treating a generation setting as a bound.
+      if (
+        mediaKey
+          .split('|')
+          .filter(Boolean)
+          .every((id) => durations[id] !== undefined)
+      ) {
+        scheduleError = error instanceof Error ? error.message : String(error)
+      }
+    }
+  }
+  if (scheduleError) {
+    return (
+      <p role='alert' className='text-destructive text-sm'>
+        {t(scheduleError)}
+      </p>
+    )
+  }
   if (!schedule.length) return null
   return (
     <div ref={previewElement} className='studio-timeline-preview space-y-3'>
@@ -296,6 +412,7 @@ export function StudioTimelinePreview(props: {
               videos.current[item.clip.id] = element
             }}
             src={urls[item.mediaId]}
+            muted={!!props.muted || item.clip.muted || item.replacesAudio}
             preload='metadata'
             playsInline
             aria-label={t('studio.production.livePreview')}
@@ -358,6 +475,7 @@ export function StudioTimelinePreview(props: {
             audios.current[track.id] = element
           }}
           src={urls[track.mediaId]}
+          muted={props.muted}
           preload='metadata'
           onLoadedMetadata={(event) => {
             const duration = event.currentTarget.duration

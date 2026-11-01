@@ -11,6 +11,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--bind', required=True)
     parser.add_argument('--allow', required=True)
+    parser.add_argument('--mapping', action='append', default=[], help='Private relay port:loopback adapter port')
     args = parser.parse_args()
     network = ipaddress.ip_network(args.allow, strict=False)
     address = ipaddress.ip_address(args.bind)
@@ -43,7 +44,13 @@ def main():
         request_queue_size = 128
 
     servers = []
-    for port, target in [(13013, 13003), (13014, 13004)]:
+    mappings = []
+    for value in args.mapping:
+        port, target = map(int, value.split(':'))
+        if not 1024 <= port <= 65535 or not 1024 <= target <= 65535 or port == target:
+            raise ValueError('Relay mapping must use distinct unprivileged ports')
+        mappings.append((port, target))
+    for port, target in mappings or [(13013, 13003), (13014, 13004)]:
         server = Server((str(address), port), Relay)
         server.target = target
         servers.append(server)

@@ -16,23 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/*
-Copyright (C) 2023-2026 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-GNU Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-*/
-
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -42,6 +25,8 @@ import { Button } from '@/components/ui/button'
 import { formatBillingCurrencyFromUSD } from '@/lib/currency'
 
 import type { StudioVideoRequest } from './model-profiles'
+import { useStudioCapabilityProfiles } from './studio-capabilities-query'
+import { StudioCapabilityStatus } from './studio-capability-status'
 import {
   fetchStudioVideoCostPreview,
   type StudioVideoCostPreview,
@@ -90,6 +75,7 @@ export function StudioVideoPreflight(props: {
   const video = props.data.kind === 'video' ? props.data : null
   const batch = props.data.kind === 'batch' ? props.data : null
   const modelId = video?.request.model || ''
+  const profiles = useStudioCapabilityProfiles(!!video)
   const group = video?.group || ''
   const costDuration = video?.costDuration ?? null
   useEffect(() => {
@@ -183,6 +169,12 @@ export function StudioVideoPreflight(props: {
               {inspected.prompt}
             </p>
           </div>
+          <StudioCapabilityStatus
+            modelId={modelId}
+            action='video'
+            profiles={profiles.data?.profiles}
+            seconds={costDuration ?? undefined}
+          />
           {video.mediaAdapted && (
             <Alert>
               <AlertDescription>

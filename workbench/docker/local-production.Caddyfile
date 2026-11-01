@@ -1,0 +1,9 @@
+https://localhost, https://127.0.0.1 {
+	tls /certs/localhost.crt /certs/localhost.key
+	handle /api/* {
+		reverse_proxy backend:8080
+	}
+	handle {
+		reverse_proxy web:3000
+	}
+}

@@ -1,0 +1,23 @@
+{
+  "fractionalBase": {
+    "version": 2, "durationMs": 5000,
+    "tracks": [{"id":"v","kind":"video","order":0},{"id":"s","kind":"subtitle","order":1}],
+    "clips": [
+      {"id":"video","kind":"video","trackId":"v","nodeId":"n","startMs":1000,"durationMs":4000,"sourceStartMs":2000,"sourceDurationMs":10000,"playbackRate":0.25},
+      {"id":"manual","kind":"subtitle","trackId":"s","nodeId":"caption","startMs":1002,"durationMs":400,"text":"保留原始字幕","captionLink":{"sourceClipId":"video","sourceStartMs":2000.5,"sourceEndMs":2100.5}}
+    ]
+  },
+  "fractionalCases": [
+    {"name":"fast-map-preserves-half-source-millisecond","commands":[{"op":"setClipPlaybackRate","id":"video","playbackRate":4}],"captions":[[1000,25,2000.5,2100.5]]},
+    {"name":"rate-round-trip-does-not-drift","commands":[{"op":"setClipPlaybackRate","id":"video","playbackRate":4},{"op":"setClipPlaybackRate","id":"video","playbackRate":0.25}],"captions":[[1002,400,2000.5,2100.5]]},
+    {"name":"manual-trim-reanchors-before-parent-move","commands":[{"op":"trimClip","id":"manual","durationMs":200},{"op":"moveClip","id":"video","startMs":3000}],"captions":[[3002,200,2000.5,2050.5]]},
+    {"name":"deleting-parent-removes-manual-following-cue","commands":[{"op":"removeClip","id":"video"}],"captions":[]}
+  ],
+  "nestedCaption":{"id":"manual-voice-cue","kind":"subtitle","trackId":"captions","nodeId":"caption-source","startMs":1500,"durationMs":2000,"text":"校正后的画布字幕","captionLink":{"sourceClipId":"a","sourceStartMs":300,"sourceEndMs":2300}},
+  "nestedCases":[
+    {"name":"nested-video-move","commands":[{"op":"moveClip","id":"video","startMs":3000}],"captions":[[3500,2000,300,2300]]},
+    {"name":"nested-video-split","commands":[{"op":"splitClip","id":"video","splitAtMs":3000}],"captions":[[1500,1500,300,1800],[3000,500,1800,2300]]},
+    {"name":"nested-video-rate","commands":[{"op":"setClipPlaybackRate","id":"video","playbackRate":2}],"captions":[[1250,1000,300,2300]]},
+    {"name":"delete-bound-voice-only","commands":[{"op":"removeClip","id":"a"}],"captions":[]}
+  ]
+}

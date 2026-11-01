@@ -53,6 +53,7 @@ const draftSchema = z.object({
   language: z.string().max(40).default('zh'),
   reference_media_ids: z.array(z.string().min(1).max(128)).max(12).default([]),
   options: studioSkillTaskSchema.shape.operation.unwrap().shape.options,
+  edit: studioSkillTaskSchema.shape.operation.unwrap().shape.edit,
 })
 export const studioMediaDraftSchema = draftSchema.strict()
 export function studioMediaTakeDraft(node: StudioCanvasNode | undefined) {

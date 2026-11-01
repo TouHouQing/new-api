@@ -39,13 +39,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 
+import { StudioCampaignExperiments } from './studio-campaign-experiments'
 import { studioCloudRequest, type StudioCloudProject } from './studio-cloud'
 import { studioCreationProgress } from './studio-creation'
 import {
   studioProductionSchema,
   studioUnapprovedClips,
 } from './studio-production'
+import { StudioProductionChanges } from './studio-production-changes'
 import { useStudioProductionContext } from './studio-production-context'
+import { StudioPublishing } from './studio-publishing'
 import { StudioRenderProgress } from './studio-render-progress'
 import { StudioTabSection } from './studio-tab-section'
 
@@ -81,6 +84,9 @@ export function StudioProductionDeliveryTab(
   const [showOldShares, setShowOldShares] = useState(false)
   const defaults = studioProductionSchema.parse({})
   const footageReady = studioCreationProgress(props.project).edit
+  const pendingChanges = props.project.production?.changes.some(
+    (change) => change.status === 'pending'
+  )
   const unapproved = props.project.production?.requireApproved
     ? studioUnapprovedClips(props.project)
     : []
@@ -117,6 +123,7 @@ export function StudioProductionDeliveryTab(
     !writable ||
     !footageReady ||
     !captionsReady ||
+    pendingChanges ||
     unapproved.length > 0 ||
     capabilities.data?.storage_available === false ||
     invalidNumbers ||
@@ -155,6 +162,16 @@ export function StudioProductionDeliveryTab(
                 aria-label={t('Exported film preview')}
               />
             </section>
+          )}
+          {pendingChanges && (
+            <div role='alert' className='space-y-2 text-sm'>
+              <p>
+                {t(
+                  'Resolve pending script or review changes before exporting.'
+                )}
+              </p>
+              <StudioProductionChanges />
+            </div>
           )}
           <Collapsible
             open={!deliveryPreview || settingsOpen}
@@ -345,6 +362,7 @@ export function StudioProductionDeliveryTab(
                     <FieldLabel>{t('Optional watermark')}</FieldLabel>
                     <Input
                       disabled={!writable}
+                      aria-label={t('Optional watermark')}
                       maxLength={120}
                       value={props.project.production?.watermark || ''}
                       onChange={(event) =>
@@ -532,7 +550,6 @@ export function StudioProductionDeliveryTab(
                   {t('Add completed footage to the timeline before exporting.')}
                 </p>
               )}
-              <StudioRenderProgress />
               {capabilities.data?.storage_available === false && (
                 <p role='status'>
                   {t(
@@ -556,6 +573,7 @@ export function StudioProductionDeliveryTab(
               )}
             </CollapsibleContent>
           </Collapsible>
+          <StudioRenderProgress />
           <div className='flex gap-2'>
             {result?.media_id &&
               (!options.exportButtonRef || !deliveryPreview) && (
@@ -675,6 +693,17 @@ export function StudioProductionDeliveryTab(
             </Button>
           </div>
         ))}
+      <StudioCampaignExperiments
+        key={props.project.id}
+        project={props.project}
+        readOnly={!writable}
+        onSave={props.onSave}
+        onOpenProject={props.onOpenProject}
+      />
+      <StudioPublishing
+        key={`publishing:${props.project.id}`}
+        project={props.project}
+      />
     </StudioTabSection>
   )
 }

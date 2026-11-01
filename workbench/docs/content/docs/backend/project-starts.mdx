@@ -1,0 +1,16 @@
+---
+title: 视频作品创建与后台章节
+description: 需求、素材、六类模板与原生创建回执
+---
+
+项目页提供“写需求、上传素材、用模板”。作品类型为故事、商品、讲解、口播、MV与自定义，保存到既有 `Project.CreativeBriefJSON`。项目、初始章节、模板镜头、工作流、上传素材的原生画布采用及创建回执在同一事务提交，不启动模型。小说、长篇章节、原平台工程导入与旧版空白创建继续使用原有入口。
+
+`GET /api/project-starter-presets` 返回六个版本化模板的真实结构。`POST /api/project-creations` 要求16至128字符的稳定 `idempotencyKey`，正文上限512KiB；既有项目请求增加可选 `starter={entry,presetKey?,sourceText?,resourceId?}`。需求和模板必须有主题；素材入口须指定一份脚本或一个本人已保存的图片、视频或音频资源。模板仅建立可编辑草案；原资源及后续固定素材版本保持不变。
+
+创建正文和原编号先存到按账号、窗口隔离的本机草稿。HTTP回复不确定时冻结原正文，`GET /api/project-creations/:key` 只读取原创建回执，继续提交仍用相同正文和编号。读取404不代表可用新编号补交；后续改名、编辑、归档或删除不因重放创建而被覆盖。创建后的变更不会影响原始意图摘要，配额检查在原回执重放之后执行。
+
+长篇故事生成在普通文本任务中声明 `metadata.nativeProjectStory={version:1,expectedProjectRevision}`，项目为原生 `task.projectId`，不能同时声明画布草稿。服务端先核对本人激活项目及版本，模型结果保留原文；后台验证完整章节结构后，一次追加所有章节和持久交付状态。丢失页面或重启不依赖浏览器导入。空章节、损坏JSON和项目在生成期间被编辑或归档均保留完整回复，进入人工核对，不部分导入或自动重新调用模型。
+
+`GET /api/projects/:id/story-results/:taskId` 返回 `pending|adopted|needs_review|failed`、原任务、固定章节编号及 `current`。用户后来删除章节时，历史采用状态仍保留，`current=false`；查询及任务重开不会重建删除内容。存储等临时故障只重试保存原文本；`canvasDeliveryStatus` 是现有持久交付字段，未增加另一套项目或任务表。MCP创建工具可提交相同 `creativeBrief` 与 `starter`，同样不启动推理。
+
+模板结构、任务完成、文件可读和成片视觉质量分开验收。六类草案不能代替人物、商品、口型或歌词的真实质量审查，未安装能力和外部发布授权仍按实际状态显示。

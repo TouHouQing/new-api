@@ -21,12 +21,17 @@ export function studioDocumentMediaIds(document: unknown): Set<string> {
   const visit = (value: unknown): void => {
     if (!value || typeof value !== 'object') return
     for (const [key, item] of Object.entries(value)) {
-      if (/MediaId$|^mediaId$/.test(key) && typeof item === 'string' && item) {
+      if (
+        (key === 'media_id' || /MediaId$|^mediaId$/.test(key)) &&
+        typeof item === 'string' &&
+        item
+      ) {
         ids.add(item)
       } else if (
         (key === 'mediaIds' ||
           key === 'referenceMediaIds' ||
-          key === 'musicMediaIds') &&
+          key === 'musicMediaIds' ||
+          key === 'reference_media_ids') &&
         Array.isArray(item)
       ) {
         item.forEach((id) => {
@@ -56,13 +61,17 @@ export function mapStudioMediaReferences<T>(
     if (!value || typeof value !== 'object') return value
     return Object.fromEntries(
       Object.entries(value).map(([key, item]) => {
-        if (/MediaId$|^mediaId$/.test(key) && typeof item === 'string') {
+        if (
+          (key === 'media_id' || /MediaId$|^mediaId$/.test(key)) &&
+          typeof item === 'string'
+        ) {
           return [key, resolve(item)]
         }
         if (
           (key === 'mediaIds' ||
             key === 'referenceMediaIds' ||
-            key === 'musicMediaIds') &&
+            key === 'musicMediaIds' ||
+            key === 'reference_media_ids') &&
           Array.isArray(item)
         ) {
           return [

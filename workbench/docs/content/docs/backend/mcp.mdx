@@ -1,0 +1,98 @@
+---
+title: MCP 与外部 Agent
+description: 通过影策原生会话查询项目和任务，委托持久 Agent 并保留网页审批
+---
+
+# MCP 与外部 Agent
+
+仓库的 `integrations/yingce-agent` 提供基于官方 TypeScript SDK 的 stdio 服务。数据由影策 API 提供，不依赖活动浏览器桥、不保存在 MCP 进程内；退出客户端后，已接受的原生 Agent 运行继续存在。默认连接只开放查询，启用制作后复用影策持久运行、任务、模型配置、预算和网页审批。
+
+## 连接
+
+使用 Node.js 22 或更新版本，在 `integrations/yingce-agent` 执行 `bun install --frozen-lockfile`。从仓库根目录运行：
+
+```sh
+node integrations/yingce-agent/connect.mjs --base-url https://localhost:13444 --profile .local/yingce-mcp.json --ca-file .local/project-workbench-debug/production/certs/localhost.crt
+```
+
+交互终端输入影策账号及密码，密码输入隐藏。连接文件只保存独立的原生登录会话，不保存密码；不得提交或分享。已有本机自动化凭据可用 `--credentials-file` 指定，禁止把密码放进命令参数。HTTPS 使用系统信任或明确的 CA 文件，不提供跳过证书验证的选项；本机开发允许 HTTP localhost。
+
+在 MCP 客户端配置本机 Node 的绝对路径、`integrations/yingce-agent/mcp.mjs` 的绝对路径，并将 `YINGCE_PROFILE` 设置为上述连接文件的绝对路径。stdio 的 stdout 只输出协议消息。
+
+查询工具包括能力、模型目录、分页画布/项目、画布节点及具体素材引用、项目概览、原生任务状态、对话历史、运行事件及 Skills 搜索。查询不调用模型。画布读取会过滤运行配置等无关字段，完整编辑协议仍由影策控制。
+
+## 本机素材传输
+
+连接时可附加 `--media-root`，指定一个已经存在、专门用于交换素材的文件夹；`--max-file-mb` 设置单文件上限，默认256 MB，最大1024 MB。不配置素材目录时不开放本机文件工具。可与制作策略同时配置，文件传输本身不调用模型。
+
+启用后增加三个工具：`yingce_local_media` 分页列出该目录及子目录中的支持文件；`yingce_upload_resource` 上传到当前账号的影策原生资源；`yingce_download_resource` 将拥有的原始资源下载到目录根部的新文件名。上传返回原生 `resource.id` 和 `resource:` 引用，尚不等于已经创建素材库资产或放入某个画布。
+
+只接受目录内的普通相对路径，拒绝隐藏文件、越界链接和 `..`。下载不覆盖已有文件；大小或流不完整时移除本次临时文件。传输最多同时两项，仍受影策管理员配置的单文件上限、原生空间及每日上传配额约束；分片不会绕过这些上限。当前本地部署已验证原始文件下载；需要跳转到外部CDN的存储地址不在此次验收范围内。
+
+上传前保存稳定的 `idempotencyKey`。连接器记录源文件SHA和已提交的上传编号；客户端中断后用同一编号重试，先释放原临时会话，再重新传输，已有成品直接复用。相同编号改换文件会拒绝。隐藏的上传意图文件仅用于客户端恢复，资源归属、配额和最终状态始终以影策为准。服务端临时分片会话不是跨重启持久断点，后端重启后需要重传文件。
+
+网页大文件上传同样复用请求编号。分片失败时释放当前临时会话；服务端已经完成、仅响应丢失时重试不会增加第二份资源。完成或主动放弃后删除临时分片，保持最终资源可用。
+
+视频首帧预览按源文件与图片内容生成稳定上传编号。重新登录或画布保存尚未到达时，重新取到相同图片会复用原预览资源，并只计算一次空间及上传配额；不同图片内容保留独立身份。
+
+## 创建项目及画布
+
+连接器中，连接时明确附加 `--workspace`，提供 `yingce_create_project`、`yingce_create_canvas`、`yingce_place_resource`、`yingce_canvas_history`、`yingce_canvas_snapshot` 与 `yingce_restore_canvas`，以及15项时间线/素材分析与构图动作、10项剪辑版本与旧工程转换动作和3项原生剪辑预览/应用/回执动作。创建原生空项目、初始工作流或空画布、采用原始素材以及读取和恢复历史均不启动模型。默认10项查询工具，工作区增加34项、Agent增加3项、本机素材传输增加3项，全部启用共50项。
+
+`yingce_list_cuts`、`yingce_read_cut`、`yingce_save_cut` 保存和读取原生固定剪辑版本。保存使用服务端当前工作剪辑和稳定请求编号，类型/画幅/语言/地区只作版本标签，不自动生成或翻译。载入使用 `yingce_preview_cut`、`yingce_apply_cut` 的同一SHA、CAS和令牌，并明确 `confirmLoad:true`；原生事务保留应用前剪辑。响应未知先用 `yingce_cut_apply_result` 查原编号，再读取实际工作时间线。归档通过 `yingce_archive_cut`，继续保护全部来源。
+
+`yingce_preview_timeline_edits` 对具体片段实例预览1到8个移动、裁剪、拆分、变速、声音跟随或解除动作。source声音随画面变速，clip声音保持原语速；镜头变短时裁掉越界部分。应用需携带相同动作、CAS、预览令牌和 `confirmEdit:true`，服务端原子保留编辑前后剪辑并保存完成回执。响应未知先用 `yingce_timeline_edit_result` 查询原编号；不会自动生成新编号重复应用，也不会覆盖后续编辑。恢复通过已有剪辑版本入口明确载入。
+
+`yingce_legacy_native_status` 查询原始导入与已有转换。`yingce_preview_legacy_native` 核对旧工程字幕、声音、固定候选和文字稿历史的转换报告；`yingce_apply_legacy_native` 需要同一项目/时间线版本、预览令牌与 `confirmConvert:true`，只增加独立转换剪辑和文字稿。它不改写当前工作剪辑、源文件或旧回执。已有转换重放保留后续编辑；采用该剪辑仍需单独预览和载入。限制字段保留原文并明示，不能当作已完成原生转换。
+
+## 素材分析与时间线标记
+
+`--workspace` 开放 `yingce_analysis_capabilities`、`yingce_read_timeline`、`yingce_analyze_media`、`yingce_list_analyses`、`yingce_read_analysis`、`yingce_save_analysis`、`yingce_analysis_history`、`yingce_preview_analysis_markers` 与 `yingce_apply_analysis_markers`。没有启用工作区的连接不开放这9项动作。
+
+`yingce_create_manual_framing` 在跟踪服务不可用时也能为已保存的视频片段建立手工构图草稿，不启动模型或跟踪任务。请求绑定原生时间线版本、资源归属、真实显示尺寸和文件摘要，受存储配额约束。稳定 requestId 和完全相同正文可找回当前版本，不覆盖后续修改；不同正文复用编号返回409。初始建议未核对，必须核对并另存校正后，才能使用相同的构图预览/采用接口。
+
+参考分段核对并保存后，可用 `yingce_preview_reference_shots` 预览新章节和镜头，检查分析具体版本、项目版本、选定分段和原片时长，再按用户要求调用 `yingce_apply_reference_shots`。原生章节、镜头版本、工作流和回执原子创建，不启动生成模型。响应未知或重连后以稳定 requestId 调用 `yingce_reference_adoption` 读取回执和后续删除状态；原请求不覆盖后续修改，也不复建已删除章节。分镜草稿仍需补充画面、角色和运镜，并按实际模型时长能力检查。
+
+先确认实际 CPU 服务可用，再读取已保存的时间线和具体片段实例。`yingce_analyze_media` 固定源资源摘要、源区间和服务版本，在原生任务队列执行参考片分段、音乐节拍或人工框选主体跟踪；它不调用生成模型。关闭 MCP 不影响任务，取消/恢复沿用原生任务接口。测量候选不代表剧情理解、人物身份识别或已剪辑好的作品。
+
+原始来源和测量不可改写，人工校正使用当前 `expectedRevision` 与稳定 `requestId` 另存新版本。响应丢失时保持相同编号和内容重试，不创建额外版本。恢复历史同样另存新版本。未核对的手动跟踪点不能保存；遮挡和不可靠区间须人工校正。
+
+采用分段或节拍前必须取得预览，核对 `analysisRevisionId`、`sourceClipId`、时间线版本及替换范围。采用只添加来源绑定的参考标记，不剪掉画面或改写音轨。MCP 使用相同的服务端计划和 CAS；网页采用进入原生撤销/保存队列。旧预览不会重复插入或重新放回已撤销标记；遇409重新读取，写入响应不明时先查询结果。`yingce_read_analysis` 默认省略大段原始测量，需要核查时明确传入 `includeEvidence=true`。
+
+创建前保存16到128字符的稳定 `idempotencyKey`。项目创建沿用影策事务和服务端持久回执：响应丢失后用原编号恢复，项目后来改名仍返回同一项目；相同编号用于不同创建内容报409，原项目已删除报410，不重新新建。返回的项目链接进入同一个影策项目工作台。此能力要求Schema63及原生 `/project-creations` 接口，连接器不向旧接口降级重试。
+
+新画布沿用原生画布操作、配额、历史和请求回执，可指定拥有且激活的 `projectId`。相同编号用于不同标题或项目时拒绝，不能覆盖已有画布。创建后从服务端再次读取，确认画布仍存在；创建空画布不代表已经拆分镜头、注册素材或完成成片。
+
+`yingce_place_resource` 接收 `canvasId`、已上传完成的 `resourceId`、标题、位置及稳定编号。原生服务将素材、具体版本、原始表现资源、项目关联和画布节点原子登记，并沿用画布配额与历史。上传缺少尺寸或时长时检查原文件，临时检查副本在结束后移除；不复制最终媒体或创建虚构生成任务。返回准确的 `assetVersionId` 和 `nodeId`。同一原文件跨画布使用时复用已登记的原始版本，保留用户后来修改的素材名称和主版本。
+
+同一采用编号重试会返回原回执，`replayed=true` 不代表节点仍在当前画布：用户之后改名、移动或撤销应予保留。调用方需要重新读取画布确认当前状态。明确重新采用时使用新编号，原始资源和素材版本继续复用。此接口需要原生采用服务；连接器不向旧的全量同步接口降级。
+
+## 启用制作
+
+`yingce_canvas_history` 返回当前修订和拥有画布的历史摘要；`yingce_canvas_snapshot` 读取指定快照内容。恢复前必须重新读取当前修订，并向 `yingce_restore_canvas` 传入 `expectedRevision` 与 `confirmRestore:true`。快照限定在拥有的指定画布，修订过期报409。恢复前原生服务保留当前快照；请求结果不确定时先读取画布及历史，不自动重放恢复写入。网页「画布历史版本」使用相同接口和规则。
+
+创建本机 JSON 策略文件，通过 `connect.mjs --agent-config` 传入。策略的 `selection` 只能包含一个平台已有的 `logicalModelId`，或一对 `channelId,channelModelKey`；从 `yingce_list_models` 或影策模型设置获取准确编号。不能配置上游地址或个人模型 Key。
+
+策略还需包含正数 `maxCredits`，以及 `maxSteps`（1到100）、`maxGenerationTasks`（0到20）、`maxVideoSeconds`（0到300）。省略后三者时分别为8、0、0；这些是每轮上限，不是预估价格。没有策略文件时不开放制作工具。重新配置前先注销原连接，或使用新的连接文件名。
+
+启用后增加 `yingce_agent_start`、`yingce_agent_continue` 和 `yingce_agent_cancel`。调用方必须先保存16到128字符的稳定幂等编号；同一请求因网络不确定而重试时沿用原编号。连接器不自动重试写请求，不把取消客户端请求视为取消平台任务。
+
+制作只能选择 `request_approval` 或 `read_only`。具体修改、CPU图片处理及模型生成遵循原生审批；MCP不开放代批接口。进入 `waiting_approval` 后，用户打开返回的画布链接确认；链接通过 `agentRun` 定位该轮原生运行，同时保留其他本机对话。CPU图片处理无需生成模型，仍会使用委托的 Agent 文字模型；不把0张媒体生成预算说成完全没有模型调用。
+
+通过运行状态的 `latestSeq` 继续读取事件，按子任务及具体素材版本核对结果。`completed` 表示该轮结束，不可只凭助手文字断定用户作品制作成功。历史、待审批与结果在服务端保存，后续消息创建不可变新轮次。
+
+## 注销与技能
+
+```sh
+node integrations/yingce-agent/disconnect.mjs --profile .local/yingce-mcp.json
+```
+
+注销成功后撤销原生会话并移除该连接文件；未确认注销时保留文件，用户可在影策账号的会话管理中撤销。注销不删除项目或取消制作。
+
+随附的 `integrations/yingce-agent/skills/yingce-canvas/SKILL.md` 可交给支持 Skills 的客户端，说明如何发现画布、保留意图、提交制作、等待网页审批、按原编号恢复及核对具体结果。此技能不修改客户端配置或安装其他软件。
+
+影策原生技能库增加「本地图片整理」，使用同一 `image_process` 工具。用户先在技能库添加并启用，MCP用 `yingce_list_skills(scope=mine)` 取得准确编号后传入 `skillIds`；公开搜索不表示已经安装。原生运行固定技能版本与内容哈希，Agent按需读取技能正文，更新技能不改写已有运行。
+
+MCP 已增加固定版本审片、准确意见位置、返工来源、修复版本关联、权限与可撤销分享工具，使用原生审片 API。请求与边界见[固定版本审片](./project-reviews)。这些新增功能继续进行本地页面与恢复验收。
+
+当前原生网页 Agent 上下文仍为已保存画布，MCP 项目操作不代表网页 Agent 已具备全部项目生产动作。交付和项目自动化能力继续按整合矩阵验收。协议实现依据[官方 SDK](https://github.com/modelcontextprotocol/typescript-sdk)及[协议规范](https://modelcontextprotocol.io/specification/2026-07-28)。

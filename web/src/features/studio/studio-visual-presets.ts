@@ -38,10 +38,91 @@ const versionSchema = z.strictObject({
 })
 export const studioVisualPresetSchema = versionSchema.extend({
   id: z.string().min(1).max(128),
+  archived: z.boolean().optional(),
   category: z.enum(['camera', 'lighting', 'style', 'effect']),
   history: z.array(versionSchema).max(20).default([]),
 })
 export type StudioVisualPreset = z.infer<typeof studioVisualPresetSchema>
+
+export function studioVisualPresetVersion(
+  token: string,
+  presets: StudioVisualPreset[]
+): StudioVisualPreset | undefined {
+  const separator = token.lastIndexOf('@')
+  const id = token.slice(0, separator)
+  const version = Number(token.slice(separator + 1))
+  const current = presets.find((preset) => preset.id === id)
+  if (!current || separator < 1) return undefined
+  if (current.version === version) return current
+  const previous = current.history.find((item) => item.version === version)
+  return previous ? { ...current, ...previous } : undefined
+}
+
+/** Remove only exact preset values; independent edits and retained presets win. */
+export function studioRemoveVisualPreset(
+  data: StudioCanvasNodeData,
+  token: string,
+  presets: StudioVisualPreset[]
+) {
+  const selected = studioVisualPresetVersion(token, presets)
+  const retained = (data.visualPresetIds || []).filter((id) => id !== token)
+  const remaining = retained.map((id) => studioVisualPresetVersion(id, presets))
+  const changes: { field: string; value: string }[] = []
+  const camera = { ...data.camera }
+  // An unresolved historical direction is protected until its definition returns.
+  if (selected && remaining.every(Boolean)) {
+    for (const [field, value] of Object.entries(selected.camera)) {
+      const key = field as keyof typeof camera
+      if (
+        value &&
+        camera[key] === value &&
+        !remaining.some((preset) => preset?.camera[key] === value)
+      ) {
+        changes.push({ field, value })
+        delete camera[key]
+      }
+    }
+  }
+  let prompt = data.prompt
+  // Appended lines can be reviewed exactly. Never erase a substring of user prose.
+  if (
+    selected?.prompt &&
+    remaining.every(Boolean) &&
+    !remaining.some((preset) => preset?.prompt === selected.prompt)
+  ) {
+    const lines = prompt.split('\n')
+    const index = lines.lastIndexOf(selected.prompt)
+    if (index >= 0) {
+      lines.splice(index, 1)
+      prompt = lines.join('\n')
+      changes.push({ field: 'prompt', value: selected.prompt })
+    }
+  }
+  return {
+    changes,
+    patch: { camera, prompt, visualPresetIds: retained },
+  }
+}
+
+/** A restored definition becomes a new revision; old tokens remain resolvable. */
+export function studioRestoreVisualPreset(preset: StudioVisualPreset) {
+  if (preset.history.length >= 20 || preset.version >= 10000) {
+    throw new Error(
+      'Preset history is full. Save these settings as a new preset.'
+    )
+  }
+  const previous = preset.history.at(-1)
+  if (!previous) return preset
+  const { id, archived, history, ...current } = preset
+  return {
+    ...preset,
+    ...previous,
+    id,
+    archived,
+    version: preset.version + 1,
+    history: [...history, current],
+  }
+}
 export const STUDIO_VISUAL_PRESETS: StudioVisualPreset[] = [
   {
     id: 'camera-push',

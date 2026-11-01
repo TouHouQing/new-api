@@ -32,6 +32,7 @@ import { api } from '@/lib/api'
 import { handleServerError } from '@/lib/handle-server-error'
 
 import { StudioAssetLibrary } from './studio-asset-library'
+import { validateStudioImageBlob } from './studio-image-validation'
 import { useStudioProductionContext } from './studio-production-context'
 import { StudioProductionContinuity } from './studio-production-continuity'
 import { setStudioShotAssets } from './workspace'
@@ -190,6 +191,7 @@ export function StudioWorkspaceAssets() {
                 t('Choose a PNG, JPEG or WebP image under 20 MiB')
               )
             }
+            await validateStudioImageBlob(file)
             await props.onSave()
             const mediaId = crypto.randomUUID()
             const response = await api.put(

@@ -55,14 +55,19 @@ export function parseStudioScreenplayResponse(
   }
   for (const field of ['characters', 'scenes', 'props']) {
     if (normalized[field] === null) normalized[field] = []
-    if (field === 'characters' && Array.isArray(normalized[field])) {
+    if (Array.isArray(normalized[field])) {
       normalized[field] = normalized[field].map((value: unknown) => {
         if (!value || typeof value !== 'object' || Array.isArray(value)) {
           return value
         }
-        const character = { ...value } as Record<string, unknown>
-        if (character.voice === null) delete character.voice
-        return character
+        const asset = { ...value } as Record<string, unknown>
+        // An omitted description carries no inferred visual detail. Keep it
+        // explicitly empty so the user can complete it in the editable draft.
+        if (asset.description === undefined || asset.description === null) {
+          asset.description = ''
+        }
+        if (field === 'characters' && asset.voice === null) delete asset.voice
+        return asset
       })
     }
   }

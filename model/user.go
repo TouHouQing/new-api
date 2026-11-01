@@ -969,6 +969,15 @@ func (user *User) delete(identity *AuthSessionIdentity) error {
 	}
 	var nextAuthVersion int64
 	if err := DB.Transaction(func(tx *gorm.DB) error {
+		// Acquire SQLite's writer reservation before reading session state.
+		// A competing proof-consumption transaction can otherwise prevent a
+		// deferred read transaction from upgrading its lock after proof use.
+		if tx.Dialector.Name() == "sqlite" {
+			if err := tx.Model(&User{}).Where("id = ?", user.Id).
+				UpdateColumn("auth_version", gorm.Expr("auth_version")).Error; err != nil {
+				return err
+			}
+		}
 		if identity != nil {
 			if err := ValidateAuthSessionWithTx(tx, *identity); err != nil {
 				return err

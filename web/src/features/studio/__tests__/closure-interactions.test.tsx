@@ -6,7 +6,7 @@ version 3 or later. See <https://www.gnu.org/licenses/>.
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { expect, test, vi } from 'vitest'
+import { afterEach, expect, test, vi } from 'vitest'
 
 import { api } from '@/lib/api'
 
@@ -24,7 +24,16 @@ vi.mock('../studio-production-context', () => ({
   useStudioProductionContext: () => mediaContext.value,
 }))
 
+afterEach(() => {
+  vi.unstubAllGlobals()
+  vi.restoreAllMocks()
+})
+
 test('an immediate upload saves the new project before linking media', async () => {
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn(async () => ({ width: 1, height: 1, close: vi.fn() }))
+  )
   const order: string[] = []
   const onUpdate = vi.fn()
   mediaContext.value = {
@@ -46,7 +55,22 @@ test('an immediate upload saves the new project before linking media', async () 
   const input = view.container.querySelector('input[type=file]')
   if (!input) throw new Error('Media input is missing')
   fireEvent.change(input, {
-    target: { files: [new File(['image'], 'test.png', { type: 'image/png' })] },
+    target: {
+      files: [
+        new File(
+          [
+            Uint8Array.from(
+              atob(
+                'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR4nGO8JOf2n4GBgYEJRIAwACIUAjm9GWtzAAAAAElFTkSuQmCC'
+              ),
+              (character) => character.charCodeAt(0)
+            ),
+          ],
+          'test.png',
+          { type: 'image/png' }
+        ),
+      ],
+    },
   })
   await waitFor(() => expect(onUpdate).toHaveBeenCalled())
   expect(order.slice(0, 2)).toEqual(['save', 'upload'])
@@ -109,7 +133,20 @@ test('current project filters local and unlinked submissions, with all-project a
 test('recipe preview and cancel leave the project untouched; confirmation returns a pending draft', async () => {
   const project = createStudioProject('Original', 'original')
   const onApply = vi.fn()
-  render(<StudioTemplateLibrary project={project} onApply={onApply} />)
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  })
+  vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+    new Response(JSON.stringify({ version: 1, samples: [] }))
+  )
+  render(
+    <QueryClientProvider client={client}>
+      <StudioTemplateLibrary project={project} onApply={onApply} />
+    </QueryClientProvider>
+  )
+  const planning = screen.getByText('Build from a planning recipe')
+  expect(planning.closest('details')?.open).toBe(false)
+  await userEvent.click(planning)
   await userEvent.click(
     screen.getAllByRole('button', { name: 'Preview and use recipe' })[0]
   )
@@ -128,6 +165,7 @@ test('recipe preview and cancel leave the project untouched; confirmation return
     JSON.parse(next.production.screenplayDraft).shots.length
   ).toBeGreaterThan(0)
   expect(next.nodes).toEqual(project.nodes)
+  vi.restoreAllMocks()
 })
 
 test('trim handles support keyboard precision and prevent inverted or empty ranges', () => {

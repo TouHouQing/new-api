@@ -37,7 +37,7 @@ def analyze(worker, audio):
     if not (directory / 'installed.json').is_file():
         raise ValueError('Install the pinned local audio analysis model before selecting audio analysis')
     # Cache derived evidence by exact source bytes and installed model version.
-    digest = hashlib.sha256(Path(audio).read_bytes() + (directory / 'installed.json').read_bytes()).hexdigest()
+    digest = hashlib.sha256(Path(audio).read_bytes() + (directory / 'installed.json').read_bytes() + b'whisper-small-local-v2').hexdigest()
     cache = worker.root / 'audio-analysis-cache'
     cache.mkdir(exist_ok=True)
     receipt = cache / (digest + '.json')
@@ -56,17 +56,14 @@ def analyze(worker, audio):
         probabilities = worker.clap(**inputs).logits_per_audio.softmax(dim=-1).cpu().numpy().mean(axis=0)
     result['labels'] = sorted([{'label': label, 'score': round(float(score), 5)} for label, score in zip(LABELS, probabilities)], key=lambda item: item['score'], reverse=True)
     if float(probabilities[0] + probabilities[1]) >= .35:
-        if worker.asr is None:
-            from faster_whisper import WhisperModel
-            worker.asr = WhisperModel('tiny', device='cpu', compute_type='int8', cpu_threads=4)
-        segments, info = worker.asr.transcribe(str(audio), beam_size=3, vad_filter=True)
-        result['speech'] = [{'start': round(max(0, item.start), 3), 'end': round(min(item.end, duration), 3), 'text': item.text.strip()} for item in segments if item.no_speech_prob < .5 and item.avg_logprob > -1 and item.end > item.start]
-        result['speech_language'] = info.language
+        transcript = worker.transcribe(audio)
+        result['speech'] = [{'start': round(max(0, item['start']), 3), 'end': round(min(item['end'], duration), 3), 'text': item['text'].strip()} for item in transcript['segments'] if item.get('no_speech_prob', 1) < .5 and item.get('avg_logprob', -100) > -1 and item['end'] > item['start']]
+        result['speech_language'] = transcript['language']
     if float(probabilities[2:8].sum()) >= .4 and duration >= 3:
         tempo, beats = librosa.beat.beat_track(y=waveform, sr=48000)
         if len(beats) >= 4:
             result['tempo_bpm'] = round(float(np.asarray(tempo).reshape(-1)[0]), 1)
             result['beat_times'] = [round(float(value), 3) for value in librosa.frames_to_time(beats, sr=48000)[:200]]
-    result['method'] = 'CLAP htsat-unfused + Whisper tiny + measured beat envelope'
+    result['method'] = 'CLAP htsat-unfused + pinned local Whisper Small + measured beat envelope'
     receipt.write_text(json.dumps(result, ensure_ascii=False), encoding='utf-8')
     return result

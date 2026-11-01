@@ -18,7 +18,7 @@ func ValidateStudioDeliveryAudioReviews(document map[string]any, plan *StudioRen
 		if plan.SkipDialogue {
 			continue
 		}
-		logicalNodeID, _ := studioRenderDialogueSource(document, clip)
+		logicalNodeID, _, _ := studioRenderDialogueSource(document, clip)
 		for _, shot := range studioObjects(document, "shots") {
 			if shot["videoNodeId"] != logicalNodeID {
 				continue

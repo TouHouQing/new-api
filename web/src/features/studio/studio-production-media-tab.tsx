@@ -16,6 +16,25 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
+import { useQuery } from '@tanstack/react-query'
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
@@ -42,6 +61,13 @@ import { Textarea } from '@/components/ui/textarea'
 
 import { StudioBudgetSummary } from './studio-budget-summary'
 import { studioCloudRequest, type StudioCloudProject } from './studio-cloud'
+import { studioDepthSizeValid } from './studio-depth-options'
+import { studioImageDecodeError } from './studio-image-validation'
+import {
+  studioLipSelectionValid,
+  type StudioLipSelection,
+} from './studio-lip-sync'
+import { StudioLipSyncEditor } from './studio-lip-sync-editor'
 import {
   STUDIO_MEDIA_MODELS as models,
   studioMediaTakeDraft,
@@ -63,6 +89,7 @@ import {
   StudioToolParameters,
   type StudioToolOptions,
 } from './studio-tool-parameters'
+import { StudioVideoObjectEdit } from './studio-video-object-edit'
 import { StudioVoiceLibrary } from './studio-voice-library'
 import { StudioVoicePicker } from './studio-voice-picker'
 import { addStudioNode, updateStudioNode } from './workspace'
@@ -101,6 +128,15 @@ export function StudioProductionMediaTab(
   const [references, setReferences] = useState<string[]>([])
   const [voice, setVoice] = useState('default')
   const [rights, setRights] = useState(false)
+  const [lipEdit, setLipEdit] = useState<StudioLipSelection>({
+    start: 0,
+    end: 0,
+    x: 0,
+    y: 0,
+    width: 0,
+    height: 0,
+  })
+  const [lipPreviewValid, setLipPreviewValid] = useState(false)
   const [toolOptions, setToolOptions] = useState<StudioToolOptions>({
     width: 1024,
     height: 1024,
@@ -114,10 +150,29 @@ export function StudioProductionMediaTab(
     translation: '',
   })
   const [language, setLanguage] = useState('zh')
+  const acceptsPrompt = ![
+    'video_depth',
+    'audio_separate',
+    'image_bg_remove',
+    'image_upscale',
+    'image_layers',
+    'image_to_3d',
+  ].includes(action)
+  let operationPrompt = ''
+  if (action === 'image_layers') {
+    operationPrompt = toolOptions.background_prompt || ''
+  } else if (acceptsPrompt) {
+    operationPrompt = prompt
+  }
   const languageEdited = useRef(false)
   const durationEdited = useRef(false)
   const [referenceSearch, setReferenceSearch] = useState('')
   const [showHistory, setShowHistory] = useState(false)
+  const [referenceLimit, setReferenceLimit] = useState(24)
+  useEffect(
+    () => setReferenceLimit(24),
+    [action, referenceSearch, showHistory, props.project.id]
+  )
   const [sourceDurations, setSourceDurations] = useState<
     Record<string, number>
   >({})
@@ -184,6 +239,16 @@ export function StudioProductionMediaTab(
     )
     languageEdited.current = false
     setToolOptions((current) => ({ ...current, ...draft?.options }))
+    setLipEdit(
+      draft?.edit || {
+        start: 0,
+        end: draft?.seconds || 0,
+        x: 0,
+        y: 0,
+        width: 0,
+        height: 0,
+      }
+    )
     setReferences(draft?.reference_media_ids || [])
     setRights(false)
     setConfirm(false)
@@ -192,7 +257,9 @@ export function StudioProductionMediaTab(
     // not overwrite edits made while a generation is running.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaDraftNodeId, mediaEntryAction, editing, props.project.id])
-  const duration = action.startsWith('image_') ? 1 : Number(seconds)
+  let duration = Number(seconds)
+  if (action.startsWith('image_')) duration = 1
+  if (action === 'lip_sync') duration = lipEdit.end - lipEdit.start
   const draft = studioMediaDraftSchema.safeParse({
     action,
     model,
@@ -203,6 +270,7 @@ export function StudioProductionMediaTab(
     voice_id: voice,
     reference_media_ids: references,
     options: toolOptions,
+    ...(action === 'lip_sync' ? { edit: lipEdit } : {}),
   })
   const draftFingerprint = draft.success ? JSON.stringify(draft.data) : ''
   useEffect(() => {
@@ -258,6 +326,7 @@ export function StudioProductionMediaTab(
       nodeId,
       language,
       toolOptions,
+      lipEdit,
       setConfirm,
     ]
   )
@@ -279,26 +348,26 @@ export function StudioProductionMediaTab(
     referenceKinds = ['audio']
   }
   const sources = props.project.nodes
-    .filter(
-      (node) => referenceKinds.includes(node.data.kind) && node.data.mediaId
-    )
+    .filter((node) => referenceKinds.includes(node.data.kind))
     .flatMap((node) => [
-      { ...node, id: node.data.mediaId || node.id },
+      ...(node.data.mediaId ? [{ ...node, id: node.data.mediaId }] : []),
       ...(node.data.takes || [])
+        .map((take, index) => ({ take, index }))
         .filter(
-          (take) =>
+          ({ take }) =>
             take.status === 'completed' &&
             take.mediaId &&
             take.mediaId !== node.data.mediaId &&
-            references.includes(take.mediaId)
+            (showHistory || references.includes(take.mediaId))
         )
-        .map((take, index) => ({
+        .map(({ take, index }) => ({
           ...node,
           id: take.mediaId || take.id,
           data: {
             ...node.data,
             title: `${node.data.title} · ${t('Take')} ${index + 1}`,
             mediaId: take.mediaId,
+            selectedTakeId: take.id,
           },
         })),
     ])
@@ -310,9 +379,73 @@ export function StudioProductionMediaTab(
     const node = sources.find((node) => node.data.mediaId === id)
     return node ? [node] : []
   })
+  const imageReferences = selectedReferences
+    .filter((node) => node.data.kind === 'image')
+    .map((node) => node.data.mediaId || '')
+  const imageProbe = useQuery({
+    queryKey: [
+      'studio-valid-image-references',
+      props.userId,
+      props.project.id,
+      imageReferences.join('|'),
+    ],
+    enabled: imageReferences.length > 0,
+    retry: false,
+    staleTime: Infinity,
+    queryFn: async () => {
+      for (const id of imageReferences) {
+        const metadata = await studioCloudRequest<{
+          width: number
+          height: number
+        }>(
+          `/media/${encodeURIComponent(id)}/probe?project_id=${encodeURIComponent(props.project.id)}`
+        )
+        if (!(metadata.width > 0 && metadata.height > 0)) {
+          throw new Error(t(studioImageDecodeError))
+        }
+      }
+      return true
+    },
+  })
+  const validImageReferences =
+    imageReferences.length === 0 || imageProbe.isSuccess
+  const validPrompt =
+    action === 'sound_effects'
+      ? !!prompt.trim()
+      : action !== 'image_grid' ||
+        !!prompt.trim() ||
+        !!toolOptions.panel_prompts?.some((value) => value.trim())
+  const matchingSources = sources.filter(
+    (node) =>
+      (showHistory || !node.data.derivedFrom || references.includes(node.id)) &&
+      node.data.title.toLowerCase().includes(referenceSearch.toLowerCase())
+  )
+  const visibleSources = matchingSources.filter(
+    (node, index) => index < referenceLimit || references.includes(node.id)
+  )
   const hasAudio = selectedReferences.some((node) => node.data.kind === 'audio')
   const hasVideo = selectedReferences.some((node) => node.data.kind === 'video')
   const hasImage = selectedReferences.some((node) => node.data.kind === 'image')
+  const audioLength = selectedReferences.find(
+    (node) => node.data.kind === 'audio'
+  )?.data.mediaId
+  const videoLength = selectedReferences.find(
+    (node) => node.data.kind === 'video'
+  )?.data.mediaId
+  const actualAudio = audioLength ? sourceDurations[audioLength] : undefined
+  const actualVideo = videoLength ? sourceDurations[videoLength] : undefined
+  const validLip =
+    action !== 'lip_sync' ||
+    (selectedReferences.length === 2 &&
+      hasAudio &&
+      hasVideo &&
+      lipPreviewValid &&
+      studioLipSelectionValid(
+        lipEdit,
+        toolOptions.lip_audio_start || 0,
+        actualVideo,
+        actualAudio
+      ))
   const depthSources = selectedReferences.filter(
     (node) => node.data.kind === 'video'
   )
@@ -325,7 +458,8 @@ export function StudioProductionMediaTab(
     (depthSources.length === 1 &&
       !!depthDuration &&
       duration >= 1 &&
-      duration <= Math.min(30, depthDuration))
+      duration <= Math.min(30, depthDuration) &&
+      studioDepthSizeValid(toolOptions.width, toolOptions.height, duration))
   const validGrid =
     action !== 'image_grid' ||
     (Number.isInteger(toolOptions.rows) &&
@@ -395,6 +529,8 @@ export function StudioProductionMediaTab(
     }
   }, [candidatePatch, patchSourceSeconds, patchCandidateSeconds])
   const valid =
+    validPrompt &&
+    validImageReferences &&
     validCandidatePatch &&
     validSongLength &&
     validGrid &&
@@ -425,7 +561,7 @@ export function StudioProductionMediaTab(
         (toolOptions.seed ?? 0) >= 0 &&
         (toolOptions.seed ?? 0) <= 2147483647)) &&
     (action !== 'voice_clone' || (hasAudio && rights)) &&
-    (action !== 'lip_sync' || (hasAudio && hasVideo)) &&
+    validLip &&
     (action !== 'voice_speech' || voice.trim()) &&
     (!['voice_speech', 'voice_clone'].includes(action) || !!prompt.trim()) &&
     (!['audio_separate', 'audio_translate'].includes(action) || hasAudio) &&
@@ -465,8 +601,16 @@ export function StudioProductionMediaTab(
   } else if (!validSongRepair) {
     blockingReason =
       'Choose the original song and allow enough generation time for the repair interval.'
-  } else if (!writable) blockingReason = 'Read-only project'
-  else if (!capabilities.data) {
+  } else if (!writable) {
+    blockingReason = 'Read-only project'
+  } else if (!validPrompt) {
+    blockingReason =
+      'Describe the sound or at least one image panel before generating.'
+  } else if (!validImageReferences) {
+    blockingReason = imageProbe.isError
+      ? studioImageDecodeError
+      : 'Checking the selected image. Please wait before generating.'
+  } else if (!capabilities.data) {
     blockingReason = 'Loading balance and service access'
   } else if (capabilities.data?.generation_credit_available === false) {
     blockingReason =
@@ -475,6 +619,9 @@ export function StudioProductionMediaTab(
     blockingReason = 'Choose or create a compatible output node.'
   } else if (action === 'lip_sync' && (!hasAudio || !hasVideo)) {
     blockingReason = 'Choose one completed video and its dialogue audio.'
+  } else if (!validLip) {
+    blockingReason =
+      'Choose one video and audio, a valid speaker region and an interval fully covered by both sources.'
   } else if (
     ['voice_clone', 'audio_separate', 'audio_translate'].includes(action) &&
     !hasAudio
@@ -508,14 +655,6 @@ export function StudioProductionMediaTab(
   } else if (!Number.isFinite(duration) || duration <= 0 || duration > 3600) {
     blockingReason = 'Enter a valid duration.'
   } else if (!confirm) blockingReason = 'Confirm the budget before generating.'
-  const audioLength = selectedReferences.find(
-    (node) => node.data.kind === 'audio'
-  )?.data.mediaId
-  const videoLength = selectedReferences.find(
-    (node) => node.data.kind === 'video'
-  )?.data.mediaId
-  const actualAudio = audioLength ? sourceDurations[audioLength] : undefined
-  const actualVideo = videoLength ? sourceDurations[videoLength] : undefined
   useEffect(() => {
     if (
       action === 'lip_sync' &&
@@ -523,21 +662,30 @@ export function StudioProductionMediaTab(
       actualVideo &&
       !durationEdited.current
     ) {
-      setSeconds(
-        String(
-          Math.max(
-            0.001,
-            Math.round(Math.min(actualAudio, actualVideo, 30) * 1000) / 1000
-          )
-        )
-      )
+      setLipEdit((current) => ({
+        ...current,
+        start: 0,
+        end: Math.floor(Math.min(actualAudio, actualVideo, 30) * 1000) / 1000,
+      }))
     }
-  }, [action, actualAudio, actualVideo])
+  }, [action, actualAudio, actualVideo, audioLength, videoLength])
   useEffect(() => {
     if (action === 'video_depth' && depthDuration && !durationEdited.current) {
       setSeconds(String(Math.floor(Math.min(30, depthDuration) * 1000) / 1000))
     }
   }, [action, depthDuration])
+  useEffect(() => {
+    if (action === 'video_depth' && duration > 10) {
+      setToolOptions((value) => {
+        if (studioDepthSizeValid(value.width, value.height, duration)) {
+          return value
+        }
+        return value.width < value.height
+          ? { ...value, width: 224, height: 384 }
+          : { ...value, width: 384, height: 224 }
+      })
+    }
+  }, [action, duration])
   const chooseAction = (next: MediaAction) => {
     setAction(next)
     setModel(models[next])
@@ -614,6 +762,7 @@ export function StudioProductionMediaTab(
           </Button>
         ))}
       </div>
+      {!options.voice && options.value !== 'voice' && <StudioVideoObjectEdit />}
       {kind === 'audio' && (
         <Collapsible>
           <CollapsibleTrigger render={<Button size='sm' variant='outline' />}>
@@ -703,6 +852,28 @@ export function StudioProductionMediaTab(
           )}
         </p>
       )}
+      {action === 'lip_sync' && videoLength && (
+        <StudioLipSyncEditor
+          mediaId={videoLength}
+          getMedia={props.getMedia}
+          edit={lipEdit}
+          onChange={(value) => {
+            durationEdited.current = true
+            setLipEdit(value)
+          }}
+          audioStart={toolOptions.lip_audio_start || 0}
+          onAudioStart={(value) =>
+            setToolOptions((current) => ({
+              ...current,
+              lip_audio_start: value,
+            }))
+          }
+          videoDuration={actualVideo}
+          audioDuration={actualAudio}
+          disabled={!writable}
+          onValidation={setLipPreviewValid}
+        />
+      )}
       {action === 'lip_sync' && actualAudio && actualVideo && (
         <div className='space-y-2 text-sm'>
           <p>
@@ -722,9 +893,19 @@ export function StudioProductionMediaTab(
             variant='outline'
             disabled={!writable}
             onClick={() =>
-              setSeconds(
-                String(Math.max(0.001, Math.min(actualAudio, actualVideo, 30)))
-              )
+              setLipEdit((current) => ({
+                ...current,
+                end:
+                  current.start +
+                  Math.max(
+                    0,
+                    Math.min(
+                      actualAudio - (toolOptions.lip_audio_start || 0),
+                      actualVideo - current.start,
+                      30
+                    )
+                  ),
+              }))
             }
           >
             {t('Use the shared reference duration')}
@@ -875,9 +1056,12 @@ export function StudioProductionMediaTab(
           </CollapsibleContent>
         </Collapsible>
         {kind !== 'image' &&
-          !['voice_speech', 'voice_clone', 'audio_translate'].includes(
-            action
-          ) && (
+          ![
+            'voice_speech',
+            'voice_clone',
+            'audio_translate',
+            'lip_sync',
+          ].includes(action) && (
             <Field>
               <FieldLabel>{t('studio.production.mediaSeconds')}</FieldLabel>
               <Input
@@ -895,14 +1079,7 @@ export function StudioProductionMediaTab(
             </Field>
           )}
       </div>
-      {![
-        'video_depth',
-        'audio_separate',
-        'image_bg_remove',
-        'image_upscale',
-        'image_layers',
-        'image_to_3d',
-      ].includes(action) && (
+      {acceptsPrompt && (
         <Field>
           <FieldLabel>{t('studio.production.mediaPrompt')}</FieldLabel>
           <Textarea
@@ -972,7 +1149,7 @@ export function StudioProductionMediaTab(
                       kind,
                       title: `${t(`studio.production.mediaAction.${action}`)} · ${t('Draft')} ${props.project.nodes.length + 1}`,
                       model,
-                      prompt,
+                      prompt: operationPrompt,
                       status: 'idle',
                     },
                   },
@@ -1019,72 +1196,80 @@ export function StudioProductionMediaTab(
               'Only compatible, stored references are shown. Selected historical Takes remain pinned.'
             )}
           </p>
-          {sources
-            .filter(
-              (node) =>
-                (showHistory ||
-                  !node.data.derivedFrom ||
-                  references.includes(node.id)) &&
-                node.data.title
-                  .toLowerCase()
-                  .includes(referenceSearch.toLowerCase())
-            )
-            .map((node) => (
-              <div
-                key={node.id}
-                className='flex min-w-0 items-start gap-2 rounded border p-2'
-              >
-                <Checkbox
-                  id={`reference-${node.id}`}
-                  aria-label={node.data.title}
-                  checked={references.includes(node.data.mediaId || '')}
-                  disabled={
-                    !references.includes(node.data.mediaId || '') &&
-                    references.length >= 12
+          {visibleSources.map((node) => (
+            <div
+              key={node.id}
+              className='flex min-w-0 items-start gap-2 rounded border p-2'
+            >
+              <Checkbox
+                id={`reference-${node.id}`}
+                aria-label={node.data.title}
+                checked={references.includes(node.data.mediaId || '')}
+                disabled={
+                  !references.includes(node.data.mediaId || '') &&
+                  references.length >= 12
+                }
+                onCheckedChange={(checked) => {
+                  const id = node.data.mediaId || ''
+                  if (action === 'lip_sync') {
+                    durationEdited.current = false
+                    setLipEdit({
+                      start: 0,
+                      end: 0,
+                      x: 0,
+                      y: 0,
+                      width: 0,
+                      height: 0,
+                    })
+                    setLipPreviewValid(false)
                   }
-                  onCheckedChange={(checked) => {
-                    const id = node.data.mediaId || ''
-                    setReferences((ids) =>
-                      checked
-                        ? [
-                            ...new Set([
-                              ...ids.filter(
-                                (value) =>
-                                  action !== 'lip_sync' ||
-                                  sources.find(
-                                    (source) => source.data.mediaId === value
-                                  )?.data.kind !== node.data.kind
-                              ),
-                              id,
-                            ]),
-                          ]
-                        : ids.filter((value) => value !== id)
+                  setReferences((ids) =>
+                    checked
+                      ? [
+                          ...new Set([
+                            ...ids.filter(
+                              (value) =>
+                                action !== 'lip_sync' ||
+                                sources.find(
+                                  (source) => source.data.mediaId === value
+                                )?.data.kind !== node.data.kind
+                            ),
+                            id,
+                          ]),
+                        ]
+                      : ids.filter((value) => value !== id)
+                  )
+                }}
+              />
+              <div className='min-w-0'>
+                <label htmlFor={`reference-${node.id}`} className='break-words'>
+                  {node.data.title}
+                </label>
+                <StudioMediaThumbnail
+                  mediaId={node.data.mediaId || ''}
+                  kind={node.data.kind}
+                  title={node.data.title}
+                  getMedia={props.getMedia}
+                  onDuration={(id, length) =>
+                    setSourceDurations((current) =>
+                      current[id] === length
+                        ? current
+                        : { ...current, [id]: length }
                     )
-                  }}
+                  }
                 />
-                <div className='min-w-0'>
-                  <label
-                    htmlFor={`reference-${node.id}`}
-                    className='break-words'
-                  >
-                    {node.data.title}
-                  </label>
-                  <StudioMediaThumbnail
-                    mediaId={node.data.mediaId || ''}
-                    kind={node.data.kind}
-                    title={node.data.title}
-                    getMedia={props.getMedia}
-                    onDuration={(id, length) =>
-                      setSourceDurations((current) =>
-                        current[id] === length
-                          ? current
-                          : { ...current, [id]: length }
-                      )
-                    }
-                  />
-                </div>
               </div>
-            ))}
+            </div>
+          ))}
+          {visibleSources.length < matchingSources.length && (
+            <Button
+              variant='outline'
+              size='sm'
+              onClick={() => setReferenceLimit((limit) => limit + 24)}
+            >
+              {t('Show more references')}
+            </Button>
+          )}
           {!sources.length && (
             <p className='text-muted-foreground text-sm'>
               {t('studio.production.uploadReferenceFirst')}
@@ -1139,7 +1324,7 @@ export function StudioProductionMediaTab(
                   {
                     title: t(`studio.production.mediaAction.${action}`),
                     model,
-                    prompt,
+                    prompt: operationPrompt,
                   }
                 )
               )
@@ -1170,12 +1355,11 @@ export function StudioProductionMediaTab(
                         { length: toolOptions.rows * toolOptions.columns },
                         (_, i) =>
                           toolOptions.panel_prompts?.[i]?.trim() ||
-                          [
-                            'Wide establishing shot: introduce the location',
-                            'Medium shot: the character takes action',
-                            'Close-up: show a reaction or important detail',
-                            'Wide closing shot: reveal the outcome',
-                          ][i % 4]
+                          prompt.trim() ||
+                          toolOptions.panel_prompts
+                            ?.find((value) => value.trim())
+                            ?.trim() ||
+                          ''
                       ),
                       redo_panel: toolOptions.redo_panel,
                     }
@@ -1190,12 +1374,21 @@ export function StudioProductionMediaTab(
                     }
                   : {}),
               }
+            } else if (action === 'video_depth') {
+              operationOptions = {
+                width: toolOptions.width,
+                height: toolOptions.height,
+              }
             } else if (action === 'audio_separate' && candidatePatch) {
               operationOptions = {
                 repair_start: toolOptions.repair_start,
                 repair_end: toolOptions.repair_end,
                 candidate_start: toolOptions.candidate_start,
                 candidate_end: toolOptions.candidate_end,
+              }
+            } else if (action === 'lip_sync') {
+              operationOptions = {
+                lip_audio_start: toolOptions.lip_audio_start || 0,
               }
             } else if (action === 'music') {
               operationOptions = {
@@ -1222,7 +1415,7 @@ export function StudioProductionMediaTab(
                 action,
                 node_id: outputId,
                 model,
-                prompt,
+                prompt: operationPrompt,
                 seconds: duration,
                 reference_media_ids: references,
                 voice_id: voice,
@@ -1230,6 +1423,7 @@ export function StudioProductionMediaTab(
                 confirm_voice_rights: rights,
                 language,
                 options: operationOptions,
+                ...(action === 'lip_sync' ? { edit: lipEdit } : {}),
               },
             })
           })

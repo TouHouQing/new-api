@@ -1,0 +1,250 @@
+{
+  "id": "sample-music-project",
+  "title": "Dawn on the lake",
+  "createdAt": "2026-10-18T08:53:35Z",
+  "updatedAt": "2026-10-18T08:53:35Z",
+  "nodes": [
+    {
+      "id": "sample-music-script-node",
+      "type": "studio",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "text",
+        "title": "Story and action",
+        "prompt": "A peaceful mountain lake at dawn, a small wooden boat drifts slowly across calm water, mist rolls softly above the blue surface, sunrise reflections shimmer. Gentle contemplative movement for an instrumental music mood film, one continuous wide shot, no text.",
+        "purpose": "script",
+        "textMode": "plain",
+        "outputText": "A peaceful mountain lake at dawn, a small wooden boat drifts slowly across calm water, mist rolls softly above the blue surface, sunrise reflections shimmer. Gentle contemplative movement for an instrumental music mood film, one continuous wide shot, no text."
+      }
+    },
+    {
+      "id": "sample-music-image-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 0
+      },
+      "data": {
+        "kind": "image",
+        "title": "Replaceable subject first frame",
+        "prompt": "A peaceful blue mountain lake at dawn with a lone small wooden boat, misty pink sky and soft sunrise reflections, cinematic wide composition, no text.",
+        "model": "flux.2-klein-4b",
+        "imageSize": "512x320",
+        "status": "completed",
+        "mediaId": "sample-music-image",
+        "selectedTakeId": "sample-music-image-take",
+        "takes": [
+          {
+            "id": "sample-music-image-take",
+            "mediaId": "sample-music-image",
+            "prompt": "A peaceful blue mountain lake at dawn with a lone small wooden boat, misty pink sky and soft sunrise reflections, cinematic wide composition, no text.",
+            "createdAt": "2026-10-18T08:53:35Z",
+            "status": "completed",
+            "model": "flux.2-klein-4b",
+            "taskId": "image-e9f6460fe4af1785ea3100a66f0e1aa2",
+            "requestSnapshot": "{\"model\": \"flux.2-klein-4b\", \"seed\": 182004, \"source_sha256\": \"d414322b8daacaf9d80b7a8bbedcf18ca52c4bcc9089b730c66f0f5d45e1b485\"}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-music-video-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Main shot",
+        "prompt": "A peaceful mountain lake at dawn, a small wooden boat drifts slowly across calm water, mist rolls softly above the blue surface, sunrise reflections shimmer. Gentle contemplative movement for an instrumental music mood film, one continuous wide shot, no text.",
+        "model": "wan2.2-ti2v-5b",
+        "resolution": "640x384",
+        "ratio": "5:3",
+        "seconds": 3,
+        "status": "completed",
+        "mediaId": "sample-music-video",
+        "selectedTakeId": "sample-music-video-take",
+        "takes": [
+          {
+            "id": "sample-music-video-take",
+            "mediaId": "sample-music-video",
+            "prompt": "A peaceful mountain lake at dawn, a small wooden boat drifts slowly across calm water, mist rolls softly above the blue surface, sunrise reflections shimmer. Gentle contemplative movement for an instrumental music mood film, one continuous wide shot, no text.",
+            "createdAt": "2026-10-18T08:53:35Z",
+            "status": "completed",
+            "model": "wan2.2-ti2v-5b",
+            "taskId": "local-983870ee262e4810868715c44f312736",
+            "requestSnapshot": "{\"model\": \"wan2.2-ti2v-5b\", \"seed\": 183004, \"operation\": null, \"frames\": 49, \"fps\": 16, \"size\": \"640x384\", \"assets\": [{\"id\": \"sample-music-subject\", \"versionId\": \"sample-music-reference-v1\", \"mediaId\": \"sample-music-image\"}]}"
+          }
+        ],
+        "assetIds": ["sample-music-subject"],
+        "assetVersionIds": {
+          "sample-music-subject": "sample-music-reference-v1"
+        }
+      }
+    },
+    {
+      "id": "sample-music-music-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Original instrumental soundtrack",
+        "prompt": "Original three-note arpeggio, made for the bundled editing example.",
+        "sourceMode": "upload",
+        "status": "completed",
+        "mediaId": "sample-music-music"
+      }
+    },
+    {
+      "id": "sample-music-assembly-node",
+      "type": "studio",
+      "position": {
+        "x": 1140,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Edited sample film",
+        "prompt": "Editable source clip, caption and original music.",
+        "purpose": "assembly",
+        "status": "completed",
+        "mediaId": "sample-music-film",
+        "sourceMode": "upload"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sample-music-text-edge",
+      "source": "sample-music-script-node",
+      "sourceHandle": "video_prompt",
+      "target": "sample-music-video-node",
+      "targetHandle": "prompt"
+    },
+    {
+      "id": "sample-music-image-edge",
+      "source": "sample-music-image-node",
+      "sourceHandle": "image",
+      "target": "sample-music-video-node",
+      "targetHandle": "first_frame"
+    },
+    {
+      "id": "sample-music-clip-edge",
+      "source": "sample-music-video-node",
+      "sourceHandle": "video",
+      "target": "sample-music-assembly-node",
+      "targetHandle": "clip"
+    },
+    {
+      "id": "sample-music-music-edge",
+      "source": "sample-music-music-node",
+      "sourceHandle": "audio",
+      "target": "sample-music-assembly-node",
+      "targetHandle": "soundtrack"
+    }
+  ],
+  "assets": [
+    {
+      "id": "sample-music-subject",
+      "kind": "character",
+      "title": "A mountain lake and a small wooden boat at dawn",
+      "prompt": "A peaceful blue mountain lake at dawn with a lone small wooden boat, misty pink sky and soft sunrise reflections, cinematic wide composition, no text.",
+      "mediaId": "sample-music-image",
+      "profile": {
+        "subjectType": "object",
+        "appearance": "A mountain lake and a small wooden boat at dawn",
+        "continuity": "Use the first-frame design for this short example."
+      },
+      "versions": [
+        {
+          "id": "sample-music-reference-v1",
+          "createdAt": "2026-10-18T08:53:35Z",
+          "prompt": "A peaceful blue mountain lake at dawn with a lone small wooden boat, misty pink sky and soft sunrise reflections, cinematic wide composition, no text.",
+          "mediaId": "sample-music-image"
+        }
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "id": "sample-music-shot",
+      "title": "Dawn on the lake",
+      "textNodeId": "sample-music-script-node",
+      "imageNodeId": "sample-music-image-node",
+      "videoNodeId": "sample-music-video-node",
+      "dialogue": "",
+      "shotCaptionText": "Dawn on the lake",
+      "shotCaptionDurationSeconds": 3.0625
+    }
+  ],
+  "finalVideoNodeId": "sample-music-assembly-node",
+  "assembledMediaId": "sample-music-film",
+  "production": {
+    "documentVersion": 2,
+    "width": 640,
+    "height": 384,
+    "fps": 16,
+    "fit": "letterbox",
+    "timelineEdited": true,
+    "creativeBrief": {
+      "recipeId": "music",
+      "subject": "A mountain lake and a small wooden boat at dawn",
+      "audience": "New video creators",
+      "benefit": "One clear subject and one readable visual action",
+      "callToAction": ""
+    },
+    "guide": {
+      "goal": "story",
+      "step": "edit"
+    },
+    "scenes": [
+      {
+        "id": "sample-music-scene",
+        "title": "Dawn on the lake",
+        "description": "A peaceful mountain lake at dawn, a small wooden boat drifts slowly across calm water, mist rolls softly above the blue surface, sunrise reflections shimmer. Gentle contemplative movement for an instrumental music mood film, one continuous wide shot, no text.",
+        "shotIds": ["sample-music-shot"],
+        "assetIds": ["sample-music-subject"]
+      }
+    ],
+    "shotNarrative": {
+      "sample-music-shot": {
+        "purpose": "emotion",
+        "information": "Dawn on the lake",
+        "emotion": "Calm and inviting",
+        "visualBeat": "A peaceful mountain lake at dawn, a small wooden boat drifts slowly across calm water, mist rolls softly above the blue surface, sunrise reflections shimmer. Gentle contemplative movement for an instrumental music mood film, one continuous wide shot, no text.",
+        "continuityNeeds": "Keep the subject design from the approved first frame."
+      }
+    },
+    "approvedKeyImages": {
+      "sample-music-shot": "sample-music-image"
+    },
+    "timeline": [
+      {
+        "id": "sample-music-clip",
+        "nodeId": "sample-music-video-node",
+        "takeId": "sample-music-video-take",
+        "trimStart": 0,
+        "trimEnd": 3.0625,
+        "caption": "Dawn on the lake",
+        "captionDuration": 3.0625
+      }
+    ],
+    "audioTracks": [
+      {
+        "id": "sample-music-music-track",
+        "mediaId": "sample-music-music",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 0.35
+      }
+    ]
+  }
+}

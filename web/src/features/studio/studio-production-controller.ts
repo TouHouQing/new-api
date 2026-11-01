@@ -44,6 +44,10 @@ import { handleServerError } from '@/lib/handle-server-error'
 import { fetchStudioModels } from './api'
 import type { StudioProject } from './local-projects'
 import {
+  reconcileStudioAudioAnchors,
+  type StudioAudioOrigins,
+} from './studio-audio-anchors'
+import {
   studioCloudRequest,
   studioCloudMedia,
   type StudioCloudProject,
@@ -54,14 +58,19 @@ import {
 import { studioCreationProgress } from './studio-creation'
 import { studioNodeInputFingerprint } from './studio-execution'
 import {
-  studioProductionSchema,
   studioProjectTimeline,
   studioProjectRenderPlan,
   studioRenderMatchesProject,
   studioUnapprovedClips,
   type StudioTimelineClip,
 } from './studio-production'
+import {
+  hasStudioJobIntent,
+  reconcileStudioJobIntent,
+  submitStudioJobOnce,
+} from './studio-submit-intent'
 import { parseStudioSubtitleCues } from './studio-subtitle-cues'
+import { useStudioTimelineHistory } from './studio-timeline-history'
 import { studioWorkflowProblem } from './studio-workflow-problem'
 import { studioGeneratableNodeIds } from './studio-workspace-navigation'
 
@@ -78,7 +87,10 @@ export type StudioProductionPanelProps = {
   onRefresh: () => Promise<void>
   onUpdate: (project: StudioProject) => void
   onApplyRecipe?: (project: StudioProject) => void
+  onInstantiateTemplate?: (project: StudioProject) => void
+  onOpenProject?: (projectId: string) => void
   getMedia: (id: string) => Promise<Blob | null>
+  timelineHistory?: ReturnType<typeof useStudioTimelineHistory>
 }
 
 export function useStudioProductionController(
@@ -87,6 +99,45 @@ export function useStudioProductionController(
   const { t } = useTranslation()
   const client = useQueryClient()
   const path = `/projects/${encodeURIComponent(props.project.id)}`
+  const [pendingSubmission, setPendingSubmission] = useState(() =>
+    hasStudioJobIntent(props.userId, props.project.id)
+  )
+  useEffect(() => {
+    const update = () =>
+      setPendingSubmission(hasStudioJobIntent(props.userId, props.project.id))
+    update()
+    window.addEventListener('storage', update)
+    window.addEventListener('studio-job-intent', update)
+    return () => {
+      window.removeEventListener('storage', update)
+      window.removeEventListener('studio-job-intent', update)
+    }
+  }, [props.userId, props.project.id])
+  const localTimelineHistory = useStudioTimelineHistory(
+    props.userId,
+    props.project.id
+  )
+  const timelineHistory = props.timelineHistory || localTimelineHistory
+  const audioAnchorDurations = useRef<Record<string, number>>({})
+  useEffect(() => {
+    audioAnchorDurations.current = {}
+    const update = (event: Event) => {
+      const detail = (
+        event as CustomEvent<{
+          projectId: string
+          durations: Record<string, number>
+        }>
+      ).detail
+      if (detail?.projectId === props.project.id) {
+        audioAnchorDurations.current = {
+          ...audioAnchorDurations.current,
+          ...detail.durations,
+        }
+      }
+    }
+    window.addEventListener('studio-timeline-durations', update)
+    return () => window.removeEventListener('studio-timeline-durations', update)
+  }, [props.project.id])
   const [budget, setBudget] = useState('5')
   const [confirm, setConfirm] = useState(false)
   let initialTab: string = props.initialTab || 'plan'
@@ -349,6 +400,9 @@ export function useStudioProductionController(
     : ''
   const deliveryPreview =
     captionsReady &&
+    !props.project.production?.changes.some(
+      (change) => change.status === 'pending'
+    ) &&
     studioRenderMatchesProject(props.project, latestDelivery?.result)
       ? previewUrls[deliveryMediaId || ''] || ''
       : ''
@@ -395,17 +449,28 @@ export function useStudioProductionController(
     audioMediaIds,
   ])
   const updateClip = (patch: Partial<StudioTimelineClip>): void => {
-    props.onUpdate({
-      ...props.project,
-      production: {
-        ...(props.project.production || studioProductionSchema.parse({})),
-        timelineEdited: true,
-        timeline: timeline.map((item) =>
-          item.id === selectedClip ? { ...item, ...patch } : item
-        ),
-      },
-      updatedAt: new Date().toISOString(),
-    })
+    updateTimeline(
+      timeline.map((item) =>
+        item.id === selectedClip ? { ...item, ...patch } : item
+      )
+    )
+  }
+  const updateTimeline = (
+    next: StudioTimelineClip[],
+    origins?: StudioAudioOrigins
+  ): void => {
+    try {
+      props.onUpdate(
+        reconcileStudioAudioAnchors(
+          props.project,
+          next,
+          origins,
+          audioAnchorDurations.current
+        )
+      )
+    } catch (error) {
+      handleServerError(error)
+    }
   }
   const submit = async (
     kind: 'generate' | 'render' | 'quality',
@@ -414,6 +479,17 @@ export function useStudioProductionController(
   ): Promise<void> => {
     if (kind === 'render' && !captionsReady) {
       throw new Error(t('Finish pending caption edits before exporting.'))
+    }
+    if (
+      kind === 'render' &&
+      !draft &&
+      props.project.production?.changes.some(
+        (change) => change.status === 'pending'
+      )
+    ) {
+      throw new Error(
+        t('Resolve pending script or review changes before exporting.')
+      )
     }
     if (
       kind === 'render' &&
@@ -435,6 +511,17 @@ export function useStudioProductionController(
     if (
       kind === 'render' &&
       !draft &&
+      current.document.production?.changes.some(
+        (change) => change.status === 'pending'
+      )
+    ) {
+      throw new Error(
+        t('Resolve pending script or review changes before exporting.')
+      )
+    }
+    if (
+      kind === 'render' &&
+      !draft &&
       current.document.production?.requireApproved &&
       studioUnapprovedClips(current.document).length
     ) {
@@ -444,24 +531,40 @@ export function useStudioProductionController(
         )
       )
     }
-    await studioCloudRequest(`${path}/jobs`, 'POST', {
-      request_id: crypto.randomUUID(),
-      kind,
-      run_after: runAfter,
-      revision: current.revision,
-      budget:
-        kind === 'generate'
-          ? Math.round(
-              Number(budget) * (capabilities.data?.quota_per_unit || 500000)
-            )
-          : 0,
-      node_ids: selectedNodes,
-      confirm_generation: confirm,
-      render:
-        kind === 'render'
-          ? studioProjectRenderPlan(current.document, draft)
-          : undefined,
-    })
+    let submitted
+    try {
+      submitted = await submitStudioJobOnce(props.userId, props.project.id, {
+        kind,
+        run_after: runAfter,
+        revision: current.revision,
+        budget:
+          kind === 'generate'
+            ? Math.round(
+                Number(budget) * (capabilities.data?.quota_per_unit || 500000)
+              )
+            : 0,
+        node_ids: selectedNodes,
+        confirm_generation: confirm,
+        render:
+          kind === 'render'
+            ? studioProjectRenderPlan(current.document, draft)
+            : undefined,
+      })
+    } finally {
+      setPendingSubmission(hasStudioJobIntent(props.userId, props.project.id))
+    }
+    if (submitted.recovered) {
+      toast.message(
+        t('The previous submission was found. Continue with its existing task.')
+      )
+    }
+  }
+  const recoverSubmission = async () => {
+    await reconcileStudioJobIntent(props.userId, props.project.id)
+    setPendingSubmission(hasStudioJobIntent(props.userId, props.project.id))
+    await Promise.all([jobs.refetch(), record.refetch()])
+    await props.onRefresh()
+    mutate.reset()
   }
   const download = async (
     mediaId: string | undefined,
@@ -478,7 +581,10 @@ export function useStudioProductionController(
     setTimeout(() => URL.revokeObjectURL(url), 10000)
   }
   return {
+    pendingSubmission,
+    recoverSubmission,
     props,
+    timelineHistory,
     activeTab,
     setActiveTab,
     mediaDraftNodeId,
@@ -536,6 +642,8 @@ export function useStudioProductionController(
     mutate,
     result,
     updateClip,
+    updateTimeline,
+    audioAnchorDurations,
     submit,
     download,
   }

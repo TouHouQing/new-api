@@ -41,6 +41,7 @@ import {
   type StudioSeriesVersion,
 } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
+import { StudioRegionalTimelineEditor } from './studio-regional-timeline-editor'
 import {
   applyStudioSeriesTranslation,
   createStudioSeriesTranslation,
@@ -644,6 +645,30 @@ export function StudioSeriesPanel() {
             )}
           </p>
           <StudioMotionGraphics key={version.id} versionId={version.id} />
+          <Field>
+            <FieldLabel>{t('Regional framing')}</FieldLabel>
+            <Select
+              value={version.fit}
+              disabled={!writable}
+              onValueChange={(fit) => {
+                if (fit === 'letterbox' || fit === 'crop' || fit === 'blur') {
+                  update({ fit })
+                }
+              }}
+            >
+              <SelectTrigger aria-label={t('Regional framing')}>
+                <SelectValue>{t(`studio.fit.${version.fit}`)}</SelectValue>
+              </SelectTrigger>
+              <SelectContent>
+                {(['letterbox', 'crop', 'blur'] as const).map((fit) => (
+                  <SelectItem key={fit} value={fit}>
+                    {t(`studio.fit.${fit}`)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </Field>
+          <StudioRegionalTimelineEditor key={version.id} version={version} />
         </>
       )}
       <Button

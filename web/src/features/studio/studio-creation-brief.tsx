@@ -237,6 +237,7 @@ export function StudioCreationBrief(props: {
             project={workspace.project}
             readOnly={!writable}
             onApply={workspace.onApplyRecipe || workspace.onUpdate}
+            onInstantiate={workspace.onInstantiateTemplate}
             onClose={() => setStart('choose')}
           />
         )}
@@ -379,6 +380,7 @@ export function StudioCreationBrief(props: {
           readOnly={!writable}
           onClose={() => setTemplates(false)}
           onApply={workspace.onApplyRecipe || workspace.onUpdate}
+          onInstantiate={workspace.onInstantiateTemplate}
         />
       )}
 

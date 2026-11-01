@@ -243,7 +243,7 @@ export function StudioProductionWorkflowTab(
   return (
     <TabsContent value={options.value || 'workflow'} className='space-y-4'>
       {options.compact && (
-        <div className='bg-background sticky top-0 flex flex-col gap-3 rounded-lg border p-3'>
+        <div className='bg-background flex flex-col gap-3 rounded-lg border p-3'>
           <p className='font-medium'>
             {selectedNodes.length > 1
               ? t('Selected generation scope: {{count}} items', {

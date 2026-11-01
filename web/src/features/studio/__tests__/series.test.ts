@@ -28,6 +28,7 @@ import {
   createStudioSeriesTranslation,
   createStudioRegionalVersion,
   studioSeriesRenderPlan,
+  studioSeriesEditingProject,
 } from '../studio-series'
 import {
   parseStudioSubtitleCues,
@@ -103,6 +104,38 @@ test('regional delivery uses pinned Takes and its own captions and audio without
   })
   expect(source.production.timeline).toEqual([])
   expect(source.nodes[0].data.selectedTakeId).toBe('pinned')
+})
+
+test('regional preview and delivery exclude the master voice, ducking and tracking configuration', () => {
+  const source = project()
+  source.soundtrackMediaId = 'master-song'
+  source.voiceoverMediaId = 'master-voice'
+  source.production.reframes = {
+    clip: {
+      analysisId: 'master-track',
+      sourceMediaId: 'video-media',
+      sourceDigest: 'a'.repeat(64),
+      width: 720,
+      height: 1280,
+    },
+  }
+  source.production.audioMix = {
+    voicePriority: true,
+    musicGain: 0.3,
+    fadeOut: 1,
+    normalize: true,
+    musicMediaIds: ['master-song'],
+  }
+  const before = JSON.stringify(source)
+  const version = source.production.regionalVersions[0]
+  const staged = studioSeriesEditingProject(source, version)
+  expect(staged.soundtrackMediaId).toBeUndefined()
+  expect(staged.voiceoverMediaId).toBeUndefined()
+  expect(staged.production.reframes).toBeUndefined()
+  expect(staged.production.audioMix).toBeUndefined()
+  expect(staged.production.dialogueCues).toEqual([])
+  expect(studioSeriesRenderPlan(source, version).audio).toEqual([])
+  expect(JSON.stringify(source)).toBe(before)
 })
 
 test('translation drafts keep arrow dialogue and exact timing; changed timing or source prevents applying a draft', () => {

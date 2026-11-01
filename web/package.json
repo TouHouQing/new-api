@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "rsbuild dev",
-    "build": "bun run build:schema && bun run build:stage && rsbuild build",
+    "build": "bun run build:schema && bun run build:stage && rsbuild build && bun run build:workbench",
     "build:schema": "bun scripts/generate-studio-schema.ts",
     "build:stage": "bun build src/features/studio/studio-previs-worker.ts --outfile=../service/resources/studio_previs_worker.js --target=browser --format=iife --minify",
     "build:check": "tsgo -b && bun run build",
@@ -23,7 +23,8 @@
     "copyright:check": "node scripts/add-copyright.mjs --check",
     "copyright": "node scripts/add-copyright.mjs",
     "i18n:sync": "node scripts/sync-i18n.mjs",
-    "knip": "knip"
+    "knip": "knip",
+    "build:workbench": "bun ../scripts/build-workbench.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",

@@ -55,6 +55,11 @@ import {
 import { TabsContent } from '@/components/ui/tabs'
 import { handleServerError } from '@/lib/handle-server-error'
 
+import {
+  pinStudioAudioAnchorClip,
+  reconcileStudioAudioAnchors,
+  type StudioAudioOrigins,
+} from './studio-audio-anchors'
 import { StudioBudgetSummary } from './studio-budget-summary'
 import { StudioCaptionEditor } from './studio-caption-editor'
 import { studioCloudRequest, type StudioCloudProject } from './studio-cloud'
@@ -68,10 +73,12 @@ import {
   studioProjectTimeline,
   splitStudioTimelineClip,
 } from './studio-production'
+import { StudioProductionAnalysis } from './studio-production-analysis'
 import { useStudioProductionContext } from './studio-production-context'
 import { StudioRenderProgress } from './studio-render-progress'
 import { StudioTimelinePreview } from './studio-timeline-preview'
 import { StudioTimelineTracks } from './studio-timeline-tracks'
+import { StudioTranscriptEditor } from './studio-transcript-editor'
 import { StudioWorkspaceCaptions } from './studio-workspace-captions'
 
 export function StudioProductionTimelineTab(
@@ -105,6 +112,8 @@ export function StudioProductionTimelineTab(
     writable,
     mutate,
     updateClip,
+    updateTimeline,
+    audioAnchorDurations,
     submit,
     preview,
     markTimelinePreviewed,
@@ -112,6 +121,145 @@ export function StudioProductionTimelineTab(
     setMediaDraftNodeId,
     setMediaEntryAction,
   } = useStudioProductionContext()
+  const changeTimeline = (
+    next: typeof timeline,
+    origins?: StudioAudioOrigins
+  ) => {
+    if (updateTimeline) {
+      updateTimeline(next, origins)
+      return
+    }
+    try {
+      props.onUpdate(reconcileStudioAudioAnchors(props.project, next, origins))
+    } catch (error) {
+      handleServerError(error)
+    }
+  }
+  const audioProduction =
+    props.project.production || studioProductionSchema.parse({})
+  const saveAudio = (
+    id: string,
+    patch: Partial<(typeof audioProduction.audioTracks)[number]>
+  ) => {
+    props.onUpdate({
+      ...props.project,
+      production: {
+        ...audioProduction,
+        ...(patch.anchorKind !== undefined || patch.speed !== undefined
+          ? { documentVersion: 2 as const }
+          : {}),
+        audioTracks: audioProduction.audioTracks.map((track) =>
+          track.id === id ? { ...track, ...patch } : track
+        ),
+      },
+    })
+  }
+  const bindAudio = (
+    track: (typeof audioProduction.audioTracks)[number],
+    kind: 'project' | 'clip' | 'source',
+    clipId?: string,
+    position?: number
+  ) => {
+    try {
+      const oldClip = timeline.find((item) => item.id === track.anchorClipId)
+      if (
+        oldClip &&
+        props.project.nodes.find((node) => node.id === oldClip.nodeId)?.data
+          .locked
+      ) {
+        throw new Error(
+          t('Unlock the attached clip before changing its audio.')
+        )
+      }
+      if (kind === 'project') {
+        saveAudio(track.id, {
+          anchorKind: 'project',
+          anchorClipId: undefined,
+          anchorSourceStart: undefined,
+        })
+        return
+      }
+      const bound =
+        timeline.find(
+          (item) => item.id === (clipId || track.anchorClipId || selectedClip)
+        ) || timeline[0]
+      if (!bound) {
+        throw new Error(
+          t('Choose an existing timeline clip before attaching audio.')
+        )
+      }
+      if (
+        props.project.nodes.find((node) => node.id === bound.nodeId)?.data
+          .locked
+      ) {
+        throw new Error(
+          t('Unlock the attached clip before changing its audio.')
+        )
+      }
+      let program = 0
+      for (const item of timeline) {
+        const node = props.project.nodes.find(
+          (candidate) => candidate.id === item.nodeId
+        )
+        const takeId = item.takeId || node?.data.selectedTakeId
+        const mediaId = takeId
+          ? node?.data.takes?.find(
+              (take) => take.id === takeId && take.status === 'completed'
+            )?.mediaId
+          : node?.data.mediaId
+        const end =
+          item.trimEnd ??
+          (mediaId ? audioAnchorDurations?.current[mediaId] : undefined)
+        if (end === undefined || end === null || end <= item.trimStart) {
+          throw new Error(
+            t('Set the actual clip trim range before attaching audio.')
+          )
+        }
+        if (item.id === bound.id) {
+          const value =
+            position ??
+            (track.anchorKind === kind && track.anchorClipId === bound.id
+              ? track.anchorSourceStart
+              : undefined) ??
+            (kind === 'source' ? item.trimStart : 0)
+          const local =
+            kind === 'source' ? (value - item.trimStart) / item.speed : value
+          if (
+            !Number.isFinite(value) ||
+            local < 0 ||
+            local >= (end - item.trimStart) / item.speed
+          ) {
+            throw new Error(
+              t('The audio anchor must lie inside the selected clip.')
+            )
+          }
+          const pinned = pinStudioAudioAnchorClip(props.project, bound.id)
+          if (!pinned.production) return
+          props.onUpdate({
+            ...pinned,
+            production: {
+              ...pinned.production,
+              audioTracks: pinned.production.audioTracks.map((item) =>
+                item.id === track.id
+                  ? {
+                      ...item,
+                      anchorKind: kind,
+                      anchorClipId: bound.id,
+                      anchorSourceStart: value,
+                      offset: program + local,
+                    }
+                  : item
+              ),
+            },
+          })
+          return
+        }
+        program += (end - item.trimStart) / item.speed
+      }
+    } catch (error) {
+      handleServerError(error)
+    }
+  }
   return (
     <TabsContent value={options.value || 'timeline'} className='space-y-4'>
       <div
@@ -182,6 +330,7 @@ export function StudioProductionTimelineTab(
             <StudioDialogueTiming />
             <StudioFilmFinish />
             <StudioFilmLayout />
+            <StudioProductionAnalysis />
             <Collapsible>
               <CollapsibleTrigger render={<Button size='sm' variant='ghost' />}>
                 {t('Titles and motion graphics')}
@@ -204,14 +353,7 @@ export function StudioProductionTimelineTab(
                     timeline: [],
                   },
                 })
-                props.onUpdate({
-                  ...props.project,
-                  production: {
-                    ...production,
-                    timelineEdited: true,
-                    timeline: ordered,
-                  },
-                })
+                changeTimeline(ordered)
               }}
             >
               {t('Build a rough cut from shot order')}
@@ -329,15 +471,7 @@ export function StudioProductionTimelineTab(
                           next[index + direction],
                           next[index],
                         ]
-                        props.onUpdate({
-                          ...props.project,
-                          production: {
-                            ...(props.project.production ||
-                              studioProductionSchema.parse({})),
-                            timelineEdited: true,
-                            timeline: next,
-                          },
-                        })
+                        changeTimeline(next)
                       }}
                     >
                       {t(
@@ -351,17 +485,9 @@ export function StudioProductionTimelineTab(
                     variant='outline'
                     disabled={!writable}
                     onClick={() =>
-                      props.onUpdate({
-                        ...props.project,
-                        production: {
-                          ...(props.project.production ||
-                            studioProductionSchema.parse({})),
-                          timelineEdited: true,
-                          timeline: timeline.filter(
-                            (item) => item.id !== clip.id
-                          ),
-                        },
-                      })
+                      changeTimeline(
+                        timeline.filter((item) => item.id !== clip.id)
+                      )
                     }
                   >
                     {t('studio.production.removeClip')}
@@ -427,6 +553,7 @@ export function StudioProductionTimelineTab(
                   <FieldLabel>{t('studio.production.splitAt')}</FieldLabel>
                   <Input
                     type='number'
+                    aria-label={t('studio.production.splitAt')}
                     min='0'
                     step='0.1'
                     value={splitAt}
@@ -448,17 +575,14 @@ export function StudioProductionTimelineTab(
                           },
                           Number(splitAt)
                         )
-                        props.onUpdate({
-                          ...props.project,
-                          production: {
-                            ...(props.project.production ||
-                              studioProductionSchema.parse({})),
-                            timelineEdited: true,
-                            timeline: timeline.flatMap((item) =>
-                              item.id === clip.id ? split : [item]
-                            ),
-                          },
-                        })
+                        changeTimeline(
+                          timeline.flatMap((item) =>
+                            item.id === clip.id ? split : [item]
+                          ),
+                          Object.fromEntries(
+                            split.map((part) => [part.id, clip.id])
+                          )
+                        )
                       } catch (error) {
                         handleServerError(error)
                       }
@@ -469,28 +593,20 @@ export function StudioProductionTimelineTab(
                   <Button
                     variant='outline'
                     disabled={!writable}
-                    onClick={() =>
-                      props.onUpdate({
-                        ...props.project,
-                        production: {
-                          ...(props.project.production ||
-                            studioProductionSchema.parse({})),
-                          timelineEdited: true,
-                          timeline: [
-                            ...timeline,
-                            {
-                              ...clip,
-                              takeId:
-                                clip.takeId ||
-                                props.project.nodes.find(
-                                  (node) => node.id === clip.nodeId
-                                )?.data.selectedTakeId,
-                              id: crypto.randomUUID(),
-                            },
-                          ],
-                        },
+                    onClick={() => {
+                      const duplicate = {
+                        ...clip,
+                        takeId:
+                          clip.takeId ||
+                          props.project.nodes.find(
+                            (node) => node.id === clip.nodeId
+                          )?.data.selectedTakeId,
+                        id: crypto.randomUUID(),
+                      }
+                      changeTimeline([...timeline, duplicate], {
+                        [duplicate.id]: clip.id,
                       })
-                    }
+                    }}
                   >
                     {t('studio.production.duplicate')}
                   </Button>
@@ -593,11 +709,12 @@ export function StudioProductionTimelineTab(
             hidden={options.compact && timelineInspector !== 'captions'}
             className='space-y-3'
           >
+            <StudioTranscriptEditor />
             <Collapsible defaultOpen={!options.compact}>
               <CollapsibleTrigger
                 render={<Button size='sm' variant='outline' />}
               >
-                {t('Recognize captions with AI')}
+                {t('Recognize an independent audio track')}
               </CollapsibleTrigger>
               <CollapsibleContent className='flex flex-col gap-3 pt-3'>
                 <Collapsible>
@@ -801,6 +918,20 @@ export function StudioProductionTimelineTab(
                   selectedAudioTrack === track.id
               )
               .map((track, index) => {
+                const anchorClip = timeline.find(
+                  (item) => item.id === track.anchorClipId
+                )
+                const audioLocked =
+                  !!anchorClip &&
+                  props.project.nodes.find(
+                    (node) => node.id === anchorClip.nodeId
+                  )?.data.locked === true
+                let anchorLabel = t('Film clock: keep music fixed')
+                if (track.anchorKind === 'clip') {
+                  anchorLabel = t('This clip: keep a local position')
+                } else if (track.anchorKind === 'source') {
+                  anchorLabel = t('This source action: follow cuts')
+                }
                 const source = props.project.nodes.find(
                   (node) =>
                     node.data.mediaId === track.mediaId ||
@@ -838,7 +969,7 @@ export function StudioProductionTimelineTab(
                         max={100}
                         step={1}
                         aria-label={`${title} ${t('Audio volume')}`}
-                        disabled={!writable}
+                        disabled={!writable || audioLocked}
                         value={Math.round(track.volume * 100)}
                         onChange={(event) => {
                           const production =
@@ -871,6 +1002,124 @@ export function StudioProductionTimelineTab(
                         {t('Precise audio timing and volume')}
                       </CollapsibleTrigger>
                       <CollapsibleContent className='grid gap-3 pt-3 sm:grid-cols-2'>
+                        <Field>
+                          <FieldLabel>{t('Audio follows')}</FieldLabel>
+                          <Select
+                            value={track.anchorKind || 'project'}
+                            disabled={!writable || audioLocked}
+                            onValueChange={(value) => {
+                              if (
+                                value === 'project' ||
+                                value === 'clip' ||
+                                value === 'source'
+                              ) {
+                                bindAudio(track, value)
+                              }
+                            }}
+                          >
+                            <SelectTrigger
+                              aria-label={`${title} ${t('Audio follows')}`}
+                            >
+                              <SelectValue>{anchorLabel}</SelectValue>
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value='project'>
+                                {t('Film clock: keep music fixed')}
+                              </SelectItem>
+                              <SelectItem value='clip'>
+                                {t('This clip: keep a local position')}
+                              </SelectItem>
+                              <SelectItem value='source'>
+                                {t('This source action: follow cuts')}
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </Field>
+                        {(track.anchorKind === 'source' ||
+                          track.anchorKind === 'clip') && (
+                          <>
+                            <Field>
+                              <FieldLabel>{t('Attached clip')}</FieldLabel>
+                              <Select
+                                value={track.anchorClipId || ''}
+                                disabled={!writable || audioLocked}
+                                onValueChange={(value) => {
+                                  if (value) {
+                                    bindAudio(
+                                      track,
+                                      track.anchorKind === 'source'
+                                        ? 'source'
+                                        : 'clip',
+                                      value
+                                    )
+                                  }
+                                }}
+                              >
+                                <SelectTrigger
+                                  aria-label={`${title} ${t('Attached clip')}`}
+                                >
+                                  <SelectValue>
+                                    {anchorClip
+                                      ? `${timeline.findIndex((item) => item.id === anchorClip.id) + 1}. ${props.project.nodes.find((node) => node.id === anchorClip.nodeId)?.data.title || t('Clip')}`
+                                      : t('Choose a clip')}
+                                  </SelectValue>
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {timeline.map((item, clipIndex) => (
+                                    <SelectItem key={item.id} value={item.id}>
+                                      {clipIndex + 1}.{' '}
+                                      {props.project.nodes.find(
+                                        (node) => node.id === item.nodeId
+                                      )?.data.title || t('Clip')}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </Field>
+                            <StudioNumberField
+                              id={`studio-audio-${track.id}-anchor`}
+                              label={
+                                track.anchorKind === 'source'
+                                  ? t('Video source time for this sound')
+                                  : t('Time inside the attached clip')
+                              }
+                              disabled={!writable || audioLocked}
+                              min={0}
+                              max={3600}
+                              value={track.anchorSourceStart ?? 0}
+                              onChange={(value) => {
+                                if (value !== undefined) {
+                                  bindAudio(
+                                    track,
+                                    track.anchorKind === 'source'
+                                      ? 'source'
+                                      : 'clip',
+                                    track.anchorClipId,
+                                    value
+                                  )
+                                }
+                              }}
+                            />
+                            <p className='text-muted-foreground text-xs sm:col-span-2'>
+                              {t(
+                                'Attached audio follows this exact clip when trimmed or split. Removed source portions are removed from its audio; other uses of the same Take stay independent.'
+                              )}
+                            </p>
+                          </>
+                        )}
+                        <StudioNumberField
+                          id={`studio-audio-${track.id}-speed`}
+                          label={t('Audio playback speed')}
+                          disabled={!writable || audioLocked}
+                          min={0.25}
+                          max={4}
+                          value={track.speed ?? 1}
+                          onChange={(value) => {
+                            if (value !== undefined) {
+                              saveAudio(track.id, { speed: value })
+                            }
+                          }}
+                        />
                         {(
                           ['start', 'offset', 'duration', 'volume'] as const
                         ).map((key) => (
@@ -878,7 +1127,13 @@ export function StudioProductionTimelineTab(
                             key={key}
                             id={`studio-audio-${track.id}-${key}`}
                             label={t(`studio.production.audio.${key}`)}
-                            disabled={!writable}
+                            disabled={
+                              !writable ||
+                              audioLocked ||
+                              (key === 'offset' &&
+                                (track.anchorKind === 'source' ||
+                                  track.anchorKind === 'clip'))
+                            }
                             min={key === 'duration' ? 0.01 : 0}
                             max={key === 'volume' ? 1 : 3600}
                             optional={key === 'duration'}
@@ -909,7 +1164,7 @@ export function StudioProductionTimelineTab(
                     </Collapsible>
                     <Button
                       variant='outline'
-                      disabled={!writable}
+                      disabled={!writable || audioLocked}
                       onClick={() => {
                         const production =
                           props.project.production ||

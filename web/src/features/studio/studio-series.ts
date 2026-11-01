@@ -351,7 +351,7 @@ export function applyStudioSeriesTranslation(
   }
 }
 
-export function studioSeriesRenderPlan(
+export function studioSeriesEditingProject(
   project: StudioProject,
   version: StudioSeriesVersion
 ) {
@@ -400,12 +400,16 @@ export function studioSeriesRenderPlan(
       { ...current, data },
     ]
   }
-  const staged = {
+  return {
     ...project,
     nodes,
     edges: [],
     soundtrackMediaId: undefined,
     voiceoverMediaId: undefined,
+    shots: project.shots?.map((shot) => ({
+      ...shot,
+      shotVoiceoverMediaId: undefined,
+    })),
     captionsText: version.subtitles,
     captionOffsetSeconds: 0,
     production: {
@@ -414,13 +418,24 @@ export function studioSeriesRenderPlan(
       timelineEdited: true,
       timeline: version.timeline,
       audioTracks: version.audioTracks,
+      reframes: version.reframes,
+      audioMix: undefined,
+      dialogueCues: [],
       width: version.width,
       height: version.height,
       fps: version.fps,
       fit: version.fit,
     },
   }
-  const plan = studioProjectRenderPlan(staged)
+}
+
+export function studioSeriesRenderPlan(
+  project: StudioProject,
+  version: StudioSeriesVersion
+) {
+  const plan = studioProjectRenderPlan(
+    studioSeriesEditingProject(project, version)
+  )
   return {
     ...plan,
     node_id: '',

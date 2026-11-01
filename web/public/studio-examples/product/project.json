@@ -1,0 +1,249 @@
+{
+  "id": "sample-product-project",
+  "title": "Blue travel mug",
+  "createdAt": "2026-10-18T09:36:37Z",
+  "updatedAt": "2026-10-18T09:36:37Z",
+  "nodes": [
+    {
+      "id": "sample-product-script-node",
+      "type": "studio",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "text",
+        "title": "Story and action",
+        "prompt": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected.",
+        "purpose": "script",
+        "textMode": "plain",
+        "outputText": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected."
+      }
+    },
+    {
+      "id": "sample-product-image-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 0
+      },
+      "data": {
+        "kind": "image",
+        "title": "Replaceable subject first frame",
+        "prompt": "A ceramic blue travel mug with a fitted lid on a clean light gray studio table, warm softbox lighting, centered product, realistic material, no brand or letters.",
+        "model": "flux.2-klein-4b",
+        "imageSize": "512x320",
+        "status": "completed",
+        "mediaId": "sample-product-image",
+        "selectedTakeId": "sample-product-image-take",
+        "takes": [
+          {
+            "id": "sample-product-image-take",
+            "mediaId": "sample-product-image",
+            "prompt": "A ceramic blue travel mug with a fitted lid on a clean light gray studio table, warm softbox lighting, centered product, realistic material, no brand or letters.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "flux.2-klein-4b",
+            "taskId": "image-53c9e3e65776e241a8d011c9bbfec63f",
+            "requestSnapshot": "{\"model\": \"flux.2-klein-4b\", \"seed\": 182000, \"source_sha256\": \"b5c28abf65c3521b1775b1f841fab726371af5da45e5e8307076a84ca18388f4\"}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-product-video-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Main shot",
+        "prompt": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected.",
+        "model": "wan2.2-ti2v-5b",
+        "resolution": "640x384",
+        "ratio": "5:3",
+        "seconds": 3,
+        "status": "completed",
+        "mediaId": "sample-product-video",
+        "selectedTakeId": "sample-product-video-take",
+        "takes": [
+          {
+            "id": "sample-product-video-take",
+            "mediaId": "sample-product-video",
+            "prompt": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "ffmpeg-image-edit",
+            "requestSnapshot": "{\"model\": \"ffmpeg-image-edit\", \"seed\": null, \"operation\": \"controlled_image_edit\", \"frames\": 49, \"fps\": 16, \"size\": \"640x384\", \"assets\": [{\"id\": \"sample-product-subject\", \"versionId\": \"sample-product-reference-v1\", \"mediaId\": \"sample-product-image\"}]}"
+          }
+        ],
+        "assetIds": ["sample-product-subject"],
+        "assetVersionIds": {
+          "sample-product-subject": "sample-product-reference-v1"
+        }
+      }
+    },
+    {
+      "id": "sample-product-music-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Original instrumental soundtrack",
+        "prompt": "Original three-note arpeggio, made for the bundled editing example.",
+        "sourceMode": "upload",
+        "status": "completed",
+        "mediaId": "sample-product-music"
+      }
+    },
+    {
+      "id": "sample-product-assembly-node",
+      "type": "studio",
+      "position": {
+        "x": 1140,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Edited sample film",
+        "prompt": "Editable source clip, caption and original music.",
+        "purpose": "assembly",
+        "status": "completed",
+        "mediaId": "sample-product-film",
+        "sourceMode": "upload"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sample-product-text-edge",
+      "source": "sample-product-script-node",
+      "sourceHandle": "video_prompt",
+      "target": "sample-product-video-node",
+      "targetHandle": "prompt"
+    },
+    {
+      "id": "sample-product-image-edge",
+      "source": "sample-product-image-node",
+      "sourceHandle": "image",
+      "target": "sample-product-video-node",
+      "targetHandle": "first_frame"
+    },
+    {
+      "id": "sample-product-clip-edge",
+      "source": "sample-product-video-node",
+      "sourceHandle": "video",
+      "target": "sample-product-assembly-node",
+      "targetHandle": "clip"
+    },
+    {
+      "id": "sample-product-music-edge",
+      "source": "sample-product-music-node",
+      "sourceHandle": "audio",
+      "target": "sample-product-assembly-node",
+      "targetHandle": "soundtrack"
+    }
+  ],
+  "assets": [
+    {
+      "id": "sample-product-subject",
+      "kind": "character",
+      "title": "A blue ceramic travel mug",
+      "prompt": "A ceramic blue travel mug with a fitted lid on a clean light gray studio table, warm softbox lighting, centered product, realistic material, no brand or letters.",
+      "mediaId": "sample-product-image",
+      "profile": {
+        "subjectType": "object",
+        "appearance": "A blue ceramic travel mug",
+        "continuity": "Use the first-frame design for this short example."
+      },
+      "versions": [
+        {
+          "id": "sample-product-reference-v1",
+          "createdAt": "2026-10-18T09:36:37Z",
+          "prompt": "A ceramic blue travel mug with a fitted lid on a clean light gray studio table, warm softbox lighting, centered product, realistic material, no brand or letters.",
+          "mediaId": "sample-product-image"
+        }
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "id": "sample-product-shot",
+      "title": "Blue travel mug",
+      "textNodeId": "sample-product-script-node",
+      "imageNodeId": "sample-product-image-node",
+      "videoNodeId": "sample-product-video-node",
+      "dialogue": "",
+      "shotCaptionText": "Ready for the everyday journey.",
+      "shotCaptionDurationSeconds": 3.0625
+    }
+  ],
+  "finalVideoNodeId": "sample-product-assembly-node",
+  "assembledMediaId": "sample-product-film",
+  "production": {
+    "documentVersion": 2,
+    "width": 640,
+    "height": 384,
+    "fps": 16,
+    "fit": "letterbox",
+    "timelineEdited": true,
+    "creativeBrief": {
+      "recipeId": "product",
+      "subject": "A blue ceramic travel mug",
+      "audience": "New video creators",
+      "benefit": "One clear subject and one readable visual action",
+      "callToAction": ""
+    },
+    "guide": {
+      "goal": "product",
+      "step": "edit"
+    },
+    "scenes": [
+      {
+        "id": "sample-product-scene",
+        "title": "Blue travel mug",
+        "description": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected.",
+        "shotIds": ["sample-product-shot"],
+        "assetIds": ["sample-product-subject"]
+      }
+    ],
+    "shotNarrative": {
+      "sample-product-shot": {
+        "purpose": "benefit",
+        "information": "Ready for the everyday journey.",
+        "emotion": "Calm and inviting",
+        "visualBeat": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected.",
+        "continuityNeeds": "Keep the subject design from the approved first frame."
+      }
+    },
+    "approvedKeyImages": {
+      "sample-product-shot": "sample-product-image"
+    },
+    "timeline": [
+      {
+        "id": "sample-product-clip",
+        "nodeId": "sample-product-video-node",
+        "takeId": "sample-product-video-take",
+        "trimStart": 0,
+        "trimEnd": 3.0625,
+        "caption": "Ready for the everyday journey.",
+        "captionDuration": 3.0625
+      }
+    ],
+    "audioTracks": [
+      {
+        "id": "sample-product-music-track",
+        "mediaId": "sample-product-music",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 0.35
+      }
+    ]
+  }
+}

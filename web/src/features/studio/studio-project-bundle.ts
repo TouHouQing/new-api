@@ -16,23 +16,6 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-/*
-Copyright (C) 2023-2026 QuantumNous
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU Affero General Public License as
-published by the Free Software Foundation, either version 3 of the
-License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
-Affero General Public License for more details.
-
-You should have received a copy of the GNU Affero General Public License
-along with this program. If not, see <https://www.gnu.org/licenses/>.
-*/
-
 import { nanoid } from 'nanoid'
 
 import {
@@ -56,6 +39,8 @@ export type StudioMediaStore = {
 type MediaEntry = { path: string; type: string; size: number }
 type BundleManifest = {
   productionMedia?: Record<string, string>
+  takeAuxiliaryMedia?: Record<string, string>
+  documentMedia?: Record<string, string>
   format: 'newapi-studio-project-bundle'
   version: 1
   project: StudioProject
@@ -97,6 +82,41 @@ function validateUserId(userId: number): void {
   }
 }
 
+function storedMediaPath(
+  manifest: Partial<BundleManifest>,
+  mediaId: string
+): string | null {
+  for (const mapping of [
+    manifest.documentMedia,
+    manifest.takeAuxiliaryMedia,
+    manifest.productionMedia,
+  ]) {
+    if (mapping && Object.hasOwn(mapping, mediaId)) return mapping[mediaId]
+  }
+  return null
+}
+
+function auxiliaryMediaPath(
+  manifest: Partial<BundleManifest>,
+  mediaId: string
+): string | null {
+  if (manifest.takeAuxiliaryMedia !== undefined) {
+    return Object.hasOwn(manifest.takeAuxiliaryMedia, mediaId)
+      ? manifest.takeAuxiliaryMedia[mediaId]
+      : null
+  }
+  return manifest.productionMedia &&
+    Object.hasOwn(manifest.productionMedia, mediaId)
+    ? manifest.productionMedia[mediaId]
+    : null
+}
+
+function portableModelMediaId(mediaId: unknown): string | undefined {
+  if (mediaId === undefined) return undefined
+  if (typeof mediaId !== 'string' || mediaId.length > 128) invalidBundle()
+  return mediaId
+}
+
 function portableProject(project: StudioProject): StudioProject {
   const validated = parseStudioProjectImport(
     serializeStudioProjectExport(project)
@@ -122,11 +142,22 @@ function portableProject(project: StudioProject): StudioProject {
         })),
       },
     })),
-    assets: validated.assets?.map((asset) => ({
-      ...asset,
-      mediaId: undefined,
-      outputUrl: undefined,
-    })),
+    assets: validated.assets?.map((asset) => {
+      const original = project.assets?.find((item) => item.id === asset.id)
+      return {
+        ...asset,
+        mediaId: undefined,
+        outputUrl: undefined,
+        modelMediaId: portableModelMediaId(original?.modelMediaId),
+        versions: asset.versions?.map((version) => ({
+          ...version,
+          modelMediaId: portableModelMediaId(
+            original?.versions?.find((item) => item.id === version.id)
+              ?.modelMediaId
+          ),
+        })),
+      }
+    }),
   }
 }
 
@@ -337,16 +368,20 @@ function validateManifest(
 ): BundleManifest {
   if (!value || typeof value !== 'object') invalidBundle()
   const manifest = value as Partial<BundleManifest>
-  if (
-    manifest.productionMedia !== undefined &&
-    (!manifest.productionMedia ||
-      typeof manifest.productionMedia !== 'object' ||
-      Array.isArray(manifest.productionMedia) ||
-      Object.keys(manifest.productionMedia).some(
-        (id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id)
-      ))
-  ) {
-    invalidBundle()
+  for (const mapping of [
+    manifest.productionMedia,
+    manifest.takeAuxiliaryMedia,
+    manifest.documentMedia,
+  ]) {
+    if (
+      mapping !== undefined &&
+      (!mapping ||
+        typeof mapping !== 'object' ||
+        Array.isArray(mapping) ||
+        Object.keys(mapping).some((id) => !/^[A-Za-z0-9_-]{1,128}$/.test(id)))
+    ) {
+      invalidBundle()
+    }
   }
   if (
     manifest.format !== 'newapi-studio-project-bundle' ||
@@ -429,6 +464,24 @@ function validateManifest(
     }
     paths.add(path)
   }
+  const assignments = new Map<string, string>()
+  for (const mapping of [
+    manifest.productionMedia,
+    manifest.takeAuxiliaryMedia,
+    manifest.documentMedia,
+  ]) {
+    for (const [id, path] of Object.entries(mapping ?? {})) {
+      const previous = assignments.get(id)
+      if (
+        typeof path !== 'string' ||
+        !paths.has(path) ||
+        (previous !== undefined && previous !== path)
+      ) {
+        invalidBundle()
+      }
+      assignments.set(id, path)
+    }
+  }
   for (let index = 0; index < project.nodes.length; index += 1) {
     if (
       !Array.isArray(manifest.takeMedia[index]) ||
@@ -438,8 +491,35 @@ function validateManifest(
       invalidBundle()
     }
   }
+  const auxiliaryIds = new Set<string>()
+  for (const node of project.nodes) {
+    for (const take of node.data.takes ?? []) {
+      for (const auxiliary of take.auxiliary ?? []) {
+        auxiliaryIds.add(auxiliary.mediaId)
+        const path = auxiliaryMediaPath(manifest, auxiliary.mediaId)
+        if (typeof path !== 'string' || !paths.has(path)) invalidBundle()
+      }
+    }
+  }
+  if (
+    Object.keys(manifest.takeAuxiliaryMedia ?? {}).some(
+      (id) => !auxiliaryIds.has(id)
+    )
+  ) {
+    invalidBundle()
+  }
+  const requiredReferences =
+    manifest.documentMedia === undefined
+      ? { nodes: project.nodes, production: project.production }
+      : project
+  for (const id of studioDocumentMediaIds(requiredReferences)) {
+    const path = storedMediaPath(manifest, id)
+    if (path === null || !paths.has(path)) invalidBundle()
+  }
   const references = [
     ...Object.values(manifest.productionMedia || {}),
+    ...Object.values(manifest.takeAuxiliaryMedia || {}),
+    ...Object.values(manifest.documentMedia || {}),
     ...manifest.nodeMedia,
     ...manifest.takeMedia.flat(),
     ...manifest.assetMedia,
@@ -520,6 +600,7 @@ export async function exportStudioProjectBundle(
   }
   const nodeMedia: (string | null)[] = []
   const takeMedia: (string | null)[][] = []
+  const takeAuxiliaryMedia: Record<string, string> = Object.create(null)
   for (const [index, node] of project.nodes.entries()) {
     nodeMedia.push(await addMedia(node.data.mediaId))
     const takes: (string | null)[] = []
@@ -530,6 +611,10 @@ export async function exportStudioProjectBundle(
           ? node.data.mediaId
           : undefined
       takes.push(await addMedia(original?.mediaId || legacyMediaId))
+      for (const auxiliary of take.auxiliary ?? []) {
+        const path = await addMedia(auxiliary.mediaId)
+        if (path) takeAuxiliaryMedia[auxiliary.mediaId] = path
+      }
     }
     takeMedia.push(takes)
   }
@@ -555,6 +640,11 @@ export async function exportStudioProjectBundle(
     const path = await addMedia(id)
     if (path) productionMedia[id] = path
   }
+  const documentMedia: Record<string, string> = Object.create(null)
+  for (const id of studioDocumentMediaIds(project)) {
+    const path = await addMedia(id)
+    if (path) documentMedia[id] = path
+  }
   const manifest: BundleManifest = {
     format: 'newapi-studio-project-bundle',
     version: 1,
@@ -569,6 +659,8 @@ export async function exportStudioProjectBundle(
     soundtrackMedia,
     voiceoverMedia,
     productionMedia,
+    takeAuxiliaryMedia,
+    documentMedia,
   }
   const json = JSON.stringify(manifest)
   const projectBlob = new Blob([json], { type: 'application/json' })
@@ -619,11 +711,14 @@ export async function importStudioProjectBundle(
     }
     const resolveMedia = (path: string | null): string | undefined =>
       path ? mediaIds.get(path) : undefined
+    const remapped = mapStudioMediaReferences(manifest.project, (id) =>
+      resolveMedia(storedMediaPath(manifest, id))
+    )
     const imported: StudioProject = {
-      ...manifest.project,
+      ...remapped,
       id: nanoid(),
       updatedAt: new Date().toISOString(),
-      nodes: manifest.project.nodes.map((node, index) => ({
+      nodes: remapped.nodes.map((node, index) => ({
         ...node,
         data: {
           ...node.data,
@@ -634,7 +729,7 @@ export async function importStudioProjectBundle(
           })),
         },
       })),
-      assets: manifest.project.assets?.map((asset, index) => ({
+      assets: remapped.assets?.map((asset, index) => ({
         ...asset,
         mediaId: resolveMedia(manifest.assetMedia[index]),
         versions: asset.versions?.map((version, versionIndex) => ({
@@ -644,7 +739,7 @@ export async function importStudioProjectBundle(
           ),
         })),
       })),
-      shots: manifest.project.shots?.map((shot, index) => ({
+      shots: remapped.shots?.map((shot, index) => ({
         ...shot,
         reviewStatus: 'unreviewed',
         shotVoiceoverMediaId: resolveMedia(
@@ -654,11 +749,9 @@ export async function importStudioProjectBundle(
       assembledMediaId: resolveMedia(manifest.assembledMedia),
       soundtrackMediaId: resolveMedia(manifest.soundtrackMedia ?? null),
       voiceoverMediaId: resolveMedia(manifest.voiceoverMedia ?? null),
-      production: manifest.project.production
+      production: remapped.production
         ? {
-            ...mapStudioMediaReferences(manifest.project.production, (id) =>
-              resolveMedia(manifest.productionMedia?.[id] || null)
-            ),
+            ...remapped.production,
             reviews: [],
           }
         : undefined,

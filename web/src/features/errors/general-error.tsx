@@ -19,7 +19,12 @@ For commercial licensing, please contact support@quantumnous.com
 import { useNavigate, useRouter } from '@tanstack/react-router'
 import { useTranslation } from 'react-i18next'
 
+import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
+import {
+  isPageResourceError,
+  reloadCurrentPage,
+} from '@/lib/page-resource-recovery'
 import { cn } from '@/lib/utils'
 
 const FEEDBACK_URL = 'https://github.com/QuantumNous/new-api/issues'
@@ -45,6 +50,21 @@ export function GeneralError({
   const { t } = useTranslation()
   const navigate = useNavigate()
   const { history } = useRouter()
+  if (isPageResourceError(error)) {
+    return (
+      <div className={cn('grid h-svh w-full place-items-center', className)}>
+        <ErrorState
+          title={t('Page resources could not load')}
+          description={t(
+            'Check your connection, then reload this page to continue at the same project address.'
+          )}
+          action={
+            <Button onClick={reloadCurrentPage}>{t('Reload this page')}</Button>
+          }
+        />
+      </div>
+    )
+  }
   const status = getHttpStatus(error)
   const isRateLimited = status === 429
   const title = isRateLimited

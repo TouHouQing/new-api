@@ -12,6 +12,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -61,9 +62,16 @@ func (writer *studioRelayRecorder) Write(data []byte) (int, error) {
 // This engine is never attached to a listening socket. Only a database-claimed
 // workflow can enter it; requests still use current account/group permissions,
 // model distribution and the gateway's normal billing and task tracking.
+var studioPrivateRelay *gin.Engine
+
 func configureStudioWorkflowRelay() {
 	engine := gin.New()
 	engine.Use(gin.Recovery(), func(c *gin.Context) {
+		// In-process requests are created as client requests, whose RequestURI
+		// is empty. Video presenters use it to select the public OpenAI shape.
+		if c.Request.RequestURI == "" {
+			c.Request.RequestURI = c.Request.URL.RequestURI()
+		}
 		defer func() {
 			if c.Request.Method == http.MethodPost && common.GetContextKeyInt(c, constant.ContextKeyChannelId) == 0 {
 				c.Header("X-Studio-Prechannel-Rejection", "true")
@@ -71,6 +79,24 @@ func configureStudioWorkflowRelay() {
 		}()
 		job, ok := c.Request.Context().Value(studioWorkerContextKey{}).(*model.StudioWorkflowJob)
 		if !ok || job.UserID <= 0 {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
+		grant, hosted := c.Request.Context().Value(workbenchRelayGrantKey{}).(workbenchRelayGrant)
+		if job.Kind == "workbench" {
+			if !hosted || grant.userID != job.UserID || workbenchRuntime == nil {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+			validate := workbenchRuntime.ValidateTask
+			if c.Request.Method == http.MethodGet {
+				validate = workbenchRuntime.ValidateTaskRead
+			}
+			if validate(strconv.Itoa(grant.userID), grant.taskID) != nil {
+				c.AbortWithStatus(http.StatusForbidden)
+				return
+			}
+		} else if hosted {
 			c.AbortWithStatus(http.StatusForbidden)
 			return
 		}
@@ -92,9 +118,11 @@ func configureStudioWorkflowRelay() {
 				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
-			if _, _, err := model.StudioProjectAccess(model.DB, job.UserID, current.ProjectID, true); err != nil {
-				c.AbortWithStatus(http.StatusForbidden)
-				return
+			if !hosted {
+				if _, _, err := model.StudioProjectAccess(model.DB, job.UserID, current.ProjectID, true); err != nil {
+					c.AbortWithStatus(http.StatusForbidden)
+					return
+				}
 			}
 			group := c.GetHeader("X-Studio-Group")
 			if group == "" {
@@ -110,16 +138,18 @@ func configureStudioWorkflowRelay() {
 				c.AbortWithStatus(http.StatusForbidden)
 				return
 			}
-			requestID := c.GetHeader("X-Studio-Request-ID")
-			if requestID == "" {
-				requestID = common.NewRequestId()
+			if c.Request.Method == http.MethodPost {
+				requestID := c.GetHeader("X-Studio-Request-ID")
+				if requestID == "" {
+					requestID = common.NewRequestId()
+				}
+				if err := model.EnsureStudioWorkflowCharge(job.UserID, job.ID, requestID); err != nil {
+					c.AbortWithStatus(http.StatusServiceUnavailable)
+					return
+				}
+				common.SetContextKey(c, common.RequestIdKey, requestID)
+				c.Set("studio_workflow_id", job.ID)
 			}
-			if err := model.EnsureStudioWorkflowCharge(job.UserID, job.ID, requestID); err != nil {
-				c.AbortWithStatus(http.StatusServiceUnavailable)
-				return
-			}
-			common.SetContextKey(c, common.RequestIdKey, requestID)
-			c.Set("studio_workflow_id", job.ID)
 		}
 		c.Next()
 		if c.Request.Method == http.MethodPost && c.Writer.Status() >= http.StatusBadRequest {
@@ -148,9 +178,15 @@ func configureStudioWorkflowRelay() {
 		controller.RelayTaskPluginEndpoint(c, func(c *gin.Context) { controller.Relay(c, types.RelayFormatOpenAIImage) })
 	})
 	engine.POST("/v1/videos", middleware.StudioAttemptAudit(), middleware.PinTaskPluginEndpoint(), middleware.TaskPluginEndpointOnly(middleware.ModelRequestRateLimit()), middleware.PrepareTaskPluginEndpoint(), middleware.Distribute(), func(c *gin.Context) { controller.RelayTaskPluginEndpoint(c, controller.RelayTask) })
+	engine.POST("/v1/responses", middleware.ModelRequestRateLimit(), middleware.PinTaskPluginEndpoint(), middleware.PrepareTaskPluginEndpoint(), middleware.Distribute(), func(c *gin.Context) {
+		controller.RelayTaskPluginEndpoint(c, func(c *gin.Context) { controller.Relay(c, types.RelayFormatOpenAIResponses) })
+	})
+	engine.GET("/v1/videos/:task_id", middleware.Distribute(), controller.RelayTaskFetch)
+	engine.GET("/v1/tasks/:key", controller.GetTask)
 	engine.GET("/v1/videos/:task_id/content", controller.VideoProxy)
 	engine.POST("/v1/tasks/:key", middleware.StudioAttemptAudit(), middleware.ModelRequestRateLimit(), middleware.PrepareTaskPluginSubmit(), middleware.Distribute(), controller.RelayTask)
 	engine.GET("/v1/tasks/:key/artifacts/:artifact_key/content", controller.TaskArtifactContent)
+	studioPrivateRelay = engine
 	service.StudioWorkflowRelay = func(ctx context.Context, job *model.StudioWorkflowJob, kind string, body []byte) (service.StudioRelayResponse, error) {
 		path := ""
 		method := http.MethodPost
@@ -347,6 +383,18 @@ func studioTranscriptionMultipart(mimeType string, file io.Reader, payload map[s
 		return nil, "", err
 	}
 	for key, value := range payload {
+		if key == "timestamp_granularities[]" {
+			if values, ok := value.([]any); ok {
+				for _, item := range values {
+					if item == "segment" || item == "word" {
+						if err := form.WriteField(key, fmt.Sprint(item)); err != nil {
+							return nil, "", err
+						}
+					}
+				}
+				continue
+			}
+		}
 		if text, ok := value.(string); ok && text != "" {
 			if err := form.WriteField(key, text); err != nil {
 				return nil, "", err

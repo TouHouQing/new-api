@@ -36,39 +36,43 @@ type StudioRelayResponse struct {
 var StudioWorkflowRelay func(context.Context, *model.StudioWorkflowJob, string, []byte) (StudioRelayResponse, error)
 
 type StudioWorkflowPlan struct {
-	ConnectorTarget *StudioConnectorTarget `json:"connector_target,omitempty"`
-	Document        map[string]any         `json:"document"`
-	NodeIDs         []string               `json:"node_ids"`
-	Render          *StudioRenderPlan      `json:"render,omitempty"`
-	Operation       *StudioMediaOperation  `json:"operation,omitempty"`
+	CapabilitySnapshots map[string]string      `json:"capability_snapshots,omitempty"`
+	ConnectorTarget     *StudioConnectorTarget `json:"connector_target,omitempty"`
+	Document            map[string]any         `json:"document"`
+	NodeIDs             []string               `json:"node_ids"`
+	Render              *StudioRenderPlan      `json:"render,omitempty"`
+	Operation           *StudioMediaOperation  `json:"operation,omitempty"`
 }
 
 type StudioMediaOperation struct {
-	ConnectorID          string             `json:"connector_id,omitempty"`
-	ExternalResourceID   string             `json:"external_resource_id,omitempty"`
-	TakeID               string             `json:"take_id,omitempty"`
-	ConfirmExternalWrite bool               `json:"confirm_external_write,omitempty"`
-	Samples              int                `json:"samples,omitempty"`
-	Dimensions           []string           `json:"dimensions,omitempty"`
-	Edit                 *StudioMediaEdit   `json:"edit,omitempty"`
-	DialogueCueID        string             `json:"dialogue_cue_id,omitempty"`
-	MediaID              string             `json:"media_id"`
-	Model                string             `json:"model"`
-	Group                string             `json:"group"`
-	Language             string             `json:"language"`
-	Action               string             `json:"action,omitempty"`
-	NodeID               string             `json:"node_id,omitempty"`
-	Prompt               string             `json:"prompt,omitempty"`
-	Seconds              float64            `json:"seconds,omitempty"`
-	ReferenceMediaIDs    []string           `json:"reference_media_ids,omitempty"`
-	VoiceID              string             `json:"voice_id,omitempty"`
-	ConfirmVoiceRights   bool               `json:"confirm_voice_rights,omitempty"`
-	Options              *StudioToolOptions `json:"options,omitempty"`
+	PublishID            string                `json:"publish_id,omitempty"`
+	Inspect              *StudioInspectOptions `json:"inspect,omitempty"`
+	ConnectorID          string                `json:"connector_id,omitempty"`
+	ExternalResourceID   string                `json:"external_resource_id,omitempty"`
+	TakeID               string                `json:"take_id,omitempty"`
+	ConfirmExternalWrite bool                  `json:"confirm_external_write,omitempty"`
+	Samples              int                   `json:"samples,omitempty"`
+	Dimensions           []string              `json:"dimensions,omitempty"`
+	Edit                 *StudioMediaEdit      `json:"edit,omitempty"`
+	DialogueCueID        string                `json:"dialogue_cue_id,omitempty"`
+	MediaID              string                `json:"media_id"`
+	Model                string                `json:"model"`
+	Group                string                `json:"group"`
+	Language             string                `json:"language"`
+	Action               string                `json:"action,omitempty"`
+	NodeID               string                `json:"node_id,omitempty"`
+	Prompt               string                `json:"prompt,omitempty"`
+	Seconds              float64               `json:"seconds,omitempty"`
+	ReferenceMediaIDs    []string              `json:"reference_media_ids,omitempty"`
+	VoiceID              string                `json:"voice_id,omitempty"`
+	ConfirmVoiceRights   bool                  `json:"confirm_voice_rights,omitempty"`
+	Options              *StudioToolOptions    `json:"options,omitempty"`
 }
 
 // Typed tool parameters are bounded on the server and by the worker. They are
 // preserved in the Take snapshot so a revision can reproduce the operation.
 type StudioToolOptions struct {
+	LipAudioStart    *float64 `json:"lip_audio_start,omitempty"`
 	PanelPrompts     []string `json:"panel_prompts,omitempty"`
 	RedoPanel        int      `json:"redo_panel,omitempty"`
 	OutpaintMode     string   `json:"outpaint_mode,omitempty"`
@@ -96,16 +100,17 @@ type StudioToolOptions struct {
 }
 
 type StudioWorkflowProgress struct {
-	Completed       []string                  `json:"completed"`
-	NodeID          string                    `json:"node_id,omitempty"`
-	TaskID          string                    `json:"task_id,omitempty"`
-	RequestID       string                    `json:"request_id,omitempty"`
-	Phase           string                    `json:"phase,omitempty"`
-	MediaID         string                    `json:"media_id,omitempty"`
-	Take            map[string]any            `json:"take,omitempty"`
-	AdditionalTakes []map[string]any          `json:"additional_takes,omitempty"`
-	ResponseMediaID string                    `json:"response_media_id,omitempty"`
-	Outputs         map[string]map[string]any `json:"outputs,omitempty"`
+	Completed         []string                  `json:"completed"`
+	NodeID            string                    `json:"node_id,omitempty"`
+	TaskID            string                    `json:"task_id,omitempty"`
+	RequestID         string                    `json:"request_id,omitempty"`
+	Phase             string                    `json:"phase,omitempty"`
+	MediaID           string                    `json:"media_id,omitempty"`
+	Take              map[string]any            `json:"take,omitempty"`
+	AdditionalTakes   []map[string]any          `json:"additional_takes,omitempty"`
+	ResponseMediaID   string                    `json:"response_media_id,omitempty"`
+	SubmittedSnapshot string                    `json:"submitted_snapshot,omitempty"`
+	Outputs           map[string]map[string]any `json:"outputs,omitempty"`
 }
 
 func QueueStudioWorkflow(userID int, projectID, requestID, kind string, revision, budget int64, nodeIDs []string, render *StudioRenderPlan, operations ...*StudioMediaOperation) (*model.StudioWorkflowJob, error) {
@@ -137,7 +142,7 @@ func QueueScheduledStudioWorkflow(userID int, projectID, requestID, kind string,
 	if runAfter < 0 || runAfter > time.Now().Add(7*24*time.Hour).Unix() {
 		return nil, errors.New("schedule must be within the next seven days")
 	}
-	if !StudioIDPattern.MatchString(requestID) || (kind != "generate" && kind != "render" && kind != "quality" && kind != "transcribe" && kind != "media" && kind != "previs" && kind != "graphics" && kind != "connector" && kind != "transform" && kind != "analyze") || budget < 0 || budget > 2_000_000_000 || len(nodeIDs) > 100 {
+	if !StudioIDPattern.MatchString(requestID) || (kind != "generate" && kind != "render" && kind != "quality" && kind != "transcribe" && kind != "media" && kind != "previs" && kind != "graphics" && kind != "connector" && kind != "transform" && kind != "analyze" && kind != "inspect" && kind != "publish") || budget < 0 || budget > 2_000_000_000 || len(nodeIDs) > 100 {
 		return nil, errors.New("invalid workflow request")
 	}
 	project, _, err := model.StudioProjectAccess(model.DB, userID, projectID, true)
@@ -195,11 +200,27 @@ func QueueScheduledStudioWorkflow(userID int, projectID, requestID, kind string,
 			return nil, err
 		}
 	}
+	if kind == "inspect" {
+		if budget != 0 {
+			return nil, errors.New("CPU inspection does not accept a generation budget")
+		}
+		if err := ValidateStudioInspect(project.OwnerID, document, operation); err != nil {
+			return nil, err
+		}
+	}
 	if kind == "analyze" {
 		if budget < 1 {
 			return nil, errors.New("reference analysis requires an explicit inference budget")
 		}
 		if err := ValidateStudioReferenceAnalysis(project.OwnerID, document, operation); err != nil {
+			return nil, err
+		}
+	}
+	if kind == "publish" {
+		if budget != 0 {
+			return nil, errors.New("publishing does not accept a model generation budget")
+		}
+		if err := ValidateStudioPublish(userID, project, document, operation); err != nil {
 			return nil, err
 		}
 	}
@@ -301,6 +322,15 @@ func QueueScheduledStudioWorkflow(userID int, projectID, requestID, kind string,
 		}
 	}
 	plan := StudioWorkflowPlan{Document: document, NodeIDs: nodeIDs, Render: render, Operation: operation}
+	if kind == "generate" {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		snapshots, err := StudioRuntimeCapabilitySnapshot(ctx, document, nodeIDs)
+		if err != nil {
+			return nil, err
+		}
+		plan.CapabilitySnapshots = snapshots
+	}
 	if kind == "connector" {
 		if err := ValidateStudioConnectorOperation(userID, project, document, operation); err != nil {
 			return nil, err
@@ -429,6 +459,21 @@ var studioRunnerOnce sync.Once
 
 func StartStudioWorkflowRunner() {
 	studioRunnerOnce.Do(func() {
+		go func() {
+			ticker := time.NewTicker(time.Hour)
+			defer ticker.Stop()
+			for {
+				ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+				result, err := SweepStudioOwnedCache(ctx, "", model.DB, time.Now(), StudioCacheRetentionPolicy())
+				cancel()
+				if err != nil {
+					common.SysError("Studio owned cache cleanup stopped: " + err.Error())
+				} else if result.ReleasedSize > 0 {
+					common.SysLog(fmt.Sprintf("Studio owned cache released %d bytes", result.ReleasedSize))
+				}
+				<-ticker.C
+			}
+		}()
 		// Native edits and delivery must keep moving during a long model request.
 		for _, inference := range []bool{true, false} {
 			go func(inference bool) {
@@ -453,7 +498,7 @@ func runStudioWorkflowsOnce(ctx context.Context, runnerID string, inference *boo
 	if StudioWorkflowRelay == nil || model.DB == nil {
 		return
 	}
-	model.DB.Model(&model.StudioWorkflowJob{}).Where("status IN ? AND lease_until < ?", []string{"running", "waiting"}, time.Now().Unix()).Updates(map[string]any{"status": "uncertain", "error": "Worker disconnected. Inspect the saved task before resuming.", "lease_owner": ""})
+	model.DB.Model(&model.StudioWorkflowJob{}).Where("kind <> ? AND status IN ? AND lease_until < ?", "workbench", []string{"running", "waiting"}, time.Now().Unix()).Updates(map[string]any{"status": "uncertain", "error": "Worker disconnected. Inspect the saved task before resuming.", "lease_owner": ""})
 	var abandoned []model.StudioWorkflowJob
 	if model.DB.Where("status = ? AND lease_until > 0 AND lease_until < ?", "paused", time.Now().Unix()).Find(&abandoned).Error == nil {
 		for _, job := range abandoned {
@@ -509,6 +554,7 @@ func runStudioWorkflowsOnce(ctx context.Context, runnerID string, inference *boo
 						cancel()
 						return
 					}
+					_, _ = UpdateStudioCacheJob("", job.ID, "active", time.Now().Add(90*time.Second).Unix(), StudioCacheRetentionPolicy())
 				}
 			}
 		}()
@@ -520,6 +566,11 @@ func runStudioWorkflowsOnce(ctx context.Context, runnerID string, inference *boo
 			continue
 		}
 		if current.Status == "paused" || current.Status == "cancelled" {
+			cacheState := "uncertain"
+			if current.Status == "cancelled" {
+				cacheState = "cancelled"
+			}
+			_, _ = UpdateStudioCacheJob("", job.ID, cacheState, 0, StudioCacheRetentionPolicy())
 			model.DB.Model(&model.StudioWorkflowJob{}).Where("id = ? AND lease_owner = ?", job.ID, runnerID).Updates(map[string]any{"lease_owner": "", "lease_until": 0})
 			if current.Status == "cancelled" && job.TokenID > 0 {
 				model.DB.Model(&model.Token{}).Where("id = ?", job.TokenID).Update("status", common.TokenStatusDisabled)
@@ -543,6 +594,7 @@ func runStudioWorkflowsOnce(ctx context.Context, runnerID string, inference *boo
 			updates["progress"] = 100
 		}
 		model.DB.Model(&model.StudioWorkflowJob{}).Where("id = ? AND lease_owner = ?", job.ID, runnerID).Updates(updates)
+		_, _ = UpdateStudioCacheJob("", job.ID, status, 0, StudioCacheRetentionPolicy())
 		if model.DB.Where("id = ?", job.ID).First(&current).Error == nil {
 			if err := model.RecordStudioWorkflowEvent(&current); err != nil {
 				common.SysError("Studio completion event could not be recorded")
@@ -578,6 +630,17 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 	project, _, err := model.StudioProjectAccess(model.DB, job.UserID, job.ProjectID, true)
 	if err != nil {
 		return err
+	}
+	if len(plan.CapabilitySnapshots) > 0 {
+		current, err := StudioRuntimeCapabilitySnapshot(ctx, plan.Document, plan.NodeIDs)
+		if err != nil {
+			return err
+		}
+		for name, digest := range plan.CapabilitySnapshots {
+			if current[name] != digest {
+				return errors.New("the model workflow changed after confirmation; review its capabilities before retrying")
+			}
+		}
 	}
 	if job.Kind == "render" {
 		frozen, err := common.Marshal(plan.Document)
@@ -617,6 +680,12 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 	}
 	if job.Kind == "analyze" {
 		return RunStudioReferenceAnalysis(ctx, job, project, &plan)
+	}
+	if job.Kind == "publish" {
+		return RunStudioPublish(ctx, job, project, &plan)
+	}
+	if job.Kind == "inspect" {
+		return RunStudioInspect(ctx, job, project, &plan)
 	}
 	order, err := StudioWorkflowOrder(plan.Document, plan.NodeIDs)
 	if err != nil {
@@ -698,12 +767,14 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 		resumeReceipt := progress.NodeID == id && progress.ResponseMediaID != ""
 		if !resumeTask && !resumeReceipt {
 			progress.NodeID, progress.TaskID, progress.RequestID, progress.Phase = id, "", uuid.NewString(), "preparing"
+			progress.SubmittedSnapshot = ""
 		}
 		if err := studioSaveProgress(job, progress, index*100/max(1, len(order))); err != nil {
 			return err
 		}
 		kind, _ := data["kind"].(string)
-		request, err := studioNodeRequest(ctx, project.OwnerID, plan.Document, node)
+		references := &studioGenerationReferences{}
+		request, err := studioNodeRequest(ctx, project.OwnerID, plan.Document, node, references)
 		if err != nil {
 			return err
 		}
@@ -719,6 +790,7 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 				return errors.New(StudioStorageUnavailable)
 			}
 			progress.Phase = "submitting"
+			progress.SubmittedSnapshot = studioGenerationParameterSnapshot(request, references)
 			if err := studioSaveProgress(job, progress, index*100/max(1, len(order))); err != nil {
 				return err
 			}
@@ -745,7 +817,7 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 			}
 			if common.Unmarshal(response.Body, &failure) == nil && failure.Error.Code == "local_inference_failed" {
 				if strings.Contains(failure.Error.Message, "memory is exhausted") {
-					return errors.New("Local model memory is exhausted. Completed results are retained. Wait or choose a smaller draft before retrying.")
+					return errors.New("Local model memory is exhausted. Completed results are retained. Wait or confirm a shorter trial clip before retrying.")
 				}
 				return errors.New("The local model reported a terminal inference failure. Completed results are retained; review the task before retrying.")
 			}
@@ -764,7 +836,13 @@ func executeStudioWorkflow(ctx context.Context, job *model.StudioWorkflowJob) er
 		take := map[string]any{"id": progress.RequestID, "createdAt": time.Now().UTC().Format(time.RFC3339Nano), "status": "completed", "model": modelName, "prompt": data["prompt"]}
 		// Store only reproducible parameters, never signed reference URLs or
 		// provider credentials. The frozen plan supplies these again on resume.
-		if snapshot := studioGenerationParameterSnapshot(request); snapshot != "" {
+		snapshot := progress.SubmittedSnapshot
+		if snapshot == "" {
+			// A historical attempt did not freeze reference IDs at submission.
+			// Keep its references unknown rather than deriving them on recovery.
+			snapshot = studioGenerationParameterSnapshot(request)
+		}
+		if snapshot != "" {
 			take["requestSnapshot"] = snapshot
 		}
 		if kind == "text" {
@@ -1057,8 +1135,34 @@ func publishStudioWorkflowTake(job *model.StudioWorkflowJob, nodeID string, take
 	return model.ErrStudioRevision
 }
 
-func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any, node map[string]any) ([]byte, error) {
+// These URLs exist only while building the final provider request. Durable
+// snapshots contain the matched immutable IDs and roles, never a URL or secret.
+type studioGenerationReference struct {
+	URL           string `json:"-"`
+	AssetID       string
+	VersionID     string
+	MediaID       string
+	SourceNodeID  string
+	SourceTakeID  string
+	SourceMediaID string
+	Role          string
+}
+
+type studioGenerationReferences struct {
+	Kind         string
+	Items        []studioGenerationReference
+	Descriptions []studioGenerationReference
+}
+
+func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any, node map[string]any, captures ...*studioGenerationReferences) ([]byte, error) {
 	data, _ := node["data"].(map[string]any)
+	var captured *studioGenerationReferences
+	if len(captures) > 0 && captures[0] != nil {
+		captured = captures[0]
+		captured.Kind, _ = data["kind"].(string)
+		captured.Items = nil
+		captured.Descriptions = nil
+	}
 	prompt, _ := data["prompt"].(string)
 	request := map[string]any{"model": data["model"], "studio_group": data["group"]}
 	images, content := []string{}, []any{}
@@ -1072,12 +1176,14 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 				continue
 			}
 			sourceData, _ := source["data"].(map[string]any)
+			sourceTakeID, _ := sourceData["selectedTakeId"].(string)
 			if pinned, _ := edge["data"].(map[string]any); pinned["sourceTakeId"] != nil {
 				takes, _ := sourceData["takes"].([]any)
 				for _, value := range takes {
 					take, _ := value.(map[string]any)
 					if take["id"] == pinned["sourceTakeId"] {
 						sourceData = take
+						sourceTakeID, _ = take["id"].(string)
 						break
 					}
 				}
@@ -1097,6 +1203,20 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 			}
 			mediaID, _ := sourceData["mediaId"].(string)
 			if mediaID != "" {
+				sourceMediaID := mediaID
+				if sourceTakeID != "" {
+					matchedTake := false
+					original, _ := source["data"].(map[string]any)
+					for _, take := range studioObjects(original, "takes") {
+						if take["id"] == sourceTakeID && take["mediaId"] == sourceMediaID {
+							matchedTake = true
+							break
+						}
+					}
+					if !matchedTake {
+						sourceTakeID = ""
+					}
+				}
 				role, _ := edge["targetHandle"].(string)
 				if data["kind"] == "video" && role == "" {
 					originalSource, _ := source["data"].(map[string]any)
@@ -1126,6 +1246,14 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 				}
 				if err != nil {
 					return nil, err
+				}
+				if captured != nil {
+					sourceNodeID, _ := source["id"].(string)
+					originMediaID := ""
+					if mediaID != sourceMediaID {
+						originMediaID = sourceMediaID
+					}
+					captured.Items = append(captured.Items, studioGenerationReference{URL: url, MediaID: mediaID, SourceMediaID: originMediaID, SourceNodeID: sourceNodeID, SourceTakeID: sourceTakeID, Role: role})
 				}
 				if strings.HasPrefix(role, "reference_video") || role == "extend_video" || role == "native_extend" {
 					if role == "native_extend" {
@@ -1203,12 +1331,20 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 				return nil, errors.New("pinned asset version is unavailable")
 			}
 		}
+		hasDescription := false
 		if value, ok := reference["prompt"].(string); ok {
 			prompt += "\n" + value
+			hasDescription = strings.TrimSpace(value) != ""
 		}
 		if profile, ok := reference["profile"].(map[string]any); ok {
 			encoded, _ := common.Marshal(profile)
 			prompt += "\n" + string(encoded)
+			hasDescription = hasDescription || len(profile) > 0
+		}
+		if firstFrameOnly && hasDescription && captured != nil {
+			assetID, _ := asset["id"].(string)
+			versionID, _ := pinnedVersions[assetID].(string)
+			captured.Descriptions = append(captured.Descriptions, studioGenerationReference{AssetID: assetID, VersionID: versionID})
 		}
 		if mediaID, ok := reference["mediaId"].(string); ok && mediaID != "" {
 			if firstFrameOnly {
@@ -1223,6 +1359,11 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 			}
 			images = append(images, url)
 			content = append(content, map[string]any{"type": "image_url", "role": "reference_image", "image_url": map[string]string{"url": url}})
+			if captured != nil {
+				assetID, _ := asset["id"].(string)
+				versionID, _ := pinnedVersions[assetID].(string)
+				captured.Items = append(captured.Items, studioGenerationReference{URL: url, AssetID: assetID, VersionID: versionID, MediaID: mediaID, Role: "reference_image"})
+			}
 		}
 	}
 	if len(prompt) > 30000 {
@@ -1265,6 +1406,9 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 							}
 							images = append(images, url)
 							content = append(content, map[string]any{"type": "image_url", "role": "reference_image", "image_url": map[string]string{"url": url}})
+							if captured != nil {
+								captured.Items = append(captured.Items, studioGenerationReference{URL: url, MediaID: mediaID, Role: "reference_image"})
+							}
 						}
 					}
 				}
@@ -1300,6 +1444,11 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 				}
 				images = append(images, url)
 				content = append(content, map[string]any{"type": "image_url", "role": "reference_image", "image_url": map[string]string{"url": url}})
+				if captured != nil {
+					assetID, _ := state["assetId"].(string)
+					versionID, _ := state["versionId"].(string)
+					captured.Items = append(captured.Items, studioGenerationReference{URL: url, AssetID: assetID, VersionID: versionID, MediaID: mediaID, Role: "reference_image"})
+				}
 			}
 		}
 	}
@@ -1407,6 +1556,9 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 					return nil, err
 				}
 				content = append(content, map[string]any{"type": "image_url", "role": "key_frame", "time": timestamp, "image_url": map[string]string{"url": url}})
+				if captured != nil {
+					captured.Items = append(captured.Items, studioGenerationReference{URL: url, MediaID: id, Role: "key_frame"})
+				}
 			}
 		}
 		if rawRange, ok := data["reworkRange"].(map[string]any); ok {
@@ -1437,6 +1589,12 @@ func studioNodeRequest(ctx context.Context, ownerID int, document map[string]any
 				return nil, err
 			}
 			images = []string{url}
+			if captured != nil {
+				sourceNodeID, _ := rawRange["sourceNodeId"].(string)
+				derived, _ := data["derivedFrom"].(map[string]any)
+				sourceTakeID, _ := derived["takeId"].(string)
+				captured.Items = append(captured.Items, studioGenerationReference{URL: url, MediaID: frame.MediaID, SourceMediaID: mediaID, SourceNodeID: sourceNodeID, SourceTakeID: sourceTakeID, Role: "first_frame"})
+			}
 			filtered := []any{map[string]any{"type": "image_url", "role": "first_frame", "image_url": map[string]string{"url": url}}}
 			for _, raw := range content {
 				reference, _ := raw.(map[string]any)
@@ -1631,7 +1789,7 @@ func ReadStudioRemoteMedia(ctx context.Context, rawURL string) ([]byte, string, 
 	return data, response.Header.Get("Content-Type"), err
 }
 
-func studioGenerationParameterSnapshot(body []byte) string {
+func studioGenerationParameterSnapshot(body []byte, captures ...*studioGenerationReferences) string {
 	var request map[string]any
 	if common.Unmarshal(body, &request) != nil {
 		return ""
@@ -1648,6 +1806,112 @@ func studioGenerationParameterSnapshot(body []byte) string {
 		switch value := metadata[key].(type) {
 		case string, float64, bool:
 			snapshot[key] = value
+		}
+	}
+	// Only actual finite numeric sampling parameters are reproducible evidence.
+	// Strings, arbitrary metadata and credentials must not enter the receipt.
+	for _, key := range []string{"fps", "frames"} {
+		if value, ok := metadata[key].(float64); ok && !math.IsNaN(value) && !math.IsInf(value, 0) && value > 0 && (key == "fps" && value <= 240 || key == "frames" && value <= 1000000 && math.Trunc(value) == value) {
+			snapshot[key] = value
+		}
+	}
+	if len(captures) > 0 && captures[0] != nil {
+		captured := captures[0]
+		descriptions := []map[string]any{}
+		for _, description := range captured.Descriptions {
+			if !StudioIDPattern.MatchString(description.AssetID) {
+				continue
+			}
+			entry := map[string]any{"id": description.AssetID, "conditioning": "description-only"}
+			if description.VersionID != "" && StudioIDPattern.MatchString(description.VersionID) {
+				entry["versionId"] = description.VersionID
+			}
+			descriptions = append(descriptions, entry)
+		}
+		snapshot["descriptionAssets"], snapshot["descriptionReferencesKnown"] = descriptions, true
+		type wireReference struct{ url, role string }
+		urls := map[wireReference]bool{}
+		if captured.Kind == "image" {
+			imageValues, _ := request["images"].([]any)
+			for _, raw := range imageValues {
+				if url, ok := raw.(string); ok && url != "" {
+					urls[wireReference{url, "reference_image"}] = true
+				}
+			}
+		} else if captured.Kind == "video" {
+			if request["model"] == "wan2.2-ti2v-5b" {
+				// This adapter consumes exactly one first-frame input; other
+				// metadata references are not implemented by this model.
+				url, _ := request["input_reference"].(string)
+				if url == "" {
+					url, _ = request["image"].(string)
+				}
+				if url != "" {
+					urls[wireReference{url, "first_frame"}] = true
+				}
+			} else {
+				for _, key := range []string{"image", "input_reference"} {
+					if url, ok := request[key].(string); ok && url != "" {
+						urls[wireReference{url, "first_frame"}] = true
+					}
+				}
+				imageValues, _ := request["images"].([]any)
+				for _, raw := range imageValues {
+					if url, ok := raw.(string); ok && url != "" {
+						urls[wireReference{url, "reference_image"}] = true
+					}
+				}
+				for _, item := range studioObjects(metadata, "content") {
+					role, _ := item["role"].(string)
+					for _, kind := range []string{"image_url", "video_url"} {
+						value, _ := item[kind].(map[string]any)
+						if url, ok := value["url"].(string); ok && url != "" {
+							urls[wireReference{url, role}] = true
+						}
+					}
+				}
+			}
+		}
+		assets, references := []map[string]any{}, []map[string]any{}
+		matched := map[wireReference]bool{}
+		seen := map[string]bool{}
+		truncated := false
+		for _, reference := range captured.Items {
+			for wire := range urls {
+				role, used := wire.role, wire.url == reference.URL
+				if !used || !slices.Contains([]string{"first_frame", "last_frame", "reference_image", "reference_video", "key_frame"}, role) || !StudioIDPattern.MatchString(reference.MediaID) {
+					continue
+				}
+				matched[wire] = true
+				entry := map[string]any{"mediaId": reference.MediaID, "role": role}
+				for key, value := range map[string]string{"assetId": reference.AssetID, "versionId": reference.VersionID, "sourceNodeId": reference.SourceNodeID, "sourceTakeId": reference.SourceTakeID, "sourceMediaId": reference.SourceMediaID} {
+					if value != "" && StudioIDPattern.MatchString(value) {
+						entry[key] = value
+					}
+				}
+				encoded, _ := common.Marshal(entry)
+				if seen[string(encoded)] {
+					continue
+				}
+				seen[string(encoded)] = true
+				if len(references) >= 64 {
+					truncated = true
+					break
+				}
+				references = append(references, entry)
+				if reference.AssetID != "" && StudioIDPattern.MatchString(reference.AssetID) {
+					asset := map[string]any{"id": reference.AssetID, "mediaId": reference.MediaID}
+					if reference.VersionID != "" && StudioIDPattern.MatchString(reference.VersionID) {
+						asset["versionId"] = reference.VersionID
+					}
+					assets = append(assets, asset)
+				}
+			}
+		}
+		known := len(matched) == len(urls) && !truncated
+		snapshot["referencesKnown"], snapshot["references"] = known, references
+		if known {
+			snapshot["assets"] = assets
 		}
 	}
 	encoded, err := common.Marshal(snapshot)

@@ -1,0 +1,249 @@
+{
+  "id": "sample-story-project",
+  "title": "The lantern path",
+  "createdAt": "2026-10-18T09:36:37Z",
+  "updatedAt": "2026-10-18T09:36:37Z",
+  "nodes": [
+    {
+      "id": "sample-story-script-node",
+      "type": "studio",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "text",
+        "title": "Story and action",
+        "prompt": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified.",
+        "purpose": "script",
+        "textMode": "plain",
+        "outputText": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified."
+      }
+    },
+    {
+      "id": "sample-story-image-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 0
+      },
+      "data": {
+        "kind": "image",
+        "title": "Replaceable subject first frame",
+        "prompt": "A small red fox at the edge of a woodland path, holding a blue lantern in its mouth at dusk, warm storybook cinematic illustration, full body, no text.",
+        "model": "flux.2-klein-4b",
+        "imageSize": "512x320",
+        "status": "completed",
+        "mediaId": "sample-story-image",
+        "selectedTakeId": "sample-story-image-take",
+        "takes": [
+          {
+            "id": "sample-story-image-take",
+            "mediaId": "sample-story-image",
+            "prompt": "A small red fox at the edge of a woodland path, holding a blue lantern in its mouth at dusk, warm storybook cinematic illustration, full body, no text.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "flux.2-klein-4b",
+            "taskId": "image-c29d85f2e2446ef6375ab04140d99566",
+            "requestSnapshot": "{\"model\": \"flux.2-klein-4b\", \"seed\": 182001, \"source_sha256\": \"925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a\"}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "sample-story-video-node",
+      "type": "studio",
+      "position": {
+        "x": 760,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Main shot",
+        "prompt": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified.",
+        "model": "wan2.2-ti2v-5b",
+        "resolution": "640x384",
+        "ratio": "5:3",
+        "seconds": 3,
+        "status": "completed",
+        "mediaId": "sample-story-video",
+        "selectedTakeId": "sample-story-video-take",
+        "takes": [
+          {
+            "id": "sample-story-video-take",
+            "mediaId": "sample-story-video",
+            "prompt": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified.",
+            "createdAt": "2026-10-18T09:36:37Z",
+            "status": "completed",
+            "model": "ffmpeg-image-edit",
+            "requestSnapshot": "{\"model\": \"ffmpeg-image-edit\", \"seed\": null, \"operation\": \"controlled_image_edit\", \"frames\": 49, \"fps\": 16, \"size\": \"640x384\", \"assets\": [{\"id\": \"sample-story-subject\", \"versionId\": \"sample-story-reference-v1\", \"mediaId\": \"sample-story-image\"}]}"
+          }
+        ],
+        "assetIds": ["sample-story-subject"],
+        "assetVersionIds": {
+          "sample-story-subject": "sample-story-reference-v1"
+        }
+      }
+    },
+    {
+      "id": "sample-story-music-node",
+      "type": "studio",
+      "position": {
+        "x": 380,
+        "y": 380
+      },
+      "data": {
+        "kind": "audio",
+        "title": "Original instrumental soundtrack",
+        "prompt": "Original three-note arpeggio, made for the bundled editing example.",
+        "sourceMode": "upload",
+        "status": "completed",
+        "mediaId": "sample-story-music"
+      }
+    },
+    {
+      "id": "sample-story-assembly-node",
+      "type": "studio",
+      "position": {
+        "x": 1140,
+        "y": 0
+      },
+      "data": {
+        "kind": "video",
+        "title": "Edited sample film",
+        "prompt": "Editable source clip, caption and original music.",
+        "purpose": "assembly",
+        "status": "completed",
+        "mediaId": "sample-story-film",
+        "sourceMode": "upload"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "sample-story-text-edge",
+      "source": "sample-story-script-node",
+      "sourceHandle": "video_prompt",
+      "target": "sample-story-video-node",
+      "targetHandle": "prompt"
+    },
+    {
+      "id": "sample-story-image-edge",
+      "source": "sample-story-image-node",
+      "sourceHandle": "image",
+      "target": "sample-story-video-node",
+      "targetHandle": "first_frame"
+    },
+    {
+      "id": "sample-story-clip-edge",
+      "source": "sample-story-video-node",
+      "sourceHandle": "video",
+      "target": "sample-story-assembly-node",
+      "targetHandle": "clip"
+    },
+    {
+      "id": "sample-story-music-edge",
+      "source": "sample-story-music-node",
+      "sourceHandle": "audio",
+      "target": "sample-story-assembly-node",
+      "targetHandle": "soundtrack"
+    }
+  ],
+  "assets": [
+    {
+      "id": "sample-story-subject",
+      "kind": "character",
+      "title": "An illustrated fox with a blue lantern",
+      "prompt": "A small red fox at the edge of a woodland path, holding a blue lantern in its mouth at dusk, warm storybook cinematic illustration, full body, no text.",
+      "mediaId": "sample-story-image",
+      "profile": {
+        "subjectType": "animal",
+        "appearance": "An illustrated fox with a blue lantern",
+        "continuity": "Use the first-frame design for this short example."
+      },
+      "versions": [
+        {
+          "id": "sample-story-reference-v1",
+          "createdAt": "2026-10-18T09:36:37Z",
+          "prompt": "A small red fox at the edge of a woodland path, holding a blue lantern in its mouth at dusk, warm storybook cinematic illustration, full body, no text.",
+          "mediaId": "sample-story-image"
+        }
+      ]
+    }
+  ],
+  "shots": [
+    {
+      "id": "sample-story-shot",
+      "title": "The lantern path",
+      "textNodeId": "sample-story-script-node",
+      "imageNodeId": "sample-story-image-node",
+      "videoNodeId": "sample-story-video-node",
+      "dialogue": "",
+      "shotCaptionText": "A small light leads the way home.",
+      "shotCaptionDurationSeconds": 3.0625
+    }
+  ],
+  "finalVideoNodeId": "sample-story-assembly-node",
+  "assembledMediaId": "sample-story-film",
+  "production": {
+    "documentVersion": 2,
+    "width": 640,
+    "height": 384,
+    "fps": 16,
+    "fit": "letterbox",
+    "timelineEdited": true,
+    "creativeBrief": {
+      "recipeId": "story",
+      "subject": "An illustrated fox with a blue lantern",
+      "audience": "New video creators",
+      "benefit": "One clear subject and one readable visual action",
+      "callToAction": ""
+    },
+    "guide": {
+      "goal": "story",
+      "step": "edit"
+    },
+    "scenes": [
+      {
+        "id": "sample-story-scene",
+        "title": "The lantern path",
+        "description": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified.",
+        "shotIds": ["sample-story-shot"],
+        "assetIds": ["sample-story-subject"]
+      }
+    ],
+    "shotNarrative": {
+      "sample-story-shot": {
+        "purpose": "establish",
+        "information": "A small light leads the way home.",
+        "emotion": "Calm and inviting",
+        "visualBeat": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified.",
+        "continuityNeeds": "Keep the subject design from the approved first frame."
+      }
+    },
+    "approvedKeyImages": {
+      "sample-story-shot": "sample-story-image"
+    },
+    "timeline": [
+      {
+        "id": "sample-story-clip",
+        "nodeId": "sample-story-video-node",
+        "takeId": "sample-story-video-take",
+        "trimStart": 0,
+        "trimEnd": 3.0625,
+        "caption": "A small light leads the way home.",
+        "captionDuration": 3.0625
+      }
+    ],
+    "audioTracks": [
+      {
+        "id": "sample-story-music-track",
+        "mediaId": "sample-story-music",
+        "start": 0,
+        "offset": 0,
+        "duration": 3.0625,
+        "volume": 0.35
+      }
+    ]
+  }
+}

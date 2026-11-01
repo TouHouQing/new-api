@@ -727,6 +727,7 @@ export function StudioPrevis3D(
             <FieldLabel>{t(`studio.previs.${field}`)}</FieldLabel>
             <Select
               value={advanced[field] || 'none'}
+              disabled={!writable}
               onValueChange={(value) =>
                 update({
                   ...scene,
@@ -741,7 +742,7 @@ export function StudioPrevis3D(
                 ...targets.filter((item) => item.value !== '__camera__'),
               ]}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label={t(`studio.previs.${field}`)}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

@@ -51,7 +51,17 @@ import {
 } from './studio-reference-analysis'
 import { addStudioNode, updateStudioNode } from './workspace'
 
-export function StudioReferenceAnalysisPanel() {
+export function StudioReferenceAnalysisPanel(
+  options: {
+    initialSegment?: {
+      mediaId: string
+      takeId?: string
+      start: number
+      end: number
+    }
+    openInitially?: boolean
+  } = {}
+) {
   const { t, i18n } = useTranslation()
   const { props, writable, mutate, capabilities, path, jobs } =
     useStudioProductionContext()
@@ -68,6 +78,8 @@ export function StudioReferenceAnalysisPanel() {
   const [selected, setSelected] = useState<number[]>([])
   const [error, setError] = useState('')
   const [sourceUrl, setSourceUrl] = useState('')
+  const [sourceDuration, setSourceDuration] = useState<number>()
+  const [presetActive, setPresetActive] = useState(!!options.initialSegment)
   const getMedia = useRef(props.getMedia)
   getMedia.current = props.getMedia
   const models = useQuery({
@@ -84,10 +96,80 @@ export function StudioReferenceAnalysisPanel() {
   const available = models.data?.text || []
   const chosen =
     model || props.project.defaults?.textModel || available[0] || ''
-  const sources = props.project.nodes.filter(
-    (node) => node.data.kind === 'video' && node.data.mediaId
-  )
-  const source = sources.find((node) => node.id === sourceId)
+  const sources = props.project.nodes
+    .filter((node) => node.data.kind === 'video')
+    .flatMap((node) => {
+      const takes = (node.data.takes || [])
+        .filter((take) => take.status === 'completed' && take.mediaId)
+        .map((take, index) => ({
+          id: `${node.id}:${take.id}`,
+          nodeId: node.id,
+          mediaId: take.mediaId || '',
+          takeId: take.id,
+          title: `${node.data.title} · ${t('Take')} ${index + 1}`,
+        }))
+      return [
+        ...takes,
+        ...(node.data.mediaId &&
+        !takes.some((take) => take.mediaId === node.data.mediaId)
+          ? [
+              {
+                id: node.id,
+                nodeId: node.id,
+                mediaId: node.data.mediaId,
+                takeId: undefined,
+                title: node.data.title,
+              },
+            ]
+          : []),
+      ]
+    })
+  const source = sources.find((candidate) => candidate.id === sourceId)
+  const preset = options.initialSegment
+  const presetInput = useRef(preset)
+  presetInput.current = preset
+  const presetSignature = preset
+    ? `${preset.mediaId}:${preset.takeId || ''}:${preset.start}:${preset.end}`
+    : ''
+  const presetSourceId =
+    preset &&
+    sources.find(
+      (candidate) =>
+        candidate.mediaId === preset.mediaId &&
+        (!preset.takeId || candidate.takeId === preset.takeId)
+    )?.id
+  useEffect(() => {
+    const initial = presetInput.current
+    if (!initial) return
+    setPresetActive(true)
+    setSourceId(presetSourceId || '')
+    setStart(initial.start)
+    setEnd(initial.end)
+    setConfirmed(false)
+  }, [presetSignature, presetSourceId])
+  let intervalError = ''
+  if (presetActive && preset && !presetSourceId) {
+    intervalError = t(
+      'The selected source media or exact Take is no longer available in this project.'
+    )
+  } else if (
+    !Number.isFinite(start) ||
+    !Number.isFinite(end) ||
+    start < 0 ||
+    end - start < 0.1 ||
+    end - start > 60 ||
+    end > 3600
+  ) {
+    intervalError = t(
+      'Choose a source interval from 0.1 to 60 seconds, within the first hour.'
+    )
+  } else if (sourceDuration !== undefined && end > sourceDuration + 0.001) {
+    intervalError = t(
+      'The selected interval exceeds the actual video duration.'
+    )
+  }
+  const presetRef = useRef(presetActive)
+  presetRef.current = presetActive
   const results = props.project.nodes.filter(
     (node) => node.data.derivedFrom?.action === 'analyze'
   )
@@ -96,12 +178,13 @@ export function StudioReferenceAnalysisPanel() {
     setConfirmed(false)
   }, [sourceId, start, end, samples, chosen, budget, dimensions])
   useEffect(() => {
-    if (!source?.data.mediaId) return
     let disposed = false
     let owned = ''
     setSourceUrl('')
+    setSourceDuration(undefined)
+    if (!source?.mediaId) return
     void getMedia
-      .current(source.data.mediaId)
+      .current(source.mediaId)
       .then(async (blob) => {
         if (!blob || disposed) return
         owned = URL.createObjectURL(blob)
@@ -114,8 +197,11 @@ export function StudioReferenceAnalysisPanel() {
           const video = await input.getPrimaryVideoTrack()
           const duration = video ? await video.computeDuration() : 0
           if (duration && !disposed) {
-            setStart(0)
-            setEnd(Math.min(60, duration))
+            setSourceDuration(duration)
+            if (!presetRef.current) {
+              setStart(0)
+              setEnd(Math.min(60, duration))
+            }
           }
         } finally {
           input.dispose()
@@ -128,7 +214,7 @@ export function StudioReferenceAnalysisPanel() {
       disposed = true
       if (owned) URL.revokeObjectURL(owned)
     }
-  }, [source?.data.mediaId])
+  }, [source?.mediaId])
   let analysis: StudioReferenceAnalysis | undefined
   const raw = edited || result?.data.outputText || ''
   try {
@@ -147,6 +233,8 @@ export function StudioReferenceAnalysisPanel() {
     writable &&
     capabilities.data?.generation_credit_available === true &&
     source &&
+    !intervalError &&
+    sourceDuration !== undefined &&
     chosen &&
     confirmed &&
     !active &&
@@ -161,7 +249,14 @@ export function StudioReferenceAnalysisPanel() {
     start >= 0 &&
     dimensions.length > 0
   const run = async (): Promise<void> => {
-    if (!source?.data.mediaId) return
+    if (!allowed || !source) {
+      throw new Error(
+        intervalError ||
+          t(
+            'Choose an available source, model and a confirmed analysis budget.'
+          )
+      )
+    }
     const id = crypto.randomUUID()
     const next = updateStudioNode(
       addStudioNode(props.project, 'text', id),
@@ -172,9 +267,9 @@ export function StudioReferenceAnalysisPanel() {
         model: chosen,
         textMode: 'plain',
         derivedFrom: {
-          nodeId: source.id,
-          mediaId: source.data.mediaId,
-          takeId: source.data.selectedTakeId,
+          nodeId: source.nodeId,
+          mediaId: source.mediaId,
+          takeId: source.takeId,
           action: 'analyze',
         },
       }
@@ -182,6 +277,24 @@ export function StudioReferenceAnalysisPanel() {
     props.onUpdate(next)
     await props.onSave()
     const record = await studioCloudRequest<StudioCloudProject>(path)
+    const currentSource = record.document.nodes.find(
+      (node) => node.id === source.nodeId
+    )
+    const bound = source.takeId
+      ? currentSource?.data.takes?.some(
+          (take) =>
+            take.id === source.takeId &&
+            take.mediaId === source.mediaId &&
+            take.status === 'completed'
+        )
+      : currentSource?.data.mediaId === source.mediaId
+    if (!bound) {
+      throw new Error(
+        t(
+          'The selected source media or exact Take is no longer available in this project.'
+        )
+      )
+    }
     await studioCloudRequest(`${path}/jobs`, 'POST', {
       request_id: crypto.randomUUID(),
       revision: record.revision,
@@ -192,7 +305,8 @@ export function StudioReferenceAnalysisPanel() {
       ),
       operation: {
         node_id: id,
-        media_id: source.data.mediaId,
+        media_id: source.mediaId,
+        take_id: source.takeId,
         model: chosen,
         group: props.project.defaults?.videoGroup || 'default',
         language: i18n.language,
@@ -207,7 +321,10 @@ export function StudioReferenceAnalysisPanel() {
     setConfirmed(false)
   }
   return (
-    <Collapsible className='rounded-lg border p-3'>
+    <Collapsible
+      defaultOpen={options.openInitially}
+      className='rounded-lg border p-3'
+    >
       <CollapsibleTrigger render={<Button variant='outline' />}>
         {t('studio.production.analyze')}
       </CollapsibleTrigger>
@@ -219,10 +336,13 @@ export function StudioReferenceAnalysisPanel() {
         </p>
         <Select
           value={sourceId || null}
-          onValueChange={(value) => setSourceId(value || '')}
+          onValueChange={(value) => {
+            setPresetActive(false)
+            setSourceId(value || '')
+          }}
           items={sources.map((node) => ({
             value: node.id,
-            label: node.data.title,
+            label: node.title,
           }))}
         >
           <SelectTrigger aria-label={t('Reference video source')}>
@@ -232,7 +352,7 @@ export function StudioReferenceAnalysisPanel() {
             <SelectGroup>
               {sources.map((node) => (
                 <SelectItem value={node.id} key={node.id}>
-                  {node.data.title}
+                  {node.title}
                 </SelectItem>
               ))}
             </SelectGroup>
@@ -244,6 +364,14 @@ export function StudioReferenceAnalysisPanel() {
             controls
             aria-label={t('Reference video preview')}
             className='max-h-64 w-full rounded-lg bg-black'
+            onLoadedMetadata={(event) => {
+              event.currentTarget.currentTime = start
+            }}
+            onTimeUpdate={(event) => {
+              if (event.currentTarget.currentTime >= end) {
+                event.currentTarget.pause()
+              }
+            }}
           />
         )}
         <div className='grid grid-cols-3 gap-3'>
@@ -282,6 +410,11 @@ export function StudioReferenceAnalysisPanel() {
             </Field>
           ))}
         </div>
+        {intervalError && (
+          <Alert variant='destructive'>
+            <AlertDescription>{intervalError}</AlertDescription>
+          </Alert>
+        )}
         <div className='flex flex-wrap gap-3'>
           {[
             { id: 'shots', label: t('Shot breakdown') },

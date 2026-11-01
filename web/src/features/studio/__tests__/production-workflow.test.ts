@@ -197,7 +197,7 @@ describe('persistent production edits', () => {
           id: 'clip',
           nodeId: 'clip-source',
           trimStart: 1,
-          trimEnd: 5,
+          trimEnd: 3,
           speed: 2,
         },
       ],
@@ -212,6 +212,11 @@ describe('persistent production edits', () => {
       offset: 0.5,
       start: 1,
     })
+    assert(project.production)
+    project.production.timeline[0].trimEnd = 5
+    expect(() => studioTimelineSchedule(project, { video: 3 })).toThrow(
+      'Trim end exceeds the source duration'
+    )
   })
   test('revising an imported script retains shot identity, selected media, narration and edited timeline', () => {
     const screenplay = {

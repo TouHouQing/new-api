@@ -23,6 +23,10 @@ import { useTranslation } from 'react-i18next'
 import { ErrorState } from '@/components/error-state'
 import { Button } from '@/components/ui/button'
 import { AuthRecoveryError } from '@/lib/auth-session'
+import {
+  isPageResourceError,
+  reloadCurrentPage,
+} from '@/lib/page-resource-recovery'
 
 export function AuthRecovery(props: ErrorComponentProps) {
   const { t } = useTranslation()
@@ -45,6 +49,19 @@ export function AuthRecovery(props: ErrorComponentProps) {
       window.clearTimeout(retry)
     }
   }, [retryAt, router, props.error])
+  if (isPageResourceError(props.error)) {
+    return (
+      <ErrorState
+        title={t('Page resources could not load')}
+        description={t(
+          'Check your connection, then reload this page to continue at the same project address.'
+        )}
+        action={
+          <Button onClick={reloadCurrentPage}>{t('Reload this page')}</Button>
+        }
+      />
+    )
+  }
   if (!(props.error instanceof AuthRecoveryError)) {
     return <ErrorState onRetry={() => void router.invalidate()} />
   }

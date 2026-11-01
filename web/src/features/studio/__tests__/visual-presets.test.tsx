@@ -26,6 +26,9 @@ import { StudioVisualPresetLibrary } from '../studio-visual-preset-library'
 import {
   STUDIO_VISUAL_PRESETS,
   studioApplyVisualPreset,
+  studioRemoveVisualPreset,
+  studioRestoreVisualPreset,
+  studioVisualPresetVersion,
   type StudioVisualPreset,
 } from '../studio-visual-presets'
 import { addStudioNode, createStudioProject } from '../workspace'
@@ -58,6 +61,142 @@ test('visual preset edits inputs while retaining source media and approved Takes
   }
   const first = { ...data, ...studioApplyVisualPreset(data, style) }
   expect(studioApplyVisualPreset(first, style).prompt).toBe(first.prompt)
+})
+
+test('removing an applied preset protects hand edits, shared fields and immutable media history', () => {
+  const project = addStudioNode(
+    createStudioProject('Film', 'film'),
+    'video',
+    'shot'
+  )
+  const push = STUDIO_VISUAL_PRESETS[0]
+  const cinema = STUDIO_VISUAL_PRESETS.find(
+    (item) => item.id === 'style-cinema'
+  )
+  if (!cinema) throw new Error('Missing cinema preset')
+  const shared = { ...push, id: 'shared', camera: { lens: '50mm' } }
+  const data = {
+    ...project.nodes[0].data,
+    prompt: `My hand edited cinema phrase: ${cinema.prompt} with softer skin.`,
+    camera: {
+      movement: 'my manual path',
+      shotSize: 'medium shot',
+      lens: '50mm',
+    },
+    visualPresetIds: ['camera-push@1', 'shared@1', 'style-cinema@1'],
+    mediaId: 'approved-media',
+    selectedTakeId: 'approved-take',
+    takes: [
+      {
+        id: 'approved-take',
+        mediaId: 'approved-media',
+        prompt: 'original',
+        createdAt: new Date().toISOString(),
+        status: 'completed' as const,
+      },
+    ],
+  }
+  const result = studioRemoveVisualPreset(data, 'camera-push@1', [
+    ...STUDIO_VISUAL_PRESETS,
+    shared,
+  ])
+  expect(result.changes).toEqual([{ field: 'shotSize', value: 'medium shot' }])
+  const updated = { ...data, ...result.patch }
+  expect(updated.camera).toEqual({ movement: 'my manual path', lens: '50mm' })
+  expect(updated.takes).toBe(data.takes)
+  expect(updated.mediaId).toBe('approved-media')
+  expect(updated.selectedTakeId).toBe('approved-take')
+  expect(
+    studioRemoveVisualPreset(updated, 'style-cinema@1', STUDIO_VISUAL_PRESETS)
+      .patch.prompt
+  ).toBe(data.prompt)
+})
+
+test('removal uses fixed historical preset definitions and clears only an exact appended prompt line', () => {
+  const project = addStudioNode(
+    createStudioProject('Film', 'film'),
+    'video',
+    'shot'
+  )
+  const base = STUDIO_VISUAL_PRESETS.find((item) => item.id === 'style-cinema')
+  if (!base) throw new Error('Missing cinema preset')
+  const revised = {
+    ...base,
+    version: 2,
+    archived: true,
+    prompt: 'new style',
+    history: [{ ...base, version: 1 }],
+  }
+  const data = {
+    ...project.nodes[0].data,
+    prompt: `My subject\n${base.prompt}`,
+    visualPresetIds: ['style-cinema@1'],
+  }
+  expect(studioVisualPresetVersion('style-cinema@1', [revised])?.prompt).toBe(
+    base.prompt
+  )
+  expect(
+    studioRemoveVisualPreset(data, 'style-cinema@1', [revised]).patch
+  ).toMatchObject({ prompt: 'My subject', visualPresetIds: [] })
+  const restored = studioRestoreVisualPreset(revised)
+  expect(restored.version).toBe(3)
+  expect(restored.history.map((item) => item.version)).toEqual([1, 2])
+  expect(studioVisualPresetVersion('style-cinema@2', [restored])?.prompt).toBe(
+    'new style'
+  )
+  expect(() =>
+    studioRestoreVisualPreset({
+      ...revised,
+      history: Array.from({ length: 20 }, (_, index) => ({
+        ...base,
+        version: index + 1,
+      })),
+    })
+  ).toThrow('Preset history is full')
+})
+
+test('personal preset archive and restore retain fixed definitions and applied links', () => {
+  const project = addStudioNode(
+    createStudioProject('Film', 'film'),
+    'video',
+    'shot'
+  )
+  const personal = {
+    ...STUDIO_VISUAL_PRESETS[0],
+    id: 'mine',
+    name: 'My archived camera',
+  }
+  project.nodes[0].data.visualPresetIds = ['mine@1']
+  let latest: StudioVisualPreset[] = []
+  function Host() {
+    const [presets, setPresets] = useState([personal])
+    return (
+      <StudioVisualPresetLibrary
+        node={project.nodes[0]}
+        presets={presets}
+        favorites={[]}
+        onApply={() => {}}
+        onSave={(next) => {
+          latest = next
+          setPresets(next)
+        }}
+        demoManifest={{}}
+      />
+    )
+  }
+  render(<Host />)
+  fireEvent.click(screen.getByRole('button', { name: 'Archive preset' }))
+  expect(latest[0]).toMatchObject({ id: 'mine', version: 1, archived: true })
+  expect(screen.queryByText('My archived camera · v1')).toBeVisible() // applied fixed version remains
+  fireEvent.click(screen.getByRole('button', { name: 'Archived presets' }))
+  expect(
+    screen.getByRole('button', { name: 'Restore archived preset' })
+  ).toBeVisible()
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Restore archived preset' })
+  )
+  expect(latest[0].archived).toBe(false)
+  expect(project.nodes[0].data.visualPresetIds).toEqual(['mine@1'])
 })
 
 test('personal preset can be saved, revised, rolled back and reopened with its license', () => {
@@ -114,7 +253,10 @@ test('personal preset can be saved, revised, rolled back and reopened with its l
   )
   expect(reopened.production?.visualPresets[0]).toMatchObject({
     name: 'My camera',
-    version: 1,
+    version: 3,
     license: 'Owned settings',
   })
+  expect(
+    reopened.production?.visualPresets[0].history.map((item) => item.version)
+  ).toEqual([1, 2])
 })

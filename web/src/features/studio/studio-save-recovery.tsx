@@ -1,7 +1,19 @@
 /*
 Copyright (C) 2023-2026 QuantumNous
-This program is free software under the GNU Affero General Public License,
-version 3 or later. See <https://www.gnu.org/licenses/>.
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
 For commercial licensing, please contact support@quantumnous.com
 */
 import { useState } from 'react'
@@ -50,6 +62,7 @@ export function StudioSaveRecovery(props: {
     )
   }
   const value = (project: StudioProject, path: string) => {
+    const wholeShot = /^project\.nodes\[[^\]]+\]$/.test(path)
     const parts = path
       .replace(/^project\.?/, '')
       .replaceAll(/\[([^\]]+)\]/g, '.$1')
@@ -60,7 +73,13 @@ export function StudioSaveRecovery(props: {
         result = result.find((item: { id?: string }) => item?.id === part)
       } else if (result && typeof result === 'object') {
         result = (result as Record<string, unknown>)[part]
-      } else return '—'
+      } else return wholeShot ? t('Shot deleted in this version') : '—'
+    }
+    if (result === undefined && wholeShot) {
+      return t('Shot deleted in this version')
+    }
+    if (path.endsWith('.data.locked') && typeof result === 'boolean') {
+      return result ? t('Shot locked') : t('Shot unlocked')
     }
     if (Array.isArray(result)) {
       return result
@@ -71,6 +90,16 @@ export function StudioSaveRecovery(props: {
         .join(' · ')
     }
     if (result && typeof result === 'object') {
+      if ('data' in result && result.data && typeof result.data === 'object') {
+        return Object.entries(result.data)
+          .filter(
+            ([key, value]) =>
+              ['title', 'prompt', 'text'].includes(key) &&
+              typeof value === 'string'
+          )
+          .map(([, value]) => String(value))
+          .join(' · ')
+      }
       return (
         Object.entries(result)
           .filter(
@@ -101,18 +130,32 @@ export function StudioSaveRecovery(props: {
           )}
         </p>
         {conflict &&
-          [...new Set(paths.length ? paths : [path])].map((path) => (
-            <dl key={path} className='grid gap-1 border-b pb-2 text-sm'>
-              <dt>{t('My conflicting value')}</dt>
-              <dd className='max-h-24 overflow-auto break-words whitespace-pre-wrap'>
-                {value(conflict.local, path)}
-              </dd>
-              <dt>{t('Cloud conflicting value')}</dt>
-              <dd className='max-h-24 overflow-auto break-words whitespace-pre-wrap'>
-                {value(conflict.remote.document, path)}
-              </dd>
-            </dl>
-          ))}
+          [...new Set(paths.length ? paths : [path])].map((path) => {
+            const shotId = path.match(/^project\.nodes\[([^\]]+)\]/)?.[1]
+            const shot = [
+              ...conflict.local.nodes,
+              ...conflict.remote.document.nodes,
+              ...conflict.base.nodes,
+            ].find((node) => node.id === shotId)
+            return (
+              <dl key={path} className='grid gap-1 border-b pb-2 text-sm'>
+                {shot && (
+                  <>
+                    <dt>{t('Conflicting shot')}</dt>
+                    <dd className='font-medium'>{shot.data.title}</dd>
+                  </>
+                )}
+                <dt>{t('My conflicting value')}</dt>
+                <dd className='max-h-24 overflow-auto break-words whitespace-pre-wrap'>
+                  {value(conflict.local, path)}
+                </dd>
+                <dt>{t('Cloud conflicting value')}</dt>
+                <dd className='max-h-24 overflow-auto break-words whitespace-pre-wrap'>
+                  {value(conflict.remote.document, path)}
+                </dd>
+              </dl>
+            )
+          })}
         <div className='flex flex-wrap gap-2'>
           {props.conflict ? (
             <>

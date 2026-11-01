@@ -47,14 +47,14 @@ func StudioMediaReferences(document map[string]any) map[string]bool {
 		switch item := value.(type) {
 		case map[string]any:
 			for key, value := range item {
-				if key == "mediaId" || strings.HasSuffix(key, "MediaId") {
+				if key == "mediaId" || key == "media_id" || strings.HasSuffix(key, "MediaId") {
 					if id, ok := value.(string); ok && id != "" {
 						ids[id] = true
 					}
-				} else if key == "mediaIds" || key == "referenceMediaIds" || key == "musicMediaIds" {
+				} else if key == "mediaIds" || key == "referenceMediaIds" || key == "reference_media_ids" || key == "musicMediaIds" {
 					if values, ok := value.([]any); ok {
 						for _, value := range values {
-							if id, ok := value.(string); ok {
+							if id, ok := value.(string); ok && id != "" {
 								ids[id] = true
 							}
 						}
@@ -349,6 +349,9 @@ func SaveStudioMedia(ownerID int, mediaID, mediaType string, content io.Reader) 
 	}
 	if size == 0 || size > StudioMaxMediaBytes {
 		return nil, errors.New("media must be between 1 byte and 512 MiB")
+	}
+	if err := ValidateStudioImageContent(temporary.Name(), mediaType); err != nil {
+		return nil, err
 	}
 	media := model.StudioMedia{OwnerID: ownerID, MediaID: mediaID, MimeType: mediaType, Size: size, Digest: hex.EncodeToString(hash.Sum(nil))}
 	var existing model.StudioMedia

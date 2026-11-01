@@ -1,0 +1,12 @@
+plugin-packages/*.sh text eol=lf
+# Embedded skill hashes and source contracts must have identical bytes on Windows.
+*.ts text eol=lf
+*.tsx text eol=lf
+*.css text eol=lf
+*.py text eol=lf
+*.mjs text eol=lf
+*.sh text eol=lf
+*.json text eol=lf
+*.yingce-plugin binary
+# Preserve upstream license notices, including their original whitespace.
+LICENSES/*.txt text eol=lf -whitespace

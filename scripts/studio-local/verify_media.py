@@ -1,6 +1,10 @@
 """Exercise durable media workflows against the isolated offline fixture channel."""
 import argparse
 import json
+import math
+import os
+import shutil
+import subprocess
 import time
 import uuid
 from pathlib import Path
@@ -15,11 +19,14 @@ def main():
     token = json.loads((lab / 'agent-token.json').read_text())['token']
     assert json.load(urlopen('http://127.0.0.1:13002/__local/status'))['offline'] is True
 
-    def api(route, method='GET', body=None):
+    def api(route, method='GET', body=None, binary=False):
         data = None if body is None else json.dumps(body).encode()
         request = Request('http://127.0.0.1:13000/api' + route, data=data, method=method,
                           headers={'Authorization': 'Bearer ' + token, 'New-Api-User': '1', 'Content-Type': 'application/json'})
-        response = json.load(urlopen(request, timeout=30))
+        with urlopen(request, timeout=30) as received:
+            if binary:
+                return received.read()
+            response = json.load(received)
         assert response.get('success') is True, response.get('message')
         return response.get('data')
 
@@ -36,6 +43,13 @@ def main():
     video_id = next(n['data']['mediaId'] for n in source['nodes'] if n['data']['kind'] == 'video' and n['data'].get('mediaId'))
     results = []
     voice_id = ''
+    def actual_duration(media_id):
+        probe = os.environ.get('STUDIO_FFPROBE_PATH') or shutil.which('ffprobe') or str(lab.parent / 'ffmpeg/ffmpeg-9.0.2-essentials_build/bin/ffprobe.exe')
+        content = api('/studio/cloud/media/' + media_id + '?project_id=' + project_id, binary=True)
+        value = subprocess.run([probe, '-v', 'error', '-show_entries', 'format=duration', '-of', 'default=nw=1:nk=1', '-i', 'pipe:0'], input=content, stdout=subprocess.PIPE, check=True, timeout=30)
+        seconds = float(value.stdout)
+        assert math.isfinite(seconds) and seconds >= .1, 'Lip source duration is unavailable'
+        return seconds
     for action, model in actions.items():
         current = api('/studio/cloud/projects/' + project_id)
         refs = [audio_id] if action == 'voice_clone' else []
@@ -43,6 +57,9 @@ def main():
             refs = [audio_id, video_id]
         operation = {'action': action, 'node_id': action, 'model': model, 'prompt': 'Offline fixture', 'seconds': 2,
                      'reference_media_ids': refs, 'confirm_voice_rights': action == 'voice_clone', 'voice_id': voice_id}
+        if action == 'lip_sync':
+            seconds = math.floor(min(30, actual_duration(audio_id), actual_duration(video_id)) * 1000) / 1000
+            operation.update(seconds=seconds, edit={'start': 0, 'end': seconds, 'x': 0, 'y': 0, 'width': 0, 'height': 0}, options={'lip_audio_start': 0})
         job = api('/studio/cloud/projects/' + project_id + '/jobs', 'POST', {
             'request_id': str(uuid.uuid4()), 'revision': current['revision'], 'kind': 'media', 'budget': 1000,
             'confirm_generation': True, 'operation': operation})

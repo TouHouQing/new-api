@@ -26,7 +26,7 @@ import {
 } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import i18n from 'i18next'
-import { useEffect, type ReactElement } from 'react'
+import { useEffect, useState, type ReactElement } from 'react'
 import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest'
 
 import { useAuthStore } from '@/stores/auth-store'
@@ -217,7 +217,20 @@ vi.mock('./studio-project-bundle', () => ({
   importStudioProjectBundle: vi.fn(),
 }))
 
+function validPngBytes() {
+  return Uint8Array.from(
+    atob(
+      'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAYAAABytg0kAAAAFUlEQVR4nGO8JOf2n4GBgYEJRIAwACIUAjm9GWtzAAAAAElFTkSuQmCC'
+    ),
+    (character) => character.charCodeAt(0)
+  )
+}
+
 beforeEach(() => {
+  vi.stubGlobal(
+    'createImageBitmap',
+    vi.fn(async () => ({ width: 1, height: 1, close: vi.fn() }))
+  )
   rejectNextMediaPut = false
   rejectNextProjectSave = false
   preflightTestState.autoConfirm = true
@@ -238,6 +251,70 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks()
   vi.unstubAllGlobals()
+})
+
+test('switching projects releases shared preview URLs and revisiting reloads the exact source', async () => {
+  const firstBlob = new Blob(['first picture'], { type: 'image/png' })
+  const secondBlob = new Blob(['second picture'], { type: 'image/png' })
+  storedMedia.set('12:first-picture', firstBlob)
+  storedMedia.set('12:second-picture', secondBlob)
+  const first = updateStudioNode(
+    addStudioNode(
+      createStudioProject('First', 'preview-first'),
+      'image',
+      'first-node'
+    ),
+    'first-node',
+    { mediaId: 'first-picture', status: 'completed' }
+  )
+  const second = updateStudioNode(
+    addStudioNode(
+      createStudioProject('Second', 'preview-second'),
+      'image',
+      'second-node'
+    ),
+    'second-node',
+    { mediaId: 'second-picture', status: 'completed' }
+  )
+  saveStudioProjects(localStorage, 12, [first, second])
+  let sequence = 0
+  const created = vi
+    .spyOn(URL, 'createObjectURL')
+    .mockImplementation(() => `blob:project-preview-${++sequence}`)
+  const revoked = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+  function Host() {
+    const [id, setId] = useState(first.id)
+    return (
+      <>
+        <button type='button' onClick={() => setId(second.id)}>
+          Open second preview project
+        </button>
+        <button type='button' onClick={() => setId(first.id)}>
+          Return to first preview project
+        </button>
+        <Studio workspace='canvas' project={id} />
+      </>
+    )
+  }
+  render(<Host />)
+  await waitFor(() => expect(created).toHaveBeenCalledWith(firstBlob))
+  const original = created.mock.results.find(
+    (_, index) => created.mock.calls[index][0] === firstBlob
+  )?.value
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Open second preview project' })
+  )
+  await waitFor(() => expect(created).toHaveBeenCalledWith(secondBlob))
+  expect(revoked).toHaveBeenCalledWith(original)
+  const count = created.mock.calls.filter(([blob]) => blob === firstBlob).length
+  fireEvent.click(
+    screen.getByRole('button', { name: 'Return to first preview project' })
+  )
+  await waitFor(() =>
+    expect(
+      created.mock.calls.filter(([blob]) => blob === firstBlob)
+    ).toHaveLength(count + 1)
+  )
 })
 
 describe('Studio account isolation', () => {
@@ -407,7 +484,7 @@ describe('Studio account isolation', () => {
     rejectNextMediaPut = true
     fireEvent.change(screen.getByLabelText('studio.image.local'), {
       target: {
-        files: [new File(['replacement'], 'new.png', { type: 'image/png' })],
+        files: [new File([validPngBytes()], 'new.png', { type: 'image/png' })],
       },
     })
     await screen.findByText('image storage unavailable')
@@ -1284,7 +1361,7 @@ describe('Studio account isolation', () => {
 
   test('copies a completed previous shot frame into the next manual image node', async () => {
     vi.mocked(captureStudioLastFrame).mockResolvedValue(
-      new Blob(['png'], { type: 'image/png' })
+      new Blob([validPngBytes()], { type: 'image/png' })
     )
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:qa-frame')
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
@@ -1990,7 +2067,9 @@ describe('Studio account isolation', () => {
     saveStudioProjects(localStorage, 12, [project])
     render(<Studio />)
     fireEvent.click(await screen.findByRole('button', { name: 'Image 2' }))
-    const image = new File(['image bytes'], 'frame.png', { type: 'image/png' })
+    const image = new File([validPngBytes()], 'frame.png', {
+      type: 'image/png',
+    })
     fireEvent.change(screen.getByLabelText('studio.image.local'), {
       target: { files: [image] },
     })

@@ -36,7 +36,31 @@ func ValidateStudioMediaOperation(ownerID int, document map[string]any, operatio
 	default:
 		return errors.New("unsupported production media operation")
 	}
+	if strings.TrimSpace(operation.Prompt) == "" && (operation.Action == "sound_effects" || operation.Action == "image_grid" && (operation.Options == nil || len(operation.Options.PanelPrompts) == 0)) {
+		return errors.New("Describe the sound or at least one image panel before generating.")
+	}
+	if operation.Action == "video_depth" {
+		if operation.Options == nil {
+			operation.Options = &StudioToolOptions{}
+		}
+		if operation.Options.Width == 0 {
+			operation.Options.Width = 384
+		}
+		if operation.Options.Height == 0 {
+			operation.Options.Height = 224
+		}
+		size := [2]int{operation.Options.Width, operation.Options.Height}
+		if !slices.Contains([][2]int{{640, 384}, {384, 640}, {640, 480}, {480, 640}, {512, 512}, {384, 224}, {224, 384}}, size) {
+			return errors.New("Choose a supported VACE resolution for the depth reference")
+		}
+		if operation.Seconds > 10 && size != [2]int{384, 224} && size != [2]int{224, 384} {
+			return errors.New("Long depth references use 384x224 or 224x384 on this workstation")
+		}
+	}
 	if options := operation.Options; options != nil {
+		if options.LipAudioStart != nil && (operation.Action != "lip_sync" || math.IsNaN(*options.LipAudioStart) || math.IsInf(*options.LipAudioStart, 0) || *options.LipAudioStart < 0 || *options.LipAudioStart > 3600) {
+			return errors.New("audio source start is only valid for lip sync, between zero and 3600 seconds")
+		}
 		if len(options.PanelPrompts) > 16 || options.RedoPanel < 0 || options.RedoPanel > 16 || len(options.BackgroundPrompt) > 2000 {
 			return errors.New("invalid image repair plan")
 		}
@@ -128,6 +152,15 @@ func ValidateStudioMediaOperation(ownerID int, document map[string]any, operatio
 		media, err := GetStudioMedia(ownerID, id)
 		if err != nil {
 			return err
+		}
+		if strings.HasPrefix(media.MimeType, "image/") {
+			path, err := StudioMediaPath(media)
+			if err != nil {
+				return err
+			}
+			if err := ValidateStudioImageContent(path, media.MimeType); err != nil {
+				return err
+			}
 		}
 		if strings.HasPrefix(media.MimeType, "video/") && operation.Action == "video_depth" {
 			videoCount++
@@ -236,6 +269,11 @@ func ValidateStudioMediaOperation(ownerID int, document map[string]any, operatio
 	}
 	if operation.Action == "lip_sync" && (!audio || !video) {
 		return errors.New("lip sync requires audio and video references")
+	}
+	if operation.Action == "lip_sync" {
+		if err := validateStudioLipSync(ownerID, operation); err != nil {
+			return err
+		}
 	}
 	if operation.Action == "video_depth" && (videoCount != 1 || !video || operation.Seconds < 1 || operation.Seconds > 30) {
 		return errors.New("depth reference requires a stored video and one to thirty seconds")

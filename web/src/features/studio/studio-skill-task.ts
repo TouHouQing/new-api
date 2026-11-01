@@ -59,6 +59,7 @@ export const studioSkillTaskSchema = z
         reference_media_ids: z.array(id).max(12).default([]),
         options: z
           .strictObject({
+            lip_audio_start: z.number().min(0).max(3600).optional(),
             panel_prompts: z
               .array(z.string().min(1).max(3000))
               .max(16)
@@ -94,8 +95,8 @@ export const studioSkillTaskSchema = z
             end: z.number().min(0).max(3600),
             x: z.number().int().min(0).max(8192),
             y: z.number().int().min(0).max(8192),
-            width: z.number().int().min(2).max(8192),
-            height: z.number().int().min(2).max(8192),
+            width: z.number().int().min(0).max(8192),
+            height: z.number().int().min(0).max(8192),
           })
           .optional(),
       })

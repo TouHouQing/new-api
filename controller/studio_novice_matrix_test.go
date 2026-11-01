@@ -36,8 +36,16 @@ func TestStudioNoviceDatabaseMatrix(t *testing.T) {
 			if engine.dsn == "" {
 				t.Skip("dedicated database not configured")
 			}
-			db, err := gorm.Open(engine.dialect(engine.dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent), NamingStrategy: schema.NamingStrategy{TablePrefix: fmt.Sprintf("novice_%d_", time.Now().UnixNano())}})
+			prefix := fmt.Sprintf("novice_%d_", time.Now().UnixNano())
+			db, err := gorm.Open(engine.dialect(engine.dsn), &gorm.Config{Logger: logger.Default.LogMode(logger.Silent), NamingStrategy: schema.NamingStrategy{TablePrefix: prefix}})
 			require.NoError(t, err)
+			sqlDB, err := db.DB()
+			require.NoError(t, err)
+			sqlDB.SetMaxOpenConns(1)
+			if engine.name == "postgres" {
+				require.NoError(t, db.Exec(`CREATE SCHEMA "`+prefix+`"`).Error)
+				require.NoError(t, db.Exec(`SET search_path TO "`+prefix+`"`).Error)
+			}
 			old := model.DB
 			model.DB = db
 			tables := []any{&model.User{}, &model.UserSubscription{}, &model.StudioProject{}, &model.StudioProjectVersion{}, &model.StudioProjectMember{}, &model.StudioWorkflowJob{}, &model.Token{}}
@@ -46,7 +54,9 @@ func TestStudioNoviceDatabaseMatrix(t *testing.T) {
 				for i := len(tables) - 1; i >= 0; i-- {
 					require.NoError(t, db.Migrator().DropTable(tables[i]))
 				}
-				sqlDB, _ := db.DB()
+				if engine.name == "postgres" {
+					require.NoError(t, db.Exec(`DROP SCHEMA "`+prefix+`" CASCADE`).Error)
+				}
 				sqlDB.Close()
 			})
 			require.NoError(t, db.AutoMigrate(tables...))

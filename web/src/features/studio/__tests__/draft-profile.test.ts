@@ -11,7 +11,7 @@ import {
 } from '../studio-draft-profile'
 import { addStudioNode, createStudioProject } from '../workspace'
 
-test('a real local draft profile keeps duration, references and the existing result when restored to final', () => {
+test('a local trial uses a shorter clip at a verified frame size and restores the requested final duration', () => {
   const project = addStudioNode(
     createStudioProject('Film', 'film'),
     'video',
@@ -28,8 +28,8 @@ test('a real local draft profile keeps duration, references and the existing res
   })
   const draft = studioSetDraftStage(project, 'video', 'draft')
   expect(draft.nodes[0].data).toMatchObject({
-    resolution: '224x384',
-    seconds: 3,
+    resolution: '384x640',
+    seconds: 2,
     mediaId: 'old-result',
     prompt: 'A slow camera move',
     metadataJson: '{"seed":123}',
@@ -37,6 +37,9 @@ test('a real local draft profile keeps duration, references and the existing res
   expect(
     studioSetDraftStage(draft, 'video', 'final').nodes[0].data.resolution
   ).toBe('384x640')
+  expect(
+    studioSetDraftStage(draft, 'video', 'final').nodes[0].data.seconds
+  ).toBe(3)
   expect(project.nodes[0].data.resolution).toBe('384x640')
 })
 
@@ -60,7 +63,7 @@ test('unsupported models and custom payloads cannot pretend to use a draft profi
 test('Take labels come from the completed request, without guessing from edited settings', () => {
   expect(
     studioTakeSizeLabel('{"model":"wan2.2-ti2v-5b","size":"384x224"}')
-  ).toBe('Draft size')
+  ).toBe('Legacy draft size needs picture review')
   expect(
     studioTakeSizeLabel('{"model":"wan2.2-ti2v-5b","size":"640x384"}')
   ).toBe('Final size')
@@ -68,4 +71,37 @@ test('Take labels come from the completed request, without guessing from edited 
     studioTakeSizeLabel('{"model":"other","size":"384x224"}')
   ).toBeUndefined()
   expect(studioTakeSizeLabel(undefined)).toBeUndefined()
+  expect(
+    studioTakeSizeLabel(
+      '{"model":"wan2.2-ti2v-5b","size":"640x384","seconds":"2"}'
+    )
+  ).toBe('Short preview clip')
+})
+
+test('old unsafe dimensions are upgraded and custom dimensions cannot bypass the trial settings', () => {
+  const project = addStudioNode(
+    createStudioProject('Film', 'film'),
+    'video',
+    'video'
+  )
+  Object.assign(project.nodes[0].data, {
+    model: 'wan2.2-ti2v-5b',
+    resolution: '384x224',
+    seconds: 6,
+  })
+  const trial = studioSetDraftStage(project, 'video', 'draft')
+  expect(trial.nodes[0].data.resolution).toBe('640x384')
+  expect(
+    studioSetDraftStage(trial, 'video', 'final').nodes[0].data.seconds
+  ).toBe(6)
+  for (const metadataJson of [
+    '{"frames":241}',
+    '{"resolution":"384x224"}',
+    '{"fps":8}',
+  ]) {
+    project.nodes[0].data.metadataJson = metadataJson
+    expect(() => studioSetDraftStage(project, 'video', 'draft')).toThrow(
+      /custom frame/
+    )
+  }
 })

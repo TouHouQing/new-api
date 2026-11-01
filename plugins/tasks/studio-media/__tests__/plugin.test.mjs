@@ -2,6 +2,19 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { parseTaskResult, listArtifacts, buildSubmitRequest, extractUsage, extractUsageOnComplete } from "../plugin.js";
 
+test("lip-sync preserves the independent audio source clock including explicit zero", () => {
+  const ctx = { model: "studio-lip-sync", baseUrl: "https://local-worker.invalid", requestBody: { operation: "lip_sync", prompt: "你好，一起看植物。", seconds: 2.6161, references: [{ type: "video", url: "data:video/mp4;base64,eA==" }, { type: "audio", url: "data:audio/wav;base64,eQ==" }], edit: { start: 0, end: 2.6161, x: 0, y: 0, width: 0, height: 0, rotation: 0, speed: 0 }, options: { lip_audio_start: 0, expression: 0 } } };
+  for (const offset of [0, .5, 3600]) {
+    const request = { ...ctx, requestBody: { ...ctx.requestBody, options: { lip_audio_start: offset } } };
+    assert.equal(buildSubmitRequest(request).body.options.lip_audio_start, offset);
+    assert.deepEqual(extractUsage(request), { seconds: 2.6161 });
+  }
+  for (const offset of [-1, 3601, true, "0", Infinity, NaN]) {
+    assert.throws(() => buildSubmitRequest({ ...ctx, requestBody: { ...ctx.requestBody, options: { lip_audio_start: offset } } }), /Audio source start/);
+  }
+  assert.throws(() => buildSubmitRequest({ model: "studio-music", requestBody: { operation: "music", seconds: 2, prompt: "", options: { lip_audio_start: 0 } } }), /Audio source start/);
+});
+
 test("song options survive the worker boundary and missing lyrics are rejected", () => {
   const ctx = { model: "studio-music", baseUrl: "https://local-worker.invalid", requestBody: { operation: "music", prompt: "Original song", seconds: 30, options: { music_mode: "song", lyrics: "Light upon the hill", bpm: 100, seed: 0 } } };
   assert.deepEqual(buildSubmitRequest(ctx).body.options, ctx.requestBody.options);

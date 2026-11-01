@@ -1,0 +1,33 @@
+{
+  "format": 1,
+  "upstream": {
+    "repository": "https://github.com/ddcat-ai/open-ai-canvas",
+    "ref": "main",
+    "commit": "82fc5c03233c33380a5335146c50bb507deb5692",
+    "previousBase": "9fdebd07841b71caf4fa5e116b8a3b8af3a959ea",
+    "integratedCommitCount": 158
+  },
+  "fork": {
+    "repository": "https://github.com/TouHouQing/open-ai-canvas",
+    "ref": "codex/yingce-platform",
+    "commit": "bc323250bb24eb76abbf13c98eeeda7b9415922d",
+    "retainedBase": "6fb619af8d7c46364ee8e9e0da06f137ef7c8bb2"
+  },
+  "vendoredSource": {
+    "directory": "workbench",
+    "files": 5975,
+    "bytes": 245503810,
+    "manifestSHA256": "51346e54eee258cbb5cee3380083d870bbad140824847393532c2c1712c5ab4c"
+  },
+  "exclusions": [
+    ".github/ CI workflows (host uses its own)",
+    "outputs/ generated acceptance artifacts",
+    "docs/public/ and docs/.source/ published documentation assets",
+    ".local/ local state",
+    "backend/server loose executable",
+    "plugin-packages/official-payment-*/backend/provider* loose executables (official .yingce-plugin bundles retained)",
+    "web/src/pages/dramas/ obsolete aliases",
+    "Python bytecode and TypeScript build caches"
+  ],
+  "localChanges": "See INTEGRATION.md and UPSTREAM-REVIEW.md; hosted auth, relay, billing and retained production tools are source changes in the fork"
+}

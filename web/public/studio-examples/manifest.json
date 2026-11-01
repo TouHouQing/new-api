@@ -1,0 +1,375 @@
+{
+  "version": 1,
+  "samples": [
+    {
+      "id": "store",
+      "version": 1,
+      "duration": 3.0625,
+      "width": 640,
+      "height": 384,
+      "film_url": "/studio-examples/store/film.mp4",
+      "poster_url": "/studio-examples/store/poster.jpg",
+      "project_url": "/studio-examples/store/project.json",
+      "source": "Original local FLUX.2 Klein 4B / Wan 2.2 TI2V 5B outputs, edited for new-api; no third-party stock footage.",
+      "license": "Original example assets. Review the model and supplied asset licenses before commercial delivery. Fictional subjects; no identity or celebrity impersonation.",
+      "verification": "verified",
+      "method": "native-video",
+      "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio.",
+      "inputs": [
+        {
+          "key": "subject",
+          "label": "Subject",
+          "value": "Willow Corner coffee shop"
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "value": "Willow Corner - a fresh pause."
+        }
+      ],
+      "media": [
+        {
+          "id": "sample-store-image",
+          "url": "/studio-examples/store/first-frame.png",
+          "mime_type": "image/png",
+          "sha256": "e6119e1257a738c6ae44f67320c5cd26b42e812449a3b2793511ed4fd9020945",
+          "bytes": 268349
+        },
+        {
+          "id": "sample-store-video",
+          "url": "/studio-examples/store/source.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b",
+          "bytes": 292219
+        },
+        {
+          "id": "sample-store-film",
+          "url": "/studio-examples/store/film.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "7f67f4ee1a094378f65e38e22f4f18c81fea04a224193a53c1c993844458faa7",
+          "bytes": 319399
+        },
+        {
+          "id": "sample-store-music",
+          "url": "/studio-examples/shared/music.mp3",
+          "mime_type": "audio/mpeg",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "bytes": 48500
+        }
+      ]
+    },
+    {
+      "id": "product",
+      "version": 1,
+      "duration": 3.0625,
+      "width": 640,
+      "height": 384,
+      "film_url": "/studio-examples/product/film.mp4",
+      "poster_url": "/studio-examples/product/poster.jpg",
+      "project_url": "/studio-examples/product/project.json",
+      "source": "Original local FLUX.2 Klein 4B first frame with precise FFmpeg image editing, edited for new-api; no third-party stock footage.",
+      "license": "Original example assets. Review the model and supplied asset licenses before commercial delivery. Fictional subjects; no identity or celebrity impersonation.",
+      "verification": "verified",
+      "method": "image-edit",
+      "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio. This sample preserves the clean FLUX-generated subject with a precise FFmpeg image edit. The rejected native Wan attempt is not used and is not claimed as verified.",
+      "inputs": [
+        {
+          "key": "subject",
+          "label": "Subject",
+          "value": "A blue ceramic travel mug"
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "value": "Ready for the everyday journey."
+        }
+      ],
+      "media": [
+        {
+          "id": "sample-product-image",
+          "url": "/studio-examples/product/first-frame.png",
+          "mime_type": "image/png",
+          "sha256": "b5c28abf65c3521b1775b1f841fab726371af5da45e5e8307076a84ca18388f4",
+          "bytes": 173880
+        },
+        {
+          "id": "sample-product-video",
+          "url": "/studio-examples/product/source.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "e8fb10d19fdd8d04ce11066b1c205ced966076bc690745113a69c078dee395db",
+          "bytes": 46621
+        },
+        {
+          "id": "sample-product-film",
+          "url": "/studio-examples/product/film.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "37633071084fa9790da0bcb47478c76adf3d32edd150e67c5369ce24b524ccef",
+          "bytes": 81717
+        },
+        {
+          "id": "sample-product-music",
+          "url": "/studio-examples/shared/music.mp3",
+          "mime_type": "audio/mpeg",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "bytes": 48500
+        }
+      ]
+    },
+    {
+      "id": "story",
+      "version": 1,
+      "duration": 3.0625,
+      "width": 640,
+      "height": 384,
+      "film_url": "/studio-examples/story/film.mp4",
+      "poster_url": "/studio-examples/story/poster.jpg",
+      "project_url": "/studio-examples/story/project.json",
+      "source": "Original local FLUX.2 Klein 4B first frame with precise FFmpeg image editing, edited for new-api; no third-party stock footage.",
+      "license": "Original example assets. Review the model and supplied asset licenses before commercial delivery. Fictional subjects; no identity or celebrity impersonation.",
+      "verification": "verified",
+      "method": "image-edit",
+      "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio. This sample preserves the clean FLUX-generated subject with a precise FFmpeg image edit. The rejected native Wan attempt is not used and is not claimed as verified.",
+      "inputs": [
+        {
+          "key": "subject",
+          "label": "Subject",
+          "value": "An illustrated fox with a blue lantern"
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "value": "A small light leads the way home."
+        }
+      ],
+      "media": [
+        {
+          "id": "sample-story-image",
+          "url": "/studio-examples/story/first-frame.png",
+          "mime_type": "image/png",
+          "sha256": "925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a",
+          "bytes": 320631
+        },
+        {
+          "id": "sample-story-video",
+          "url": "/studio-examples/story/source.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "2c6b37132618fe0d058b8e1440ca518129ebf31d18dcec55b6a2f43ea580d593",
+          "bytes": 100841
+        },
+        {
+          "id": "sample-story-film",
+          "url": "/studio-examples/story/film.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "04f04c35e085fec878dc296592726604d54157dad89c98cb922c428ae428886f",
+          "bytes": 137120
+        },
+        {
+          "id": "sample-story-music",
+          "url": "/studio-examples/shared/music.mp3",
+          "mime_type": "audio/mpeg",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "bytes": 48500
+        }
+      ]
+    },
+    {
+      "id": "explain",
+      "version": 1,
+      "duration": 3.0625,
+      "width": 640,
+      "height": 384,
+      "film_url": "/studio-examples/explain/film.mp4",
+      "poster_url": "/studio-examples/explain/poster.jpg",
+      "project_url": "/studio-examples/explain/project.json",
+      "source": "Original local FLUX.2 Klein 4B / Wan 2.2 TI2V 5B outputs, edited for new-api; no third-party stock footage.",
+      "license": "Original example assets. Review the model and supplied asset licenses before commercial delivery. Fictional subjects; no identity or celebrity impersonation.",
+      "verification": "verified",
+      "method": "native-video",
+      "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio. Speech is post-produced with the installed Chatterbox builtin voice.",
+      "inputs": [
+        {
+          "key": "subject",
+          "label": "Subject",
+          "value": "A seedling turning toward daylight"
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "value": "Plants need light."
+        }
+      ],
+      "media": [
+        {
+          "id": "sample-explain-image",
+          "url": "/studio-examples/explain/first-frame.png",
+          "mime_type": "image/png",
+          "sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d",
+          "bytes": 207434
+        },
+        {
+          "id": "sample-explain-video",
+          "url": "/studio-examples/explain/source.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "9ac6d993a21af295911cd5c59e5573d1d243b17553d3bd43ddaf45f64b1d862e",
+          "bytes": 279225
+        },
+        {
+          "id": "sample-explain-film",
+          "url": "/studio-examples/explain/film.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "34a748d912ba375be19867faba5de325bc9fec16a96ea91c947488e738cd64e9",
+          "bytes": 300965
+        },
+        {
+          "id": "sample-explain-music",
+          "url": "/studio-examples/shared/music.mp3",
+          "mime_type": "audio/mpeg",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "bytes": 48500
+        },
+        {
+          "id": "sample-explain-voice",
+          "url": "/studio-examples/explain/voice.wav",
+          "mime_type": "audio/wav",
+          "sha256": "eeeba6e92a80f4e868244abfba54ae9e48c67ccdae4dad3bf541385f339390ed",
+          "bytes": 63474
+        }
+      ]
+    },
+    {
+      "id": "presenter",
+      "version": 1,
+      "duration": 3.0625,
+      "width": 640,
+      "height": 384,
+      "film_url": "/studio-examples/presenter/film.mp4",
+      "poster_url": "/studio-examples/presenter/poster.jpg",
+      "project_url": "/studio-examples/presenter/project.json",
+      "source": "Original local FLUX.2 Klein 4B first frame with precise FFmpeg image editing, edited for new-api; no third-party stock footage.",
+      "license": "Original example assets. Review the model and supplied asset licenses before commercial delivery. Fictional subjects; no identity or celebrity impersonation.",
+      "verification": "verified",
+      "method": "speech-portrait",
+      "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio. This sample preserves the clean FLUX-generated subject with a precise FFmpeg image edit. The rejected native Wan attempt is not used and is not claimed as verified. Speech is post-produced with the installed Chatterbox builtin voice. MuseTalk mouth synchronization is a derived edit, not native joint audio-video generation; the silent original Take is retained.",
+      "inputs": [
+        {
+          "key": "subject",
+          "label": "Subject",
+          "value": "An original fictional science presenter"
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "value": "Let's help plants grow."
+        }
+      ],
+      "media": [
+        {
+          "id": "sample-presenter-image",
+          "url": "/studio-examples/presenter/first-frame.png",
+          "mime_type": "image/png",
+          "sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce",
+          "bytes": 205668
+        },
+        {
+          "id": "sample-presenter-video",
+          "url": "/studio-examples/presenter/source.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "e08c9072e030ddaa12be7f1bc320f3640aac2bbfc96528b10f4608a2d2c3dd90",
+          "bytes": 34453
+        },
+        {
+          "id": "sample-presenter-film",
+          "url": "/studio-examples/presenter/film.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "6d2015d9e71f2cc13a5d3bfd650168e6cb85220f9b2fa527c282bfda2e7862f0",
+          "bytes": 74240
+        },
+        {
+          "id": "sample-presenter-music",
+          "url": "/studio-examples/shared/music.mp3",
+          "mime_type": "audio/mpeg",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "bytes": 48500
+        },
+        {
+          "id": "sample-presenter-voice",
+          "url": "/studio-examples/presenter/voice.wav",
+          "mime_type": "audio/wav",
+          "sha256": "690e476660ce31fe92f6133aa25fdd40b1154fed94c44f5c01914a420d150e3a",
+          "bytes": 61100
+        },
+        {
+          "id": "sample-presenter-lip",
+          "url": "/studio-examples/presenter/lip-synced.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "a5a9e1276254f4200a0e3f77a70046aa8b09c66879d01b14e76a551d1e89e7b2",
+          "bytes": 40880
+        },
+        {
+          "id": "sample-presenter-voice-padded",
+          "url": "/studio-examples/presenter/voice-padded.wav",
+          "mime_type": "audio/wav",
+          "sha256": "df7ce7fc555dc2f0fb8126cf60ada9de73f880255331361bc7d938a055932f2a",
+          "bytes": 147078
+        }
+      ]
+    },
+    {
+      "id": "music",
+      "version": 1,
+      "duration": 3.0625,
+      "width": 640,
+      "height": 384,
+      "film_url": "/studio-examples/music/film.mp4",
+      "poster_url": "/studio-examples/music/poster.jpg",
+      "project_url": "/studio-examples/music/project.json",
+      "source": "Original local FLUX.2 Klein 4B / Wan 2.2 TI2V 5B outputs, edited for new-api; no third-party stock footage.",
+      "license": "Original example assets. Review the model and supplied asset licenses before commercial delivery. Fictional subjects; no identity or celebrity impersonation.",
+      "verification": "verified",
+      "method": "native-video",
+      "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio.",
+      "inputs": [
+        {
+          "key": "subject",
+          "label": "Subject",
+          "value": "A mountain lake and a small wooden boat at dawn"
+        },
+        {
+          "key": "caption",
+          "label": "Caption",
+          "value": "Dawn on the lake"
+        }
+      ],
+      "media": [
+        {
+          "id": "sample-music-image",
+          "url": "/studio-examples/music/first-frame.png",
+          "mime_type": "image/png",
+          "sha256": "d414322b8daacaf9d80b7a8bbedcf18ca52c4bcc9089b730c66f0f5d45e1b485",
+          "bytes": 228923
+        },
+        {
+          "id": "sample-music-video",
+          "url": "/studio-examples/music/source.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "49cf70d9e6ac187f955b649c85a266ced3cf4612f098baa903128a6652e3ee82",
+          "bytes": 244869
+        },
+        {
+          "id": "sample-music-film",
+          "url": "/studio-examples/music/film.mp4",
+          "mime_type": "video/mp4",
+          "sha256": "1b0779910eae62354102ec08d06e5cbce97abacf5fb38b1928b29581ae53204f",
+          "bytes": 273478
+        },
+        {
+          "id": "sample-music-music",
+          "url": "/studio-examples/shared/music.mp3",
+          "mime_type": "audio/mpeg",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "bytes": 48500
+        }
+      ]
+    }
+  ]
+}

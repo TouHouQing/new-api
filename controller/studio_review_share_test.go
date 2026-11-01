@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -110,6 +111,60 @@ func studioReviewDatabase(t *testing.T) *gorm.DB {
 	t.Setenv("STUDIO_STORAGE_DIR", t.TempDir())
 	t.Setenv("TASK_ARTIFACT_STORE_MODE", "upstream")
 	return db
+}
+
+func TestStudioInterruptedLocalWorkflowResumesWithoutRepeatingExternalActions(t *testing.T) {
+	for _, test := range []struct {
+		kind        string
+		activeLease bool
+		allowed     bool
+	}{
+		{kind: "render", allowed: true},
+		{kind: "quality", allowed: true},
+		{kind: "previs", allowed: true},
+		{kind: "graphics", allowed: true},
+		{kind: "transform", allowed: true},
+		{kind: "inspect", allowed: true},
+		{kind: "render", activeLease: true},
+		{kind: "generate"},
+		{kind: "media"},
+		{kind: "connector"},
+		{kind: "publish"},
+	} {
+		t.Run(test.kind+fmt.Sprint(test.activeLease), func(t *testing.T) {
+			db := studioReviewDatabase(t)
+			require.NoError(t, db.AutoMigrate(&model.StudioWorkflowCharge{}))
+			_, err := model.SaveStudioProject(1, "film", "Film", 0, "{}")
+			require.NoError(t, err)
+			lease := time.Now().Add(-time.Second).Unix()
+			if test.activeLease {
+				lease = time.Now().Add(time.Minute).Unix()
+			}
+			job := model.StudioWorkflowJob{ID: "interrupted", UserID: 1, ProjectID: "film", RequestID: "same-request", Kind: test.kind, Status: "uncertain", LeaseUntil: lease, Plan: "{}", Result: `{"phase":"preparing"}`}
+			require.NoError(t, db.Create(&job).Error)
+			engine := gin.New()
+			engine.Use(func(c *gin.Context) { c.Set("id", 1) })
+			engine.POST("/jobs/:job_id/control", StudioWorkflowJob)
+			response := httptest.NewRecorder()
+			engine.ServeHTTP(response, httptest.NewRequest("POST", "/jobs/interrupted/control", strings.NewReader(`{"action":"resume"}`)))
+			expected := http.StatusBadRequest
+			if test.allowed {
+				expected = http.StatusOK
+			}
+			assert.Equal(t, expected, response.Code, response.Body.String())
+			require.NoError(t, db.First(&job, "id = ?", job.ID).Error)
+			expectedStatus := "uncertain"
+			if test.allowed {
+				expectedStatus = "queued"
+			}
+			assert.Equal(t, expectedStatus, job.Status)
+			assert.Equal(t, "same-request", job.RequestID)
+			assert.JSONEq(t, `{"phase":"preparing"}`, string(job.Result))
+			var count int64
+			require.NoError(t, db.Model(&model.StudioWorkflowJob{}).Count(&count).Error)
+			assert.Equal(t, int64(1), count)
+		})
+	}
 }
 
 func TestStudioResumeRetriesOnlyConfirmedFailedTask(t *testing.T) {

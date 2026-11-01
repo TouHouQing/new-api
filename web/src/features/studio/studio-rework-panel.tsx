@@ -16,8 +16,7 @@ along with this program. If not, see <https://www.gnu.org/licenses/>.
 
 For commercial licensing, please contact support@quantumnous.com
 */
-import { ALL_FORMATS, BlobSource, Input as MediaInput } from 'mediabunny'
-import { useEffect, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 
 import { Alert, AlertDescription } from '@/components/ui/alert'
@@ -39,18 +38,43 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
+import type { StudioProject } from './local-projects'
+import { studioCloudRequest, type StudioCloudProject } from './studio-cloud'
 import { studioProjectTimeline } from './studio-production'
 import { useStudioProductionContext } from './studio-production-context'
-import {
-  acceptStudioReworkImage,
-  applyStudioReworkRange,
-  prepareStudioRework,
-} from './studio-rework'
+import { acceptStudioReworkImage, prepareStudioRework } from './studio-rework'
+/*
+Copyright (C) 2023-2026 QuantumNous
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License
+along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+For commercial licensing, please contact support@quantumnous.com
+*/
+import { applyStudioEditWithUndo } from './studio-timeline-history'
+import { StudioTimelinePreview } from './studio-timeline-preview'
 
 export function StudioReworkPanel() {
   const { t } = useTranslation()
-  const { props, writable, setSelectedNodes, setConfirm, mutate } =
-    useStudioProductionContext()
+  const {
+    props,
+    path,
+    writable,
+    setSelectedNodes,
+    setConfirm,
+    mutate,
+    timelineHistory,
+  } = useStudioProductionContext()
   const [sourceId, setSourceId] = useState(props.selectedNodeId || '')
   const [mode, setMode] = useState<'angle' | 'light' | 'region' | 'range'>(
     'angle'
@@ -65,6 +89,38 @@ export function StudioReworkPanel() {
     height: 256,
   })
   const [error, setError] = useState('')
+  const comparisonGroup = useId()
+  const [comparisonTime, setComparisonTime] = useState(0)
+  const [comparisonSound, setComparisonSound] = useState<
+    'current' | 'replacement'
+  >('current')
+  const [occurrences, setOccurrences] = useState<Record<string, string>>({})
+  const timelineOccurrences = studioProjectTimeline(props.project).map(
+    (clip, index) => ({
+      clip,
+      label: `${index + 1}. ${props.project.nodes.find((item) => item.id === clip.nodeId)?.data.title || t('Original shot or image')} · ${clip.trimStart.toFixed(2)}–${clip.trimEnd?.toFixed(2) || '?'} s · ${clip.speed}×`,
+    })
+  )
+  const [plan, setPlan] = useState<{
+    id: string
+    revision: number
+    document: {
+      next_document: StudioProject
+      impact: { output_seconds: number }
+    }
+  }>()
+  const compare = (seconds: number, playing = false) => {
+    const value = Math.max(
+      0,
+      Math.min(plan?.document.impact.output_seconds || 0, seconds)
+    )
+    setComparisonTime(value)
+    window.dispatchEvent(
+      new CustomEvent('studio-timeline-transport', {
+        detail: { group: comparisonGroup, seconds: value, playing },
+      })
+    )
+  }
   const sources = props.project.nodes.filter(
     (node) =>
       ['image', 'video'].includes(node.data.kind) &&
@@ -88,52 +144,26 @@ export function StudioReworkPanel() {
     if (!range || !target?.data.mediaId) {
       throw new Error(t('Finish the replacement clip first'))
     }
-    const describe = async (
-      id: string
-    ): Promise<{ duration: number; audio: boolean }> => {
-      const blob = await props.getMedia(id)
-      if (!blob) throw new Error(t('Stored source media is unavailable'))
-      const input = new MediaInput({
-        source: new BlobSource(blob),
-        formats: ALL_FORMATS,
-      })
-      try {
-        const track = await input.getPrimaryVideoTrack()
-        if (!track) throw new Error('Video track is unavailable')
-        return {
-          duration: await track.computeDuration(),
-          audio: Boolean(await input.getPrimaryAudioTrack()),
-        }
-      } finally {
-        input.dispose()
-      }
-    }
-    const original = await describe(range.sourceMediaId)
-    const output = await describe(target.data.mediaId)
-    const durations: Record<string, number> = {
-      [range.sourceMediaId]: original.duration,
-      [target.data.mediaId]: output.duration,
-    }
-    for (const clip of studioProjectTimeline(props.project)) {
-      const node = props.project.nodes.find((node) => node.id === clip.nodeId)
-      const mediaId = clip.takeId
-        ? node?.data.takes?.find((take) => take.id === clip.takeId)?.mediaId
-        : node?.data.mediaId
-      if (mediaId && !durations[mediaId]) {
-        durations[mediaId] = (await describe(mediaId)).duration
-      }
-    }
-    props.onUpdate(
-      applyStudioReworkRange(
-        props.project,
-        targetId,
-        original.duration,
-        output.duration,
-        original.audio,
-        durations
-      )
-    )
     await props.onSave()
+    const current = await studioCloudRequest<StudioCloudProject>(path)
+    const choices = studioProjectTimeline(current.document).filter(
+      (clip) => clip.nodeId === range.sourceNodeId
+    )
+    const clipId =
+      occurrences[targetId] || (choices.length === 1 ? choices[0].id : '')
+    if (!clipId) {
+      throw new Error(t('Choose the exact timeline occurrence to replace.'))
+    }
+    setPlan(
+      await studioCloudRequest(`${path}/edit-plans`, 'POST', {
+        request_id: crypto.randomUUID(),
+        revision: current.revision,
+        action: 'replace_source_range',
+        clip_id: clipId,
+        replacement_node_id: targetId,
+        review_confirmed: true,
+      })
+    )
   }
   return (
     <Collapsible className='rounded-lg border p-3'>
@@ -242,6 +272,7 @@ export function StudioReworkPanel() {
                 )
               )
               setSelectedNodes([id])
+              props.onSelectNode?.(id)
               setConfirm(false)
               setError('')
             } catch (error) {
@@ -259,8 +290,40 @@ export function StudioReworkPanel() {
               node.data.status === 'completed'
           )
           .map((node) => (
-            <div key={node.id} className='flex items-center gap-3'>
+            <div key={node.id} className='flex flex-wrap items-center gap-3'>
               <span>{node.data.title}</span>
+              <Select
+                value={occurrences[node.id] || null}
+                onValueChange={(value) => {
+                  setOccurrences({ ...occurrences, [node.id]: value || '' })
+                  setPlan(undefined)
+                }}
+              >
+                <SelectTrigger
+                  aria-label={`${t('Replacement timeline occurrence')}: ${node.data.title}`}
+                >
+                  <SelectValue
+                    placeholder={t('Choose the exact timeline occurrence')}
+                  >
+                    {timelineOccurrences.find(
+                      ({ clip }) =>
+                        clip.id === occurrences[node.id] &&
+                        clip.nodeId === node.data.reworkRange?.sourceNodeId
+                    )?.label || t('Choose the exact timeline occurrence')}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    {timelineOccurrences.map(({ clip, label }) =>
+                      clip.nodeId === node.data.reworkRange?.sourceNodeId ? (
+                        <SelectItem key={clip.id} value={clip.id}>
+                          {label}
+                        </SelectItem>
+                      ) : null
+                    )}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
               <Button
                 disabled={!writable || mutate.isPending}
                 variant='outline'
@@ -270,10 +333,111 @@ export function StudioReworkPanel() {
                   })
                 }
               >
-                {t('Use this result only in the selected time range')}
+                {t('Preview replacement in the timeline')}
               </Button>
             </div>
           ))}
+        {plan && (
+          <div className='space-y-3 rounded-md border p-3' role='status'>
+            <div className='flex flex-wrap items-center gap-2'>
+              <Input
+                type='range'
+                className='min-w-40 flex-1'
+                aria-label={t('Compare both edits at the same time')}
+                min={0}
+                max={plan.document.impact.output_seconds}
+                step={0.01}
+                value={Math.min(
+                  comparisonTime,
+                  plan.document.impact.output_seconds
+                )}
+                onChange={(event) => compare(Number(event.target.value))}
+              />
+              <span className='text-xs tabular-nums'>
+                {comparisonTime.toFixed(2)} s
+              </span>
+              <Button
+                variant='outline'
+                onClick={() => compare(comparisonTime, true)}
+              >
+                {t('Play both from this position')}
+              </Button>
+              <Button variant='outline' onClick={() => compare(comparisonTime)}>
+                {t('Pause and return both to this position')}
+              </Button>
+              <Button
+                variant='outline'
+                onClick={() =>
+                  setComparisonSound(
+                    comparisonSound === 'current' ? 'replacement' : 'current'
+                  )
+                }
+              >
+                {t(
+                  comparisonSound === 'current'
+                    ? 'Listen to the replacement'
+                    : 'Listen to the current edit'
+                )}
+              </Button>
+            </div>
+            <p className='text-muted-foreground text-xs'>
+              {t(
+                'Shared controls seek both previews. Listen to one version at a time to avoid doubled sound.'
+              )}
+            </p>
+            <div className='grid gap-3 lg:grid-cols-2'>
+              <div>
+                <p>{t('Current edit')}</p>
+                <StudioTimelinePreview
+                  project={props.project}
+                  getMedia={props.getMedia}
+                  compact
+                  syncGroup={comparisonGroup}
+                  muted={comparisonSound !== 'current'}
+                />
+              </div>
+              <div>
+                <p>{t('Replacement preview')}</p>
+                <StudioTimelinePreview
+                  project={plan.document.next_document}
+                  getMedia={props.getMedia}
+                  compact
+                  syncGroup={comparisonGroup}
+                  muted={comparisonSound !== 'replacement'}
+                />
+              </div>
+            </div>
+            <p>
+              {t('Video duration stays unchanged')}:{' '}
+              {plan.document.impact.output_seconds.toFixed(2)} s
+            </p>
+            <p className='text-muted-foreground text-sm'>
+              {t(
+                'Only the chosen occurrence changes. Original sound, subtitles, music and graphics keep their timing. Sound attached to the replaced clip stays on the project clock. The replacement needs its own framing review.'
+              )}
+            </p>
+            <div className='flex gap-2'>
+              <Button
+                disabled={!writable || mutate.isPending}
+                onClick={() =>
+                  mutate.mutate(
+                    async () => {
+                      await applyStudioEditWithUndo(path, plan, timelineHistory)
+                      await props.onRefresh()
+                      setPlan(undefined)
+                    },
+                    { onError: (error) => setError(error.message) }
+                  )
+                }
+              >
+                {t('Apply this edit')}
+              </Button>
+              <Button variant='outline' onClick={() => setPlan(undefined)}>
+                {t('Keep current edit')}
+              </Button>
+            </div>
+          </div>
+        )}
         {props.project.nodes
           .filter(
             (node) =>

@@ -29,6 +29,10 @@ def validate_options(body):
         raise ValueError('Invalid tool options')
     limits = {'width': (16, 2048), 'height': (16, 2048), 'scale': (1, 4), 'rows': (1, 4), 'columns': (1, 4), 'speed': (.5, 2), 'pitch': (-12, 12), 'pause': (0, 3), 'expression': (0, 2)}
     for key, value in options.items():
+        if key == 'lip_audio_start':
+            if body.get('operation') != 'lip_sync' or isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value) or not 0 <= value <= 3600:
+                raise ValueError('Audio source start is only valid for lip sync')
+            continue
         if key == 'panel_prompts':
             if body.get('operation') != 'image_grid' or not isinstance(value, list) or not 1 <= len(value) <= 16 or any(not isinstance(p, str) or not p.strip() or len(p) > 3000 for p in value): raise ValueError('Describe every storyboard panel')
             continue

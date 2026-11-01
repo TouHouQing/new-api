@@ -467,6 +467,16 @@
                       "minimum": 0.01,
                       "maximum": 3600
                     },
+                    "phaseOffset": {
+                      "type": "number",
+                      "minimum": 0,
+                      "maximum": 3600
+                    },
+                    "phaseDuration": {
+                      "type": "number",
+                      "minimum": 0.01,
+                      "maximum": 3600
+                    },
                     "x": {
                       "type": "number",
                       "minimum": 0,
@@ -1224,6 +1234,11 @@
                   "options": {
                     "type": "object",
                     "properties": {
+                      "lip_audio_start": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 3600
+                      },
                       "panel_prompts": {
                         "maxItems": 16,
                         "type": "array",
@@ -1378,12 +1393,12 @@
                       },
                       "width": {
                         "type": "integer",
-                        "minimum": 2,
+                        "minimum": 0,
                         "maximum": 8192
                       },
                       "height": {
                         "type": "integer",
-                        "minimum": 2,
+                        "minimum": 0,
                         "maximum": 8192
                       }
                     },
@@ -1492,6 +1507,11 @@
                   "options": {
                     "type": "object",
                     "properties": {
+                      "lip_audio_start": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 3600
+                      },
                       "panel_prompts": {
                         "maxItems": 16,
                         "type": "array",
@@ -1646,12 +1666,12 @@
                       },
                       "width": {
                         "type": "integer",
-                        "minimum": 2,
+                        "minimum": 0,
                         "maximum": 8192
                       },
                       "height": {
                         "type": "integer",
-                        "minimum": 2,
+                        "minimum": 0,
                         "maximum": 8192
                       }
                     },
@@ -1757,6 +1777,11 @@
                   "options": {
                     "type": "object",
                     "properties": {
+                      "lip_audio_start": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 3600
+                      },
                       "panel_prompts": {
                         "maxItems": 16,
                         "type": "array",
@@ -1911,12 +1936,12 @@
                       },
                       "width": {
                         "type": "integer",
-                        "minimum": 2,
+                        "minimum": 0,
                         "maximum": 8192
                       },
                       "height": {
                         "type": "integer",
-                        "minimum": 2,
+                        "minimum": 0,
                         "maximum": 8192
                       }
                     },

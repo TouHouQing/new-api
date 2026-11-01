@@ -31,9 +31,11 @@ import {
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 
+import { studioDepthSizes, studioDepthSizeValid } from './studio-depth-options'
 import { studioSongDuration } from './studio-song-duration'
 
 export type StudioToolOptions = {
+  lip_audio_start?: number
   panel_prompts?: string[]
   redo_panel?: number
   outpaint_mode?: 'strict' | 'natural'
@@ -98,7 +100,6 @@ export function StudioToolParameters(props: {
   let selected: (keyof typeof fields)[] = []
   if (props.action === 'image_upscale') selected = ['scale']
   if (props.action === 'image_outpaint') selected = ['width', 'height']
-  if (props.action === 'video_depth') selected = ['width', 'height']
   if (props.action === 'image_grid') {
     selected = ['width', 'height', 'rows', 'columns']
   }
@@ -109,6 +110,43 @@ export function StudioToolParameters(props: {
   }
   return (
     <div className='grid gap-3 sm:grid-cols-2'>
+      {props.action === 'video_depth' && (
+        <Field>
+          <FieldLabel>{t('Depth reference size')}</FieldLabel>
+          <Select
+            disabled={props.disabled}
+            value={`${props.value.width}x${props.value.height}`}
+            onValueChange={(value) => {
+              const size = studioDepthSizes.find(
+                ([width, height]) => `${width}x${height}` === value
+              )
+              if (size) {
+                props.onChange({
+                  ...props.value,
+                  width: size[0],
+                  height: size[1],
+                })
+              }
+            }}
+          >
+            <SelectTrigger aria-label={t('Depth reference size')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {studioDepthSizes
+                .filter(([width, height]) =>
+                  studioDepthSizeValid(width, height, props.seconds || 0)
+                )
+                .map(([width, height]) => (
+                  <SelectItem
+                    key={`${width}x${height}`}
+                    value={`${width}x${height}`}
+                  >{`${width} × ${height}`}</SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
+        </Field>
+      )}
       {props.action === 'audio_separate' && (
         <div className='space-y-3 sm:col-span-2'>
           <label className='flex items-center gap-2'>
@@ -183,6 +221,11 @@ export function StudioToolParameters(props: {
       )}
       {props.action === 'image_grid' && (
         <div className='flex flex-col gap-3 sm:col-span-2'>
+          <p className='text-muted-foreground text-sm'>
+            {t(
+              'Use the main description for the subject and style. Set the image count with rows and columns; describe only one shot in each panel.'
+            )}
+          </p>
           <p role='status'>
             {t(
               'Generates {{count}} images. Each panel is a separate model operation.',

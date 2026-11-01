@@ -22,17 +22,37 @@ import { Input } from '@/components/ui/input'
 import type { StudioProject } from './local-projects'
 import { STUDIO_RECIPES, studioRecipeDraft } from './studio-creative-plan'
 import { studioProductionSchema } from './studio-production'
+import { StudioRecipeGallery } from './studio-recipe-gallery'
+import { StudioServerTemplates } from './studio-server-templates'
 
 export function StudioTemplateLibrary(props: {
   project: StudioProject
   readOnly?: boolean
   onApply: (project: StudioProject) => void
+  onInstantiate?: (project: StudioProject) => void
+  onSave?: () => Promise<void>
   onClose?: () => void
 }) {
   const { t } = useTranslation()
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState('')
+  const [serverOpen, setServerOpen] = useState(false)
   const recipe = STUDIO_RECIPES.find((item) => item.id === selected)
+  if (serverOpen) {
+    return (
+      <section className='flex min-w-0 flex-col gap-4 p-4'>
+        <Button variant='outline' onClick={() => setServerOpen(false)}>
+          {t('Back to production templates')}
+        </Button>
+        <StudioServerTemplates
+          project={props.project}
+          readOnly={props.readOnly}
+          onInstantiate={props.onInstantiate}
+          onSave={props.onSave}
+        />
+      </section>
+    )
+  }
   return (
     <section
       className='min-w-0 space-y-4 p-4'
@@ -53,57 +73,69 @@ export function StudioTemplateLibrary(props: {
           'Preview the structure, prepare the required assets and adapt it to your story. Existing footage stays in your project.'
         )}
       </p>
-      <Field>
-        <FieldLabel>{t('Find a creative recipe')}</FieldLabel>
-        <Input
-          aria-label={t('Find a creative recipe')}
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </Field>
-      <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
-        {STUDIO_RECIPES.filter((item) =>
-          [t(item.title), t(item.description)]
-            .join(' ')
-            .toLowerCase()
-            .includes(search.toLowerCase())
-        ).map((item) => (
-          <Card key={item.id}>
-            <div className='bg-muted overflow-hidden rounded-t-xl'>
-              <img
-                src={`/studio-examples/${item.id === 'store' ? 'store-cover-b66a5672.jpg' : `${item.id}.svg`}`}
-                alt={t(item.title)}
-                className='h-36 w-full object-cover'
-              />
-              <p className='px-4 py-2 text-sm'>
-                {t(
-                  item.id === 'store'
-                    ? 'Local model example'
-                    : 'Storyboard illustration'
-                )}{' '}
-                · {item.id === 'store' ? '12s' : '15s'} · 9:16
-              </p>
-            </div>
-            <CardHeader>
-              <CardTitle>{t(item.title)}</CardTitle>
-              <CardDescription>{t(item.description)}</CardDescription>
-            </CardHeader>
-            <CardContent className='space-y-3'>
-              <p className='text-muted-foreground text-sm'>
-                {t('Prepare')}: {t(item.needs)}
-              </p>
-            </CardContent>
-            <CardFooter>
-              <Button
-                disabled={props.readOnly}
-                onClick={() => setSelected(item.id)}
-              >
-                {t('Preview and use recipe')}
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
-      </div>
+      <Button variant='outline' onClick={() => setServerOpen(true)}>
+        {t('My production templates')}
+      </Button>
+      <StudioRecipeGallery
+        readOnly={props.readOnly}
+        onInstantiate={props.onInstantiate}
+      />
+      <details>
+        <summary className='cursor-pointer font-medium'>
+          {t('Build from a planning recipe')}
+        </summary>
+        <Field>
+          <FieldLabel>{t('Find a creative recipe')}</FieldLabel>
+          <Input
+            aria-label={t('Find a creative recipe')}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </Field>
+        <div className='grid gap-4 sm:grid-cols-2 xl:grid-cols-3'>
+          {STUDIO_RECIPES.filter((item) =>
+            [t(item.title), t(item.description)]
+              .join(' ')
+              .toLowerCase()
+              .includes(search.toLowerCase())
+          ).map((item) => (
+            <Card key={item.id}>
+              <div className='bg-muted overflow-hidden rounded-t-xl'>
+                <img
+                  src={`/studio-examples/${item.id === 'store' ? 'store-cover-b66a5672.jpg' : `${item.id}.svg`}`}
+                  alt={t(item.title)}
+                  className='h-36 w-full object-cover'
+                />
+                <p className='px-4 py-2 text-sm'>
+                  {t(
+                    item.id === 'store'
+                      ? 'Local model example'
+                      : 'Storyboard illustration'
+                  )}{' '}
+                  · {item.id === 'store' ? '12s' : '15s'} · 9:16
+                </p>
+              </div>
+              <CardHeader>
+                <CardTitle>{t(item.title)}</CardTitle>
+                <CardDescription>{t(item.description)}</CardDescription>
+              </CardHeader>
+              <CardContent className='space-y-3'>
+                <p className='text-muted-foreground text-sm'>
+                  {t('Prepare')}: {t(item.needs)}
+                </p>
+              </CardContent>
+              <CardFooter>
+                <Button
+                  disabled={props.readOnly}
+                  onClick={() => setSelected(item.id)}
+                >
+                  {t('Preview and use recipe')}
+                </Button>
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      </details>
       <ConfirmDialog
         open={!!recipe}
         onOpenChange={(open) => {

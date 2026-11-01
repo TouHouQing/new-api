@@ -1,0 +1,22 @@
+---
+title: 项目工程与素材交付
+description: 原生项目文档、原片、剪辑交换及本地完整恢复
+---
+
+项目概览底部的“工程与素材交付”可整理并下载当前项目的素材工程 ZIP。不运行模型，使用当前账号的存储和上传配额；最多 2 GiB 引用媒体、32 MiB 文档及一万项媒体。超过限制请使用完整本地备份。服务器一次整理一个工程，完成或失败均清理临时 ZIP；意外退出留下的本工具临时文件在后续整理时清理，保留最近24小时。
+
+先保存编辑，再读取 `/projects/:id/delivery-source`。POST `/projects/:id/delivery-packages` 传入原 `sourceSha256`，不能把执行时新读取的摘要冒充已核对来源。项目、画布、剪辑或历史在打包过程中变化会阻止交付。每份原片必须属于当前账号、完整可读且大小匹配；缺失、无权限或中断不会返回残缺 ZIP。POST 返回原生资源编号、文件名、字节数和 SHA256。
+
+响应未知时，GET `/projects/:id/delivery-result?sourceSha256=原摘要` 核对原资源，或以相同正文重试。已整理结果优先返回；之后的项目编辑不会被旧请求覆盖。同来源只存一份工程包，下载使用已有原生资源分发合同，不把大 ZIP 装入浏览器内存。直接 GET `/projects/:id/delivery-package` 也可下载当次完整快照，下载完成后清理其临时文件。
+
+ZIP 内容：
+
+- `project.json`：项目需求、完整章节正文、画布及历史、镜头与脚本版本、候选与参考、资产版本和媒体表现、工作流、当前剪辑和固定剪辑、转写和分析历史、审片与意见。任务仅包含作品范围内的公开历史字段，不导出运行输入、供应商配置、账务、Cookie、密钥、账号权限或分享凭据。
+- `media/`：项目文档及历史引用的原片，每份只保存一次；SHA256、大小及 MIME 记录在 `manifest.json`。ZIP 中的媒体是完整源文件，不是缩略图或网页截图。
+- `exchange/`：当前剪辑及每个固定剪辑的 OTIO 和 SRT。OTIO 使用标准 Timeline/Stack/Track/Clip/Gap/ExternalReference/LinearTimeWarp；片段分轨保存节目位置与重叠，源范围使用毫秒有理时钟，变速保留实际比例。SRT 保留字幕文字和时间。
+
+OTIO 不能保证外部编辑器还原所有构图、字幕样式、动效、声音处理或应用专有对象；原生时间线完整保留在 JSON 和 OTIO metadata 中，限制写入 manifest，不把交换文件称为视觉无损还原。工程包用于文档与原片交付，不是原平台 `newapi-studio-project-bundle` 导入格式。恢复完整应用、执行回执、账号和权限使用已验证的本地完整生产备份；两者职责在界面和包内 README 中明确说明。
+
+网页 Agent 使用静态制作动作 `project.delivery.source/result/create`，归属由当前画布所属项目固定注入。MCP 使用 `yingce_delivery_source`、`yingce_delivery_result`、`yingce_prepare_delivery`，按原摘要查询及重试，随后使用已有媒体下载工具。所有入口调用同一原生 Service，不创建个人模型 Key，不调用生成模型。
+
+OTIO 格式依据 [官方序列化文档](https://opentimelineio.readthedocs.io/en/latest/tutorials/otio-serialized-schema.html)，实际导出仍需在目标编辑器核对。

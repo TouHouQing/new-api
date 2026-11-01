@@ -1,12 +1,20 @@
 name: new-api-studio-local
+x-studio-logging: &studio-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '7'
 services:
   new-api:
+    logging: *studio-logging
     image: new-api-studio:local
     init: true
     restart: unless-stopped
     ports: ['127.0.0.1:13010:3000']
     environment:
       SQL_DSN: postgresql://studio:${POSTGRES_PASSWORD:?Set database password}@postgres:5432/studio
+      SQL_MAX_OPEN_CONNS: '32'
+      SQL_MAX_IDLE_CONNS: '8'
       REDIS_CONN_STRING: redis://:${REDIS_PASSWORD:?Set Redis password}@redis:6379/0
       SESSION_SECRET: ${SESSION_SECRET:?Set persistent session secret}
       STUDIO_PROVIDER_ENCRYPTION_KEY: ${STUDIO_PROVIDER_ENCRYPTION_KEY:?Set persistent encryption key}
@@ -17,6 +25,9 @@ services:
       STUDIO_STORE_TASK_ARTIFACTS: 'true'
       STUDIO_S3_REFERENCE_MODE: data-url
       STUDIO_LOCAL_AUDIO_ANALYSIS: 'true'
+      STUDIO_LOCAL_WORKER_URL: ${STUDIO_LOCAL_WORKER_URL:-}
+      STUDIO_LOCAL_MODEL_URL: ${STUDIO_LOCAL_MODEL_URL:-}
+      STUDIO_LOCAL_CAPABILITY_MODELS: qwen3.5:9b,flux.2-klein-4b,wan2.2-ti2v-5b,wan2.1-vace-1.3b
       TASK_ARTIFACT_STORE_MODE: s3
       TASK_ARTIFACT_STORE_S3_ENDPOINT: http://objects:8333
       TASK_ARTIFACT_STORE_S3_BUCKET: studio
@@ -30,6 +41,7 @@ services:
       objects: { condition: service_started }
     networks: [studio]
   postgres:
+    logging: *studio-logging
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -44,6 +56,7 @@ services:
       retries: 12
     networks: [studio]
   redis:
+    logging: *studio-logging
     image: redis:7-alpine
     restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes', '--requirepass', '${REDIS_PASSWORD:?Set Redis password}']
@@ -57,6 +70,7 @@ services:
       REDIS_PASSWORD: ${REDIS_PASSWORD}
     networks: [studio]
   objects:
+    logging: *studio-logging
     image: chrislusf/seaweedfs@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
     restart: unless-stopped
     command: ['server', '-dir=/data', '-s3', '-s3.port=8333', '-s3.config=/config/s3.json', '-volume.max=16', '-master.volumeSizeLimitMB=1024', '-volume.minFreeSpace=${STUDIO_OBJECTS_MIN_FREE_SPACE:-2GiB}']
@@ -66,6 +80,7 @@ services:
       - '${STUDIO_CONFIG_DIRECTORY}/s3.json:/config/s3.json:ro'
     networks: [studio]
   https:
+    logging: *studio-logging
     image: caddy:2-alpine
     restart: unless-stopped
     ports: ['127.0.0.1:13443:443']

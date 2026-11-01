@@ -18,8 +18,10 @@ For commercial licensing, please contact support@quantumnous.com
 */
 import { isAxiosError } from 'axios'
 import { t } from 'i18next'
+import { toast } from 'sonner'
 
 import { api } from '@/lib/api'
+import { useAuthStore } from '@/stores/auth-store'
 
 import {
   studioProjectSchema,
@@ -31,8 +33,9 @@ import {
   mergeStudioCloudDocument,
   StudioCloudConflictError,
 } from './studio-cloud-merge'
+import { studioCloudRequestRaw } from './studio-cloud-request'
 import { studioDocumentMediaIds } from './studio-media-references'
-import { studioWorkflowProblem } from './studio-workflow-problem'
+import { submitStudioJobOnce } from './studio-submit-intent'
 
 export type StudioCloudProject = {
   id: string
@@ -57,12 +60,15 @@ export type StudioCloudComment = {
   resolved: boolean
 }
 export type StudioCloudJob = {
+  request_id?: string
   budget?: number
   used_quota?: number
   settlement_final?: boolean
   connector?: { id: string; provider: string; action: string }
   run_after?: number
   node_ids?: string[]
+  source_media_id?: string
+  operation_action?: string
   id: string
   user_id: number
   kind: string
@@ -78,40 +84,29 @@ export async function studioCloudRequest<T>(
   method = 'GET',
   body?: unknown
 ): Promise<T> {
-  let response
-  try {
-    response = await api.request({
-      url: `/api/studio/cloud${path}`,
-      method,
-      data: body,
-    })
-  } catch (problem) {
-    if (
-      isAxiosError(problem) &&
-      problem.response?.data?.code === 'studio_insufficient_quota'
-    ) {
-      throw new Error(
-        t(
-          'Insufficient generation credit. Add credit or continue with free editing.'
-        )
+  const jobProject = /^\/projects\/([^/]+)\/jobs$/.exec(path)
+  const actor = useAuthStore.getState().auth.user?.id
+  if (
+    method === 'POST' &&
+    jobProject &&
+    actor &&
+    body &&
+    typeof body === 'object' &&
+    !Array.isArray(body)
+  ) {
+    const result = await submitStudioJobOnce(
+      actor,
+      decodeURIComponent(jobProject[1]),
+      body as Record<string, unknown>
+    )
+    if (result.recovered) {
+      toast.info(
+        t('The previous submission was found. Continue with its existing task.')
       )
     }
-    if (
-      isAxiosError(problem) &&
-      typeof problem.response?.data?.message === 'string'
-    ) {
-      const message = problem.response.data.message as string
-      const mapped = studioWorkflowProblem(message)
-      if (!mapped.startsWith('The task failed.')) {
-        throw new Error(t(mapped), { cause: problem })
-      }
-    }
-    throw problem
+    return result.job as T
   }
-  if (response.data?.success !== true) {
-    throw new Error(response.data?.message || 'Studio request failed')
-  }
-  return response.data.data as T
+  return studioCloudRequestRaw<T>(path, method, body)
 }
 
 export async function studioCloudMedia(

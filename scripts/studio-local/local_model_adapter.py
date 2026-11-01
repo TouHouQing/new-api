@@ -29,6 +29,7 @@ from urllib.request import Request, HTTPRedirectHandler, ProxyHandler, build_ope
 import studio_vace
 from studio_comfy_receipts import find_prompt
 from studio_inference_lease import gpu_lease
+from studio_text_limits import text_context
 
 MAX_BYTES = 32 * 1024 * 1024
 MAX_VIDEO_BYTES = 512 * 1024 * 1024
@@ -79,6 +80,32 @@ def saved_comfy_outputs(entry, endpoint):
     return outputs
 
 
+def local_gateway_model_families(payload):
+    """Accept the original registry and the newer typed local gateway registry."""
+    families = {kind: [] for kind in ('text', 'image', 'video')}
+    if not isinstance(payload, dict):
+        raise ValueError('Invalid local model registry')
+    if isinstance(payload.get('models'), list):
+        legacy_ids = {'FLUX.2 Klein 4B': 'flux.2-klein-4b', 'Wan 2.2 TI2V 5B': 'wan2.2-ti2v-5b'}
+        for item in payload['models']:
+            if not isinstance(item, dict) or item.get('model') not in families:
+                continue
+            name = item.get('model_name') or legacy_ids.get(item.get('name')) or item.get('name')
+            if not isinstance(name, str) or not name or len(name) > 200:
+                raise ValueError('Local model is missing a stable identifier')
+            if name not in families[item['model']]:
+                families[item['model']].append(name)
+    else:
+        for kind in families:
+            names = payload.get(kind, [])
+            if not isinstance(names, list) or any(not isinstance(name, str) or not name for name in names):
+                raise ValueError('Invalid local model family')
+            families[kind] = list(dict.fromkeys(names))
+    if not any(families.values()):
+        raise ValueError('Local gateway did not advertise supported model families')
+    return families
+
+
 class LocalModels:
     def __init__(self, args):
         self.args = args
@@ -91,7 +118,7 @@ class LocalModels:
         with self.connect() as db:
             db.execute('CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, status TEXT, body TEXT, result TEXT, created INTEGER, error TEXT)')
             db.execute("UPDATE tasks SET status='uncertain', error='Adapter restarted during inference; inspect the ComfyUI prompt before resubmitting' WHERE status='in_progress'")
-        self.models = self.http_json(args.gateway + '/api/models')
+        self.models = local_gateway_model_families(self.http_json(args.gateway + '/api/models'))
         installed = self.http_json(args.comfy + '/object_info/UNETLoader', timeout=15)
         weights = installed.get('UNETLoader', {}).get('input', {}).get('required', {}).get('unet_name', [[]])[0]
         if 'wan2.1_vace_1.3B_fp16.safetensors' in weights:
@@ -167,9 +194,18 @@ class LocalModels:
         if family == 'video' and 'fps' in values:
             for node in result.values():
                 if node.get('class_type') == 'CreateVideo': node['inputs']['fps'] = values['fps']
-        if family == 'video' and getattr(self.args, 'tile_video_decode', False):
+        if family == 'video':
+            # A shared-latent comparison on the local 12 GiB GPU showed a
+            # terminal exposure jump with temporal tiled decoding for this
+            # exact short draft. Full decoding avoided it without a memory error.
+            # Keep the established memory policy for unverified larger shapes.
+            full_short_draft = (values.get('width'), values.get('height'), values.get('frames')) == (640, 384, 17)
             for node in result.values():
-                if node.get('class_type') == 'VAEDecode':
+                if full_short_draft and node.get('class_type') in ['VAEDecode', 'VAEDecodeTiled']:
+                    node['class_type'] = 'VAEDecode'
+                    for option in ['tile_size', 'overlap', 'temporal_size', 'temporal_overlap']:
+                        node['inputs'].pop(option, None)
+                elif getattr(self.args, 'tile_video_decode', False) and node.get('class_type') == 'VAEDecode':
                     node['class_type'] = 'VAEDecodeTiled'
                     node['inputs'].update(tile_size=256, overlap=64, temporal_size=16, temporal_overlap=4)
         return self.configure_text_encoders(result)
@@ -308,8 +344,8 @@ class LocalModels:
                 studio_vace.references({**body, 'metadata': metadata})
                 values['reference_control'] = metadata.get('reference_control', 'edges')
                 return values
-            if f'{width}x{height}' not in ['640x384', '384x640', '512x512', '384x224', '224x384']:
-                raise ValueError('Local Wan supports 640x384, 384x640, 512x512, 384x224 and 224x384')
+            if f'{width}x{height}' not in ['640x384', '384x640', '512x512']:
+                raise ValueError('Local Wan 5B requires 640x384, 384x640 or 512x512; lower trial sizes produced corrupted frames')
             content = metadata.get('content', [])
             if not isinstance(content, list) or any(not isinstance(item, dict) for item in content):
                 raise ValueError('Reference content must be an array of objects')
@@ -507,6 +543,9 @@ def main():
             if self.command != 'HEAD': self.wfile.write(data)
         def do_GET(self):
             route = self.path.split('?')[0]
+            if route == '/studio-local/v1/capabilities':
+                from studio_capability_probe import capability_profiles
+                return self.send(capability_profiles(models))
             if route.startswith('/studio-local/v1/images/jobs/'):
                 task_id = route.split('/')[5]
                 if not task_id.startswith('image-'): return self.send({'error': 'Invalid image receipt'}, status=400)
@@ -567,9 +606,7 @@ def main():
                     maximum = body.get('max_completion_tokens') or body.get('max_tokens') or 4096
                     if not isinstance(maximum, int) or isinstance(maximum, bool) or not 1 <= maximum <= 8192:
                         raise ValueError('Local text output supports 1 to 8192 tokens')
-                    context = body.get('context_length', 8192)
-                    if not isinstance(context, int) or isinstance(context, bool) or not 2048 <= context <= 32768:
-                        raise ValueError('Local text context supports 2048 to 32768 tokens')
+                    context = text_context(body)
                     messages = []
                     image_bytes = 0
                     audio_seen = False
@@ -601,11 +638,23 @@ def main():
                             message['content'] = '\n'.join(text_parts)
                             if image_parts: message['images'] = image_parts
                         messages.append(message)
-                    if args.text_device == 'cpu':
+                    tools = body.get('tools')
+                    if tools is not None and (not isinstance(tools, list) or len(tools) > 64 or len(json.dumps(tools)) > 200000):
+                        raise ValueError('Local tools require a bounded tool schema')
+                    if args.text_device == 'cpu' or tools:
                         # CPU placement avoids CUDA stalls observed on this host
                         # and leaves its GPU available for ComfyUI generation.
                         with models.text_lock, gpu_lease(models.directory.parent):
                             text_request = ollama_text_request(body['model'], messages, context, maximum)
+                            # Ollama accepts object arguments; OpenAI history
+                            # stores arguments as JSON strings.
+                            for message in text_request['messages']:
+                                for call in message.get('tool_calls') or []:
+                                    function = call.get('function') or {}
+                                    if isinstance(function.get('arguments'), str):
+                                        function['arguments'] = json.loads(function['arguments'])
+                            if tools:
+                                text_request['tools'] = tools
                             response_format = body.get('response_format')
                             if response_format is not None:
                                 if response_format == {'type': 'json_object'}:
@@ -621,10 +670,14 @@ def main():
                         prompt_tokens, completion_tokens = value.get('prompt_eval_count', 0), value.get('eval_count', 0)
                         response = {'content': value.get('message', {}).get('content', ''), 'usage': {'prompt_tokens': prompt_tokens, 'completion_tokens': completion_tokens, 'total_tokens': prompt_tokens + completion_tokens}}
                         finish = 'length' if value.get('done_reason') == 'length' else 'stop'
+                        calls = value.get('message', {}).get('tool_calls') or []
+                        if calls:
+                            response['tool_calls'] = [{'id': call.get('id') or 'call_' + uuid.uuid4().hex, 'type': 'function', 'function': {'name': call['function']['name'], 'arguments': json.dumps(call['function'].get('arguments') or {}, ensure_ascii=False)}} for call in calls]
+                            finish = 'tool_calls'
                     else:
                         with models.inference_lock, gpu_lease(models.directory.parent): response = models.http_json(args.gateway + '/api/generate', {'model': 'text', 'messages': messages, 'stream': False, 'max_tokens': maximum, 'context_length': context, 'think': False})
                         finish = 'stop'
-                    return self.send({'id': 'chatcmpl-' + uuid.uuid4().hex, 'object': 'chat.completion', 'created': int(time.time()), 'model': body['model'], 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': response['content']}, 'finish_reason': finish}], 'usage': response.get('usage', {})})
+                    return self.send({'id': 'chatcmpl-' + uuid.uuid4().hex, 'object': 'chat.completion', 'created': int(time.time()), 'model': body['model'], 'choices': [{'index': 0, 'message': {'role': 'assistant', 'content': response['content'], **({'tool_calls': response['tool_calls']} if response.get('tool_calls') else {})}, 'finish_reason': finish}], 'usage': response.get('usage', {})})
                 if route in ['/v1/images/generations', '/v1/images/edits']:
                     if body['model'] not in models.models['image']: raise ValueError('An image model is required')
                     for image in body.get('images', []): references.append(models.media(image))

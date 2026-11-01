@@ -28,6 +28,8 @@ export const studioMotionGraphicSchema = z
     imageMediaId: z.string().min(1).max(128).optional(),
     start: z.number().min(0).max(3600),
     end: z.number().min(0.01).max(3600),
+    phaseOffset: z.number().min(0).max(3600).optional(),
+    phaseDuration: z.number().min(0.01).max(3600).optional(),
     x: z.number().min(0).max(1),
     y: z.number().min(0).max(1),
     font_size: z.number().int().min(12).max(300),

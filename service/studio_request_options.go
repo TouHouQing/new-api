@@ -174,11 +174,11 @@ func validateStudioLocalVideoConfiguration(data map[string]any) error {
 		}
 		return nil
 	}
-	if resolution, ok := data["resolution"].(string); ok && resolution != "" && resolution != "640x384" && resolution != "384x640" && resolution != "512x512" && resolution != "384x224" && resolution != "224x384" {
-		return errors.New("local Wan supports 640x384, 384x640, 512x512, 384x224 or 224x384; choose a supported frame size")
+	if resolution, ok := data["resolution"].(string); ok && resolution != "" && resolution != "640x384" && resolution != "384x640" && resolution != "512x512" {
+		return errors.New("local Wan 5B requires 640x384, 384x640 or 512x512; lower draft sizes produced corrupted frames in real testing")
 	}
-	if (width != 640 || height != 384) && (width != 384 || height != 640) && (width != 512 || height != 512) && (width != 384 || height != 224) && (width != 224 || height != 384) {
-		return errors.New("local Wan supports 640x384, 384x640, 512x512, 384x224 or 224x384")
+	if (width != 640 || height != 384) && (width != 384 || height != 640) && (width != 512 || height != 512) {
+		return errors.New("local Wan 5B requires 640x384, 384x640 or 512x512")
 	}
 	return nil
 }
