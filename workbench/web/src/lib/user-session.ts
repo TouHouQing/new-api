@@ -122,6 +122,7 @@ async function hydrateUserSessionData(payload: AuthSessionPayload, generation: n
                 const initialSystemConfig = {
                     ...defaultConfig,
                     channels: modelCatalogChannels(catalog),
+                    newApiGroups: catalog.newApiGroups,
                     imageModels: undefined,
                     videoModels: undefined,
                     textModels: undefined,
@@ -129,7 +130,7 @@ async function hydrateUserSessionData(payload: AuthSessionPayload, generation: n
                 };
                 useConfigStore.getState().replaceConfig(normalizeConfigSnapshot({ config: initialSystemConfig }).config);
             } else {
-                useConfigStore.getState().mergeSystemChannels(modelCatalogChannels(catalog));
+                useConfigStore.getState().mergeSystemChannels(modelCatalogChannels(catalog), catalog.newApiGroups);
             }
         } catch (error) {
             if (isCurrentSession(generation, userId)) console.warn("模型目录后台刷新失败，保留本地配置", error);
@@ -169,7 +170,7 @@ function safeScopedStorageGet(key: string) {
 
 export async function refreshSystemChannels() {
     const catalog = await getModelCatalog();
-    useConfigStore.getState().mergeSystemChannels(modelCatalogChannels(catalog));
+    useConfigStore.getState().mergeSystemChannels(modelCatalogChannels(catalog), catalog.newApiGroups);
 }
 
 // 目录仅接受系统渠道模型，避免畸形响应被当成空目录写入配置。
@@ -222,6 +223,7 @@ export function systemChannelModelChannels(channels: PublicChannelCatalog[]): Mo
                     displayName: model.displayName,
                     channelLabel: model.channelLabel,
                     externalBilling: model.externalBilling,
+                    newApiGroup: model.newApiGroup,
                     hostPriceLabel: model.externalBilling ? model.priceLabel : undefined,
                     tags: model.tags || [],
                     description: model.description || "",

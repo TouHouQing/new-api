@@ -27,6 +27,18 @@ type WorkbenchHostUser struct {
 	Admin           bool
 }
 
+type WorkbenchHostGroup struct {
+	ID          string `json:"id"`
+	Label       string `json:"label"`
+	Description string `json:"description,omitempty"`
+}
+
+// A host can expose selectable groups even when a group has no models for the
+// current capability. Group permissions remain owned by the host.
+type WorkbenchGroupHost interface {
+	Groups(context.Context, string) ([]WorkbenchHostGroup, error)
+}
+
 type WorkbenchHostModel struct {
 	Key, Name, Capability, Protocol, PriceLabel string
 	Group                                       string

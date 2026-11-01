@@ -68,6 +68,11 @@ describe("image to previs Agent prompt", () => {
         expect(modelSupportsImageInspection(config, "plain::plain-text")).toBe(false);
         expect(selectImageInspectionModel(config, "plain::plain-text")).toBe("vision::vision-text");
         expect(selectImageInspectionModel(config, "vision::vision-text")).toBe("vision::vision-text");
+        Object.assign(config.channels[0].modelCosts![0], { externalBilling: true, newApiGroup: "sd2" });
+        Object.assign(config.channels[1].modelCosts![0], { externalBilling: true, newApiGroup: "h3" });
+        expect(selectImageInspectionModel(config, "plain::plain-text")).toBe("");
+        config.channels[1].modelCosts![0].newApiGroup = "sd2";
+        expect(selectImageInspectionModel(config, "plain::plain-text")).toBe("vision::vision-text");
     });
 
     test("does not route the cloud Agent through a browser-only custom channel", () => {

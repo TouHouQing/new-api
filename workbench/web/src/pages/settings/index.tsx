@@ -6,6 +6,7 @@ import { useNavigate, useSearchParams } from "react-router";
 
 import { UserOSSSettingsForm } from "@/components/layout/user-oss-settings-form";
 import { refreshSystemChannels } from "@/lib/user-session";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 import { defaultConfig, useConfigStore, useEffectiveConfig } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { ChannelSettingsPane, channelValidationError, focusInvalidChannelField, isChannelReady } from "./channel-settings-pane";
@@ -123,7 +124,7 @@ export default function SettingsPage() {
                 <div className="settings-pane-header">
                     <div className="min-w-0">
                         <h2>模型选择</h2>
-                        <p>按领域选择默认模型；模型能力与请求协议在渠道“模型与能力”中配置。</p>
+                        <p>{isNewAPIWorkbench ? "先选择 New API 分组，再选择默认模型。这里只显示您获准使用的分组与模型。" : "按领域选择默认模型；模型能力与请求协议在渠道“模型与能力”中配置。"}</p>
                     </div>
                 </div>
                 <div className="settings-section">

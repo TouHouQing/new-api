@@ -7,6 +7,7 @@ test("model settings recover enabled channel models when the legacy model snapsh
     const config = {
         ...defaultConfig,
         models: [],
+        textModel: "newapi-text::t-qwen",
         channels: [
             {
                 id: "newapi-text",
@@ -21,7 +22,8 @@ test("model settings recover enabled channel models when the legacy model snapsh
     const html = renderToStaticMarkup(<ModelDefaultGrid config={config} onChange={() => {}} />);
     expect(html).toContain("Qwen");
     expect(html).toContain("New API · vip");
-    expect(html).toContain('role="radio"');
+    expect(html).toContain('aria-haspopup="listbox"');
+    expect(html).not.toContain('role="radio"');
     expect(html).toContain("按 New API 分组价格结算");
     expect(html).not.toContain("5 /次");
 });

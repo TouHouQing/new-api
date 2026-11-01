@@ -163,6 +163,7 @@ export type PublicChannelCatalog = {
 
 export type PublicChannelModel = {
     externalBilling?: boolean;
+    newApiGroup?: string;
     id: string;
     modelKey: string;
     displayName: string;
@@ -212,10 +213,13 @@ export type PublicChannelModelPriceTier = {
 };
 
 export type ModelCatalogResponse = {
+    newApiGroups?: NewAPIModelGroup[];
     source: ModelCatalogSource;
     models?: PublicLogicalModel[];
     channels?: PublicChannelCatalog[];
 };
+
+export type NewAPIModelGroup = { id: string; label: string; description?: string };
 
 // 创作目录直接读取系统渠道模型，不使用逻辑模型及其功能开关。
 export function getModelCatalog() {

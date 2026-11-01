@@ -1,6 +1,6 @@
 import { canvasResourceMentionToken, type CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import { modelCapabilityConfigFor } from "@/lib/model-capabilities";
-import { resolveModelChannel, selectableModelsByCapability, type AiConfig } from "@/stores/use-config-store";
+import { modelNewAPIGroup, resolveModelChannel, selectableModelsByCapability, type AiConfig } from "@/stores/use-config-store";
 
 export const IMAGE_TO_PREVIS_AGENT_INSTRUCTION = [
     "请把这张画布图片复现为可编辑的 3D 预演台，而不是把图片放进预演台。",
@@ -28,7 +28,8 @@ export function modelSupportsImageInspection(config: AiConfig, model: string) {
 /** 图片复现必须在真正支持图片输入的文本模型上运行。 */
 export function selectImageInspectionModel(config: AiConfig, preferredModel: string) {
     const textModels = selectableModelsByCapability(config, "text");
-    const canCloudAgentUse = (model: string) => resolveModelChannel(config, model).scope === "system" && modelSupportsImageInspection(config, model);
+    const selectedGroup = modelNewAPIGroup(config, preferredModel);
+    const canCloudAgentUse = (model: string) => textModels.includes(model) && (!selectedGroup || modelNewAPIGroup(config, model) === selectedGroup) && resolveModelChannel(config, model).scope === "system" && modelSupportsImageInspection(config, model);
     if (preferredModel && canCloudAgentUse(preferredModel)) return preferredModel;
     return textModels.find(canCloudAgentUse) || "";
 }

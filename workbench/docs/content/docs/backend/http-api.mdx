@@ -438,6 +438,10 @@ CANVAS_BACKEND_DATA_DIR=/明确的数据目录 ./migrate-schema repair-canvas-re
 
 ### 用户模型目录
 
+New API 内置部署使用 `/api/workbench/model-catalog`，增加 `newApiGroups: [{ id, label, description? }]` 表示当前用户获准选择的宿主分组；`channels[].models[].newApiGroup` 保存模型所属的精确分组标识。视频、图片、文本、Agent 和默认设置先展示分组，再展示该分组的模型；相同模型跨分组不会合并选择值。分组没有当前用途的模型时显示空态，不替换已选模型。以下产品/渠道两级菜单说明适用于独立部署。
+
+托管模型列表以 New API 渠道启用情况为准，不要求模型出现在公开价格页；价格缺失不代表免费。`externalBilling` 模型菜单直接展示宿主的 `priceLabel`，不请求独立部署的报价接口。实际提交仍检查分组权限、能力、余额和费用授权，Agent 图片理解也不会静默改用其他分组的文本模型。
+
 `GET /model-catalog` 固定返回 `source=system`，直接查询所有启用系统渠道下的渠道模型，目录数据在 `channels[].models[]`，`models` 固定为空数组。不受逻辑模型开关影响，不反查逻辑模型或供应线路。每项的 `modelKey` 是调用标识，`displayName` 是一级分组展示名（未设置时归入 `未分类`），`icon` 是模型图标键，`channelLabel` 是二级渠道展示名。后台渠道模型创建与更新请求使用相同的 `channelLabel` 字段；服务端去除首尾空白后限制为 80 字，空值或与上游模型 ID 相同的值表示不固化该名称，读取时回退到上游模型 ID（默认与上游 ID 保持一致，上游改名时自动跟随）。
 
 渠道模型创建、更新、管理列表、公开目录和会话模型价格信息均使用 `description` 表达模型描述。服务端去除首尾空白后限制为 500 字，允许空字符串清除描述；无管理员权限或超长内容拒绝保存。创作端二级选项常驻展示该字段，不依赖悬浮 Tooltip；未填写的系统模型不按名称生成宣传文案。

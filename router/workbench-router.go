@@ -24,6 +24,8 @@ import (
 	"github.com/QuantumNous/new-api/middleware"
 	"github.com/QuantumNous/new-api/model"
 	"github.com/QuantumNous/new-api/service"
+	"github.com/QuantumNous/new-api/setting/billing_setting"
+	"github.com/QuantumNous/new-api/setting/ratio_setting"
 	"github.com/gin-gonic/gin"
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
@@ -304,7 +306,7 @@ func workbenchGroupModelKey(name, capability, group string) string {
 	return workbenchModelKey(group+"\x00"+name, capability)
 }
 
-func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration.Model, error) {
+func (newAPIWorkbenchHost) Groups(ctx context.Context, id string) ([]integration.Group, error) {
 	if _, err := (newAPIWorkbenchHost{}).User(ctx, id); err != nil {
 		return nil, err
 	}
@@ -313,13 +315,31 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 	if err != nil {
 		return nil, err
 	}
-	groups := make([]string, 0)
-	for group := range service.GetUserUsableGroups(user.Group) {
+	usable := service.GetUserUsableGroups(user.Group)
+	groups := make([]string, 0, len(usable))
+	for group := range usable {
 		if service.IsUserSelectableGroup(user.Group, group) {
 			groups = append(groups, group)
 		}
 	}
 	slices.Sort(groups)
+	items := make([]integration.Group, 0, len(groups))
+	for _, group := range groups {
+		items = append(items, integration.Group{ID: group, Label: group, Description: usable[group]})
+	}
+	return items, nil
+}
+
+func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration.Model, error) {
+	groups, err := (newAPIWorkbenchHost{}).Groups(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	n, _ := strconv.Atoi(id)
+	user, err := model.GetUserCache(n)
+	if err != nil {
+		return nil, err
+	}
 	prices := make(map[string]model.Pricing)
 	for _, price := range model.GetPricing() {
 		prices[price.ModelName] = price
@@ -335,11 +355,23 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 	for _, profile := range profiles {
 		localModels[profile.ModelID] = true
 	}
-	for _, group := range groups {
+	for _, selectedGroup := range groups {
+		group := selectedGroup.ID
 		for _, name := range service.GetGroupsEnabledModels([]string{group}) {
 			price, exists := prices[name]
 			if !exists {
-				continue
+				// Pricing metadata may be hidden while channel access is enabled.
+				// Match New API's group model list without treating a missing price as free.
+				price = model.Pricing{ModelName: name, SupportedEndpointTypes: model.GetModelSupportEndpointTypes(name)}
+				var configured bool
+				price.ModelPrice, configured = ratio_setting.GetModelPrice(name, false)
+				if configured {
+					price.QuotaType, exists = 1, true
+				} else {
+					price.ModelRatio, exists, _ = ratio_setting.GetModelRatio(name)
+				}
+				price.BillingMode = billing_setting.GetBillingMode(name)
+				price.BillingExpr, _ = billing_setting.GetBillingExpr(name)
 			}
 			local := localModels[name]
 			if local && profileErr != nil {
@@ -359,13 +391,13 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 				ratio := service.GetUserGroupRatio(user.Group, group)
 				if price.BillingMode == "expression" || price.BillingExpr != "" {
 					label = "按 New API 模型计费规则结算"
-				} else if price.QuotaType == 1 {
+				} else if exists && price.QuotaType == 1 {
 					label = fmt.Sprintf("$%.6g / 次，由 New API 结算", price.ModelPrice*ratio)
-				} else if capability == "text" {
+				} else if exists && capability == "text" {
 					label = fmt.Sprintf("输入 $%.6g / 百万 Token，由 New API 结算", price.ModelRatio*2*ratio)
 				}
 				cap := int64(5_000_000)
-				knownFree := strings.TrimSpace(price.BillingExpr) == "0" || (price.BillingExpr == "" && price.BillingMode != "expression" && ((price.QuotaType == 1 && price.ModelPrice == 0) || (price.QuotaType == 0 && price.ModelRatio == 0)))
+				knownFree := strings.TrimSpace(price.BillingExpr) == "0" || (exists && price.BillingExpr == "" && price.BillingMode != "expression" && ((price.QuotaType == 1 && price.ModelPrice == 0) || (price.QuotaType == 0 && price.ModelRatio == 0)))
 				if knownFree {
 					cap = 0
 					label += "；当前模型价格为零"

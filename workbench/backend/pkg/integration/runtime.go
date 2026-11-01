@@ -21,6 +21,7 @@ import (
 type Host = app.WorkbenchHost
 type User = app.WorkbenchHostUser
 type Model = app.WorkbenchHostModel
+type Group = app.WorkbenchHostGroup
 type Relay = app.WorkbenchRelay
 type Billing = app.WorkbenchHostBilling
 

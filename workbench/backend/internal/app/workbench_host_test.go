@@ -15,6 +15,7 @@ import (
 type testWorkbenchHost struct {
 	actor  WorkbenchHostUser
 	models []WorkbenchHostModel
+	groups []WorkbenchHostGroup
 	bill   WorkbenchHostBilling
 	calls  int
 }
@@ -24,6 +25,9 @@ func (h *testWorkbenchHost) User(context.Context, string) (WorkbenchHostUser, er
 }
 func (h *testWorkbenchHost) Models(context.Context, string) ([]WorkbenchHostModel, error) {
 	return h.models, nil
+}
+func (h *testWorkbenchHost) Groups(context.Context, string) ([]WorkbenchHostGroup, error) {
+	return h.groups, nil
 }
 func (h *testWorkbenchHost) Balance(context.Context, string) (int64, error) { return 8_000_000, nil }
 func (h *testWorkbenchHost) Billing(context.Context, string, string, int) (WorkbenchHostBilling, error) {
@@ -101,6 +105,7 @@ func TestWorkbenchCatalogShowsSelectableGroupsAndRemovesRevokedModels(t *testing
 		{Key: "t-default", Name: "Qwen", Group: "default", Capability: "text", Protocol: "chat-completion"},
 		{Key: "t-vip", Name: "Qwen", Group: "vip", Capability: "text", Protocol: "chat-completion"},
 	}}
+	host.groups = []WorkbenchHostGroup{{ID: "default", Label: "default"}, {ID: "vip", Label: "vip"}, {ID: "sd2", Label: "sd2"}}
 	if err := svc.ConfigureWorkbenchHost(host); err != nil {
 		t.Fatal(err)
 	}
@@ -118,6 +123,12 @@ func TestWorkbenchCatalogShowsSelectableGroupsAndRemovesRevokedModels(t *testing
 	labels := map[string]bool{}
 	for _, item := range catalog.Channels[0].Models {
 		labels[item.ChannelLabel] = true
+		if item.NewAPIGroup == "" {
+			t.Fatal("host group identity is missing from model DTO")
+		}
+	}
+	if len(catalog.NewAPIGroups) != 3 || catalog.NewAPIGroups[2].ID != "sd2" {
+		t.Fatal("selectable group without matching models was dropped", catalog.NewAPIGroups)
 	}
 	if !labels["New API · default"] || !labels["New API · vip"] {
 		t.Fatal("group labels lost", labels)

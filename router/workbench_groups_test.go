@@ -46,8 +46,8 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	})
 	t.Setenv("STUDIO_LOCAL_MODEL_URL", "")
 	t.Setenv("STUDIO_LOCAL_CAPABILITY_MODELS", "")
-	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"Default","vip":"VIP"}`))
-	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":2,"private":3}`))
+	require.NoError(t, setting.UpdateUserUsableGroupsByJSONString(`{"default":"Default","vip":"VIP","h3":"H3","sd2":"Seedance","empty":"Empty"}`))
+	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":2,"h3":1,"sd2":1,"empty":1,"private":3}`))
 	user := model.User{Id: 77001, Username: "host-group-regression", Password: "unused", Group: "default", Status: common.UserStatusEnabled}
 	require.NoError(t, db.Create(&user).Error)
 	require.NoError(t, db.Create(&model.Channel{Id: 771, Type: constant.ChannelTypeOpenAI, Name: "test", Status: common.ChannelStatusEnabled}).Error)
@@ -65,12 +65,23 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	require.NotEqual(t, models[0].Key, models[1].Key)
 	require.NotEqual(t, models[0].PriceLabel, models[1].PriceLabel)
 	require.Equal(t, workbenchModelKey("gpt-4o", "text"), models[0].Key)
+	groups, err := (newAPIWorkbenchHost{}).Groups(context.Background(), "77001")
+	require.NoError(t, err)
+	var groupIDs []string
+	for _, group := range groups {
+		groupIDs = append(groupIDs, group.ID)
+	}
+	require.ElementsMatch(t, []string{"default", "vip", "h3", "sd2", "empty"}, groupIDs)
 
 	previousPrices := ratio_setting.ModelPrice2JSONString()
 	t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(previousPrices)) })
 	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"sd4-seedance2.0fast-720p":0}`))
-	require.NoError(t, db.Create(&model.Ability{Group: "vip", Model: "sd4-seedance2.0fast-720p", ChannelId: 771, Enabled: true}).Error)
+	require.NoError(t, db.Create(&model.Ability{Group: "sd2", Model: "sd4-seedance2.0fast-720p", ChannelId: 771, Enabled: true}).Error)
+	require.NoError(t, db.Create(&model.Model{ModelName: "sd4-seedance2.0fast-720p", Status: 2}).Error)
 	model.InvalidatePricingCache()
+	for _, price := range model.GetPricing() {
+		require.NotEqual(t, "sd4-seedance2.0fast-720p", price.ModelName, "fixture hides this model from the public price list")
+	}
 	models, err = (newAPIWorkbenchHost{}).Models(context.Background(), "77001")
 	require.NoError(t, err)
 	var legacyVideos int
@@ -79,7 +90,7 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 			legacyVideos++
 			require.Equal(t, "video", item.Capability)
 			require.Equal(t, "newapi", item.Protocol)
-			require.Equal(t, "vip", item.Group)
+			require.Equal(t, "sd2", item.Group)
 		}
 	}
 	require.Equal(t, 1, legacyVideos, "legacy video SKU must reach the selectable group catalog")

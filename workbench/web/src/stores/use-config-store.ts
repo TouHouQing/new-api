@@ -96,6 +96,7 @@ export type ModelChannel = {
         displayName?: string;
         channelLabel?: string;
         externalBilling?: boolean;
+        newApiGroup?: string;
         hostPriceLabel?: string;
         tags?: ModelTag[];
         description?: string;
@@ -162,6 +163,7 @@ export type AiConfig = {
     systemPrompt: string;
     models: string[];
     imageModels: string[];
+    newApiGroups?: import("@/services/api/logical-models").NewAPIModelGroup[];
     videoModels: string[];
     textModels: string[];
     audioModels: string[];
@@ -238,7 +240,7 @@ type ConfigStore = {
     config: AiConfig;
     updateConfig: <K extends keyof AiConfig>(key: K, value: AiConfig[K]) => void;
     replaceConfig: (config: AiConfig) => void;
-    mergeSystemChannels: (channels: ModelChannel[]) => void;
+    mergeSystemChannels: (channels: ModelChannel[], groups?: import("@/services/api/logical-models").NewAPIModelGroup[]) => void;
     isAiConfigReady: (config: AiConfig, model: string) => boolean;
 };
 
@@ -343,9 +345,22 @@ export function filterModelsByCapability(models: string[], capability?: ModelCap
 export function selectableModelsByCapability(config: AiConfig, capability?: ModelCapability) {
     // 选项目录只从当前有效渠道重建，不能信任旧快照里残留的 config.models。
     // 这样旧版本内置模型、未绑定渠道的裸模型不会再次进入创作端。
-    const models = modelOptionsFromChannels(config.channels);
+    const permittedGroups = config.newApiGroups ? new Set(config.newApiGroups.map((group) => group.id)) : undefined;
+    const models = modelOptionsFromChannels(config.channels).filter((model) => {
+        const group = modelNewAPIGroup(config, model);
+        return !group || !permittedGroups || permittedGroups.has(group);
+    });
     if (!capability) return models;
     return filterModelsByCapability(models, capability, config.channels);
+}
+
+export function modelNewAPIGroup(config: AiConfig, model: string) {
+    const channel = resolveModelChannel(config, model);
+    const cost = channel.modelCosts?.find((item) => item.model === modelOptionName(model));
+    if (channel.scope !== "system" || !cost?.externalBilling) return "";
+    // Preserve group identity when loading a catalog cached before the host
+    // exposed an explicit group field.
+    return cost.newApiGroup || (cost.channelLabel?.startsWith("New API · ") ? cost.channelLabel.slice("New API · ".length) : "");
 }
 
 export function configuredModelMatchesCapability(config: AiConfig, model: string, capability?: ModelCapability) {
@@ -375,7 +390,7 @@ export const useConfigStore = create<ConfigStore>()(
                     },
                 })),
             replaceConfig: (config) => set({ config }),
-            mergeSystemChannels: (channels) =>
+            mergeSystemChannels: (channels, groups) =>
                 set((state) => {
                     const systemChannels = channels.map((channel, index) =>
                         createModelChannel({
@@ -387,7 +402,7 @@ export const useConfigStore = create<ConfigStore>()(
                         }),
                     );
                     const userChannels = state.config.channels.filter((channel) => channel.scope !== "system");
-                    return normalizeConfigSnapshot({ config: { ...state.config, channels: [...systemChannels, ...userChannels] } });
+                    return normalizeConfigSnapshot({ config: { ...state.config, newApiGroups: groups, channels: [...systemChannels, ...userChannels] } });
                 }),
             isAiConfigReady: (config, model) => isAiConfigReady(config, model),
         }),

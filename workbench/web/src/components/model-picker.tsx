@@ -74,6 +74,7 @@ export function ModelPicker({
     }, []);
     const options = useMemo(() => Array.from(new Set(selectableModelsByCapability(config, capability).filter((model) => Boolean(model) && (!modelFilter || modelFilter(model))))), [capability, config, modelFilter]);
     const optionGroups = useMemo(() => groupModelsForPicker(config, options), [config, options]);
+    const newAPIGroups = optionGroups.some((group) => group.kind === "newapi-group");
     const storedCurrent = value?.trim() || "";
     // 参数档位会在选中模型后由调用方归一到其能力配置，不能因为旧模型留下的参数而禁止切换。
     const selectionRequirements = requirements ? { ...requirements, videoSeconds: undefined, imageSize: undefined, options: undefined } : undefined;
@@ -139,10 +140,10 @@ export function ModelPicker({
     }, [open]);
 
     const setPickerOpen = (nextOpen: boolean) => {
-        if (nextOpen && !options.length) onMissingConfig?.();
+        if (nextOpen && !options.length && !optionGroups.length) onMissingConfig?.();
         if (nextOpen) window.dispatchEvent(new CustomEvent("model-picker-open", { detail: pickerId }));
         if (nextOpen) {
-            setActiveGroupKey(optionGroups.find((group) => group.models.some((item) => item.models.includes(current)))?.key ?? null);
+            setActiveGroupKey(newAPIGroups ? null : (optionGroups.find((group) => group.models.some((item) => item.models.includes(current)))?.key ?? null));
         }
         setOpen(nextOpen);
     };
@@ -194,7 +195,7 @@ export function ModelPicker({
         >
             {optionGroups.length ? (
                 activeGroupKey === null ? (
-                    <div className="canvas-model-picker-brands" aria-label="选择产品模型">
+                    <div className="canvas-model-picker-brands" aria-label={newAPIGroups ? "选择 New API 分组" : "选择产品模型"}>
                         {optionGroups.map((group) => {
                             const groupCurrent = group.models.find((item) => item.models.includes(current));
                             return (
@@ -234,7 +235,7 @@ export function ModelPicker({
                     </div>
                 ) : (
                     <div className="canvas-model-picker-two-pane">
-                        <div className="canvas-model-picker-brand-rail" aria-label="产品模型">
+                        <div className="canvas-model-picker-brand-rail" aria-label={newAPIGroups ? "New API 分组" : "产品模型"}>
                             {optionGroups.map((group) => {
                                 return (
                                     <button key={group.key} type="button" className={cn("canvas-model-picker-brand", activeGroupKey === group.key && "is-active")} aria-pressed={activeGroupKey === group.key} onClick={() => setActiveGroupKey(group.key)}>
@@ -265,6 +266,16 @@ export function ModelPicker({
                             .filter((group) => group.key === activeGroupKey)
                             .map((group) => (
                                 <section key={group.key} className="canvas-model-picker-group canvas-model-picker-model-pane min-w-0">
+                                    {group.kind === "newapi-group" ? (
+                                        <div className="px-3 py-2 text-xs text-foreground/60">
+                                            {group.label} · 选择{capability === "video" ? "视频" : capability === "image" ? "图片" : capability === "text" ? "文本" : ""}模型
+                                        </div>
+                                    ) : null}
+                                    {!group.models.length ? (
+                                        <p role="status" className="px-3 py-4 text-sm text-foreground/60">
+                                            该分组暂无可用的{capability === "video" ? "视频" : capability === "image" ? "图片" : capability === "text" ? "文本" : ""}模型，请检查 New API 中的渠道、模型启用状态和端点配置。
+                                        </p>
+                                    ) : null}
                                     <div className="grid min-w-0 gap-1">
                                         {group.models.map((modelGroup) => {
                                             const selected = modelGroup.models.includes(current);
@@ -299,7 +310,7 @@ export function ModelPicker({
                                                         theme={theme}
                                                         creationVariant
                                                         showConfiguredModelName={showConfiguredModelName}
-                                                        label={group.kind === "product" ? modelGroup.label : undefined}
+                                                        label={group.kind === "product" || group.kind === "newapi-group" ? modelGroup.label : undefined}
                                                         requirements={requirements}
                                                         showPrice={showOptionPrices && creditsEnabled}
                                                         disabledReason={disabledReason}

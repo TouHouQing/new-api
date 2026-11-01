@@ -1,6 +1,6 @@
 import { AudioLines, Check, Film, Image, MessageSquareText } from "lucide-react";
 
-import { ModelIcon } from "@/components/model-picker";
+import { ModelIcon, ModelPicker } from "@/components/model-picker";
 import { cn } from "@/lib/utils";
 import { selectableModelsByCapability, modelDisplayName, modelOptionName, resolveModelChannel, type AiConfig, type ModelCapability } from "@/stores/use-config-store";
 import { useUserStore } from "@/stores/use-user-store";
@@ -26,6 +26,7 @@ export function ModelDefaultGrid({ config, onChange }: { config: AiConfig; onCha
         <div className="space-y-1">
             {groups.map((group) => {
                 const models = selectableModelsByCapability(config, group.capability);
+                const selectedCost = config[group.modelKey] ? resolveModelChannel(config, config[group.modelKey]).modelCosts?.find((cost) => cost.model === modelOptionName(config[group.modelKey])) : undefined;
                 const Icon = group.icon;
                 return (
                     <section key={group.capability} className="py-5 first:pt-0 last:pb-0" aria-labelledby={`default-${group.capability}-title`}>
@@ -41,7 +42,21 @@ export function ModelDefaultGrid({ config, onChange }: { config: AiConfig; onCha
                             </div>
                             <span className="ml-auto shrink-0 text-xs tabular-nums text-foreground/38">{models.length} 个可用</span>
                         </div>
-                        {models.length ? (
+                        {config.newApiGroups?.length || config.channels.some((channel) => channel.modelCosts?.some((cost) => cost.externalBilling)) ? (
+                            <div className="flex flex-col gap-2">
+                                <ModelPicker
+                                    config={config}
+                                    capability={group.capability}
+                                    value={config[group.modelKey]}
+                                    onChange={(model) => onChange(group.modelKey, model)}
+                                    placeholder={`选择${group.title}`}
+                                    fullWidth
+                                    showSelectedPrice
+                                    showOptionPrices
+                                />
+                                {selectedCost?.externalBilling && selectedCost.hostPriceLabel ? <p className="text-xs text-foreground/60">{selectedCost.hostPriceLabel}</p> : null}
+                            </div>
+                        ) : models.length ? (
                             <div role="radiogroup" aria-label={group.title} className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
                                 {models.map((model) => {
                                     const channel = resolveModelChannel(config, model);

@@ -105,7 +105,7 @@ export function modelQuoteRequest(config: AiConfig, value: string, capability?: 
     const channel = resolveModelChannel(config, value);
     if (channel.scope !== "system") return undefined;
     const cost = channel.modelCosts?.find((item) => item.model === modelOptionName(value));
-    if (!cost || (!cost.logicalModelId && capability !== "video")) return undefined;
+    if (!cost || cost.externalBilling || (!cost.logicalModelId && capability !== "video")) return undefined;
     const input = requirements?.input;
     const intent: ModelRequestIntent = {
         capability,

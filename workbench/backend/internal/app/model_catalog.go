@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"yingce/backend/internal/logging"
@@ -23,9 +24,10 @@ const (
 // ModelCatalogResponse 是创作端模型选择的统一读模型。
 // Channels 为唯一数据源；Models 固定为空，两个集合始终序列化为数组。
 type ModelCatalogResponse struct {
-	Source   ModelCatalogSource     `json:"source"`
-	Models   []PublicLogicalModel   `json:"models"`
-	Channels []PublicChannelCatalog `json:"channels"`
+	NewAPIGroups []WorkbenchHostGroup   `json:"newApiGroups,omitempty"`
+	Source       ModelCatalogSource     `json:"source"`
+	Models       []PublicLogicalModel   `json:"models"`
+	Channels     []PublicChannelCatalog `json:"channels"`
 }
 
 // PublicModelAvailability is the historical signal shown next to a model
@@ -67,6 +69,7 @@ type PublicChannelCatalog struct {
 
 // PublicChannelModel 公开的渠道模型信息（脱敏）
 type PublicChannelModel struct {
+	NewAPIGroup      string                        `json:"newApiGroup,omitempty"`
 	ExternalBilling  bool                          `json:"externalBilling,omitempty"`
 	ID               string                        `json:"id"`
 	ModelKey         string                        `json:"modelKey"`
@@ -117,6 +120,12 @@ func (s *Service) ModelCatalog(access *userGroupAccess, intent *ModelRequestInte
 		if err != nil {
 			return nil, err
 		}
+		if host, ok := s.host.(WorkbenchGroupHost); ok {
+			response.NewAPIGroups, err = host.Groups(context.Background(), strings.TrimPrefix(access.userID, "newapi:"))
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	channels, err := s.publicSystemChannelCatalog(access, intent)
 	if err != nil {
@@ -130,6 +139,7 @@ func (s *Service) ModelCatalog(access *userGroupAccess, intent *ModelRequestInte
 				for _, hm := range hostModels {
 					if cm.ModelKey == hm.Key && channel.ID == "newapi-"+hm.Capability {
 						cm.ExternalBilling = true
+						cm.NewAPIGroup = hm.Group
 						cm.ChannelLabel = "New API"
 						if hm.Group != "" {
 							cm.ChannelLabel += " · " + hm.Group
