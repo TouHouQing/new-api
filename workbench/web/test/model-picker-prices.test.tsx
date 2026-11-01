@@ -75,11 +75,12 @@ test("model rows preserve multiple promotional labels and colors without alterin
     expect(markup).not.toContain("官方1折");
 });
 
-test("video capability tag is derived from limits and precedes editable model tags", () => {
+test("video menu shows the configured description without generated reference-count tags", () => {
     const config = fixture();
     const cost = config.channels[0].modelCosts![0];
     cost.capabilityConfig = defaultModelCapabilityConfig();
     Object.assign(cost.capabilityConfig.video!.references, { maxImages: 30, maxVideos: 10, maxAudios: 10 });
+    cost.description = "管理员配置的视频模型描述";
     cost.tags = [
         { text: "限时特价", color: "purple" },
         { text: "按次收费", color: "blue" },
@@ -87,12 +88,14 @@ test("video capability tag is derived from limits and precedes editable model ta
 
     const markup = renderToStaticMarkup(<ModelLabel config={config} model={config.model} capability="video" theme={canvasThemes.light} creationVariant showConfiguredModelName={false} showPrice showDescription />);
 
-    expect(markup).toContain('data-color="green">图×30 · 视×10 · 音×10');
-    expect(markup.indexOf("图×30 · 视×10 · 音×10")).toBeLessThan(markup.indexOf("限时特价"));
+    expect(markup).toContain("管理员配置的视频模型描述");
+    expect(markup).not.toContain("图×");
+    expect(markup).not.toContain("视×");
+    expect(markup).not.toContain("音×");
     expect(markup.indexOf("限时特价")).toBeLessThan(markup.indexOf("按次收费"));
 });
 
-test("video capability tag omits zero limits while preserving editable model tags", () => {
+test("video menu preserves editable model tags when reference limits are zero", () => {
     const config = fixture();
     const cost = config.channels[0].modelCosts![0];
     cost.capabilityConfig = defaultModelCapabilityConfig();
