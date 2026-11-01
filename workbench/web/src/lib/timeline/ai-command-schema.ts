@@ -11,9 +11,7 @@ export type AiCommandPlan = {
     commands: EditCommand[];
 };
 
-export type AiCommandBatchVerdict =
-    | { ok: true }
-    | { ok: false; index: number; op: string; error: string };
+export type AiCommandBatchVerdict = { ok: true } | { ok: false; index: number; op: string; error: string };
 
 export class AiCommandPlanError extends Error {
     constructor(message: string) {
@@ -129,7 +127,12 @@ export const AI_EDITING_OP_CATALOG: ReadonlyArray<{
     payload: string;
 }> = [
     { op: "setOutput", desc: "设置当前剪辑的成片画幅、帧率和画面适配，保留片段、声音和字幕", payload: "{ output: { width:64..4096偶数, height:64..4096偶数, fps:12..60整数, fit?:letterbox|crop|blur } }" },
-    { op: "addGraphic", desc: "新增可编辑标题、图标、形状或图片叠层，原子创建所需文字轨道", payload: "{ id:新唯一编号,startMs:非负整数,durationMs:正整数,text:文字或名称,trackId?:已有未锁定文字轨,graphic:{version:1,kind:text|icon|shape|image,x:0..1,y:0..1,size:12..300整数,color:#RRGGBB,fontFamily?:sans|serif,icon?:spark|play|heart|check|arrow,shape?:square|circle,resourceId?:已拥有图片ID,animation:none|fade|slide|pulse|bounce|rotate|morph,bpm:30..240整数,phaseOffsetMs?:0..3600000整数,phaseDurationMs:1..3600000整数}}；图片必须固定资源，morph仅用于形状" },
+    {
+        op: "addGraphic",
+        desc: "新增可编辑标题、图标、形状或图片叠层，原子创建所需文字轨道",
+        payload:
+            "{ id:新唯一编号,startMs:非负整数,durationMs:正整数,text:文字或名称,trackId?:已有未锁定文字轨,graphic:{version:1,kind:text|icon|shape|image,x:0..1,y:0..1,size:12..300整数,color:#RRGGBB,fontFamily?:sans|serif,icon?:spark|play|heart|check|arrow,shape?:square|circle,resourceId?:已拥有图片ID,animation:none|fade|slide|pulse|bounce|rotate|morph,bpm:30..240整数,phaseOffsetMs?:0..3600000整数,phaseDurationMs:1..3600000整数}}；图片必须固定资源，morph仅用于形状",
+    },
     { op: "setGraphic", desc: "修改现有叠层的完整设置；restart=true明确重置动画，让其覆盖当前片段，其他片段保留", payload: "{ id:现有叠层ID,graphic:完整设定同addGraphic,restart?:boolean }" },
     {
         op: "addClip",
@@ -174,7 +177,8 @@ export const AI_EDITING_OP_CATALOG: ReadonlyArray<{
     {
         op: "setClipProperty",
         desc: "修改片段属性（白名单）",
-        payload: "{ id, patch: { title? | text? | volume? | fadeInMs? | fadeOutMs? | subtitleEntryIndex? | captionPresentation? }（至少一项）；字幕外观为 {version:1,fontSize:12..144,color:#RRGGBB或#RRGGBBAA,position:top|center|bottom,backgroundColor,padding:0..72,highlights?:[{start,end,sourceText,color,backgroundColor,paddingX,paddingY,radius,animation:none|pop|wipe}]}，像素按短边1080换算，范围是当前台词UTF16索引；改文字会清除当前重点",
+        payload:
+            "{ id, patch: { title? | text? | volume? | fadeInMs? | fadeOutMs? | subtitleEntryIndex? | captionPresentation? }（至少一项）；字幕外观为 {version:1,fontSize:12..144,color:#RRGGBB或#RRGGBBAA,position:top|center|bottom,backgroundColor,padding:0..72,highlights?:[{start,end,sourceText,color,backgroundColor,paddingX,paddingY,radius,animation:none|pop|wipe}]}，像素按短边1080换算，范围是当前台词UTF16索引；改文字会清除当前重点",
     },
     {
         op: "addSubtitle",
@@ -222,11 +226,9 @@ const AI_EDITING_OUTPUT_EXAMPLE = `示例：
 
 /** 组装 AI 编辑系统提示词：时间线摘要、可用 op 契约和输出约束必须来自同一份注册表。 */
 export function buildAiEditingSystemPrompt(timelineSummary: string): string {
-    const catalogLines = AI_EDITING_OP_CATALOG.map(
-        (entry) => `- ${entry.op}：${entry.desc}。payload：${entry.payload}`,
-    ).join("\n");
+    const catalogLines = AI_EDITING_OP_CATALOG.map((entry) => `- ${entry.op}：${entry.desc}。payload：${entry.payload}`).join("\n");
     return [
-        "你是影策视频剪辑工作台的 AI 剪辑助手。根据用户指令对时间线输出受约束的编辑命令 JSON。",
+        "你是 THQ Video 视频剪辑工作台的 AI 剪辑助手。根据用户指令对时间线输出受约束的编辑命令 JSON。",
         "时间线当前状态：",
         timelineSummary,
         "可用命令契约（与编辑器同源，非法命令会被整批拒绝）：",

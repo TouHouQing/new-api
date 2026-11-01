@@ -3,6 +3,11 @@ import { refreshPublicAppearance } from "../src/services/appearance-bootstrap";
 import { DEFAULT_CANVAS_APPEARANCE } from "../src/lib/canvas/agent-appearance";
 import { commitPublicAppearance, normalizePublicAppearance, useAppearanceStore } from "../src/stores/use-appearance-store";
 
+test("default and saved legacy Agent names use THQ Video", () => {
+    expect(normalizePublicAppearance().canvas?.agentName).toBe("THQ Video");
+    expect(normalizePublicAppearance({ canvas: { ...DEFAULT_CANVAS_APPEARANCE, agentName: "影策" } }).canvas?.agentName).toBe("THQ Video");
+});
+
 test("appearance refresh synchronizes a changed Agent name", async () => {
     const saved = normalizePublicAppearance({ canvas: { ...DEFAULT_CANVAS_APPEARANCE, agentName: "星河助手" } });
     await refreshPublicAppearance(async () => saved);

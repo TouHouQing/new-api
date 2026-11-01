@@ -21,7 +21,7 @@ async function credentials() {
     const output = new Writable({ write(chunk, encoding, callback) { if (!muted) process.stderr.write(chunk); callback(); } });
     const terminal = createInterface({ input: process.stdin, output, terminal: true });
     try {
-        const username = await terminal.question('影策账号：');
+        const username = await terminal.question('THQ Video账号：');
         process.stderr.write('密码（输入隐藏）：');
         muted = true;
         const password = await terminal.question('');

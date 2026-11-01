@@ -7,7 +7,39 @@ import (
 	"testing"
 
 	"yingce/backend/internal/model"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
+
+func TestCloudAgentIdentityUsesTHQVideoForNewAndLegacyDefaults(t *testing.T) {
+	for _, tc := range []struct {
+		name, appearance, wantName string
+	}{
+		{name: "new installation", wantName: "THQ Video"},
+		{name: "saved old defaults", appearance: `{"brandName":"影策","canvas":{"agentName":"影策"}}`, wantName: "THQ Video"},
+		{name: "custom assistant", appearance: `{"brandName":"影策","canvas":{"agentName":"星河助手"}}`, wantName: "星河助手"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, db, _, _ := creationTestService(t)
+			require.NoError(t, db.Create(&model.CanvasProject{ID: "agent-canvas", UserID: "user", PayloadJSON: `{"nodes":[]}`}).Error)
+			if tc.appearance != "" {
+				require.NoError(t, db.Create(&model.SystemSetting{Key: appearanceSettingKey, ValueJSON: tc.appearance}).Error)
+			}
+			run, err := s.CreateCloudAgentRun("user", agentTestRequest(), "")
+			require.NoError(t, err)
+			execution, err := s.repo.CloudAgent("user", run.ID)
+			require.NoError(t, err)
+			state, err := cloudAgentDecode(execution)
+			require.NoError(t, err)
+			assert.Contains(t, state.Canonical.SystemPrompt, `"agentIdentity":{"name":"`+tc.wantName+`"}`)
+			public, err := s.Appearance()
+			require.NoError(t, err)
+			assert.Equal(t, "THQ Video", public.BrandName)
+			assert.Equal(t, tc.wantName, public.Canvas.AgentName)
+		})
+	}
+}
 
 func TestCloudAgentIdentityUsesSavedNameAcrossConversationTurns(t *testing.T) {
 	s, db, _, _ := creationTestService(t)

@@ -6,7 +6,7 @@ export function registerImageOperationTools(tool, client) {
     const id = z.string().min(1).max(80).regex(/^[\p{L}\p{N}_:.-]+$/u);
     const requestId = z.string().min(16).max(128).regex(/^[!-~]+$/);
     const nodeId = z.string().min(1).max(128);
-    tool('yingce_plan_image_layers','用户明确要求识图并确认独立识图预算后，通过影策普通文本任务规划2至8层。先用yingce_image_alpha_bounds读取原图SHA；从yingce_list_models复制支持图片输入的文本模型选择。原图、实际预览尺寸、独立图层指令和结果由后台保存，关页仍继续。0仅免费模型；不执行拆层、不自动重试模型。回复丢失保持同一idempotencyKey和完整正文，读取返回的taskId与规划历史。',{
+    tool('yingce_plan_image_layers','用户明确要求识图并确认独立识图预算后，通过THQ Video普通文本任务规划2至8层。先用yingce_image_alpha_bounds读取原图SHA；从yingce_list_models复制支持图片输入的文本模型选择。原图、实际预览尺寸、独立图层指令和结果由后台保存，关页仍继续。0仅免费模型；不执行拆层、不自动重试模型。回复丢失保持同一idempotencyKey和完整正文，读取返回的taskId与规划历史。',{
         canvasId:id,sourceNodeId:nodeId,resourceId:id,expectedSourceSha256:z.string().regex(/^[a-f0-9]{64}$/),instructions:z.string().min(1).max(6000),purpose:z.enum(['materials','recompose']),input:z.enum(['preview','original']).default('preview'),maxCredits:z.number().finite().min(0).max(1000000),idempotencyKey:requestId,logicalModelId:id.optional(),channelId:id.optional(),channelModelKey:z.string().min(1).max(200).optional(),confirmPlanning:z.literal(true),
     },false,({canvasId,sourceNodeId,resourceId,expectedSourceSha256,instructions,purpose,input,maxCredits,idempotencyKey,logicalModelId,channelId,channelModelKey,confirmPlanning},signal)=>{
         if(!confirmPlanning||Boolean(logicalModelId)===Boolean(channelId&&channelModelKey)||logicalModelId&&(channelId||channelModelKey))throw new Error('请确认识图预算并复制一个完整且唯一的文本模型选择。');

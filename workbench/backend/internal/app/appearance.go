@@ -42,7 +42,7 @@ const (
 )
 
 const (
-	defaultAppearanceBrandName = "影策"
+	defaultAppearanceBrandName = "THQ Video"
 	defaultAppearanceBrandSlug = "open-ai-canvas"
 	defaultAppearanceSkinID    = "classic"
 	defaultAppearanceLogoURL   = "/logo.svg"
@@ -298,7 +298,7 @@ func (s *Service) ResetAppearance(actor *model.User) (*AdminAppearanceSetting, e
 		return nil, err
 	}
 	after := defaultAppearanceSetting()
-	if err := s.appendAdminAudit(actor, "appearance.reset", "system_setting", appearanceSettingKey, "恢复影策默认品牌标识", map[string]any{"before": before, "after": after}); err != nil {
+	if err := s.appendAdminAudit(actor, "appearance.reset", "system_setting", appearanceSettingKey, "恢复 THQ Video 默认品牌标识", map[string]any{"before": before, "after": after}); err != nil {
 		return nil, err
 	}
 	return s.AdminAppearance(actor)
@@ -446,8 +446,11 @@ func (s *Service) readAppearance() (*model.SystemSetting, AppearanceSetting, err
 	}
 	value.SchemaVersion = appearanceSchemaVersion
 	value.BrandName = strings.TrimSpace(value.BrandName)
-	if value.BrandName == "" {
+	if value.BrandName == "" || value.BrandName == "影策" {
 		value.BrandName = defaultAppearanceBrandName
+	}
+	if strings.TrimSpace(value.Canvas.AgentName) == "影策" {
+		value.Canvas.AgentName = defaultAppearanceBrandName
 	}
 	value.BrandSlug = strings.ToLower(strings.TrimSpace(value.BrandSlug))
 	if value.BrandSlug == "" {

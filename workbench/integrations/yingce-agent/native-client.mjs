@@ -48,7 +48,7 @@ export async function loadProfile(filename) {
     if (!filename) throw new Error('请通过 YINGCE_PROFILE 指定 connect.mjs 保存的连接文件。');
     let profile;
     try { profile = profileSchema.parse(JSON.parse(await readSmallFile(filename, 16 * 1024))); }
-    catch { throw new Error('连接文件不可读或格式无效，请重新连接影策。'); }
+    catch { throw new Error('连接文件不可读或格式无效，请重新连接THQ Video。'); }
     platformURL(profile.baseURL);
     if (profile.media) profile.media.root = path.resolve(path.dirname(filename), profile.media.root);
     const ca = profile.caFile ? await readSmallFile(path.resolve(path.dirname(filename), profile.caFile), 256 * 1024) : undefined;
@@ -98,9 +98,9 @@ export class YingceClient {
     }
 
     async #perform(method, route, payload, { signal, login = false, contentType, stream = false }) {
-        if (!route.startsWith('/api/') || route.includes('#') || route.includes('\\') || route.startsWith('/api//')) throw new Error('无效的影策业务地址。');
+        if (!route.startsWith('/api/') || route.includes('#') || route.includes('\\') || route.startsWith('/api//')) throw new Error('无效的THQ Video业务地址。');
         const url = new URL(route, this.#origin);
-        if (url.origin !== this.#origin.origin || !url.pathname.startsWith('/api/')) throw new Error('无效的影策业务地址。');
+        if (url.origin !== this.#origin.origin || !url.pathname.startsWith('/api/')) throw new Error('无效的THQ Video业务地址。');
         if (this.#hosted) url.pathname = '/api/workbench-agent/' + url.pathname.slice('/api/'.length);
         return new Promise((resolve, reject) => {
             const request = (url.protocol === 'https:' ? https : http).request(url, {
@@ -112,10 +112,10 @@ export class YingceClient {
                 },
             }, response => {
                 const status = response.statusCode;
-                response.on('error', () => reject(new Error('影策响应中断；提交结果未知，请按原幂等编号查询，勿创建新操作。')));
+                response.on('error', () => reject(new Error('THQ Video响应中断；提交结果未知，请按原幂等编号查询，勿创建新操作。')));
                 if (status < 200 || status >= 300 || (stream && status !== 200)) {
                     response.destroy();
-                    const message = status === 401 || status === 403 ? '影策会话已失效或没有权限，请重新登录或检查项目权限。' : `影策请求失败（HTTP ${status}）；未自动重试。`;
+                    const message = status === 401 || status === 403 ? 'THQ Video会话已失效或没有权限，请重新登录或检查项目权限。' : `THQ Video请求失败（HTTP ${status}）；未自动重试。`;
                     reject(new YingceAPIError(status, message));
                     return;
                 }
@@ -127,19 +127,19 @@ export class YingceClient {
                 const responseLimit = nativeTimeline || nativePlan ? 16 * 1024 * 1024 : 4 * 1024 * 1024;
                 response.on('data', chunk => {
                     received += chunk.length;
-                    if (received > responseLimit) { response.destroy(new Error('影策响应过大，请缩小查询范围。')); return; }
+                    if (received > responseLimit) { response.destroy(new Error('THQ Video响应过大，请缩小查询范围。')); return; }
                     chunks.push(chunk);
                 });
                 response.on('end', () => {
                     let value;
                     try { value = JSON.parse(Buffer.concat(chunks).toString('utf8')); }
-                    catch { reject(new Error('影策返回了无效业务响应。')); return; }
-                    if (value.code !== 0 || !Object.hasOwn(value, 'data')) { reject(new Error('影策未接受此操作，请检查参数与平台记录。')); return; }
+                    catch { reject(new Error('THQ Video返回了无效业务响应。')); return; }
+                    if (value.code !== 0 || !Object.hasOwn(value, 'data')) { reject(new Error('THQ Video未接受此操作，请检查参数与平台记录。')); return; }
                     resolve(login ? { data: value.data, cookies: response.headers['set-cookie'] ?? [] } : value.data);
                 });
             });
             request.setTimeout(/^\/api\/projects\/[A-Za-z0-9_-]+\/delivery-(?:packages|result)(?:\?|$)/.test(route) ? 600000 : 30000, () => request.destroy());
-            request.on('error', () => reject(new Error('无法连接影策或请求已中断；未自动重试，请核对原操作编号。')));
+            request.on('error', () => reject(new Error('无法连接THQ Video或请求已中断；未自动重试，请核对原操作编号。')));
             request.end(payload);
         });
     }

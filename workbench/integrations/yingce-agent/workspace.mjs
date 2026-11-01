@@ -32,7 +32,7 @@ export class NativeWorkspace {
     }
     async createCanvas({ title, projectId, idempotencyKey }, signal) {
         const session = await this.#client.request('GET', '/api/auth/session', undefined, { signal });
-        if (!session.user?.id) throw new Error('影策会话已失效，请重新连接。');
+        if (!session.user?.id) throw new Error('THQ Video会话已失效，请重新连接。');
         if (projectId) {
             const result = await this.#client.request('GET', '/api/projects/' + encodeURIComponent(projectId) + '/core', undefined, { signal });
             if (result.project?.status !== 'active') throw new Error('项目尚未激活或已归档，不能新建画布。');

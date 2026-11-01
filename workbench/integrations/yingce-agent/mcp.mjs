@@ -7,6 +7,6 @@ try {
     const server = createServer(client);
     await server.connect(new StdioServerTransport());
 } catch {
-    process.stderr.write('影策 MCP 启动失败，请检查 YINGCE_PROFILE、连接文件和运行依赖。\n');
+    process.stderr.write('THQ Video MCP 启动失败，请检查 YINGCE_PROFILE、连接文件和运行依赖。\n');
     process.exitCode = 1;
 }

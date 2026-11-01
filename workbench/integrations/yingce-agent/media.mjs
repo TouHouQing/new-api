@@ -52,7 +52,7 @@ export class NativeMedia {
     }
     async #user(signal) {
         const session = await this.#client.request('GET', '/api/auth/session', undefined, { signal });
-        if (!session.user?.id) throw new Error('影策会话已失效，请重新连接。');
+        if (!session.user?.id) throw new Error('THQ Video会话已失效，请重新连接。');
         return session.user.id;
     }
     async list(directory = '', page = 1, pageSize = 20, signal) {
