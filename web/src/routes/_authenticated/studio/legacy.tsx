@@ -19,8 +19,6 @@ For commercial licensing, please contact support@quantumnous.com
 import { createFileRoute, redirect } from '@tanstack/react-router'
 import { z } from 'zod'
 
-import { Main } from '@/components/layout'
-import { Studio } from '@/features/studio'
 import { isSidebarModuleEnabled } from '@/lib/nav-modules'
 
 export const Route = createFileRoute('/_authenticated/studio/legacy')({
@@ -37,23 +35,7 @@ export const Route = createFileRoute('/_authenticated/studio/legacy')({
     if (!isSidebarModuleEnabled('chat', 'studio')) {
       throw redirect({ to: '/dashboard' })
     }
+    throw redirect({ href: '/workbench/', reloadDocument: true })
   },
-  component: StudioPage,
+  component: () => null,
 })
-
-function StudioPage() {
-  const search = Route.useSearch()
-  const navigate = Route.useNavigate()
-  return (
-    <Main className='overflow-y-auto p-0 lg:overflow-hidden'>
-      <Studio
-        workspace={search.workspace}
-        project={search.project}
-        step={search.step}
-        onNavigate={(workspace, project, replace, step) => {
-          void navigate({ search: { workspace, project, step }, replace })
-        }}
-      />
-    </Main>
-  )
-}

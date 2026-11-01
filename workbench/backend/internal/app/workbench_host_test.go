@@ -92,6 +92,42 @@ func TestWorkbenchCatalogAdmissionRechecksHostPermissions(t *testing.T) {
 	}
 }
 
+func TestWorkbenchCatalogShowsSelectableGroupsAndRemovesRevokedModels(t *testing.T) {
+	svc, db := newChannelModelTestService(t)
+	if err := db.AutoMigrate(&model.SystemSetting{}); err != nil {
+		t.Fatal(err)
+	}
+	host := &testWorkbenchHost{actor: WorkbenchHostUser{ID: "42"}, models: []WorkbenchHostModel{
+		{Key: "t-default", Name: "Qwen", Group: "default", Capability: "text", Protocol: "chat-completion"},
+		{Key: "t-vip", Name: "Qwen", Group: "vip", Capability: "text", Protocol: "chat-completion"},
+	}}
+	if err := svc.ConfigureWorkbenchHost(host); err != nil {
+		t.Fatal(err)
+	}
+	user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), "42"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	catalog, err := svc.ModelCatalogForUser(user, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(catalog.Channels) != 1 || len(catalog.Channels[0].Models) != 2 {
+		t.Fatalf("missing grouped models: %#v", catalog)
+	}
+	labels := map[string]bool{}
+	for _, item := range catalog.Channels[0].Models {
+		labels[item.ChannelLabel] = true
+	}
+	if !labels["New API · default"] || !labels["New API · vip"] {
+		t.Fatal("group labels lost", labels)
+	}
+	host.models = host.models[:1]
+	if err := svc.requireWorkbenchModel(context.Background(), user.ID, "newapi-text", "t-vip"); err == nil {
+		t.Fatal("revoked group remained callable")
+	}
+}
+
 func TestWorkbenchPrivateRelayRejectsMissingForeignExpiredAndCancelledTasks(t *testing.T) {
 	svc, db := newChannelModelTestService(t)
 	host := &testWorkbenchHost{}

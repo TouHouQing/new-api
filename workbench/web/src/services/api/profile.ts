@@ -1,5 +1,6 @@
 import type { LocalUser } from "./auth";
 import { apiBaseURL, http } from "./request";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 
 export type UserProfile = {
     user: LocalUser;
@@ -7,12 +8,13 @@ export type UserProfile = {
     emailEnabled: boolean;
     linuxdoEnabled: boolean;
     reauthenticatedUntil?: string;
+    accountSettingsURL?: string;
 };
 
 export type ProfileEmailTicket = { ticket: string; expiresIn: number; retryAfter: number };
 export type ProfileEmailResult = { changed: true; notificationStatus: "sent" | "failed" | "not_needed" };
 
-export const getUserProfile = (signal?: AbortSignal) => http.get<UserProfile>("/auth/profile", { signal });
+export const getUserProfile = (signal?: AbortSignal) => http.get<UserProfile>(isNewAPIWorkbench ? "/host-profile" : "/auth/profile", { signal });
 
 export function uploadProfileAvatar(file: File) {
     const data = new FormData();

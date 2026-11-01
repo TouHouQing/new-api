@@ -29,6 +29,7 @@ type WorkbenchHostUser struct {
 
 type WorkbenchHostModel struct {
 	Key, Name, Capability, Protocol, PriceLabel string
+	Group                                       string
 	SpendingCapMicrocredits                     int64
 	CapabilityConfig                            map[string]any
 	BillingMode                                 string

@@ -131,6 +131,9 @@ func (s *Service) ModelCatalog(access *userGroupAccess, intent *ModelRequestInte
 					if cm.ModelKey == hm.Key && channel.ID == "newapi-"+hm.Capability {
 						cm.ExternalBilling = true
 						cm.ChannelLabel = "New API"
+						if hm.Group != "" {
+							cm.ChannelLabel += " · " + hm.Group
+						}
 						cm.PriceLabel = hm.PriceLabel
 						cm.DisplayPrice = nil
 						cm.PricingMode = "host"

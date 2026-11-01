@@ -31,12 +31,9 @@ export const Route = createFileRoute('/_authenticated/studio/')({
       .enum(['guided', 'assets', 'templates', 'canvas', 'storyboard'])
       .optional(),
   }),
-  beforeLoad: ({ search }) => {
+  beforeLoad: () => {
     if (!isSidebarModuleEnabled('chat', 'studio')) {
       throw redirect({ to: '/dashboard' })
-    }
-    if (search.project || search.step || search.workspace) {
-      throw redirect({ to: '/studio/legacy', search })
     }
     throw redirect({ href: '/workbench/', reloadDocument: true })
   },

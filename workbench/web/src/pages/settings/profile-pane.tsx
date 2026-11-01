@@ -19,6 +19,7 @@ import { ApiError } from "@/services/api/request";
 import { useUserStore } from "@/stores/use-user-store";
 import { profileAvatarError, profilePasswordError, profileReauthReady, profileSecondsRemaining } from "./profile-validation";
 import "./profile-pane.css";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 
 type PasswordFields = { currentPassword: string; newPassword: string; confirmPassword: string };
 type EmailFields = { currentPassword: string; email: string; emailCode: string };
@@ -29,6 +30,39 @@ type EmailTicket = { value: string; expiresAt: number };
 const errorMessage = (error: unknown, fallback: string) => (error instanceof Error ? error.message : fallback);
 
 export function ProfilePane() {
+    return isNewAPIWorkbench ? <HostProfilePane /> : <StandaloneProfilePane />;
+}
+
+function HostProfilePane() {
+    const userId = useUserStore((state) => state.user?.id);
+    const query = useQuery({ queryKey: ["user-profile", userId], queryFn: ({ signal }) => loadProfileSession(userId, signal), enabled: !!userId, retry: false });
+    if (query.isPending) return <Skeleton active paragraph={{ rows: 3 }} />;
+    if (query.isError)
+        return (
+            <Callout tone="error" title="个人信息加载失败" action={<Button onClick={() => void query.refetch()}>重试</Button>}>
+                {errorMessage(query.error, "请刷新重试")}
+            </Callout>
+        );
+    const user = query.data?.user;
+    if (!user) return null;
+    return (
+        <section className="flex flex-col gap-4" aria-label="个人信息">
+            <div className="flex items-center gap-3">
+                <UserAvatar user={user} className="size-12" />
+                <div>
+                    <h3 className="text-base font-semibold">{user.displayName || user.username}</h3>
+                    <p className="text-sm text-foreground/60">@{user.username}</p>
+                </div>
+            </div>
+            <p className="text-sm">邮箱：{user.email || "未绑定"}</p>
+            <p className="text-sm">账户分组：{user.userGroup || "default"}</p>
+            <p className="text-sm text-foreground/60">个人资料由 New API 统一管理，头像、密码和安全设置可在账户页面修改。</p>
+            <Button href="/profile">管理账户资料</Button>
+        </section>
+    );
+}
+
+function StandaloneProfilePane() {
     const { message } = App.useApp();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();

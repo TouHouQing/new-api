@@ -1,4 +1,6 @@
 import { create } from "zustand";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
+import thqVideoLogo from "@/assets/thq-video.svg";
 import { DEFAULT_CANVAS_APPEARANCE } from "@/lib/canvas/agent-appearance";
 import { DEFAULT_UPDATE_ANNOUNCEMENT, normalizeUpdateAnnouncement } from "@/lib/update-announcement";
 
@@ -9,12 +11,12 @@ export const DEFAULT_PUBLIC_APPEARANCE: PublicAppearance = {
     updates: DEFAULT_UPDATE_ANNOUNCEMENT,
     canvas: DEFAULT_CANVAS_APPEARANCE,
     schemaVersion: 10,
-    brandName: "影策",
+    brandName: isNewAPIWorkbench ? "THQ Video" : "影策",
     brandSlug: "open-ai-canvas",
     authHeroTitle: "让一个故事，\n从文字走向银幕。",
     authHeroDescription: "",
-    logoUrl: "/logo.svg",
-    darkLogoUrl: "/logo.svg",
+    logoUrl: isNewAPIWorkbench ? thqVideoLogo : "/logo.svg",
+    darkLogoUrl: isNewAPIWorkbench ? thqVideoLogo : "/logo.svg",
     logoFrameEnabled: true,
     authVideoUrl: "https://boss-shjd.biliapi.net/updream/aniforge/video/video_bbcb00bd-650d-4249-9346-5cd21fd2484c_m1hc-u0-1pu13x-3v1s.mp4",
     authVideoPosterUrl: "https://i0.hdslb.com/bfs/aitool/aniforge/image/02933f26-5f1b-49ff-a811-b7f95ee5e5b8_m1hc-u0-sau.jpg",
@@ -49,6 +51,18 @@ export const useAppearanceStore = create<AppearanceStore>((set) => ({
 }));
 
 export function normalizePublicAppearance(value?: Partial<PublicAppearance> | null): PublicAppearance {
+    if (isNewAPIWorkbench)
+        value = {
+            ...value,
+            brandName: "THQ Video",
+            seoTitle: "THQ Video",
+            seoDescription: "THQ Video，AI 视频创作工作台。",
+            logoUrl: thqVideoLogo,
+            darkLogoUrl: thqVideoLogo,
+            logoConfigured: true,
+            darkLogoConfigured: true,
+            footerCopyright: `© ${new Date().getFullYear()} THQ Video. All rights reserved.`,
+        };
     const brandName = String(value?.brandName || "").trim();
     const brandSlug = normalizeBrandSlug(value?.brandSlug);
     const authHeroTitle = normalizeAppearanceCopy(value?.authHeroTitle, DEFAULT_PUBLIC_APPEARANCE.authHeroTitle);

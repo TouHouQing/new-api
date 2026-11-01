@@ -1,5 +1,5 @@
 import { Button } from "antd";
-import { Video, ArrowUpRight, Coins, Gift, LogOut, RefreshCw, Settings, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Coins, Gift, LogOut, RefreshCw, Settings, ShieldCheck } from "lucide-react";
 import { Link } from "react-router";
 import { useWalletBalance } from "@/hooks/use-wallet-balance";
 import { useWorkspaceLogout } from "@/hooks/use-workspace-logout";
@@ -59,13 +59,9 @@ export function WorkspaceAccountCard({ onWallet, onNavigate }: { onWallet: () =>
                             <ArrowUpRight />
                             <span>返回 New API</span>
                         </a>
-                        <a href="/settings">
+                        <a href="/profile">
                             <Settings />
                             <span>账户设置</span>
-                        </a>
-                        <a href="/studio/legacy">
-                            <Video />
-                            <span>原制作中心</span>
                         </a>
                     </>
                 ) : (
@@ -92,7 +88,7 @@ export function WorkspaceAccountCard({ onWallet, onNavigate }: { onWallet: () =>
                     </>
                 )}
                 <Button danger type="text" icon={<LogOut />} loading={loggingOut} onClick={() => void handleLogout()}>
-                    {import.meta.env.VITE_NEW_API_WORKBENCH === "true" ? "管理登录会话" : "退出登录"}
+                    {import.meta.env.VITE_NEW_API_WORKBENCH === "true" ? "登录与安全设置" : "退出登录"}
                 </Button>
             </nav>
             {import.meta.env.VITE_NEW_API_WORKBENCH === "true" ? (

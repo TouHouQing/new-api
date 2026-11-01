@@ -16,7 +16,7 @@ export function useWorkspaceLogout() {
 
     const handleLogout = async () => {
         if (import.meta.env.VITE_NEW_API_WORKBENCH === "true") {
-            window.location.assign("/settings");
+            window.location.assign("/security");
             return;
         }
         if (loggingOut) return;

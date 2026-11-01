@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -149,6 +150,22 @@ func SetWorkbenchRouter(engine *gin.Engine, assets WebAssets) {
 			c.JSON(http.StatusOK, gin.H{"code": 0, "data": gin.H{"ok": true}, "msg": ""})
 			return
 		}
+		if c.Request.Method == http.MethodGet && c.Param("path") == "/host-profile" {
+			user, err := model.GetUserById(identity.UserID, false)
+			if err != nil || user.Status != common.UserStatusEnabled {
+				c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"code": 401, "msg": "Please sign in to New API"})
+				return
+			}
+			role := "user"
+			if user.Role >= common.RoleAdminUser {
+				role = "admin"
+			}
+			c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "", "data": gin.H{
+				"user":        gin.H{"id": "newapi:" + strconv.Itoa(user.Id), "username": user.Username, "displayName": user.DisplayName, "email": user.Email, "userGroup": user.Group, "role": role, "status": "active"},
+				"hasPassword": false, "emailEnabled": false, "linuxdoEnabled": false, "accountSettingsURL": "/profile",
+			}})
+			return
+		}
 		if workbenchRuntime == nil {
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": 503, "msg": "Workbench is unavailable"})
 			return
@@ -181,7 +198,7 @@ func SetWorkbenchRouter(engine *gin.Engine, assets WebAssets) {
 	engine.GET("/workbench", func(c *gin.Context) { c.Redirect(http.StatusTemporaryRedirect, "/workbench/") })
 	engine.GET("/workbench/*path", func(c *gin.Context) {
 		if workbenchRuntime == nil {
-			c.Redirect(http.StatusTemporaryRedirect, "/studio/legacy")
+			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": 503, "msg": "THQ Video 工作台暂不可用，请联系管理员"})
 			return
 		}
 		path := strings.TrimPrefix(c.Param("path"), "/")
@@ -259,6 +276,13 @@ func workbenchModelKey(name, capability string) string {
 	return fmt.Sprintf("%s%x", capability[:1], digest[:12])
 }
 
+func workbenchGroupModelKey(name, capability, group string) string {
+	if group == "default" {
+		return workbenchModelKey(name, capability)
+	}
+	return workbenchModelKey(group+"\x00"+name, capability)
+}
+
 func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration.Model, error) {
 	if _, err := (newAPIWorkbenchHost{}).User(ctx, id); err != nil {
 		return nil, err
@@ -268,12 +292,18 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 	if err != nil {
 		return nil, err
 	}
-	allowed := service.GetGroupsEnabledModels([]string{user.Group})
+	groups := make([]string, 0)
+	for group := range service.GetUserUsableGroups(user.Group) {
+		if service.IsUserSelectableGroup(user.Group, group) {
+			groups = append(groups, group)
+		}
+	}
+	slices.Sort(groups)
 	prices := make(map[string]model.Pricing)
 	for _, price := range model.GetPricing() {
 		prices[price.ModelName] = price
 	}
-	items := make([]integration.Model, 0, len(allowed))
+	items := make([]integration.Model, 0)
 	profiles, profileErr := workbenchLocalProfiles(ctx)
 	localModels := make(map[string]bool)
 	for _, name := range strings.Split(os.Getenv("STUDIO_LOCAL_CAPABILITY_MODELS"), ",") {
@@ -284,43 +314,45 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 	for _, profile := range profiles {
 		localModels[profile.ModelID] = true
 	}
-	for _, name := range allowed {
-		price, exists := prices[name]
-		if !exists {
-			continue
-		}
-		local := localModels[name]
-		if local && profileErr != nil {
-			continue
-		}
-		capabilities := workbenchGenerationCapabilities(price, profiles, local)
-		for _, capability := range capabilities {
-			protocol := map[string]string{"text": "chat-completion", "image": "openai-image", "video": "newapi", "audio": "openai-audio"}[capability]
-			if capability == "text" && workbenchResponsesOnly(price) {
-				protocol = "openai-response"
-			}
-			contract, err := workbenchCapabilityContract(name, capability, protocol, profiles, local)
-			if err != nil {
+	for _, group := range groups {
+		for _, name := range service.GetGroupsEnabledModels([]string{group}) {
+			price, exists := prices[name]
+			if !exists {
 				continue
 			}
-			label := "按 New API 实际用量结算"
-			ratio := service.GetUserGroupRatio(user.Group, user.Group)
-			if price.BillingMode == "expression" || price.BillingExpr != "" {
-				label = "按 New API 模型计费规则结算"
-			} else if price.QuotaType == 1 {
-				label = fmt.Sprintf("$%.6g / 次，由 New API 结算", price.ModelPrice*ratio)
-			} else if capability == "text" {
-				label = fmt.Sprintf("输入 $%.6g / 百万 Token，由 New API 结算", price.ModelRatio*2*ratio)
+			local := localModels[name]
+			if local && profileErr != nil {
+				continue
 			}
-			cap := int64(5_000_000)
-			knownFree := strings.TrimSpace(price.BillingExpr) == "0" || (price.BillingExpr == "" && price.BillingMode != "expression" && ((price.QuotaType == 1 && price.ModelPrice == 0) || (price.QuotaType == 0 && price.ModelRatio == 0)))
-			if knownFree {
-				cap = 0
-				label += "；当前模型价格为零"
-			} else {
-				label += "；单次费用上限 $5"
+			capabilities := workbenchGenerationCapabilities(price, profiles, local)
+			for _, capability := range capabilities {
+				protocol := map[string]string{"text": "chat-completion", "image": "openai-image", "video": "newapi", "audio": "openai-audio"}[capability]
+				if capability == "text" && workbenchResponsesOnly(price) {
+					protocol = "openai-response"
+				}
+				contract, err := workbenchCapabilityContract(name, capability, protocol, profiles, local)
+				if err != nil {
+					continue
+				}
+				label := "按 New API 实际用量结算"
+				ratio := service.GetUserGroupRatio(user.Group, group)
+				if price.BillingMode == "expression" || price.BillingExpr != "" {
+					label = "按 New API 模型计费规则结算"
+				} else if price.QuotaType == 1 {
+					label = fmt.Sprintf("$%.6g / 次，由 New API 结算", price.ModelPrice*ratio)
+				} else if capability == "text" {
+					label = fmt.Sprintf("输入 $%.6g / 百万 Token，由 New API 结算", price.ModelRatio*2*ratio)
+				}
+				cap := int64(5_000_000)
+				knownFree := strings.TrimSpace(price.BillingExpr) == "0" || (price.BillingExpr == "" && price.BillingMode != "expression" && ((price.QuotaType == 1 && price.ModelPrice == 0) || (price.QuotaType == 0 && price.ModelRatio == 0)))
+				if knownFree {
+					cap = 0
+					label += "；当前模型价格为零"
+				} else {
+					label += "；单次费用上限 $5"
+				}
+				items = append(items, integration.Model{Key: workbenchGroupModelKey(name, capability, group), Group: group, Name: name, Capability: capability, Protocol: protocol, PriceLabel: label, SpendingCapMicrocredits: cap, CapabilityConfig: contract})
 			}
-			items = append(items, integration.Model{Key: workbenchModelKey(name, capability), Name: name, Capability: capability, Protocol: protocol, PriceLabel: label, SpendingCapMicrocredits: cap, CapabilityConfig: contract})
 		}
 	}
 	return items, nil
@@ -427,6 +459,9 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 	request.Header = make(http.Header)
 	request.Header.Set("Content-Type", call.Request.Header.Get("Content-Type"))
 	request.Header.Set("Accept", call.Request.Header.Get("Accept"))
+	if selected != nil {
+		request.Header.Set("X-Studio-Group", selected.Group)
+	}
 	if request.Method == http.MethodGet {
 		parts := strings.Split(strings.Trim(request.URL.Path, "/"), "/")
 		if len(parts) < 3 || parts[0] != "v1" || (parts[1] != "videos" && parts[1] != "tasks") {

@@ -9,7 +9,7 @@
 | `/workbench/projects` | 上游短剧制作流水线 |
 | `/workbench/production` | 原生制作、时间线、返工和交付 |
 | `/workbench/canvas` | 自由画布、媒体版本、角色和预演 |
-| `/studio/legacy` | 原 New API 制作中心及已有作品 |
+| `/studio/legacy` | 旧书签统一重定向到 THQ Video 工作台 |
 | `/api/workbench` | 复用 New API 有效浏览器会话的业务 API |
 | `/api/workbench-agent` | 用户显式配置个人访问令牌的 MCP 入口 |
 
@@ -37,7 +37,9 @@ Docker 构建使用临时内存目录存放工作台依赖和 Go 编译缓存，
 
 画布分享、签名资源和审片链接保留原生过期、撤销、版本绑定与评论权限。项目所有者在 New API 被停用后，公开资源同样不可访问。MCP 使用用户自行配置的 New API 个人访问令牌，连接合同见 `integrations/yingce-agent/skills/yingce-canvas/SKILL.md`；浏览器 API 不接受它替代浏览器会话。
 
-旧 New API 作品继续从 `/studio/legacy` 打开。独立影策的作品可通过原生项目包导出、导入，在目标账号重建素材引用。迁移前保留数据库与媒体备份；不会自动覆盖独立部署或猜测账号对应关系。
+工作台产品名称与标识统一为 THQ Video。`/studio` 及 `/studio/legacy` 的旧入口均进入当前工作台，不再显示原 Studio 页面；历史数据保留。独立影策的作品可通过原生项目包导出、导入，在目标账号重建素材引用。迁移前保留数据库与媒体备份；不会自动覆盖独立部署或猜测账号对应关系。
+
+个人信息通过只读 `/api/workbench/host-profile` 读取当前 New API 账号的安全字段；账户资料及安全管理分别进入同站 `/profile`、`/security`。原影策修改账号的接口继续关闭。模型目录覆盖 New API 授予当前用户的全部可选分组，模型选项标明分组；选择冻结到模型编号，转发时重新校验当前分组权限并使用该分组倍率。灵感目录在构建前后校验，缺失或格式错误会阻止部署。
 
 ## 验证记录
 
