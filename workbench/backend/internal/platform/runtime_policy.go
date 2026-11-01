@@ -151,7 +151,7 @@ func DefaultRuntimePolicy() RuntimePolicySetting {
 			ResourceUploadMB:        50,
 			GeneratedFileMB:         64,
 			DailyUploadMB:           2048,
-			StoredFileGB:            20,
+			StoredFileGB:            1,
 			StructuredDataMB:        256,
 			TaskDataGB:              1,
 			AssetCount:              2_000,
