@@ -65,4 +65,22 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	require.NotEqual(t, models[0].Key, models[1].Key)
 	require.NotEqual(t, models[0].PriceLabel, models[1].PriceLabel)
 	require.Equal(t, workbenchModelKey("gpt-4o", "text"), models[0].Key)
+
+	previousPrices := ratio_setting.ModelPrice2JSONString()
+	t.Cleanup(func() { require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(previousPrices)) })
+	require.NoError(t, ratio_setting.UpdateModelPriceByJSONString(`{"sd4-seedance2.0fast-720p":0}`))
+	require.NoError(t, db.Create(&model.Ability{Group: "vip", Model: "sd4-seedance2.0fast-720p", ChannelId: 771, Enabled: true}).Error)
+	model.InvalidatePricingCache()
+	models, err = (newAPIWorkbenchHost{}).Models(context.Background(), "77001")
+	require.NoError(t, err)
+	var legacyVideos int
+	for _, item := range models {
+		if item.Name == "sd4-seedance2.0fast-720p" {
+			legacyVideos++
+			require.Equal(t, "video", item.Capability)
+			require.Equal(t, "newapi", item.Protocol)
+			require.Equal(t, "vip", item.Group)
+		}
+	}
+	require.Equal(t, 1, legacyVideos, "legacy video SKU must reach the selectable group catalog")
 }

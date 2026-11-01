@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/QuantumNous/new-api/common"
@@ -22,6 +23,31 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
+
+func TestWorkbenchInspirationCatalogUsesBundledFilesAndRejectsOtherPaths(t *testing.T) {
+	assets := fstest.MapFS{"web/dist/workbench/inspirations/youmind.json": {Data: []byte(`{"entries":[{"id":"example"}]}`)}}
+	engine := gin.New()
+	engine.GET("/*path", func(c *gin.Context) { serveWorkbenchInspiration(c, assets) })
+	for _, test := range []struct {
+		path   string
+		status int
+	}{
+		{"/inspirations/youmind", http.StatusOK},
+		{"/inspirations/manifest", http.StatusServiceUnavailable},
+		{"/inspirations/../../secrets", http.StatusNotFound},
+		{"/inspirations/youmind.json", http.StatusNotFound},
+	} {
+		t.Run(test.path, func(t *testing.T) {
+			response := httptest.NewRecorder()
+			engine.ServeHTTP(response, httptest.NewRequest(http.MethodGet, test.path, nil))
+			require.Equal(t, test.status, response.Code)
+			if test.status == http.StatusOK {
+				require.JSONEq(t, `{"entries":[{"id":"example"}]}`, response.Body.String())
+				require.Contains(t, response.Header().Get("Content-Type"), "application/json")
+			}
+		})
+	}
+}
 
 func TestWorkbenchVideoSizeAcceptsCanvasRatiosAndPixelDimensions(t *testing.T) {
 	t.Setenv("STUDIO_LOCAL_MODEL_URL", "http://verified-local.invalid")
@@ -148,6 +174,28 @@ func TestWorkbenchCatalogUsesVerifiedLocalCapabilities(t *testing.T) {
 	require.Equal(t, false, video["generateAudio"].(map[string]any)["supported"])
 	_, err = workbenchCapabilityContract("offline-local", "video", "newapi", profiles, true)
 	require.Error(t, err)
+}
+
+func TestWorkbenchCatalogRecognizesLegacyVideoSKUsOnOpenAIChannels(t *testing.T) {
+	for _, name := range []string{"wan3.0", "xw-wan-3.0-1080p", "wan3.0-video-720p", "sd4-seedance2.0fast-720p", "特价seedance-2.5-720p", "at2-seedance-2.5-480p", "sora-2", "veo3.1", "MiniMax-H3"} {
+		t.Run(name, func(t *testing.T) {
+			price := model.Pricing{ModelName: name, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI}}
+			require.Equal(t, []string{"video"}, workbenchGenerationCapabilities(price, nil, false))
+			price.SupportedEndpointTypes = []constant.EndpointType{constant.EndpointTypeOpenAIResponse}
+			require.Equal(t, []string{"text"}, workbenchGenerationCapabilities(price, nil, false), "explicit Responses endpoint must keep its contract")
+			price.SupportedEndpointTypes = []constant.EndpointType{constant.EndpointTypeImageGeneration, constant.EndpointTypeOpenAI}
+			require.Equal(t, []string{"image"}, workbenchGenerationCapabilities(price, nil, false), "explicit image endpoint must keep its contract")
+			require.Empty(t, workbenchGenerationCapabilities(price, nil, true), "offline local models must stay unavailable")
+		})
+	}
+	for _, name := range []string{"seedream-5.0-lite", "seedream-5.0-flash", "seedream-5.0-pro", "seedream-5.0", "gpt-image-1", "flux.2-klein-4b"} {
+		price := model.Pricing{ModelName: name, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI}}
+		require.Equal(t, []string{"image"}, workbenchGenerationCapabilities(price, nil, false))
+	}
+	for _, name := range []string{"qwen3.5:9b", "gpt-4o", "soraya-chat", "klingon-translator", "wan-analysis", "my-video-assistant"} {
+		price := model.Pricing{ModelName: name, SupportedEndpointTypes: []constant.EndpointType{constant.EndpointTypeOpenAI}}
+		require.Equal(t, []string{"text"}, workbenchGenerationCapabilities(price, nil, false))
+	}
 }
 
 func TestWorkbenchTextContextUsesBoundedRuntimeCapabilities(t *testing.T) {

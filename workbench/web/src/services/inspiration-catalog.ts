@@ -5,6 +5,7 @@
  * 浏览器 HTTP 缓存之外再做一层内存缓存，同一次会话只请求一遍。
  */
 import { curatedInspirations, type CreationInspiration, type InspirationSourceId } from "@/lib/inspirations/catalog";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 
 /** manifest.json 里每个来源带的分类码译名表。 */
 type SourceManifest = { revision?: string; count?: number; categories?: Record<string, string> };
@@ -35,6 +36,9 @@ const CATALOG_SOURCES: { key: InspirationSourceId; file: string }[] = [
 let pending: Promise<InspirationCatalog> | null = null;
 
 async function fetchJson<T>(url: string): Promise<T> {
+    // Hosted deployments can have Nginx rules that serve *.json from disk.
+    // Use the authenticated API without a file extension for bundled catalogs.
+    if (isNewAPIWorkbench) url = `/api/workbench/inspirations/${url.slice(url.lastIndexOf("/") + 1).replace(/\.json$/, "")}`;
     const response = await fetch(url, { headers: { Accept: "application/json" } });
     if (!response.ok) throw new Error(`加载灵感目录失败：${url} 返回 HTTP ${response.status}`);
     return (await response.json()) as T;

@@ -12,7 +12,7 @@ ARG NPM_REGISTRY=https://registry.npmjs.org
 RUN bun install --frozen-lockfile --no-cache --registry "${NPM_REGISTRY}"
 COPY ./web ./
 COPY ./workbench /build/workbench
-COPY ./scripts/build-workbench.mjs /build/scripts/build-workbench.mjs
+COPY ./scripts/build-workbench.mjs ./scripts/verify-workbench-assets.mjs /build/scripts/
 COPY ./VERSION /build/VERSION
 # Workbench dependencies are build-only; avoid committing their files to layers.
 RUN --mount=type=tmpfs,target=/build/workbench/web/node_modules,size=3221225472 \

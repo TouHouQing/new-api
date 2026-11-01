@@ -15,6 +15,10 @@
 
 ## 构建与运行
 
+托管灵感目录使用无文件扩展名的 `/api/workbench/inspirations/{name}`，避开 Nginx 对 `.json` 的磁盘静态文件规则；仍须完整打包五份灵感目录。反向代理应将 `/workbench/` 和 `/api/workbench/` 全部转发给 New API，并优先使用 `location ^~`，避免图片、脚本等同样被全站静态规则截获。
+
+OpenAI 兼容渠道在 New API 价格目录中可能只声明通用 `openai` 端点。工作台对已知 Wan、Seedance、Sora、Veo、MiniMax-H3 视频系列及 Seedream 等图片系列补充识别；显式图片/视频端点优先，本地模型仍须通过能力就绪检查。视频沿用 New API `/v1/videos` 任务协议。目录分类不等于供应商接口验证：供应商仅提供聊天生成视频时，需要匹配的协议适配，不能将它伪装为视频任务接口。
+
 根目录执行 `go mod download`。前端执行 `cd web && bun install --frozen-lockfile && bun run build`，同时构建 New API、影策及账号桥接模块；随后根目录执行 `go build .`。源码启动 Agent 前在 `workbench/backend/agent-runtime/pi` 执行 `npm ci --omit=dev --ignore-scripts`，需要 Node 22.19 及以上。生产镜像的根 Dockerfile 自动安装这些运行依赖、FFmpeg 和官方协议插件。
 
 默认 `WORKBENCH_ENABLED=true`、`WORKBENCH_DATA_DIR=/data/workbench`（容器）。将 `/data` 持久挂载。工作台默认单独 SQLite；MySQL/PostgreSQL 配置 `WORKBENCH_DATABASE_DRIVER` 和 `WORKBENCH_DATABASE_DSN`，必须使用独立库或独立 PostgreSQL Schema。启动在迁移前检查数据库身份，拒绝连接到 New API 同一个账号库。多个工作台实例应使用共享数据库、受支持的共享媒体存储和队列协调配置，不能共享一个跨网络 SQLite 文件。

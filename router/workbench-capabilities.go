@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -26,6 +27,12 @@ type workbenchLocalProfile struct {
 	Readiness   string         `json:"readiness"`
 	Constraints map[string]any `json:"constraints"`
 }
+
+// OpenAI-compatible channels default to the chat endpoint in the pricing
+// catalog, including legacy video SKUs. Match known video families only;
+// explicit image/video endpoints and verified local capabilities take priority.
+var workbenchVideoModelName = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])(?:wanx?[-_.]?[0-9]|seedance[-_.]?[0-9]|sora[-_.]?[0-9]|veo[-_.]?[0-9]|kling[-_.]?[0-9]|hunyuan[-_]?video|minimax[-_]?h[0-9]|hailuo[-_.]?[0-9])`)
+var workbenchImageModelName = regexp.MustCompile(`(?i)(?:^|[^a-z0-9])(?:seedream[-_.]?[0-9]|gpt[-_]?image|dall[-_]?e(?:[-_]|$)|flux(?:[-_.]|$)|imagen[-_.]?[0-9])`)
 
 func workbenchResponsesOnly(price model.Pricing) bool {
 	return !slices.Contains(price.SupportedEndpointTypes, constant.EndpointTypeOpenAI) && (slices.Contains(price.SupportedEndpointTypes, constant.EndpointTypeOpenAIResponse) || slices.Contains(price.SupportedEndpointTypes, constant.EndpointTypeOpenAIResponseCompact))
@@ -90,6 +97,14 @@ func workbenchGenerationCapabilities(price model.Pricing, profiles []workbenchLo
 	}
 	if len(result) > 0 {
 		return result
+	}
+	if slices.Contains(price.SupportedEndpointTypes, constant.EndpointTypeOpenAI) {
+		if workbenchVideoModelName.MatchString(price.ModelName) {
+			return []string{"video"}
+		}
+		if workbenchImageModelName.MatchString(price.ModelName) {
+			return []string{"image"}
+		}
 	}
 	if strings.Contains(strings.ToLower(price.ModelName), "tts") || strings.HasPrefix(price.ModelName, "chatterbox-") {
 		return []string{"audio"}

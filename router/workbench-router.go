@@ -166,6 +166,10 @@ func SetWorkbenchRouter(engine *gin.Engine, assets WebAssets) {
 			}})
 			return
 		}
+		if c.Request.Method == http.MethodGet && strings.HasPrefix(c.Param("path"), "/inspirations/") {
+			serveWorkbenchInspiration(c, assets.BuildFS)
+			return
+		}
 		if workbenchRuntime == nil {
 			c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": 503, "msg": "Workbench is unavailable"})
 			return
@@ -238,6 +242,23 @@ func SetWorkbenchRouter(engine *gin.Engine, assets WebAssets) {
 		c.Header("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
 		_, _ = io.Copy(c.Writer, file)
 	})
+}
+
+// Extensionless API URLs keep public catalogs out of reverse proxies' static
+// file rules. Only the five bundled catalogs may be read through this route.
+func serveWorkbenchInspiration(c *gin.Context, assets fs.FS) {
+	name := strings.TrimPrefix(c.Param("path"), "/inspirations/")
+	if !slices.Contains([]string{"manifest", "seedance", "haohaoxue", "youmind", "gallery-pool"}, name) {
+		c.AbortWithStatus(http.StatusNotFound)
+		return
+	}
+	data, err := fs.ReadFile(assets, "web/dist/workbench/inspirations/"+name+".json")
+	if err != nil {
+		c.AbortWithStatusJSON(http.StatusServiceUnavailable, gin.H{"code": 503, "msg": "灵感资源缺失，请重新构建并部署工作台"})
+		return
+	}
+	c.Header("X-Content-Type-Options", "nosniff")
+	c.Data(http.StatusOK, "application/json; charset=utf-8", data)
 }
 
 // Media elements cannot send an Authorization header. A short lived HttpOnly
