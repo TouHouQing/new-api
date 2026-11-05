@@ -40,6 +40,90 @@ type workbenchResourceTestHost struct{ testWorkbenchHost }
 
 func (h *workbenchResourceTestHost) PublicBaseURL() string { return "https://host.example" }
 
+func TestWorkbenchDramaTaskAdmissionUsesHostModelsAndSegmentIdentity(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	svc.dataDir = t.TempDir()
+	host := &testWorkbenchHost{actor: WorkbenchHostUser{ID: "42"}, models: []WorkbenchHostModel{
+		{Key: "text-key", Name: "gpt-6.1-terra", Capability: "text", Protocol: "chat-completion"},
+		{Key: "image-key", Name: "gpt-image-2-1k", Capability: "image", Protocol: "openai-image"},
+		{Key: "video-key", Name: "特价seedance-2.0-720p", Capability: "video", Protocol: "newapi"},
+	}}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), "42"))
+	require.NoError(t, err)
+	_, err = svc.workbenchModels(context.Background(), user.ID)
+	require.NoError(t, err)
+	project := model.Project{ID: "drama-project", UserID: user.ID, Name: "医院病房"}
+	require.NoError(t, db.Create(&project).Error)
+	run := &dramaRun{s: svc, project: &project}
+	job := &model.DramaJob{ID: "prompt-job", EpisodeID: "episode", ShotID: "drama-segment", Kind: model.DramaJobSegmentPrompt}
+	// Go through the real task admission, not the orchestrator's task hook.
+	for _, capability := range []string{"text", "image", "video"} {
+		t.Run(capability, func(t *testing.T) {
+			choice := DramaModelChoice{ChannelID: "newapi-" + capability, ModelKey: capability + "-key"}
+			config := map[string]any{}
+			operation := "text"
+			if capability == "image" {
+				request := svc.dramaImageRequestFor(choice, "16:9", "")
+				require.Empty(t, request.Issue)
+				request.apply(config)
+				operation = "text_to_image"
+			}
+			if capability == "video" {
+				config["size"], config["videoSeconds"], config["vquality"] = "16:9", "5", "720p"
+				operation = "text_to_video"
+			}
+			task, err := run.createTaskWith(choice, capability, operation, "A hospital room", map[string]any{"config": config, "metadata": run.metadata(job)})
+			require.NoError(t, err)
+			stored, err := svc.repo.Task(task.ID)
+			require.NoError(t, err)
+			var input map[string]any
+			require.NoError(t, json.Unmarshal([]byte(stored.InputJSON), &input))
+			metadata := input["metadata"].(map[string]any)
+			assert.Equal(t, job.ShotID, metadata["dramaSegmentId"])
+			assert.Empty(t, metadata["shotId"])
+			config = input["config"].(map[string]any)
+			assert.Empty(t, config["apiKey"], "host execution must not create an API key")
+			var generation canvasGenerationInput
+			require.NoError(t, json.Unmarshal([]byte(stored.InputJSON), &generation))
+			resolved, err := svc.resolveProviderConfig(generation.Config)
+			require.NoError(t, err)
+			assert.Equal(t, "http://newapi.workbench.invalid/v1", resolved.BaseURL)
+			assert.Empty(t, resolved.APIKey)
+			if capability == "image" {
+				assert.Equal(t, "1824x1024", config["size"])
+			}
+		})
+	}
+	run.project = &model.Project{ID: project.ID, UserID: "newapi:other"}
+	_, err = run.createTaskWith(DramaModelChoice{ChannelID: "newapi-text", ModelKey: "text-key"}, "text", "text", "test", map[string]any{"metadata": run.metadata(job)})
+	require.Error(t, err, "segment metadata must not bypass project ownership")
+	assert.Zero(t, host.calls, "admission must not invoke inference")
+}
+
+func TestWorkbenchImageDefaultsKeepExplicitPixelTier(t *testing.T) {
+	svc, _ := newTimelineTaskTestService(t)
+	for _, tc := range []struct{ name, tier, pixels string }{
+		{"gpt-image-2-1k", "1k", "1824x1024"},
+		{"gpt-image-2-2k", "2k", "2752x1536"},
+		{"gpt-image-2-4k", "4k", "3840x2160"},
+		{"gpt-image-2", "1k", "1824x1024"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			profile, err := NormalizeModelCapabilityConfigForModel("image", "openai-image", tc.name, DefaultModelCapabilityConfigForModel("openai-image", tc.name), svc.protocolRegistry())
+			require.NoError(t, err)
+			require.NoError(t, validateImageSizePresetRequirement("image", "openai-image", profile))
+			assert.Equal(t, tc.tier, profile.Image.Size.DefaultTier)
+			for _, quality := range []string{"auto", "low", "high"} {
+				config := providerConfig{InterfaceType: "openai-image", Model: "opaque-host-key", Size: "16:9", Quality: quality}
+				require.NoError(t, applyImageParameterValues(&config, profile.Image))
+				assert.Equal(t, tc.pixels, config.Size)
+				assert.Equal(t, quality, config.Quality, "quality must not select resolution")
+			}
+		})
+	}
+}
+
 func TestWorkbenchLocalReferencesUseFilesOrHostSignedURLsWithoutCanvasPublicSetting(t *testing.T) {
 	t.Setenv("CANVAS_PUBLIC_BASE_URL", "")
 	svc := newResourceTestService(t)

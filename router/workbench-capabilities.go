@@ -260,7 +260,14 @@ func workbenchVideoReceiptResponse(body []byte, receipt *model.Task) []byte {
 func workbenchVideoSize(ctx context.Context, modelName, size string) (string, error) {
 	profiles, err := workbenchLocalProfiles(ctx)
 	if err != nil {
-		return "", err
+		// A failed local worker must not block an external New API channel.
+		// Explicitly configured local models still require verified frame sizes.
+		for local := range strings.SplitSeq(os.Getenv("STUDIO_LOCAL_CAPABILITY_MODELS"), ",") {
+			if strings.TrimSpace(local) == modelName {
+				return "", err
+			}
+		}
+		return size, nil
 	}
 	for _, profile := range profiles {
 		if profile.ModelID != modelName || profile.Action != "video" || profile.Readiness != "ready" || profile.Support != "supported" {

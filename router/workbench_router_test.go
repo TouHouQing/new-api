@@ -55,6 +55,7 @@ func TestWorkbenchInspirationCatalogUsesBundledFilesAndRejectsOtherPaths(t *test
 
 func TestWorkbenchVideoSizeAcceptsCanvasRatiosAndPixelDimensions(t *testing.T) {
 	t.Setenv("STUDIO_LOCAL_MODEL_URL", "http://verified-local.invalid")
+	t.Setenv("STUDIO_LOCAL_CAPABILITY_MODELS", " wan2.2-ti2v-5b ")
 	cache := &workbenchCapabilitiesCache
 	cache.Lock()
 	base, at, profiles, failure := cache.base, cache.at, cache.profiles, cache.err
@@ -75,6 +76,18 @@ func TestWorkbenchVideoSizeAcceptsCanvasRatiosAndPixelDimensions(t *testing.T) {
 		_, err := workbenchVideoSize(context.Background(), "wan2.2-ti2v-5b", invalid)
 		require.Error(t, err)
 	}
+	cache.Lock()
+	cache.at, cache.profiles, cache.err = time.Now(), nil, context.DeadlineExceeded
+	cache.Unlock()
+	for _, name := range []string{"特价seedance-2.0-720p", "MiniMax-H3", "wan3.0"} {
+		for _, size := range []string{"16:9", "9:16", "1280x720"} {
+			actual, err := workbenchVideoSize(context.Background(), name, size)
+			require.NoError(t, err, "external channels must work while the local worker is offline")
+			assert.Equal(t, size, actual)
+		}
+	}
+	_, err := workbenchVideoSize(context.Background(), "wan2.2-ti2v-5b", "16:9")
+	require.ErrorIs(t, err, context.DeadlineExceeded, "local models still need a verified runtime")
 }
 
 func TestInternalRelayRestoresServerRequestURIWithoutBypassingAuthentication(t *testing.T) {

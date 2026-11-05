@@ -41,6 +41,15 @@ func DefaultImageCapabilityConfig(protocol string, modelName string) *ImageCapab
 		// OpenAI Images 只收 WIDTHxHEIGHT：默认配置声明了 1K/2K/4K，就必须自带档位换算表，
 		// 否则运行时换算会被静默跳过（见 imageSizePresetMissing），实际出图档位与所选档位不一致。
 		image.Size.Presets = openAIImageDefaultSizePresets()
+		// Resolution is disabled in the Images contract. Keep one explicit tier
+		// so ratio inputs can still resolve after parameter normalization.
+		image.Size.DefaultTier = "1k"
+		for _, tier := range []string{"2k", "4k"} {
+			if strings.HasSuffix(strings.ToLower(strings.TrimSpace(modelName)), "-"+tier) {
+				image.Size.DefaultTier = tier
+				break
+			}
+		}
 	case "km-kemei-seedream":
 		image.References.MaxImages = 10
 		image.References.MaskSupported = false

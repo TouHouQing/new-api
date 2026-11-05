@@ -1273,7 +1273,9 @@ func (r *dramaRun) condenseSegmentPrompt(job *model.DramaJob, payload dramaRevis
 }
 
 func (r *dramaRun) metadata(job *model.DramaJob) map[string]any {
-	return map[string]any{"source": "drama_production", "dramaJobId": job.ID, "domainProjectId": r.project.ID, "episodeId": job.EpisodeID, "shotId": job.ShotID}
+	// DramaJob.ShotID identifies a drama segment, not a project Shot. The
+	// ordinary shot context requires a different table and revision contract.
+	return map[string]any{"source": "drama_production", "dramaJobId": job.ID, "domainProjectId": r.project.ID, "episodeId": job.EpisodeID, "dramaSegmentId": job.ShotID}
 }
 
 func (r *dramaRun) createTask(capability string, operation string, prompt string, input map[string]any) (*model.Task, error) {

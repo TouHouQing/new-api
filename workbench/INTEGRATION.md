@@ -21,6 +21,8 @@ OpenAI 兼容渠道在 New API 价格目录中可能只声明通用 `openai` 端
 
 根目录执行 `go mod download`。前端执行 `cd web && bun install --frozen-lockfile && bun run build`，同时构建 New API、影策及账号桥接模块；随后根目录执行 `go build .`。源码启动 Agent 前在 `workbench/backend/agent-runtime/pi` 执行 `npm ci --omit=dev --ignore-scripts`，需要 Node 22.19 及以上。生产镜像的根 Dockerfile 自动安装这些运行依赖、FFmpeg 和官方协议插件。
 
+嵌入构建 `VITE_NEW_API_WORKBENCH=true` 默认将业务请求固定到同站 `/api/workbench`，避免漏设后端地址时认证恢复失败、短剧页面反复跳回登录页。独立工作台继续使用 `VITE_CANVAS_BACKEND_URL` 配置。
+
 默认 `WORKBENCH_ENABLED=true`、`WORKBENCH_DATA_DIR=/data/workbench`（容器）。将 `/data` 持久挂载。工作台默认单独 SQLite；MySQL/PostgreSQL 配置 `WORKBENCH_DATABASE_DRIVER` 和 `WORKBENCH_DATABASE_DSN`，必须使用独立库或独立 PostgreSQL Schema。启动在迁移前检查数据库身份，拒绝连接到 New API 同一个账号库。多个工作台实例应使用共享数据库、受支持的共享媒体存储和队列协调配置，不能共享一个跨网络 SQLite 文件。
 
 部署继续配置 New API 的 Session 密钥、HTTPS、可信来源、管理员和模型渠道。内置工作台不提供第二套注册或支付入口。Node 镜像仓库可通过 `STUDIO_NODE_BUILD_IMAGE` 指定可信镜像源；默认使用官方 Node 22.19 bookworm slim。镜像构建排除本地数据、账号文件、缓存、媒体输出和开发机依赖。
@@ -32,6 +34,10 @@ Docker 构建使用临时内存目录存放工作台依赖和 Go 编译缓存，
 ## 模型与计费
 
 用户只能看到其 New API 分组中可用的模型。普通渠道按配置的端点类型分类，Responses 专用文本模型保留相应协议；本地模型通过运营方配置的 `STUDIO_LOCAL_MODEL_URL` 和 `STUDIO_LOCAL_CAPABILITY_MODELS` 获取真实能力，避免将图片、视频和专用工具错误归为文本。
+
+OpenAI Images 默认能力明确指定像素尺寸档位：模型名以 `-2k`、`-4k` 结尾时使用对应档位，其余默认 1K，画幅按声明的预设表转换成像素。普通图片质量不会改变尺寸档位。短剧角色、场景、道具参考图与其他图片任务使用同一尺寸校验；剧情段任务使用 `metadata.dramaSegmentId`，避免被误当作普通项目镜头并要求其镜头修订编号。
+
+本地模型服务离线时，外部 New API 视频渠道仍保留原比例或尺寸并按供应商协议提交；显式配置在 `STUDIO_LOCAL_CAPABILITY_MODELS` 的本地模型继续要求能力就绪与尺寸验证。
 
 视频、图片、文本、Agent 及默认模型设置共用分组选择器：先选择当前用户获准使用的 New API 分组，再选择该分组中支持当前用途的模型。相同模型在不同分组保留独立选择，保存后按对应分组调用；没有对应模型的分组会解释原因并保留原选择。模型可用性与 New API 的分组模型接口一致，以渠道启用列表为准，不再因模型未展示在公开价格目录中而遗漏。缺失价格不会被解释为免费，托管菜单直接展示 New API 计费说明，不调用独立影策的报价接口。Agent 图片理解的模型替换限制在用户已选分组内。
 
@@ -54,6 +60,8 @@ Docker 构建使用临时内存目录存放工作台依赖和 Go 编译缓存，
 个人信息通过只读 `/api/workbench/host-profile` 读取当前 New API 账号的安全字段；账户资料及安全管理分别进入同站 `/profile`、`/security`。原影策修改账号的接口继续关闭。模型目录覆盖 New API 授予当前用户的全部可选分组，模型选项标明分组；选择冻结到模型编号，转发时重新校验当前分组权限并使用该分组倍率。灵感目录在构建前后校验，缺失或格式错误会阻止部署。
 
 ## 验证记录
+
+短剧回归使用浏览器和本地模拟上游，从开始制作依次完成设定提取、角色/道具/场景三张参考图、分镜、两段视频提示词、两段视频与合成，共 10 个成功任务。成片在浏览器实际播放、下载，验证为 1920×1080、8 秒及 HTTP Range 读取。另验证失败视频可重试且保留已生成参考图和提示词；模型 API Key 数量、令牌查找错误和本次扣费均为 0。模拟上游只验证平台调用链与参数合同，不代表付费供应商的生成质量或线上部署已验收。
 
 已完成：两个前端的生产构建、影策前端全量 3,274 项、MCP 55 项、影策完整后端与 76 项 Chrome 预演测试；New API 前端全量 3,038 项及新增上传回归、后端 router/model/service/controller 全量、类型检查、lint、格式与版权检查。三种真实数据库的新安装及旧部署升级均连续启动两次，覆盖 Session 撤销、Cookie 只读、PAT 分界、同库隔离和账号删除。数据库版本为 SQLite 3.50.4、MySQL 8.4.11、PostgreSQL 17.11。宿主既有数据库只在独立副本和专用测试库上验证。
 
