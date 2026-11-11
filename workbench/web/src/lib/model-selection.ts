@@ -149,8 +149,8 @@ export function modelCompatibilityError(config: AiConfig, model: string, require
         if (visualInputCount > profile.references.maxImages) return `最多支持 ${profile.references.maxImages} 张参考图`;
         if (input.videoCount > profile.references.maxVideos) return `最多支持 ${profile.references.maxVideos} 个参考视频`;
         if (input.audioCount > profile.references.maxAudios) return `最多支持 ${profile.references.maxAudios} 个参考音频`;
-        const operation = resolveVideoOperation(input, requirements.videoOperation);
-        if (operation !== "concat" && !profile.operations.includes(operation)) return `不支持${videoOperationLabel(operation)}`;
+        const operation = resolveVideoOperationForOperations(input, profile.operations, requirements.videoOperation);
+        if (operation !== "concat" && profile.operations.length && !profile.operations.includes(operation)) return `不支持${videoOperationLabel(operation)}`;
         return "";
     }
 
@@ -242,7 +242,7 @@ function logicalModelCompatibilityError(spec: NonNullable<NonNullable<AiConfig["
         if (!constraint && count > 0) return `不支持${kind}输入`;
         if (constraint && (count < constraint.min || count > constraint.max)) return `${kind}输入需为 ${constraint.min}-${constraint.max} 个`;
     }
-    const operation = requirements.capability === "video" && input ? resolveVideoOperation(input, requirements.videoOperation) : requirements.videoOperation;
+    const operation = requirements.capability === "video" && input ? resolveVideoOperationForOperations(input, spec.operations || [], requirements.videoOperation) : requirements.videoOperation;
     if (operation && spec.operations?.length && !spec.operations.includes(operation)) return "不支持当前生成模式";
     // 图片创作状态也会携带全局默认视频时长；这个字段只对视频模型有意义，
     // 不能把它拼进图片逻辑模型的能力匹配，否则图片模型会被误判为“不支持当前时长”。
@@ -467,6 +467,31 @@ export function inferVideoOperation(input: ModelInputSummary) {
     if (visualInputCount > 0) return "image_to_video";
     if (input.audioCount > 0) return "audio_to_video";
     return "text_to_video";
+}
+
+function videoOperationCandidates(input: ModelInputSummary) {
+    const visualInputCount = input.imageCount + input.characterCount;
+    if (input.videoCount > 0) return ["reference_to_video"];
+    if (visualInputCount > 0) return ["reference_to_video", "image_to_video"];
+    if (input.audioCount > 0) return ["audio_to_video", "reference_to_video"];
+    return ["text_to_video"];
+}
+
+/**
+ * 普通图片在能力层同时可表示“参考图”和“图生视频”。入口优先使用全模态参考，
+ * 但模型只声明 image_to_video 时应沿用它，不能把支持多图的模型判定为不支持。
+ * 这与后端 cloudAgentVideoOperation 的选择顺序保持一致。
+ */
+export function resolveVideoOperationForOperations(input: ModelInputSummary, operations: string[], storedOperation?: string) {
+    const requested = resolveVideoOperation(input, storedOperation);
+    if (!operations.length || operations.includes(requested)) return requested;
+    if (!["text_to_video", "image_to_video", "audio_to_video", "reference_to_video"].includes(requested)) return requested;
+    return videoOperationCandidates(input).find((operation) => operations.includes(operation)) || requested;
+}
+
+export function resolveVideoOperationForModel(config: AiConfig, model: string, input: ModelInputSummary, storedOperation?: string) {
+    const operations = modelCapabilityConfigFor(config, model).video?.operations || [];
+    return resolveVideoOperationForOperations(input, operations, storedOperation);
 }
 
 export function resolveVideoOperation(input: ModelInputSummary, storedOperation?: string) {
