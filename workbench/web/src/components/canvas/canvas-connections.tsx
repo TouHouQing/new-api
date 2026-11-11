@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from "react";
+import { useTranslation } from "react-i18next";
 
 import { CANVAS_CONNECTION_STROKE_WIDTH, canvasThemes } from "@/lib/canvas-theme";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
@@ -37,6 +38,7 @@ export const ConnectionPath = React.memo(
         onSelect: () => void;
         onContextMenu?: (event: ReactMouseEvent<SVGPathElement>) => void;
     }) {
+        const { t } = useTranslation();
         const theme = canvasThemes[useActiveTheme()];
         const from = useCanvasVisualNode(sourceFrom);
         const to = useCanvasVisualNode(sourceTo);
@@ -50,15 +52,10 @@ export const ConnectionPath = React.memo(
 
         return (
             <g>
-                {targetCell ? (
-                    <title>
-                        {targetCell.label}
-                        {targetCell.clipped ? "（位于表格滚动区域外）" : ""}
-                    </title>
-                ) : null}
+                {targetCell ? <title>{targetCell.clipped ? t("canvasA.connections.clippedHint", { label: targetCell.label }) : targetCell.label}</title> : null}
                 {targetCell?.clipped && !hideVisual && emphasized ? (
                     <text x={endX + 8} y={endY - 8} fill={theme.node.text} fontSize={12} style={{ pointerEvents: "none" }}>
-                        {targetCell.label} · 滚动查看
+                        {t("canvasA.connections.scrollToView", { label: targetCell.label })}
                     </text>
                 ) : null}
                 <path

@@ -8,3 +8,18 @@ export const modelTagColors = [
 ] as const;
 
 export type ModelTag = { text: string; color: (typeof modelTagColors)[number]["value"] };
+
+/** 参考输入上限标签（图×N · 视×N · 音×N）：视频模型的参考素材与文本模型的识图 / 视频识别共用一种写法。 */
+export function referenceCapabilityTag(references?: { maxImages?: number; maxVideos?: number; maxAudios?: number }): ModelTag | undefined {
+    if (!references) return undefined;
+    const counts = [
+        ["图", references.maxImages],
+        ["视", references.maxVideos],
+        ["音", references.maxAudios],
+    ] as const;
+    const text = counts
+        .filter(([, count]) => typeof count === "number" && Number.isFinite(count) && count > 0)
+        .map(([label, count]) => `${label}×${count}`)
+        .join(" · ");
+    return text ? { text, color: "green" } : undefined;
+}

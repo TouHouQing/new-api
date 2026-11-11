@@ -5,5 +5,9 @@
     color: var(--user-ink-muted, var(--muted-foreground));
 }
 
-.canvas-sync-status-trigger--done { color: var(--status-success); }
-.canvas-sync-status-trigger--pending { color: var(--status-warning); }
+.canvas-sync-status-trigger--done {
+    color: var(--status-success);
+}
+.canvas-sync-status-trigger--pending {
+    color: var(--status-warning);
+}

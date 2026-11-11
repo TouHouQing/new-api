@@ -22,8 +22,14 @@ export type CloudAgentConversationMessage = {
     meta?: string;
     detail?: unknown;
     attachments?: Array<{ id: string; name: string; url: string }>;
-    interjection?: "sent" | "delivered" | "undelivered" | "withdrawn";
+    interjection?: CloudAgentInterjectionState;
 };
+
+/**
+ * 插话气泡状态。sending：请求还没返回（只在内存里，不写入本机快照）；
+ * requeued：未送达后已转为下一轮（重新进入队列），不再提供转发入口。
+ */
+export type CloudAgentInterjectionState = "sending" | "sent" | "delivered" | "undelivered" | "withdrawn" | "requeued";
 
 export type CloudAgentConversation = {
     serverRunId?: string;
@@ -85,9 +91,10 @@ const documentWrites = new Map<string, Promise<unknown>>();
 export async function saveCloudAgentConversations(activeId: string | null, conversations: CloudAgentConversation[], scope = getActiveUserScope()) {
     // 流式标记只属于内存中的观察状态。若网络在最后一个 delta 后断开，
     // 也不能让下次恢复把思考卡片误判为仍在实时展开。
+    // 发送中的插话气泡同理：结果未知，刷新后由事件回放补回已被接收的那条，原文仍在本机队列里。
     const persistedConversations = conversations.map((conversation) => ({
         ...conversation,
-        messages: conversation.messages.map((message) => ({ ...message, streaming: false })),
+        messages: conversation.messages.filter((message) => message.interjection !== "sending").map((message) => ({ ...message, streaming: false })),
     }));
     const document: CloudAgentConversationDocument = { version: 1, activeId, conversations: persistedConversations };
     const write = (documentWrites.get(scope) || Promise.resolve()).catch(() => undefined).then(() => localForageStorageForScope(scope).setItem(storageKey(), JSON.stringify(document)));

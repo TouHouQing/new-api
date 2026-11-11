@@ -22,11 +22,16 @@ let originalWindow: PropertyDescriptor | undefined;
 beforeEach(() => {
     originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
     storage.clear();
-    Object.defineProperty(globalThis, "window", { configurable: true, value: { localStorage: {
-        getItem: (key: string) => storage.get(key) ?? null,
-        setItem: (key: string, value: string) => storage.set(key, value),
-        removeItem: (key: string) => storage.delete(key),
-    } } });
+    Object.defineProperty(globalThis, "window", {
+        configurable: true,
+        value: {
+            localStorage: {
+                getItem: (key: string) => storage.get(key) ?? null,
+                setItem: (key: string, value: string) => storage.set(key, value),
+                removeItem: (key: string) => storage.delete(key),
+            },
+        },
+    });
 });
 afterEach(() => {
     if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);

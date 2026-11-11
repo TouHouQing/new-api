@@ -212,7 +212,7 @@ func (s *Service) ExportProjectDelivery(ctx context.Context, owner, projectID st
 	if err = put("manifest.json", manifestBytes); err != nil {
 		return result, err
 	}
-	if err = put("README.txt", []byte("影策完整素材工程包\nproject.json：项目、完整脚本、画布及历史、镜头与候选、素材版本、剪辑、转写和分析历史、审片意见。\nmedia/：本项目引用的原始素材，逐文件SHA256见manifest.json。\nexchange/：各剪辑的OTIO及SRT。OTIO保留片段、源时钟、变速与位置；字幕样式、构图、混音、动效等另见原生JSON与warnings，外部编辑器的还原效果需核对。\n完整应用恢复（包括执行回执、账号权限）使用管理员已验证的本地完整备份；此包不是原平台导入格式，不会自动重新调用模型。\n")); err != nil {
+	if err = put("README.txt", []byte("THQ Video 完整素材工程包\nproject.json：项目、完整脚本、画布及历史、镜头与候选、素材版本、剪辑、转写和分析历史、审片意见。\nmedia/：本项目引用的原始素材，逐文件SHA256见manifest.json。\nexchange/：各剪辑的OTIO及SRT。OTIO保留片段、源时钟、变速与位置；字幕样式、构图、混音、动效等另见原生JSON与warnings，外部编辑器的还原效果需核对。\n完整应用恢复（包括执行回执、账号权限）使用管理员已验证的本地完整备份；此包不是原平台导入格式，不会自动重新调用模型。\n")); err != nil {
 		return result, err
 	}
 	if err = archive.Close(); err != nil {

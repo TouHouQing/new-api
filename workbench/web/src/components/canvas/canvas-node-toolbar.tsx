@@ -7,7 +7,7 @@ import { Camera, Check, ChevronDown, ChevronRight, Ellipsis, Grid3x3, Palette, P
 
 import { canvasDockStyle } from "@/lib/canvas/canvas-aceternity-style";
 import { avoidCanvasContent, avoidCanvasNodePanels, canvasNodePanelBounds, canvasOverlayBounds, canvasToolbarLayoutLevel, observeCanvasOverlayBounds, subscribeCanvasNodePanelBounds } from "@/lib/canvas/canvas-overlay-layout";
-import { ASSET_CATEGORY_OPTIONS } from "@/lib/asset-category";
+import { ASSET_ASSIGNABLE_CATEGORY_OPTIONS } from "@/lib/asset-category";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { resolveNodeToolbarPlacement, resolveToolbarTools, type NodeToolbarGroup, type ToolContext, type ToolbarHandlers } from "@/lib/canvas/tool-registry";
 import { subscribeCanvasGraphicsViewportPreview, subscribeCanvasNodeDragPreview } from "@/lib/canvas/canvas-live-viewport";
@@ -94,7 +94,7 @@ type CanvasNodeToolbarProps = {
 
 type CanvasAssetCategory = NonNullable<NonNullable<CanvasNodeData["metadata"]>["assetCategory"]>;
 
-const assetCategoryOptions: Array<{ value: CanvasAssetCategory; label: string }> = ASSET_CATEGORY_OPTIONS;
+const assetCategoryOptions: Array<{ value: CanvasAssetCategory; label: string }> = ASSET_ASSIGNABLE_CATEGORY_OPTIONS;
 
 type ToolbarTool = {
     section?: string;
@@ -237,7 +237,12 @@ export function CanvasNodeToolbar({
             const obstacles = nodes.map((item) => {
                 const x = item.position.x + (item.id === node.id ? offsetX : 0),
                     y = item.position.y + (item.id === node.id ? offsetY : 0);
-                return { left: liveViewport.x + (x - 16) * scale, top: liveViewport.y + (y - 28) * scale, right: liveViewport.x + (x + item.width + 16) * scale, bottom: liveViewport.y + (y + item.height + 8) * scale };
+                return {
+                    left: liveViewport.x + (x - 16) * scale,
+                    top: liveViewport.y + (y - 28) * scale,
+                    right: liveViewport.x + (x + item.width + 16) * scale,
+                    bottom: liveViewport.y + (y + item.height + 8) * scale,
+                };
             });
             const panelAnchor = avoidCanvasNodePanels({ left: preferredAnchorLeft, top: preferredAnchorTop }, { width: toolbarWidth, height: toolbarHeight }, availableBounds, panels);
             const { left, top } = avoidCanvasContent(panelAnchor, { width: toolbarWidth, height: toolbarHeight }, availableBounds, [...panels, ...chromeObstacles, ...obstacles], [...panels, ...chromeObstacles]);
@@ -450,7 +455,14 @@ export function CanvasNodeToolbar({
             ref={toolbarRef}
             data-popover-anchor-container
             className="canvas-node-toolbar absolute z-[var(--z-node-toolbar)] -translate-x-1/2 -translate-y-full"
-            style={{ left: 0, top: 0, transform: `translate3d(${anchor.left}px, ${anchor.top}px, 0)`, width: "max-content", maxWidth: containerWidth, color: theme.node.text }}
+            style={{
+                left: 0,
+                top: 0,
+                transform: `translate3d(${anchor.left}px, ${anchor.top}px, 0)`,
+                width: "max-content",
+                maxWidth: containerWidth,
+                color: theme.node.text,
+            }}
             onMouseEnter={() => onKeep(node.id)}
             onMouseLeave={() => {
                 if (!openMenuId) onLeave();

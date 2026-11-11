@@ -2,7 +2,6 @@ import { compactApiParams, http } from "@/services/api/request";
 import { normalizeAssetCategory, type AssetCategory } from "@/lib/asset-category";
 import type { GenerationTask } from "@/services/api/task-center";
 
-
 export type Project = {
     id: string;
     userId: string;
@@ -33,10 +32,30 @@ export type ProjectCanvas = {
     previewNodes: import("@/types/canvas").CanvasNodeData[];
 };
 
-export type ProjectCreativeBrief = { version: 1; goal: "story" | "product" | "explain" | "presenter" | "music" | "custom"; audience: string; keyMessage: string; targetDurationMs: number; language: string; tone: string; constraints: string[]; templateOrigin?: { id: string; version: number; inputHash: string } };
+export type ProjectCreativeBrief = {
+    version: 1;
+    goal: "story" | "product" | "explain" | "presenter" | "music" | "custom";
+    audience: string;
+    keyMessage: string;
+    targetDurationMs: number;
+    language: string;
+    tone: string;
+    constraints: string[];
+    templateOrigin?: { id: string; version: number; inputHash: string };
+};
 export type ShotNarrative = { purpose: "" | "opening" | "establish" | "action" | "emotion" | "benefit" | "ending"; information: string; emotion: string; visualBeat: string; continuityNeeds: string };
 export type ShotReferenceState = { assetVersionId: string; stage?: "" | "image" | "video"; wardrobe: string; emotion: string; propState: string; note: string; referenceResourceIds: string[] };
-export type ShotPlanSnapshot = { version: 1; projectId: string; unitId: string; projectDescription: string; projectBriefJson: string; sourceTextAtArchive: string; entries: { shotId: string; revisionId: string; title: string; position: number; durationMs: number; status: string; videoSource: string }[]; references: ShotAssetReference[]; selections: { shotId: string; artifactId: string; resourceId: string; revisionId: string; status: string }[] };
+export type ShotPlanSnapshot = {
+    version: 1;
+    projectId: string;
+    unitId: string;
+    projectDescription: string;
+    projectBriefJson: string;
+    sourceTextAtArchive: string;
+    entries: { shotId: string; revisionId: string; title: string; position: number; durationMs: number; status: string; videoSource: string }[];
+    references: ShotAssetReference[];
+    selections: { shotId: string; artifactId: string; resourceId: string; revisionId: string; status: string }[];
+};
 export type ShotPlanRecord = { id: string; projectId: string; unitId: string; kind: string; title: string; payloadSha256: string; shotCount: number; createdAt: string };
 export type ShotPlanWriteResult = { shots: ProjectShot[]; backupRecordId?: string; sourceRecordId?: string; replayed: boolean; current: boolean; warnings?: string[] };
 
@@ -275,8 +294,8 @@ export type ProjectDetail = {
     shotRevisions: ShotRevision[];
     shotArtifacts: ShotArtifact[];
     shotReferences: ShotAssetReference[];
-	assetCandidates: ProjectAssetCandidate[];
-	tasks: GenerationTask[];
+    assetCandidates: ProjectAssetCandidate[];
+    tasks: GenerationTask[];
 };
 
 export type ProjectCore = { project: Project };
@@ -377,15 +396,20 @@ export function listProjectCanvases(projectId: string, page = 1, pageSize = 40) 
 }
 
 export function listProjectAssetsPage(projectId: string, options: { page?: number; pageSize?: number; category?: string; mediaType?: string; status?: string; folderId?: string; query?: string } = {}, signal?: AbortSignal) {
-    return http.get<ProjectAssetPage>(`/projects/${encodeURIComponent(projectId)}/assets`, { ...(signal?{signal}:{}),params: {
-        page: options.page || 1,
-        pageSize: options.pageSize || 40,
-        category: options.category || undefined,
-        mediaType: options.mediaType || undefined,
-        status: options.status || undefined,
-        folderId: options.folderId,
-        q: options.query || undefined,
-    } }).then((page) => ({ ...page, assets: page.assets.map(normalizeProjectAsset) }));
+    return http
+        .get<ProjectAssetPage>(`/projects/${encodeURIComponent(projectId)}/assets`, {
+            ...(signal ? { signal } : {}),
+            params: {
+                page: options.page || 1,
+                pageSize: options.pageSize || 40,
+                category: options.category || undefined,
+                mediaType: options.mediaType || undefined,
+                status: options.status || undefined,
+                folderId: options.folderId,
+                q: options.query || undefined,
+            },
+        })
+        .then((page) => ({ ...page, assets: page.assets.map(normalizeProjectAsset) }));
 }
 
 export function listProjectAssets(projectId: string) {
@@ -393,14 +417,18 @@ export function listProjectAssets(projectId: string) {
 }
 
 export function listProjectAssetCandidates(projectId: string, options: { page?: number; pageSize?: number; unitId?: string; status?: string; category?: string; query?: string } = {}) {
-    return http.get<ProjectAssetCandidatePage>(`/projects/${encodeURIComponent(projectId)}/asset-candidates`, { params: {
-        page: options.page || 1,
-        pageSize: options.pageSize || 100,
-        unitId: options.unitId || undefined,
-        status: options.status || undefined,
-        category: options.category || undefined,
-        q: options.query || undefined,
-    } }).then((page) => ({ ...page, candidates: page.candidates.map(normalizeProjectAssetCandidate) }));
+    return http
+        .get<ProjectAssetCandidatePage>(`/projects/${encodeURIComponent(projectId)}/asset-candidates`, {
+            params: {
+                page: options.page || 1,
+                pageSize: options.pageSize || 100,
+                unitId: options.unitId || undefined,
+                status: options.status || undefined,
+                category: options.category || undefined,
+                q: options.query || undefined,
+            },
+        })
+        .then((page) => ({ ...page, candidates: page.candidates.map(normalizeProjectAssetCandidate) }));
 }
 
 function normalizeProjectAsset(asset: ProjectAsset): ProjectAsset {
@@ -414,20 +442,22 @@ function normalizeProjectAssetCandidate(candidate: ProjectAssetCandidate): Proje
 function normalizeProjectDetail(detail: ProjectDetail): ProjectDetail {
     const workflows = Array.isArray(detail.workflows)
         ? detail.workflows.map((workflow) => ({
-            ...workflow,
-            steps: Array.isArray(workflow.steps) ? workflow.steps : [],
-        }))
+              ...workflow,
+              steps: Array.isArray(workflow.steps) ? workflow.steps : [],
+          }))
         : [];
     const assets = Array.isArray(detail.assets)
         ? detail.assets.map((asset) => ({
-            ...normalizeProjectAsset(asset),
-            ...(asset.character ? {
-                character: {
-                    ...asset.character,
-                    representations: Array.isArray(asset.character.representations) ? asset.character.representations : [],
-                },
-            } : {}),
-        }))
+              ...normalizeProjectAsset(asset),
+              ...(asset.character
+                  ? {
+                        character: {
+                            ...asset.character,
+                            representations: Array.isArray(asset.character.representations) ? asset.character.representations : [],
+                        },
+                    }
+                  : {}),
+          }))
         : [];
 
     return {
@@ -443,14 +473,27 @@ function normalizeProjectDetail(detail: ProjectDetail): ProjectDetail {
         shotRevisions: Array.isArray(detail.shotRevisions) ? detail.shotRevisions : [],
         shotArtifacts: Array.isArray(detail.shotArtifacts) ? detail.shotArtifacts : [],
         shotReferences: Array.isArray(detail.shotReferences) ? detail.shotReferences : [],
-		assetCandidates: Array.isArray(detail.assetCandidates) ? detail.assetCandidates.map(normalizeProjectAssetCandidate) : [],
-		tasks: Array.isArray(detail.tasks) ? detail.tasks : [],
+        assetCandidates: Array.isArray(detail.assetCandidates) ? detail.assetCandidates.map(normalizeProjectAssetCandidate) : [],
+        tasks: Array.isArray(detail.tasks) ? detail.tasks : [],
     };
 }
 
 export type ProjectStarter = { entry: "idea" | "upload" | "template"; presetKey?: string; sourceText?: string; resourceId?: string };
 export type ProjectStarterPreset = { key: string; goal: ProjectCreativeBrief["goal"]; title: string; description: string; steps: string[] };
-export type ProjectCreationInput = { name: string; type: string; aspectRatio: string; sourceType: string; description?: string; creativeBrief?: ProjectCreativeBrief; stylePresetId?: string; styleProfileJson?: string; defaultImageModel?: string; defaultVideoModel?: string; idempotencyKey?: string; starter?: ProjectStarter };
+export type ProjectCreationInput = {
+    name: string;
+    type: string;
+    aspectRatio: string;
+    sourceType: string;
+    description?: string;
+    creativeBrief?: ProjectCreativeBrief;
+    stylePresetId?: string;
+    styleProfileJson?: string;
+    defaultImageModel?: string;
+    defaultVideoModel?: string;
+    idempotencyKey?: string;
+    starter?: ProjectStarter;
+};
 export const listProjectStarterPresets = (signal?: AbortSignal) => http.get<{ presets: ProjectStarterPreset[] }>("/project-starter-presets", { signal });
 export const readProjectCreation = (key: string) => http.get<{ project: Project }>(`/project-creations/${encodeURIComponent(key)}`);
 export type ProjectStoryResult = { taskId: string; projectId: string; status: "pending" | "adopted" | "needs_review" | "failed"; message?: string; unitIds: string[]; current: boolean };
@@ -459,7 +502,13 @@ export function createProject(input: ProjectCreationInput) {
     return http.post<{ project: Project }>(input.idempotencyKey ? "/project-creations" : "/projects", input);
 }
 
-export function updateProject(projectId: string, input: Partial<Pick<Project, "name" | "type" | "aspectRatio" | "sourceType" | "description" | "coverResourceId" | "stylePresetId" | "styleProfileJson" | "defaultImageModel" | "defaultVideoModel" | "status">> & { expectedRevision?: number; creativeBrief?: ProjectCreativeBrief }) {
+export function updateProject(
+    projectId: string,
+    input: Partial<Pick<Project, "name" | "type" | "aspectRatio" | "sourceType" | "description" | "coverResourceId" | "stylePresetId" | "styleProfileJson" | "defaultImageModel" | "defaultVideoModel" | "status">> & {
+        expectedRevision?: number;
+        creativeBrief?: ProjectCreativeBrief;
+    },
+) {
     return http.patch<{ project: Project }>(`/projects/${encodeURIComponent(projectId)}`, input);
 }
 
@@ -622,14 +671,24 @@ export function deleteProjectShot(projectId: string, shotId: string, expectedRev
     return http.delete<{ deleted: boolean }>(`/projects/${encodeURIComponent(projectId)}/shots/${encodeURIComponent(shotId)}`, { params: { requestId: crypto.randomUUID(), expectedRevisionId } });
 }
 
-export function replaceProjectUnitShots(projectId: string, unitId: string, shots: Array<{ title: string; description: string; durationMs: number; revision?: Partial<ShotRevisionInput>; assetVersionIds?: string[] }>, expectedShotIds: string[], intent: { requestId: string; expectedSourceSha256: string }) {
+export function replaceProjectUnitShots(
+    projectId: string,
+    unitId: string,
+    shots: Array<{ title: string; description: string; durationMs: number; revision?: Partial<ShotRevisionInput>; assetVersionIds?: string[] }>,
+    expectedShotIds: string[],
+    intent: { requestId: string; expectedSourceSha256: string },
+) {
     return http.put<ShotPlanWriteResult>(`/projects/${encodeURIComponent(projectId)}/units/${encodeURIComponent(unitId)}/shots`, { shots, ...(expectedShotIds ? { expectedShotIds } : {}), ...intent });
 }
 
-export const readShotPlanSource = (projectId: string, unitId: string, signal?: AbortSignal) => http.get<{ snapshot: ShotPlanSnapshot; sha256: string }>(`/projects/${encodeURIComponent(projectId)}/units/${encodeURIComponent(unitId)}/shot-plan-source`, { signal });
-export const listShotPlans = (projectId: string, unitId: string, page = 1, signal?: AbortSignal) => http.get<{ versions: ShotPlanRecord[]; total: number; page: number; pageSize: number }>(`/projects/${encodeURIComponent(projectId)}/units/${encodeURIComponent(unitId)}/shot-plans`, { params: { page, pageSize: 20 }, signal });
-export const readShotPlan = (projectId: string, recordId: string, signal?: AbortSignal, page=1) => http.get<{ record: ShotPlanRecord; snapshot: ShotPlanSnapshot; revisions: ShotRevision[]; page:number; pageSize:number }>(`/projects/${encodeURIComponent(projectId)}/shot-plans/${encodeURIComponent(recordId)}`, { params:{page}, signal });
-export const restoreShotPlan = (projectId: string, recordId: string, input: { requestId: string; sourceSha256: string; expectedShotIds: string[]; expectedSourceSha256: string }, signal?: AbortSignal) => http.post<ShotPlanWriteResult>(`/projects/${encodeURIComponent(projectId)}/shot-plans/${encodeURIComponent(recordId)}/restore`, input, { signal });
+export const readShotPlanSource = (projectId: string, unitId: string, signal?: AbortSignal) =>
+    http.get<{ snapshot: ShotPlanSnapshot; sha256: string }>(`/projects/${encodeURIComponent(projectId)}/units/${encodeURIComponent(unitId)}/shot-plan-source`, { signal });
+export const listShotPlans = (projectId: string, unitId: string, page = 1, signal?: AbortSignal) =>
+    http.get<{ versions: ShotPlanRecord[]; total: number; page: number; pageSize: number }>(`/projects/${encodeURIComponent(projectId)}/units/${encodeURIComponent(unitId)}/shot-plans`, { params: { page, pageSize: 20 }, signal });
+export const readShotPlan = (projectId: string, recordId: string, signal?: AbortSignal, page = 1) =>
+    http.get<{ record: ShotPlanRecord; snapshot: ShotPlanSnapshot; revisions: ShotRevision[]; page: number; pageSize: number }>(`/projects/${encodeURIComponent(projectId)}/shot-plans/${encodeURIComponent(recordId)}`, { params: { page }, signal });
+export const restoreShotPlan = (projectId: string, recordId: string, input: { requestId: string; sourceSha256: string; expectedShotIds: string[]; expectedSourceSha256: string }, signal?: AbortSignal) =>
+    http.post<ShotPlanWriteResult>(`/projects/${encodeURIComponent(projectId)}/shot-plans/${encodeURIComponent(recordId)}/restore`, input, { signal });
 
 export function linkShotAsset(projectId: string, shotId: string, input: { assetVersionId: string; role: ShotAssetReference["role"] }) {
     return http.post<{ reference: ShotAssetReference }>(`/projects/${encodeURIComponent(projectId)}/shots/${encodeURIComponent(shotId)}/assets`, input);
@@ -652,7 +711,7 @@ export function changeShotArtifact(projectId: string, shotId: string, artifactId
 }
 
 export function createProjectAssetCandidates(projectId: string, candidates: Array<{ unitId?: string; shotId?: string; name: string; category: AssetCategory; details?: Record<string, unknown> }>, source?: "chapter_character_extract" | "agent") {
-	return http.post<{ candidates: ProjectAssetCandidate[] }>(`/projects/${encodeURIComponent(projectId)}/asset-candidates`, { candidates, source });
+    return http.post<{ candidates: ProjectAssetCandidate[] }>(`/projects/${encodeURIComponent(projectId)}/asset-candidates`, { candidates, source });
 }
 
 export function confirmProjectAssetCandidate(projectId: string, candidateId: string, assetId?: string) {
@@ -667,6 +726,10 @@ export function updateWorkflowStep(projectId: string, stepId: string, input: { s
     return http.patch<{ step: WorkflowStep }>(`/projects/${encodeURIComponent(projectId)}/workflow-steps/${encodeURIComponent(stepId)}`, input);
 }
 
-export function registerProjectTaskOutput(projectId: string, stepId: string, input: { taskId: string; canvasId?: string; unitId?: string; shotId?: string; artifactType?: string; assetVersionId?: string; resourceId?: string; mediaType?: string; role?: string; metadataJson?: string; outputJson?: string }) {
+export function registerProjectTaskOutput(
+    projectId: string,
+    stepId: string,
+    input: { taskId: string; canvasId?: string; unitId?: string; shotId?: string; artifactType?: string; assetVersionId?: string; resourceId?: string; mediaType?: string; role?: string; metadataJson?: string; outputJson?: string },
+) {
     return http.post<{ step: WorkflowStep }>(`/projects/${encodeURIComponent(projectId)}/workflow-steps/${encodeURIComponent(stepId)}/task-output`, input);
 }

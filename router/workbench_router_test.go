@@ -385,7 +385,7 @@ func TestWorkbenchReadSessionIsLiveReadOnlyAndCannotCreateAPIKeys(t *testing.T) 
 	require.NoError(t, i18n.Init())
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.AuditLog{}, &model.Token{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.UserAccessToken{}, &model.AuditLog{}, &model.Token{}))
 	priorDB, priorLog, priorRedis, priorSecret, priorSecure := model.DB, model.LOG_DB, common.RedisEnabled, common.SessionSecret, common.SessionCookieSecure
 	model.DB, model.LOG_DB, common.RedisEnabled, common.SessionSecret, common.SessionCookieSecure = db, db, false, "workbench-session-regression", true
 	t.Cleanup(func() {
@@ -393,9 +393,12 @@ func TestWorkbenchReadSessionIsLiveReadOnlyAndCannotCreateAPIKeys(t *testing.T) 
 		sqlDB, _ := db.DB()
 		_ = sqlDB.Close()
 	})
-	pat := "workbench-pat-fixture"
-	user := model.User{Username: "workbench-user", Password: "unused", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1, AccessToken: &pat}
+	pat := model.AccessTokenPrefix + "workbench-pat-fixture"
+	user := model.User{Username: "workbench-user", Password: "unused", Role: common.RoleCommonUser, Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1}
 	require.NoError(t, db.Create(&user).Error)
+	access := model.UserAccessToken{UserId: user.Id, Name: "workbench acceptance", TokenHash: model.AccessTokenFingerprint(pat), TokenHint: "fixture", ExpiresAt: time.Now().Add(time.Hour).Unix()}
+	require.NoError(t, access.SetScopes([]string{"workbench:read", "workbench:write"}))
+	require.NoError(t, model.CreateUserAccessToken(user.Id, &access, service.AccessTokenMaxPerUser))
 	session, err := service.CreateLoginSession(user.Id, "password", "127.0.0.1", "test")
 	require.NoError(t, err)
 	engine := gin.New()
@@ -432,7 +435,7 @@ func TestWorkbenchReadSessionIsLiveReadOnlyAndCannotCreateAPIKeys(t *testing.T) 
 		{"cookie cannot write", http.MethodPost, "", "same-origin", true, http.StatusUnauthorized},
 		{"cross-site read", http.MethodGet, "", "cross-site", true, http.StatusForbidden},
 		{"forged identity", http.MethodGet, "", "same-origin", false, http.StatusUnauthorized},
-		{"PAT is not a browser session", http.MethodGet, pat, "same-origin", false, http.StatusUnauthorized},
+		{"PAT is not a browser session", http.MethodGet, pat, "same-origin", false, http.StatusForbidden},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			req := httptest.NewRequest(test.method, "https://localhost/api/workbench/auth/session", nil)
@@ -463,7 +466,28 @@ func TestWorkbenchReadSessionIsLiveReadOnlyAndCannotCreateAPIKeys(t *testing.T) 
 	agentResponse := httptest.NewRecorder()
 	engine.ServeHTTP(agentResponse, agentRequest)
 	assert.Equal(t, http.StatusServiceUnavailable, agentResponse.Code, "explicit PAT should reach the dedicated agent endpoint")
-	require.NoError(t, db.Model(&user).Update("access_token", "revoked-workbench-pat").Error)
+	for _, tc := range []struct {
+		name, method, path string
+		scopes             []string
+		want               int
+	}{
+		{"unrelated scope denied", http.MethodGet, "/projects", []string{"profile:read"}, http.StatusForbidden},
+		{"read scope can read", http.MethodGet, "/projects", []string{"workbench:read"}, http.StatusServiceUnavailable},
+		{"read scope cannot generate", http.MethodPost, "/tasks", []string{"workbench:read"}, http.StatusForbidden},
+		{"write scope can submit", http.MethodPost, "/tasks", []string{"workbench:write"}, http.StatusServiceUnavailable},
+		{"agent grant cannot administer", http.MethodGet, "/admin/users", []string{"workbench:read", "workbench:write"}, http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			require.NoError(t, access.SetScopes(tc.scopes))
+			require.NoError(t, db.Model(&access).Update("scopes", access.Scopes).Error)
+			req := httptest.NewRequest(tc.method, "https://localhost/api/workbench-agent"+tc.path, nil)
+			req.Header.Set("Authorization", "Bearer "+pat)
+			response := httptest.NewRecorder()
+			engine.ServeHTTP(response, req)
+			assert.Equal(t, tc.want, response.Code, response.Body.String())
+		})
+	}
+	require.NoError(t, db.Delete(&access).Error)
 	revokedAgent := httptest.NewRecorder()
 	engine.ServeHTTP(revokedAgent, agentRequest.Clone(agentRequest.Context()))
 	assert.Equal(t, http.StatusUnauthorized, revokedAgent.Code)

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"time"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/repository"
 )
@@ -50,7 +51,29 @@ func requireStoredFileCapacityRepository(repo *repository.Repository, userID, ta
 	if err != nil {
 		return err
 	}
-	return validateStoredFileCapacity(storedBytes, pendingBytes, storedLimit)
+	if err := validateStoredFileCapacity(storedBytes, pendingBytes, storedLimit); err != nil {
+		return err
+	}
+
+	usage, err := repo.UserStorageUsage(userID)
+	if err != nil {
+		return err
+	}
+	if err := validateStructuredStorageQuotaWithPolicy(usage, "asset", true, 0, policy.Resource); err != nil {
+		return err
+	}
+
+	day := time.Now().UTC().Format("2006-01-02")
+	dailyBytes, err := repo.DailyUploadBytes(userID, day)
+	if err != nil {
+		return err
+	}
+	dailyLimit := megabytes(policy.Resource.DailyUploadMB)
+	generatedFileBytes := megabytes(policy.Resource.GeneratedFileMB)
+	if dailyLimit-dailyBytes <= generatedFileBytes {
+		return QuotaExceeded(fmt.Sprintf("每个账号 UTC 自然日上传额度不足以容纳一个最大生成文件（%dMB）", policy.Resource.GeneratedFileMB))
+	}
+	return nil
 }
 
 func validateStoredFileCapacity(storedBytes int64, pendingBytes int64, storedLimit int64) error {

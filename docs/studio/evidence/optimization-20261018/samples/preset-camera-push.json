@@ -1,0 +1,42 @@
+{
+  "key": "preset-camera-push",
+  "status": "completed",
+  "tag": "optimization-20261018-preset-camera-push",
+  "submitted_at": 1792310586.1156726,
+  "adapter_id": "local-0542e056c2494fd4994b5561c4aa3308",
+  "adapter_response": {
+    "id": "local-0542e056c2494fd4994b5561c4aa3308",
+    "object": "video",
+    "model": "wan2.2-ti2v-5b",
+    "status": "completed",
+    "progress": 100,
+    "seconds": "3.0625",
+    "size": "384x224",
+    "created_at": 1792310586,
+    "completed_at": 1792310643,
+    "metadata": {
+      "prompt_id": "24f30f18-d711-48b9-9724-cab01384815a",
+      "reference_images": 1,
+      "elapsed_sec": 57.7,
+      "reference_frames_preserved": []
+    }
+  },
+  "last_checked_at": 1792310646.6197577,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\raw\\preset-camera-push.mp4",
+  "output_sha256": "b015ace370b03c5819a66c5500a5ecbd6fcefd704cd66523ecb7783b989b1572",
+  "output_bytes": 241323,
+  "elapsed_sec": 60.52,
+  "request": {
+    "model": "wan2.2-ti2v-5b",
+    "prompt": "A small red fox sits beside a blue enamel lantern on a wooden table. The fox remains still. The camera slowly dollies forward, from a medium view into a close view, the lantern and fox grow larger in the frame. Gentle cinematic camera movement, no cuts, no text.",
+    "size": "384x224",
+    "metadata": {
+      "seed": 181000,
+      "studio_sample_request": "optimization-20261018-preset-camera-push",
+      "frames": 49,
+      "fps": 16
+    },
+    "seconds": 3
+  },
+  "reference_sha256": "5c1423c13b53a5613d89f6cf1cc389a392a4050f287065a4f9731ce6b29eeca4"
+}

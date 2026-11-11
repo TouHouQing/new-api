@@ -64,6 +64,7 @@ func (r *Repository) DeleteDetachedResources(resources []model.Resource, deletio
 				{&model.ProjectCut{}, "payload_json"},
 				{&model.ProjectCut{}, "metadata_json"},
 				{&model.ProductionImport{}, "resource_refs_json"},
+				{&model.UserFeedback{}, "attachments"},
 			} {
 				if !tx.Migrator().HasTable(source.model) {
 					continue

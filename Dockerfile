@@ -1,5 +1,5 @@
-ARG STUDIO_WEB_BUILD_IMAGE=oven/bun:1.4.0@sha256:5ff609364c049b54eb0ff560ec96319729a972078ef2c755d758f0c6ef89c2d6
-ARG STUDIO_GO_BUILD_IMAGE=golang:1.26.1-alpine@sha256:2389ebfa5b7f43eeafbd6be0c3700cc46690ef842ad962f6c5bd6be49ed82039
+ARG STUDIO_WEB_BUILD_IMAGE=oven/bun:1.4.4@sha256:1d22548f177f4ff38e0c15baa3c2c46c6c2060ba2d1bc573bb4720b407548f1d
+ARG STUDIO_GO_BUILD_IMAGE=golang:1.26.10-alpine@sha256:9ce231b28998b32e116927c61aa5c406183061d4f3f2d61b292c88e7f6bdf7ca
 ARG STUDIO_NODE_BUILD_IMAGE=node:22.19-bookworm-slim
 FROM ${STUDIO_NODE_BUILD_IMAGE} AS workbench-node
 
@@ -35,11 +35,12 @@ ARG GO_PROXY=https://proxy.golang.org,direct
 ENV GOPROXY=${GO_PROXY}
 
 ADD go.mod go.sum ./
-# relaykit is a local submodule referenced via replace; its go.mod must be
-# present for go mod download to resolve the main module graph.
+# relaykit and tokenkit are local submodules referenced via replace; their
+# go.mod files must be present for go mod download to resolve the main module graph.
 ADD relaykit/go.mod ./relaykit/go.mod
 ADD workbench/backend/go.mod workbench/backend/go.sum ./workbench/backend/
 ADD workbench/backend/third_party ./workbench/backend/third_party
+ADD tokenkit/go.mod ./tokenkit/go.mod
 RUN go mod download
 
 COPY . .
@@ -48,7 +49,7 @@ COPY --from=builder /build/integrations/studio-agent/schema ./integrations/studi
 COPY --from=builder /build/service/resources/studio_previs_worker.js ./service/resources/studio_previs_worker.js
 RUN --mount=type=tmpfs,target=/root/.cache/go-build,size=3221225472 \
     --mount=type=tmpfs,target=/tmp,size=3221225472 \
-    GOMEMLIMIT=1024MiB GOGC=50 go build -p "${GO_BUILD_PROCS}" -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o new-api
+    GOMEMLIMIT=1024MiB GOGC=50 go build -p "${GO_BUILD_PROCS}" -pgo="$(go list -m -f '{{.Dir}}' github.com/Calcium-Ion/moejs)/default.pgo" -ldflags "-s -w -X 'github.com/QuantumNous/new-api/common.Version=$(cat VERSION)'" -o new-api
 
 FROM debian:bookworm-slim@sha256:f06537653ac770703bc45b4b113475bd402f451e85223f0f2837acbf89ab020a
 

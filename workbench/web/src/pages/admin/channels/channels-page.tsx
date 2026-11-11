@@ -12,6 +12,7 @@ import { type ChannelHeader, type ModelChannel } from "@/stores/use-config-store
 import { useAdminContext } from "../admin-context";
 import { AdminPageFrame } from "../components/admin-shell";
 import { AdminRowActions, AdminStatusBadge, AdminTableEmpty, configuredSecretText } from "../components/admin-ui";
+import { MediaTransportFields } from "../components/media-transport-fields";
 import { ChannelModelManager } from "../components/channel-model-manager";
 import { formatRate, healthTone, useChannelModelHealth } from "../components/channel-model-health";
 import { AllChannelModelsPanel } from "./all-channel-models-panel";
@@ -22,6 +23,7 @@ import "./channels-page.css";
 import { Select } from "@/components/ui/base/select";
 
 type ChannelFormValues = {
+    mediaTransport?: ModelChannel["mediaTransport"];
     name: string;
     baseUrl: string;
     apiKey?: string;
@@ -36,6 +38,7 @@ type ChannelFormValues = {
 export function adminChannelSavePayload(values: ChannelFormValues) {
     return {
         name: values.name.trim(),
+        mediaTransport: values.mediaTransport || {},
         baseUrl: values.baseUrl.trim(),
         apiKey: values.apiKey?.trim() || "",
         secretKey: values.secretKey?.trim() || "",
@@ -141,6 +144,7 @@ export default function ChannelsPage() {
             channel
                 ? {
                       name: channel.name,
+                      mediaTransport: channel.mediaTransport || {},
                       baseUrl: channel.baseUrl,
                       apiKey: "",
                       secretKey: "",
@@ -150,7 +154,17 @@ export default function ChannelsPage() {
                       enabled: channel.enabled !== false,
                       proxyUrl: channel.proxyUrl || "",
                   }
-                : { name: "", baseUrl: "", apiKey: "", secretKey: "", headers: [], useGlobalConcurrency: true, concurrencyLimit: undefined, enabled: true, proxyUrl: "" },
+                : {
+                      name: "",
+                      baseUrl: "",
+                      apiKey: "",
+                      secretKey: "",
+                      headers: [],
+                      useGlobalConcurrency: true,
+                      concurrencyLimit: undefined,
+                      enabled: true,
+                      proxyUrl: "",
+                  },
         );
         setDrawerOpen(true);
     };
@@ -161,7 +175,14 @@ export default function ChannelsPage() {
             setDrawerOpen(false);
             return;
         }
-        modal.confirm({ title: "放弃渠道修改？", content: "尚未保存的连接信息将丢失。", okText: "放弃修改", cancelText: "继续编辑", okButtonProps: { danger: true }, onOk: () => setDrawerOpen(false) });
+        modal.confirm({
+            title: "放弃渠道修改？",
+            content: "尚未保存的连接信息将丢失。",
+            okText: "放弃修改",
+            cancelText: "继续编辑",
+            okButtonProps: { danger: true },
+            onOk: () => setDrawerOpen(false),
+        });
     };
 
     const save = async () => {
@@ -313,7 +334,13 @@ export default function ChannelsPage() {
             primary={{ label: "编辑", icon: <Pencil className="size-3.5" />, onClick: () => openDrawer(channel) }}
             visibleActionCount={4}
             actions={[
-                { key: "duplicate", label: "复制", icon: <Copy className="size-3.5" />, disabled: Boolean(duplicatingChannelId), onClick: () => duplicateChannel(channel) },
+                {
+                    key: "duplicate",
+                    label: "复制",
+                    icon: <Copy className="size-3.5" />,
+                    disabled: Boolean(duplicatingChannelId),
+                    onClick: () => duplicateChannel(channel),
+                },
                 { key: "export", label: "导出", icon: <Download className="size-3.5" />, disabled: transferring, onClick: () => exportChannels(channel) },
                 {
                     key: "toggle",
@@ -332,7 +359,11 @@ export default function ChannelsPage() {
                     label: "删除",
                     icon: <Trash2 className="size-3.5" />,
                     danger: true,
-                    confirm: { title: "删除这个系统渠道？", description: "删除后渠道及所属模型将不再显示，API Key 会被清除，历史账单和调用记录继续保留。该操作不能在页面恢复。", okText: "确认删除" },
+                    confirm: {
+                        title: "删除这个系统渠道？",
+                        description: "删除后渠道及所属模型将不再显示，API Key 会被清除，历史账单和调用记录继续保留。该操作不能在页面恢复。",
+                        okText: "确认删除",
+                    },
                     onClick: () => removeChannel(channel),
                 },
             ]}
@@ -495,6 +526,7 @@ export default function ChannelsPage() {
                 title={editingChannel ? "编辑系统渠道" : "新增系统渠道"}
                 open={drawerOpen}
                 width={760}
+                centered
                 onCancel={closeDrawer}
                 mask={{ closable: !saving }}
                 destroyOnHidden
@@ -531,6 +563,9 @@ export default function ChannelsPage() {
                     </div>
                     <Form.Item name="proxyUrl" label="代理地址" extra="为该渠道单独配置出站代理，支持 socks5://、socks5h://、http://、https://。留空则使用全局环境变量代理。">
                         <Input placeholder="例如：socks5://127.0.0.1:1080 或 http://127.0.0.1:7890" />
+                    </Form.Item>
+                    <Form.Item name="mediaTransport" label="参考素材发送方式" extra="作为本渠道默认值；渠道内模型可单独覆盖。未设置时保持现有协议行为。">
+                        <MediaTransportFields />
                     </Form.Item>
                     <Form.Item name="useGlobalConcurrency" label="跟随系统并发配置" valuePropName="checked">
                         <Switch />

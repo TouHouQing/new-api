@@ -4,6 +4,7 @@ import { Clapperboard, Eye, FileText, Image as ImageIcon, LockKeyhole, LogIn, Se
 import { Link, useParams } from "react-router";
 import { nanoid } from "nanoid";
 
+import { AuthLoginLink } from "@/components/auth/auth-login-link";
 import { ConnectionPath } from "@/components/canvas/canvas-connections";
 import { CanvasNodeToolbar, CanvasNodeInfoModal } from "@/components/canvas/canvas-node-toolbar";
 import { CanvasFrameNode } from "@/components/canvas/canvas-frame-node";
@@ -248,7 +249,14 @@ export default function SharedCanvasPage() {
                     ...node,
                     width: collapsed ? (isCanvasFolderNode(node) ? FOLDER_COLLAPSED_WIDTH : 240) : frame?.expandedWidth || node.width,
                     height: collapsed ? (isCanvasFolderNode(node) ? FOLDER_COLLAPSED_HEIGHT : 144) : frame?.expandedHeight || node.height,
-                    metadata: { ...node.metadata, frame: { collapsed, expandedWidth: collapsed ? node.width : frame?.expandedWidth || node.width, expandedHeight: collapsed ? node.height : frame?.expandedHeight || node.height } },
+                    metadata: {
+                        ...node.metadata,
+                        frame: {
+                            collapsed,
+                            expandedWidth: collapsed ? node.width : frame?.expandedWidth || node.width,
+                            expandedHeight: collapsed ? node.height : frame?.expandedHeight || node.height,
+                        },
+                    },
                 };
             }),
         );
@@ -313,11 +321,11 @@ export default function SharedCanvasPage() {
                         只读分享
                     </span>
                 </div>
-                <Link className="pointer-events-auto" to="/login">
+                <AuthLoginLink className="pointer-events-auto">
                     <Button type="text" icon={<LogIn className="size-4" />}>
                         登录
                     </Button>
-                </Link>
+                </AuthLoginLink>
             </header>
 
             <CanvasViewport
@@ -342,7 +350,14 @@ export default function SharedCanvasPage() {
                 <svg
                     className="absolute overflow-visible"
                     viewBox={`${connectionBounds.left} ${connectionBounds.top} ${connectionBounds.width} ${connectionBounds.height}`}
-                    style={{ left: connectionBounds.left, top: connectionBounds.top, width: connectionBounds.width, height: connectionBounds.height, pointerEvents: "none", zIndex: 0 }}
+                    style={{
+                        left: connectionBounds.left,
+                        top: connectionBounds.top,
+                        width: connectionBounds.width,
+                        height: connectionBounds.height,
+                        pointerEvents: "none",
+                        zIndex: 0,
+                    }}
                 >
                     {visibleConnections.map(({ connection, from, to }) => (
                         <ConnectionPath key={connection.id} connection={connection} from={from} to={to} active={false} onSelect={() => setInfoNodeId(to.id)} />
@@ -365,7 +380,14 @@ export default function SharedCanvasPage() {
                                 setSelectedNodeId(nodeId);
                                 setContextMenu(null);
                                 const dragged = [node, ...(frameChildrenById.get(nodeId) || [])];
-                                dragRef.current = { primaryId: nodeId, nodeIds: dragged.map((item) => item.id), startX: event.clientX, startY: event.clientY, origins: new Map(dragged.map((item) => [item.id, item.position])), moved: false };
+                                dragRef.current = {
+                                    primaryId: nodeId,
+                                    nodeIds: dragged.map((item) => item.id),
+                                    startX: event.clientX,
+                                    startY: event.clientY,
+                                    origins: new Map(dragged.map((item) => [item.id, item.position])),
+                                    moved: false,
+                                };
                                 document.body.style.cursor = "grabbing";
                             }}
                             onResize={() => undefined}
@@ -396,7 +418,14 @@ export default function SharedCanvasPage() {
                                 if (!target) return;
                                 setSelectedNodeId(nodeId);
                                 setContextMenu(null);
-                                dragRef.current = { primaryId: nodeId, nodeIds: [nodeId], startX: event.clientX, startY: event.clientY, origins: new Map([[nodeId, target.position]]), moved: false };
+                                dragRef.current = {
+                                    primaryId: nodeId,
+                                    nodeIds: [nodeId],
+                                    startX: event.clientX,
+                                    startY: event.clientY,
+                                    origins: new Map([[nodeId, target.position]]),
+                                    moved: false,
+                                };
                                 document.body.style.cursor = "grabbing";
                             }}
                             onHoverStart={keepToolbar}

@@ -1,0 +1,325 @@
+{
+  "spec_sha256": "de0ae87e27cdaed98b592be42360b54a7e9ec4224f6b11cadcbcb65e10ca7d7d",
+  "created_at": "2026-10-18T09:50:21Z",
+  "root_binding_required": "No configurationDigest is invented here. Root must inspect current runtime profiles, copy exact sourceFile bytes into local_models/capability-evidence/filename and bind the actual matching configurationDigest before registry acceptance.",
+  "model_evidence_candidates": [
+    {
+      "id": "studio-g18-camera-push-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:27:21Z",
+      "artifactUrl": "/studio-presets/videos/camera-push.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\camera-push.mp4",
+      "filename": "camera-push-20261018.mp4",
+      "sha256": "4d0094e6440813fab291d34172064d0bc4a81cd1888e42629ffbb8271c4d2098",
+      "original_output_sha256": "7ea61eaaf6943ff0e67429398055c53147f7423604a9662e90f86469342f921a",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181000. Published preview480x288. Clear push from medium view to close fox and lantern; actual model result, not an exact 3D trajectory."
+    },
+    {
+      "id": "studio-g18-camera-orbit-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "failed",
+      "testedAt": "2026-10-18T08:59:58Z",
+      "artifactUrl": "/studio-presets/videos/camera-orbit.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\camera-orbit.mp4",
+      "filename": "camera-orbit-20261018.mp4",
+      "sha256": "ab1a994087efb9ba476e82eb1f350e23e18a587147087547ec126bd74acaebfa",
+      "original_output_sha256": "c7882e7319b62fb8854fc2c96011a9fd2285c4dcadda924ebbbc91ddd85e754f",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed184101. Published preview480x288. The actual Wan orbit test still has background color blocks and subject deformation. It did not pass. Use the separately labeled original 3D camera illustration to understand intended parallax; it does not certify Wan motion control."
+    },
+    {
+      "id": "studio-g18-camera-static-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:31:44Z",
+      "artifactUrl": "/studio-presets/videos/camera-static.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\camera-static.mp4",
+      "filename": "camera-static-20261018.mp4",
+      "sha256": "676a1a18da6fa851cb15ebb4fa6abf4d8d718001880fb7664345cf7b65826d57",
+      "original_output_sha256": "ac5a366260552d1154344b17b7393960dec5cfca67f1d0e35815b01ac9a7abc9",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181002. Published preview480x288. Table and background remain fixed while the fox blinks and moves its head slightly."
+    },
+    {
+      "id": "studio-g18-camera-follow-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T09:02:11Z",
+      "artifactUrl": "/studio-presets/videos/camera-follow.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\camera-follow.mp4",
+      "filename": "camera-follow-20261018.mp4",
+      "sha256": "f7dc5b42077d1179f5d0ef2f3e84c59dfdb7591c5b1fcaceda365e5d33121c58",
+      "original_output_sha256": "27dbc308769926fab876823b2f37e50c8c2043ee74b2d02e04dfb9d0d87ccdf3",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed184201. Published preview480x288. A short side-follow view retains the full walking fox and shows small background parallax. Some framing drift remains; this is an approximate prompt-driven move, not an exact rig path."
+    },
+    {
+      "id": "studio-g18-lighting-soft-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:34:30Z",
+      "artifactUrl": "/studio-presets/videos/lighting-soft.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\lighting-soft.mp4",
+      "filename": "lighting-soft-20261018.mp4",
+      "sha256": "a05355a02047b236ad15ba4d227fbdb6b12425039507ec8d34e94d41df760ba5",
+      "original_output_sha256": "5731e69c98d91346dd2054ca0897b6257dbba151f1453a7d5f7ac368c7d794e0",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181004. Published preview480x288. Soft diffused daylight is retained during small fox head and ear movement."
+    },
+    {
+      "id": "studio-g18-lighting-rim-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:35:55Z",
+      "artifactUrl": "/studio-presets/videos/lighting-rim.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\lighting-rim.mp4",
+      "filename": "lighting-rim-20261018.mp4",
+      "sha256": "d72c8f69a3aa8e098ad41e39cf750ee3b1ea170a5e559360c8da386f3781b95b",
+      "original_output_sha256": "05966ba43ffdcc3c2abf85d92b75a7d8f1790b866019565791d95ac4a17cfe6e",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181005. Published preview480x288. Warm edge light visibly outlines fur against the darker background."
+    },
+    {
+      "id": "studio-g18-lighting-product-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:37:16Z",
+      "artifactUrl": "/studio-presets/videos/lighting-product.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\lighting-product.mp4",
+      "filename": "lighting-product-20261018.mp4",
+      "sha256": "c76615da5926397f5e98288d3d05e8cc6109fc2d5c96cdebc057b23119a41dfd",
+      "original_output_sha256": "d3af2e7075109a514729bc1f60815129322f213bb32c50b4a3563a700d1c68ed",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181006. Published preview480x288. Clean neutral studio background and broad soft light reveal the blue metal form."
+    },
+    {
+      "id": "studio-g18-style-watercolor-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T09:03:42Z",
+      "artifactUrl": "/studio-presets/videos/style-watercolor.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\style-watercolor.mp4",
+      "filename": "style-watercolor-20261018.mp4",
+      "sha256": "0ea8c1f88c19caee3ae0d42d491b1ad74dba2ddd442a60e8de89c326587dbc41",
+      "original_output_sha256": "5f105771422f585e3b19208ef57a504ba5e756e706c90371311ae141c65bc298",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed184301. Published preview480x288. The watercolor fox and lantern remain painted throughout with small natural motion; the corrected test has no artist hand."
+    },
+    {
+      "id": "studio-g18-style-cinema-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:40:06Z",
+      "artifactUrl": "/studio-presets/videos/style-cinema.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\style-cinema.mp4",
+      "filename": "style-cinema-20261018.mp4",
+      "sha256": "4785b2e06d270dec74b09f0608f6dd3a5e4526a507ed965d9df94848a8781c90",
+      "original_output_sha256": "fa348444317fedc99dceb5ab9f48f0a67205b6cec941cc7a55e5e5939e05bf92",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181008. Published preview480x288. Natural fur and enamel detail, restrained cinematic contrast and coherent small motion."
+    },
+    {
+      "id": "studio-g18-effect-dust-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "failed",
+      "testedAt": "2026-10-18T08:41:31Z",
+      "artifactUrl": "/studio-presets/videos/effect-dust.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\effect-dust.mp4",
+      "filename": "effect-dust-20261018.mp4",
+      "sha256": "673771ada0c44fac077441bde79101fae8bec53b44e809e1113873a92a5eb404",
+      "original_output_sha256": "4772c48734d58fd1760ee4f0a368668404dd474592d65928e1d2d0671b65d5e2",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181009. Published preview480x288. Sparkling particle intent is visible but colored grid/block artifacts are unacceptable."
+    },
+    {
+      "id": "studio-g18-effect-rain-20261018",
+      "modelId": "wan2.2-ti2v-5b",
+      "action": "video",
+      "outcome": "failed",
+      "testedAt": "2026-10-18T08:42:55Z",
+      "artifactUrl": "/studio-presets/videos/effect-rain.mp4",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\effect-rain.mp4",
+      "filename": "effect-rain-20261018.mp4",
+      "sha256": "96a66dc3375aacc80a4a711e9095822bdb6dacd05603b4dce2c67f54ddc59783",
+      "original_output_sha256": "8ac0a79432c9e3876db3c7423beb187a4052ff364f99c26a795abfdd07c104ec",
+      "scope": "One original first-frame reference; native640x384,49frames,16fps,20steps,CFG5,uni_pc/simple,shift8; seed181010. Published preview480x288. Rain is visible, but colored foreground blocks are unacceptable."
+    }
+  ],
+  "image_evidence_candidates": [
+    {
+      "id": "studio-g03-store-flux-20261018",
+      "modelId": "flux.2-klein-4b",
+      "action": "image",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:55:46Z",
+      "artifactUrl": "/studio-examples/store/first-frame.png",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\store\\first-frame.png",
+      "filename": "store-flux-20261018.png",
+      "sha256": "e6119e1257a738c6ae44f67320c5cd26b42e812449a3b2793511ed4fd9020945",
+      "scope": "Original unmodified512x320 local FLUX first frame,8steps,CFG1,seed182005; selected visual subject only, not motion or general model quality verification."
+    },
+    {
+      "id": "studio-g03-product-flux-20261018",
+      "modelId": "flux.2-klein-4b",
+      "action": "image",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:45:00Z",
+      "artifactUrl": "/studio-examples/product/first-frame.png",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\product\\first-frame.png",
+      "filename": "product-flux-20261018.png",
+      "sha256": "b5c28abf65c3521b1775b1f841fab726371af5da45e5e8307076a84ca18388f4",
+      "scope": "Original unmodified512x320 local FLUX first frame,8steps,CFG1,seed182000; selected visual subject only, not motion or general model quality verification."
+    },
+    {
+      "id": "studio-g03-story-flux-20261018",
+      "modelId": "flux.2-klein-4b",
+      "action": "image",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:45:36Z",
+      "artifactUrl": "/studio-examples/story/first-frame.png",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\story\\first-frame.png",
+      "filename": "story-flux-20261018.png",
+      "sha256": "925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a",
+      "scope": "Original unmodified512x320 local FLUX first frame,8steps,CFG1,seed182001; selected visual subject only, not motion or general model quality verification."
+    },
+    {
+      "id": "studio-g03-explain-flux-20261018",
+      "modelId": "flux.2-klein-4b",
+      "action": "image",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:46:07Z",
+      "artifactUrl": "/studio-examples/explain/first-frame.png",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\explain\\first-frame.png",
+      "filename": "explain-flux-20261018.png",
+      "sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d",
+      "scope": "Original unmodified512x320 local FLUX first frame,8steps,CFG1,seed182002; selected visual subject only, not motion or general model quality verification."
+    },
+    {
+      "id": "studio-g03-presenter-flux-20261018",
+      "modelId": "flux.2-klein-4b",
+      "action": "image",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:46:37Z",
+      "artifactUrl": "/studio-examples/presenter/first-frame.png",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\first-frame.png",
+      "filename": "presenter-flux-20261018.png",
+      "sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce",
+      "scope": "Original unmodified512x320 local FLUX first frame,8steps,CFG1,seed182003; selected visual subject only, not motion or general model quality verification."
+    },
+    {
+      "id": "studio-g03-music-flux-20261018",
+      "modelId": "flux.2-klein-4b",
+      "action": "image",
+      "outcome": "passed",
+      "testedAt": "2026-10-18T08:47:07Z",
+      "artifactUrl": "/studio-examples/music/first-frame.png",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\music\\first-frame.png",
+      "filename": "music-flux-20261018.png",
+      "sha256": "d414322b8daacaf9d80b7a8bbedcf18ca52c4bcc9089b730c66f0f5d45e1b485",
+      "scope": "Original unmodified512x320 local FLUX first frame,8steps,CFG1,seed182004; selected visual subject only, not motion or general model quality verification."
+    }
+  ],
+  "audio_evidence": [
+    {
+      "operation": "voice_speech",
+      "engine": "Existing offline Chatterbox builtin default voice,CPU",
+      "adapter_id": "audio-29b5e2a0e5cb43dc8912877b21d9ed1d",
+      "artifactUrl": "/studio-examples/explain/voice.wav",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\explain\\voice.wav",
+      "sha256": "eeeba6e92a80f4e868244abfba54ae9e48c67ccdae4dad3bf541385f339390ed",
+      "outcome": "passed_for_this_short_English_line",
+      "asr_receipt": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\docs\\studio\\evidence\\optimization-20261018\\samples\\wan640-v2\\explain-film-asr.json"
+    },
+    {
+      "operation": "voice_speech",
+      "engine": "Existing offline Chatterbox builtin default voice,CPU",
+      "adapter_id": "audio-fd1d04b284bb4cd0b8ecb358ee5373f8",
+      "artifactUrl": "/studio-examples/presenter/voice.wav",
+      "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\voice.wav",
+      "sha256": "690e476660ce31fe92f6133aa25fdd40b1154fed94c44f5c01914a420d150e3a",
+      "outcome": "passed_for_this_short_English_line",
+      "asr_receipt": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\docs\\studio\\evidence\\optimization-20261018\\samples\\wan640-v2\\presenter-film-asr.json"
+    }
+  ],
+  "lip_evidence": {
+    "operation": "lip_sync",
+    "engine": "Existing offline MuseTalkV15 CPU,49frames over clean fictional generated portrait; separate TTS and exact silence padding",
+    "adapter_id": "audio-2dc7d8e8c1c04da6a336fc2670dc5d63",
+    "failed_before_nms_adapter_id": "audio-64d384d04ff849148f3b0838c37c72dc",
+    "artifactUrl": "/studio-examples/presenter/film.mp4",
+    "sourceFile": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\film.mp4",
+    "sha256": "6d2015d9e71f2cc13a5d3bfd650168e6cb85220f9b2fa527c282bfda2e7862f0",
+    "outcome": "passed_for_this_single_short_frontal_speaker_only",
+    "limitation": "Derived mouth edit; not native joint audio-video generation, identity certification or multi-speaker quality guarantee."
+  },
+  "six_editable_projects": [
+    {
+      "id": "store",
+      "project_url": "/studio-examples/store/project.json",
+      "film_url": "/studio-examples/store/film.mp4",
+      "method": "native-video",
+      "seconds": 3.0625,
+      "media_count": 4,
+      "verification": "verified"
+    },
+    {
+      "id": "product",
+      "project_url": "/studio-examples/product/project.json",
+      "film_url": "/studio-examples/product/film.mp4",
+      "method": "image-edit",
+      "seconds": 3.0625,
+      "media_count": 4,
+      "verification": "verified"
+    },
+    {
+      "id": "story",
+      "project_url": "/studio-examples/story/project.json",
+      "film_url": "/studio-examples/story/film.mp4",
+      "method": "image-edit",
+      "seconds": 3.0625,
+      "media_count": 4,
+      "verification": "verified"
+    },
+    {
+      "id": "explain",
+      "project_url": "/studio-examples/explain/project.json",
+      "film_url": "/studio-examples/explain/film.mp4",
+      "method": "native-video",
+      "seconds": 3.0625,
+      "media_count": 5,
+      "verification": "verified"
+    },
+    {
+      "id": "presenter",
+      "project_url": "/studio-examples/presenter/project.json",
+      "film_url": "/studio-examples/presenter/film.mp4",
+      "method": "speech-portrait",
+      "seconds": 3.0625,
+      "media_count": 7,
+      "verification": "verified"
+    },
+    {
+      "id": "music",
+      "project_url": "/studio-examples/music/project.json",
+      "film_url": "/studio-examples/music/film.mp4",
+      "method": "native-video",
+      "seconds": 3.0625,
+      "media_count": 4,
+      "verification": "verified"
+    }
+  ],
+  "generic_demonstrations": "Three original controlled illustrations (orbit3D geometry,dust/rain particle composition) explain intent. They never verify Wan or another generation model.",
+  "remaining_root_integration": [
+    "Actual configurationDigest-bound capability registry installation",
+    "G11 server template registration and real replacement/invalidated-media checks; do not treat static complete-project copy as completed user-input generation",
+    "Final production build/browser cloud-copy/playback acceptance; this child validated actual packaged assets and schema/import paths with mocked upload transport, not production-session authentication."
+  ],
+  "limits": [
+    "Six films are3.0625-second editable excerpts, not full15s/30s production acceptance",
+    "Product/story use clean original FLUX frames with controlled image edits because native Wan outputs failed visual quality; presenter is independently speech-driven portrait",
+    "Unsupported/failed native camera orbit/rain/dust remain failed; do not certify by generic diagrams",
+    "No extra model downloads or paid external generation; all jobs local existing engines; old rejected outputs retained as bug evidence"
+  ]
+}

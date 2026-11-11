@@ -1,0 +1,49 @@
+{
+  "all_frames": 32,
+  "region": [
+    640,
+    0,
+    640,
+    384
+  ],
+  "detected_first": [
+    883,
+    76,
+    162,
+    162
+  ],
+  "detected_last": [
+    883,
+    76,
+    162,
+    162
+  ],
+  "automatic_mode_rejection": "Lip sync needs exactly one clearly visible frontal face; choose a speaker region for separate or ambiguous overlapping faces",
+  "tts_source": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\voice.wav",
+  "tts_source_sha256": "690e476660ce31fe92f6133aa25fdd40b1154fed94c44f5c01914a420d150e3a",
+  "prepared_audio": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\g17-selection\\dialogue-with-explicit-prefix.wav",
+  "prepared_sha256": "abbf67bdad1efe868672ee5c57c8e6434030a88f55d767194f02f947835ad544",
+  "preparation": "Explicit 0.5-second silent prefix and <=0.05-second tail; the selected audio interval starts at0.5s and retains the original complete TTS line. No speech time stretching.",
+  "ffmpeg": [
+    "-nostdin",
+    "-y",
+    "-v",
+    "error",
+    "-i",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\voice.wav",
+    "-af",
+    "adelay=500:all=1,apad=whole_dur=1.8125",
+    "-t",
+    "1.8125",
+    "-ar",
+    "24000",
+    "-ac",
+    "1",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\g17-selection\\dialogue-with-explicit-prefix.wav"
+  ],
+  "actual_size": [
+    1280,
+    384
+  ],
+  "source_sha256": "8e6b7ddc5b72d455186d763bdeb547dd3dd7760afcaa5597d2f80b1198ff8270"
+}

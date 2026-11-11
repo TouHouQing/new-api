@@ -1,0 +1,172 @@
+{
+  "prompt_id": "cdbb28bf-bc77-47f0-8e95-0e277f27901e",
+  "graph": {
+    "37": {
+      "inputs": {
+        "unet_name": "wan2.2_ti2v_5B_fp16.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader"
+    },
+    "38": {
+      "inputs": {
+        "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+        "type": "wan",
+        "device": "cpu"
+      },
+      "class_type": "CLIPLoader"
+    },
+    "39": {
+      "inputs": {
+        "vae_name": "wan2.2_vae.safetensors"
+      },
+      "class_type": "VAELoader"
+    },
+    "48": {
+      "inputs": {
+        "model": [
+          "37",
+          0
+        ],
+        "shift": 8.0
+      },
+      "class_type": "ModelSamplingSD3"
+    },
+    "6": {
+      "inputs": {
+        "text": "A gentle two dimensional watercolor animation of a little red fox beside a blue lantern in a painted forest. The painted fox blinks and gently moves its tail, the painted lantern light softly flickers. All elements remain watercolor pigment on cream paper throughout. A finished animated storybook scene, no live action, no painting process, no people, no artist hands, fixed camera.",
+        "clip": [
+          "38",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode"
+    },
+    "7": {
+      "inputs": {
+        "text": "human, hands, painting brush, pen, artist, live action, photorealistic animal, text, camera movement",
+        "clip": [
+          "38",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode"
+    },
+    "55": {
+      "inputs": {
+        "vae": [
+          "39",
+          0
+        ],
+        "width": 640,
+        "height": 384,
+        "length": 49,
+        "batch_size": 1,
+        "start_image": [
+          "studio_load_0",
+          0
+        ]
+      },
+      "class_type": "Wan22ImageToVideoLatent"
+    },
+    "3": {
+      "inputs": {
+        "seed": 184301,
+        "steps": 20,
+        "cfg": 5.0,
+        "sampler_name": "uni_pc",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": [
+          "48",
+          0
+        ],
+        "positive": [
+          "6",
+          0
+        ],
+        "negative": [
+          "7",
+          0
+        ],
+        "latent_image": [
+          "55",
+          0
+        ]
+      },
+      "class_type": "KSampler"
+    },
+    "8": {
+      "inputs": {
+        "samples": [
+          "3",
+          0
+        ],
+        "vae": [
+          "39",
+          0
+        ],
+        "tile_size": 256,
+        "overlap": 64,
+        "temporal_size": 16,
+        "temporal_overlap": 4
+      },
+      "class_type": "VAEDecodeTiled"
+    },
+    "57": {
+      "inputs": {
+        "images": [
+          "8",
+          0
+        ],
+        "fps": 16.0
+      },
+      "class_type": "CreateVideo"
+    },
+    "58": {
+      "inputs": {
+        "video": [
+          "57",
+          0
+        ],
+        "filename_prefix": "studio/local-cb3502b549244e1bbc8adebc50960917",
+        "format": "auto"
+      },
+      "class_type": "SaveVideo"
+    },
+    "studio_load_0": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "2a2082684b9b487e8e15e4d6fe53cb86.png"
+      }
+    }
+  },
+  "status": {
+    "status_str": "success",
+    "completed": true,
+    "messages": [
+      [
+        "execution_start",
+        {
+          "prompt_id": "cdbb28bf-bc77-47f0-8e95-0e277f27901e",
+          "timestamp": 1792314223996
+        }
+      ],
+      [
+        "execution_cached",
+        {
+          "nodes": [],
+          "prompt_id": "cdbb28bf-bc77-47f0-8e95-0e277f27901e",
+          "timestamp": 1792314224003
+        }
+      ],
+      [
+        "execution_success",
+        {
+          "prompt_id": "cdbb28bf-bc77-47f0-8e95-0e277f27901e",
+          "timestamp": 1792314303395
+        }
+      ]
+    ]
+  }
+}

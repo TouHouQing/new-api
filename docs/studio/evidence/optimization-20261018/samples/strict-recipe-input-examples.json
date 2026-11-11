@@ -1,0 +1,410 @@
+{
+  "samples": [
+    {
+      "id": "store",
+      "project_url": "/studio-examples/store/project.json",
+      "inputs": [
+        {
+          "id": "subject",
+          "label": "Subject summary",
+          "kind": "text",
+          "path": "/production/creativeBrief/subject",
+          "required": true,
+          "default": "Willow Corner coffee shop"
+        },
+        {
+          "id": "imagePrompt",
+          "label": "Subject image description",
+          "kind": "text",
+          "path": "/nodes/1/data/prompt",
+          "required": true,
+          "default": "An inviting small independent coffee shop named Willow Corner, a plain unbranded white ceramic cup of coffee on a warm wooden counter, pastries softly visible behind it, a barista hand beside the cup, warm morning daylight, realistic commercial photography, no text or logos."
+        },
+        {
+          "id": "motionPrompt",
+          "label": "Shot action or editing method",
+          "kind": "text",
+          "path": "/nodes/2/data/prompt",
+          "required": true,
+          "default": "At Willow Corner coffee shop, a barista hand gently slides a plain white ceramic cup of coffee across the wooden counter toward the viewer. A subtle curl of steam rises from the cup. Warm morning sunlight and softly blurred pastries in the background, inviting local cafe advertisement, stable close up, one clear action, no text or logos."
+        },
+        {
+          "id": "caption",
+          "label": "Caption or spoken line",
+          "kind": "text",
+          "path": "/production/timeline/0/caption",
+          "required": true,
+          "default": "Willow Corner - a fresh pause."
+        }
+      ],
+      "bindings": [
+        {
+          "path": "/assets/0/prompt",
+          "pattern": "{{imagePrompt}}"
+        },
+        {
+          "path": "/nodes/0/data/prompt",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/scenes/0/description",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-store-shot/visualBeat",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-store-shot/information",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/shotCaptionText",
+          "pattern": "{{caption}}"
+        }
+      ],
+      "note": "Integration examples only, not an unconsumed public manifest field. Subject summary does not rewrite prompts. Image/action descriptions are independent explicit inputs. Changing a caption for speech must invalidate and recreate its spoken audio. Historical Takes and asset versions remain literal and immutable."
+    },
+    {
+      "id": "product",
+      "project_url": "/studio-examples/product/project.json",
+      "inputs": [
+        {
+          "id": "subject",
+          "label": "Subject summary",
+          "kind": "text",
+          "path": "/production/creativeBrief/subject",
+          "required": true,
+          "default": "A blue ceramic travel mug"
+        },
+        {
+          "id": "imagePrompt",
+          "label": "Subject image description",
+          "kind": "text",
+          "path": "/nodes/1/data/prompt",
+          "required": true,
+          "default": "A ceramic blue travel mug with a fitted lid on a clean light gray studio table, warm softbox lighting, centered product, realistic material, no brand or letters."
+        },
+        {
+          "id": "motionPrompt",
+          "label": "Shot action or editing method",
+          "kind": "text",
+          "path": "/nodes/2/data/prompt",
+          "required": true,
+          "default": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected."
+        },
+        {
+          "id": "caption",
+          "label": "Caption or spoken line",
+          "kind": "text",
+          "path": "/production/timeline/0/caption",
+          "required": true,
+          "default": "Ready for the everyday journey."
+        }
+      ],
+      "bindings": [
+        {
+          "path": "/assets/0/prompt",
+          "pattern": "{{imagePrompt}}"
+        },
+        {
+          "path": "/nodes/0/data/prompt",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/scenes/0/description",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-product-shot/visualBeat",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-product-shot/information",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/shotCaptionText",
+          "pattern": "{{caption}}"
+        }
+      ],
+      "note": "Integration examples only, not an unconsumed public manifest field. Subject summary does not rewrite prompts. Image/action descriptions are independent explicit inputs. Changing a caption for speech must invalidate and recreate its spoken audio. Historical Takes and asset versions remain literal and immutable."
+    },
+    {
+      "id": "story",
+      "project_url": "/studio-examples/story/project.json",
+      "inputs": [
+        {
+          "id": "subject",
+          "label": "Subject summary",
+          "kind": "text",
+          "path": "/production/creativeBrief/subject",
+          "required": true,
+          "default": "An illustrated fox with a blue lantern"
+        },
+        {
+          "id": "imagePrompt",
+          "label": "Subject image description",
+          "kind": "text",
+          "path": "/nodes/1/data/prompt",
+          "required": true,
+          "default": "A small red fox at the edge of a woodland path, holding a blue lantern in its mouth at dusk, warm storybook cinematic illustration, full body, no text."
+        },
+        {
+          "id": "motionPrompt",
+          "label": "Shot action or editing method",
+          "kind": "text",
+          "path": "/nodes/2/data/prompt",
+          "required": true,
+          "default": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified."
+        },
+        {
+          "id": "caption",
+          "label": "Caption or spoken line",
+          "kind": "text",
+          "path": "/production/timeline/0/caption",
+          "required": true,
+          "default": "A small light leads the way home."
+        }
+      ],
+      "bindings": [
+        {
+          "path": "/assets/0/prompt",
+          "pattern": "{{imagePrompt}}"
+        },
+        {
+          "path": "/nodes/0/data/prompt",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/scenes/0/description",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-story-shot/visualBeat",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-story-shot/information",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/shotCaptionText",
+          "pattern": "{{caption}}"
+        }
+      ],
+      "note": "Integration examples only, not an unconsumed public manifest field. Subject summary does not rewrite prompts. Image/action descriptions are independent explicit inputs. Changing a caption for speech must invalidate and recreate its spoken audio. Historical Takes and asset versions remain literal and immutable."
+    },
+    {
+      "id": "explain",
+      "project_url": "/studio-examples/explain/project.json",
+      "inputs": [
+        {
+          "id": "subject",
+          "label": "Subject summary",
+          "kind": "text",
+          "path": "/production/creativeBrief/subject",
+          "required": true,
+          "default": "A seedling turning toward daylight"
+        },
+        {
+          "id": "imagePrompt",
+          "label": "Subject image description",
+          "kind": "text",
+          "path": "/nodes/1/data/prompt",
+          "required": true,
+          "default": "A small green seedling in a transparent glass pot on a bright white tabletop beside a sunlit window, visible soil and roots, science teaching visual, clear realistic botanical detail, no text."
+        },
+        {
+          "id": "motionPrompt",
+          "label": "Shot action or editing method",
+          "kind": "text",
+          "path": "/nodes/2/data/prompt",
+          "required": true,
+          "default": "A green seedling in a glass pot beside a sunlit window. A hand gently rotates the pot toward the light, showing the stem and leaves oriented toward daylight. Clear close up educational demonstration, steady camera, no written text."
+        },
+        {
+          "id": "caption",
+          "label": "Caption or spoken line",
+          "kind": "text",
+          "path": "/production/timeline/0/caption",
+          "required": true,
+          "default": "Plants need light."
+        }
+      ],
+      "bindings": [
+        {
+          "path": "/assets/0/prompt",
+          "pattern": "{{imagePrompt}}"
+        },
+        {
+          "path": "/nodes/0/data/prompt",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/scenes/0/description",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-explain-shot/visualBeat",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-explain-shot/information",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/shotCaptionText",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/dialogue",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/nodes/5/data/prompt",
+          "pattern": "{{caption}}"
+        }
+      ],
+      "note": "Integration examples only, not an unconsumed public manifest field. Subject summary does not rewrite prompts. Image/action descriptions are independent explicit inputs. Changing a caption for speech must invalidate and recreate its spoken audio. Historical Takes and asset versions remain literal and immutable."
+    },
+    {
+      "id": "presenter",
+      "project_url": "/studio-examples/presenter/project.json",
+      "inputs": [
+        {
+          "id": "subject",
+          "label": "Subject summary",
+          "kind": "text",
+          "path": "/production/creativeBrief/subject",
+          "required": true,
+          "default": "An original fictional science presenter"
+        },
+        {
+          "id": "imagePrompt",
+          "label": "Subject image description",
+          "kind": "text",
+          "path": "/nodes/1/data/prompt",
+          "required": true,
+          "default": "A friendly adult female science presenter with short dark hair in a plain navy shirt, facing the camera in a bright uncluttered home studio with a small green plant, medium close up, natural realistic face, no text."
+        },
+        {
+          "id": "motionPrompt",
+          "label": "Shot action or editing method",
+          "kind": "text",
+          "path": "/nodes/2/data/prompt",
+          "required": true,
+          "default": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed."
+        },
+        {
+          "id": "caption",
+          "label": "Caption or spoken line",
+          "kind": "text",
+          "path": "/production/timeline/0/caption",
+          "required": true,
+          "default": "Let's help plants grow."
+        }
+      ],
+      "bindings": [
+        {
+          "path": "/assets/0/prompt",
+          "pattern": "{{imagePrompt}}"
+        },
+        {
+          "path": "/nodes/0/data/prompt",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/scenes/0/description",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-presenter-shot/visualBeat",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-presenter-shot/information",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/shotCaptionText",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/dialogue",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/nodes/5/data/prompt",
+          "pattern": "{{caption}}"
+        }
+      ],
+      "note": "Integration examples only, not an unconsumed public manifest field. Subject summary does not rewrite prompts. Image/action descriptions are independent explicit inputs. Changing a caption for speech must invalidate and recreate its spoken audio. Historical Takes and asset versions remain literal and immutable."
+    },
+    {
+      "id": "music",
+      "project_url": "/studio-examples/music/project.json",
+      "inputs": [
+        {
+          "id": "subject",
+          "label": "Subject summary",
+          "kind": "text",
+          "path": "/production/creativeBrief/subject",
+          "required": true,
+          "default": "A mountain lake and a small wooden boat at dawn"
+        },
+        {
+          "id": "imagePrompt",
+          "label": "Subject image description",
+          "kind": "text",
+          "path": "/nodes/1/data/prompt",
+          "required": true,
+          "default": "A peaceful blue mountain lake at dawn with a lone small wooden boat, misty pink sky and soft sunrise reflections, cinematic wide composition, no text."
+        },
+        {
+          "id": "motionPrompt",
+          "label": "Shot action or editing method",
+          "kind": "text",
+          "path": "/nodes/2/data/prompt",
+          "required": true,
+          "default": "A peaceful mountain lake at dawn, a small wooden boat drifts slowly across calm water, mist rolls softly above the blue surface, sunrise reflections shimmer. Gentle contemplative movement for an instrumental music mood film, one continuous wide shot, no text."
+        },
+        {
+          "id": "caption",
+          "label": "Caption or spoken line",
+          "kind": "text",
+          "path": "/production/timeline/0/caption",
+          "required": true,
+          "default": "Dawn on the lake"
+        }
+      ],
+      "bindings": [
+        {
+          "path": "/assets/0/prompt",
+          "pattern": "{{imagePrompt}}"
+        },
+        {
+          "path": "/nodes/0/data/prompt",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/scenes/0/description",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-music-shot/visualBeat",
+          "pattern": "{{motionPrompt}}"
+        },
+        {
+          "path": "/production/shotNarrative/sample-music-shot/information",
+          "pattern": "{{caption}}"
+        },
+        {
+          "path": "/shots/0/shotCaptionText",
+          "pattern": "{{caption}}"
+        }
+      ],
+      "note": "Integration examples only, not an unconsumed public manifest field. Subject summary does not rewrite prompts. Image/action descriptions are independent explicit inputs. Changing a caption for speech must invalidate and recreate its spoken audio. Historical Takes and asset versions remain literal and immutable."
+    }
+  ]
+}

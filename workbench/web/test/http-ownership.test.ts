@@ -19,13 +19,7 @@ const webRoot = resolve(import.meta.dir, "..");
 const srcRoot = resolve(webRoot, "src");
 const sourcePath = (file: string) => relative(srcRoot, file).replaceAll("\\", "/");
 
-const axiosAllowed = new Set([
-    "services/api/request.ts",
-    "services/api/channel-transport.ts",
-    "services/api/image-response.ts",
-    "services/api/video-response.ts",
-    "services/diagnostics/client-diagnostics.ts",
-]);
+const axiosAllowed = new Set(["services/api/request.ts", "services/api/channel-transport.ts", "services/api/image-response.ts", "services/api/video-response.ts", "services/diagnostics/client-diagnostics.ts"]);
 
 test("business API modules call http instead of axios or request(apiClient)", () => {
     const offenders = walkSourceFiles(resolve(srcRoot, "services"))
@@ -50,10 +44,7 @@ test("axios.create stays in the shared request client", () => {
 });
 
 test("copied flush Modal padding lives only in AppModal", () => {
-    const banned = [
-        'styles={{ container: { padding: 0, overflow: "hidden" }, body: { padding: 0 } }}',
-        "styles={{ container: { padding: 0 }, body: { padding: 0 } }}",
-    ];
+    const banned = ['styles={{ container: { padding: 0, overflow: "hidden" }, body: { padding: 0 } }}', "styles={{ container: { padding: 0 }, body: { padding: 0 } }}"];
     const offenders = walkSourceFiles(srcRoot)
         .filter((file) => {
             if (sourcePath(file) === "components/ui/product/app-modal/app-modal.tsx") return false;

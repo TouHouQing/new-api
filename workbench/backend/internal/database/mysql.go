@@ -58,6 +58,8 @@ type nativeMySQLDialector struct{ *mysql.Dialector }
 
 func (d nativeMySQLDialector) DataTypeOf(field *schema.Field) string {
 	switch strings.ToLower(string(field.DataType)) {
+	case "jsonb":
+		return "json"
 	case "text", "mediumtext", "tinytext", "longtext":
 		return "longtext"
 	}
@@ -71,6 +73,29 @@ func (d nativeMySQLDialector) Migrator(db *gorm.DB) gorm.Migrator {
 }
 
 type nativeMySQLMigrator struct{ mysql.Migrator }
+
+func (m nativeMySQLMigrator) AddColumn(value any, name string) error {
+	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
+		field := stmt.Schema.LookUpField(name)
+		if field == nil {
+			return fmt.Errorf("MySQL 迁移字段未定义：%s", name)
+		}
+		if field.IgnoreMigration {
+			return nil
+		}
+		// MySQL's embedded AddColumn calls its own FullDataTypeOf, bypassing
+		// our text/JSON default expressions during upgrades of existing tables.
+		typeSQL := m.FullDataTypeOf(field)
+		column := clause.Column{Name: field.DBName}
+		query := "ALTER TABLE ? ADD ? ?"
+		values := []any{m.CurrentTable(stmt), column, typeSQL}
+		if field.PrimaryKey || strings.Contains(strings.ToLower(typeSQL.SQL), "auto_increment") {
+			query += ", ADD PRIMARY KEY (?)"
+			values = append(values, column)
+		}
+		return m.DB.Exec(query, values...).Error
+	})
+}
 
 func (m nativeMySQLMigrator) AlterColumn(value any, name string) error {
 	return m.RunWithValue(value, func(stmt *gorm.Statement) error {
@@ -86,7 +111,7 @@ func (m nativeMySQLMigrator) AlterColumn(value any, name string) error {
 func (m nativeMySQLMigrator) FullDataTypeOf(field *schema.Field) clause.Expr {
 	copied := *field
 	kind := strings.ToLower(string(field.DataType))
-	if (strings.Contains(kind, "text") || kind == "json") && field.HasDefaultValue {
+	if (strings.Contains(kind, "text") || kind == "json" || kind == "jsonb") && field.HasDefaultValue {
 		if field.DefaultValueInterface != nil {
 			copied.DefaultValue = "(" + m.Dialector.Explain("?", field.DefaultValueInterface) + ")"
 			copied.DefaultValueInterface = nil

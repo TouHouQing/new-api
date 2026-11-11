@@ -160,7 +160,7 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 	previousSecret := common.SessionSecret
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserSession{}, &model.AuditLog{}, &model.StudioAttempt{}))
+	require.NoError(t, db.AutoMigrate(&model.User{}, &model.UserAccessToken{}, &model.UserSession{}, &model.AuditLog{}, &model.StudioAttempt{}))
 	model.DB = db
 	model.LOG_DB = db
 	common.RedisEnabled = false
@@ -172,13 +172,15 @@ func TestStudioSessionUsesItsOwnerAndRejectsPAT(t *testing.T) {
 		common.SessionSecret = previousSecret
 	})
 
-	pat := "studio-test-pat"
+	pat := "nap_studio-test-pat"
 	user := &model.User{
 		Username: "studio-test-user", Password: "unused", Role: common.RoleCommonUser,
 		Status: common.UserStatusEnabled, Group: "default", AuthVersion: 1,
-		AccessToken: &pat,
 	}
 	require.NoError(t, db.Create(user).Error)
+	access := model.UserAccessToken{TokenHash: model.AccessTokenFingerprint(pat), Name: "Studio rejection fixture", ExpiresAt: time.Now().Add(time.Hour).Unix()}
+	require.NoError(t, access.SetScopes([]string{"workbench:read", "workbench:write"}))
+	require.NoError(t, model.CreateUserAccessToken(user.Id, &access, service.AccessTokenMaxPerUser))
 	session, err := service.CreateLoginSession(user.Id, "password", "127.0.0.1", "test")
 	require.NoError(t, err)
 

@@ -1,0 +1,91 @@
+{
+  "kind": "motion-diagram",
+  "engine": "Original procedural particle compositor over owned local-model footage",
+  "source_video_sha256": "ac5a366260552d1154344b17b7393960dec5cfca67f1d0e35815b01ac9a7abc9",
+  "seed": 47,
+  "sha256": "03fbe66a7c5174e75719f87d5ce417136426e845336d3486faa834774fff7321",
+  "bytes": 300734,
+  "not_model_verification": true,
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640016",
+        "width": 640,
+        "height": 384,
+        "coded_width": 640,
+        "coded_height": 384,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 22,
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "781920",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 45,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc63.1.102 libx264"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\diagrams\\effect-dust.mp4",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "300734",
+      "bit_rate": "785590",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  }
+}

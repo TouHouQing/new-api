@@ -1,0 +1,27 @@
+{
+  "projectId": "43b2a5ea-5672-4a7a-b752-531589966a2a",
+  "uiButton": "为当前镜头上传新版本",
+  "actualBundle": "index.7237af8980.js",
+  "oldTakeCount": 2,
+  "newTakeCount": 3,
+  "historicalTakeTextUnchanged": true,
+  "historicalTakeBytes": [
+    {
+      "takeId": "sample-store-video-take",
+      "sha256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b"
+    },
+    {
+      "takeId": "3d5b03e7-7e1c-4d71-8bda-b1b10ff06f6d",
+      "sha256": "ed61fb86d3296463ff0d645e8e1a03ac136aa4304d03429c12bb54ba081c3139"
+    }
+  ],
+  "newTakeId": "79fafe04-d1c7-4fe4-954e-8079b19143ed",
+  "newTakeSHA256": "ed61fb86d3296463ff0d645e8e1a03ac136aa4304d03429c12bb54ba081c3139",
+  "pinnedTimelineUnchanged": true,
+  "activeShotSelectsNewTake": true,
+  "explicitSourceVersionRequiredForTimeline": true,
+  "mediaUploadSavedToServerBeforeBackup": true,
+  "runtimePageErrors": [],
+  "newModelJobs": 0,
+  "knownUIIssueReportedToRoot": "Redundant lower generation sidebar said请选择镜头 while upper uploaded-shot panel was selected; root is fixing the empty sidebar only."
+}

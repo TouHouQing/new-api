@@ -1,0 +1,38 @@
+{
+  "source": "Final edited MP4 audio track, not the original isolated TTS file",
+  "transcription": {
+    "text": " Plants need light.",
+    "language": "en",
+    "duration": 3.0625,
+    "segments": [
+      {
+        "id": 0,
+        "start": 0,
+        "end": 0.94,
+        "text": " Plants need light.",
+        "avg_logprob": -0.36871058866381645,
+        "no_speech_prob": 0.005703900940716267
+      }
+    ],
+    "words": [
+      {
+        "start": 0.0,
+        "end": 0.48,
+        "text": " Plants",
+        "confidence": 0.9262484014034271
+      },
+      {
+        "start": 0.48,
+        "end": 0.66,
+        "text": " need",
+        "confidence": 0.958161473274231
+      },
+      {
+        "start": 0.66,
+        "end": 0.94,
+        "text": " light.",
+        "confidence": 0.9853581190109253
+      }
+    ]
+  }
+}

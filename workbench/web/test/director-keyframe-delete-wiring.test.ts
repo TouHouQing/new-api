@@ -20,6 +20,15 @@ function slice(source: string, from: string, to: string) {
     return source.slice(start, end);
 }
 
+function slicePattern(source: string, from: RegExp, to: string) {
+    const match = source.match(from);
+    expect(match).not.toBeNull();
+    const start = match?.index ?? 0;
+    const end = source.indexOf(to, start + (match?.[0].length ?? 0));
+    expect(end).toBeGreaterThan(start);
+    return source.slice(start, end);
+}
+
 describe("workbench 接入时间轴关键帧删除", () => {
     test("PrevisSequencer 拿到的是 deleteKeyframe，而不是空实现", () => {
         const element = slice(workbench, "<PrevisSequencer", "/>");
@@ -165,7 +174,7 @@ describe("三类轨道都有删除入口，概览轨保持只读", () => {
         expect(cameraCut).toContain("<TrackKeys duration={duration} keys={cameraKeys} />");
         expect(cameraCut).not.toContain("onDeleteKey");
 
-        const cameraRow = slice(sequencer, "{camera ? <SequencerRow label={camera.name}", "</SequencerRow> : null}");
+        const cameraRow = slicePattern(sequencer, /\{camera \? \(\s*<SequencerRow[\s\S]*?label=\{camera\.name\}/, "</SequencerRow>");
         expect(cameraRow).toContain("onDeleteKey={deleteTrackKey}");
     });
 
@@ -179,15 +188,15 @@ describe("三类轨道都有删除入口，概览轨保持只读", () => {
     });
 
     test("折叠状态下的对象汇总轨也可删除，否则收起后就删不掉", () => {
-        const summaryRow = slice(sequencer, "<SequencerRow label={object.name} icon={isExpanded", "</SequencerRow>");
+        const summaryRow = slicePattern(sequencer, /<SequencerRow\s+label=\{object\.name\}\s+icon=\{isExpanded/, "</SequencerRow>");
         expect(summaryRow).toContain("keys={[...transformKeys, ...boneTrackKeys]}");
         expect(summaryRow).toContain("onDeleteKey={deleteTrackKey}");
     });
 
     test("展开后的 Transform 子轨与骨骼子轨都可删除", () => {
-        const transformRow = slice(sequencer, 'label="Transform" icon="◇"', "</SequencerRow>");
+        const transformRow = slicePattern(sequencer, /<SequencerRow\s+label="Transform"\s+icon="◇"/, "</SequencerRow>");
         expect(transformRow).toContain("onDeleteKey={deleteTrackKey}");
-        const boneRow = slice(sequencer, "label={previsBoneLabel(track.bone)}", "</SequencerRow>");
+        const boneRow = slicePattern(sequencer, /<SequencerRow[\s\S]*?label=\{previsBoneLabel\(track\.bone\)\}/, "</SequencerRow>");
         expect(boneRow).toContain("onDeleteKey={deleteTrackKey}");
     });
 
@@ -207,7 +216,7 @@ describe("三类轨道都有删除入口，概览轨保持只读", () => {
 
     test("切换摄影机或外部删帧后清除陈旧选择，顶部控件不能误改不可见轨道", () => {
         expect(sequencer).toContain("previsKeyframeTargetExists(selectedKey.target, camera, objects)");
-        expect(sequencer).toContain("setSelectedKey((current) => current?.target && !previsKeyframeTargetExists(current.target, camera, objects) ? null : current);");
+        expect(sequencer).toMatch(/setSelectedKey\(\(current\) => \(?current\?\.target && !previsKeyframeTargetExists\(current\.target, camera, objects\) \? null : current\)?\);/);
         expect(sequencer).toContain("camera?.id === target.cameraId && camera.keyframes.some");
         expect(sequencer).toContain("object.boneTracks?.some");
     });

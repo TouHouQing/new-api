@@ -1,0 +1,99 @@
+{
+  "task": "repair-camera-follow",
+  "adapter_id": "local-5ec1df1158db418da94fc805aeb7fb8e",
+  "original_sha256": "27dbc308769926fab876823b2f37e50c8c2043ee74b2d02e04dfb9d0d87ccdf3",
+  "published_sha256": "f7dc5b42077d1179f5d0ef2f3e84c59dfdb7591c5b1fcaceda365e5d33121c58",
+  "published_bytes": 301228,
+  "review": {
+    "source_reviewed": true,
+    "effect_passed": true,
+    "notes": "A short side-follow view retains the full walking fox and shows small background parallax. Some framing drift remains; this is an approximate prompt-driven move, not an exact rig path.",
+    "task": "repair-camera-follow"
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640015",
+        "width": 480,
+        "height": 288,
+        "coded_width": 480,
+        "coded_height": 288,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 21,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "783114",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 47,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc63.1.102 libx264"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-presets\\videos\\camera-follow.mp4",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "301228",
+      "bit_rate": "786881",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  }
+}

@@ -25,16 +25,6 @@
     pointer-events: none;
 }
 
-.canvas-entry-ripple::before {
-    content: "";
-    position: absolute;
-    width: 720px;
-    height: 720px;
-    border-radius: var(--r-full);
-    background: radial-gradient(circle, color-mix(in srgb, var(--canvas-entry-text) 7%, transparent) 0%, transparent 62%);
-    transform: translate(-50%, -50%);
-}
-
 .canvas-entry-ripple > span {
     position: absolute;
     width: 920px;
@@ -185,9 +175,7 @@
     border: 1px solid var(--canvas-entry-border);
     border-radius: var(--r-3xl);
     background: var(--canvas-entry-surface);
-    box-shadow:
-        0 1px 2px color-mix(in srgb, black 6%, transparent),
-        0 18px 48px var(--canvas-entry-shadow);
+    box-shadow: none;
     text-align: left;
     -webkit-backdrop-filter: blur(16px);
     backdrop-filter: blur(16px);
@@ -198,9 +186,7 @@
 
 .canvas-entry-composer:focus-within {
     border-color: color-mix(in srgb, var(--canvas-entry-text) 28%, transparent);
-    box-shadow:
-        0 0 0 4px color-mix(in srgb, var(--canvas-entry-text) 6%, transparent),
-        0 18px 48px var(--canvas-entry-shadow);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--canvas-entry-text) 6%, transparent);
 }
 
 .canvas-entry-composer textarea {

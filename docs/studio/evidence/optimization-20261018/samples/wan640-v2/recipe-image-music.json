@@ -1,0 +1,107 @@
+{
+  "key": "recipe-image-music",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-recipe-image-music",
+  "submitted_at": 1792313227.7003055,
+  "adapter_id": "image-e9f6460fe4af1785ea3100a66f0e1aa2",
+  "adapter_response": {
+    "id": "image-e9f6460fe4af1785ea3100a66f0e1aa2",
+    "status": "completed",
+    "prompt_id": "acd31028-b5d9-4e83-bb50-5a068a5026d0",
+    "error": ""
+  },
+  "last_checked_at": 1792313257.9470654,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-music.png",
+  "output_sha256": "d414322b8daacaf9d80b7a8bbedcf18ca52c4bcc9089b730c66f0f5d45e1b485",
+  "output_bytes": 228923,
+  "elapsed_sec": 30.26,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "A peaceful blue mountain lake at dawn with a lone small wooden boat, misty pink sky and soft sunrise reflections, cinematic wide composition, no text.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 182004,
+      "studio_sample_request": "optimization-20261018-wan640-v2-recipe-image-music"
+    },
+    "idempotency_key": "e9f6460fe4af1785ea3100a66f0e1aa2a4267b5cddef76568e7c0afe2d22d1c3"
+  },
+  "workflow_sha256": "d631e7dd6bd61a67be9313a806ee5d078a7b3acce065ae7a4b7a6814c087946b",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 182004,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-music.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "228923",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

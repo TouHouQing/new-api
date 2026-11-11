@@ -1,0 +1,6 @@
+{
+  "operation": "FFmpeg silence padding; no new speech generated",
+  "source_sha256": "690e476660ce31fe92f6133aa25fdd40b1154fed94c44f5c01914a420d150e3a",
+  "sha256": "df7ce7fc555dc2f0fb8126cf60ada9de73f880255331361bc7d938a055932f2a",
+  "seconds": 3.0625
+}

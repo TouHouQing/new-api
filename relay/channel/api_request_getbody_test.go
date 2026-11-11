@@ -379,6 +379,7 @@ func runResetOnFirstStreamServer(ln net.Listener, expectRetry bool) <-chan h2Ser
 					return
 				}
 				if !expectRetry {
+					closeH2TestConnection(conn)
 					break attempts
 				}
 				continue
@@ -416,7 +417,7 @@ func runGoAwayAfterFirstRequestServer(ln net.Listener) <-chan h2ServerResult {
 
 			if attempt == 0 {
 				err = framer.WriteGoAway(0, http2.ErrCodeNo, nil)
-				conn.Close()
+				closeH2TestConnection(conn)
 				if err != nil {
 					res.err = err
 					return
@@ -433,6 +434,17 @@ func runGoAwayAfterFirstRequestServer(ln net.Listener) <-chan h2ServerResult {
 		}
 	}()
 	return resCh
+}
+
+// Closing with unread client SETTINGS can send TCP RST on Windows and discard
+// the protocol frame under test. Send FIN and drain the peer first.
+func closeH2TestConnection(conn net.Conn) {
+	if tcp, ok := conn.(*net.TCPConn); ok {
+		_ = tcp.CloseWrite()
+		_ = tcp.SetReadDeadline(time.Now().Add(2 * time.Second))
+		_, _ = io.Copy(io.Discard, tcp)
+	}
+	_ = conn.Close()
 }
 
 func newH2PriorKnowledgeClient(ln net.Listener) (*http.Client, *http2.Transport) {

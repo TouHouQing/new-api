@@ -19,6 +19,7 @@ import {
     PersonStanding,
     Crop,
     Rewind,
+    Route,
     ScanFace,
     SlidersHorizontal,
     Smile,
@@ -32,6 +33,7 @@ import {
 
 import type { CanvasNodeData } from "@/types/canvas";
 import type { NodeToolbarGroup } from "@/lib/canvas/tool-registry";
+import { translate } from "@/i18n";
 
 type ImageNodeActionToolId =
     | "imageEdit"
@@ -59,6 +61,8 @@ type ImageNodeActionToolId =
     | "previs"
     | "multi_camera_nine_grid"
     | "story_pitch_four_grid"
+    | "short_storyboard"
+    | "blocking_storyboard"
     | "character_face_three_view"
     | "product_three_view"
     | "storyboard_25_grid"
@@ -95,12 +99,14 @@ type ImageToolHandlers = {
 
 type ImageToolDefinition = {
     id: ImageNodeActionToolId;
+    /** 文案字段（label/section/description/placeholder）保存 i18n 键，读取时翻译。 */
     label: string | ((node: CanvasNodeData) => string);
     icon: (node: CanvasNodeData) => ReactNode;
     group: NodeToolbarGroup;
     order: number;
     section?: string;
     description?: string;
+    placeholder?: string;
     active?: (node: CanvasNodeData) => boolean;
     run: (node: CanvasNodeData, handlers: ImageToolHandlers, tool: ImageToolDefinition) => void;
     /** 后端 nine_grid 类型提示词工具 ID；工具条分组按用途决定，与后端类型无关。 */
@@ -143,8 +149,8 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     // 平铺：直接改当前图片的高频编辑
     {
         id: "regionEdit",
-        label: "区域标注",
-        description: "框选多个区域，在提示词里用 @区域1、@区域2 分别描述修改",
+        label: "canvasB.imageTools.regionEditLabel",
+        description: "canvasB.imageTools.regionEditDesc",
         icon: () => <SquareDashed className="size-3.5" />,
         group: "primary",
         order: 10,
@@ -152,8 +158,8 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "textEdit",
-        label: "文字编辑",
-        description: "识别图片中的文字并逐行修改",
+        label: "canvasB.imageTools.textEditLabel",
+        description: "canvasB.imageTools.textEditDesc",
         icon: () => <FileText className="size-3.5" />,
         group: "primary",
         order: 15,
@@ -162,9 +168,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     // 画面调整：保持镜头不变，用模型改人像、光影或主体
     {
         id: "emotion",
-        label: "表情调整",
-        section: "人像",
-        description: "调整人物表情，生成新图片",
+        label: "canvasB.imageTools.emotionLabel",
+        section: "canvasB.imageTools.sectionPortrait",
+        description: "canvasB.imageTools.emotionDesc",
         icon: () => <Smile className="size-3.5" />,
         group: "adjust",
         order: 10,
@@ -172,9 +178,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "portraitTexture",
-        label: "质感调整",
-        section: "人像",
-        description: "设置肤质、光影与融合，再执行生成",
+        label: "canvasB.imageTools.portraitTextureLabel",
+        section: "canvasB.imageTools.sectionPortrait",
+        description: "canvasB.imageTools.portraitTextureDesc",
         icon: () => <SlidersHorizontal className="size-3.5" />,
         group: "adjust",
         order: 20,
@@ -182,9 +188,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "lighting",
-        label: "打光",
-        section: "光影",
-        description: "调整光线方向、亮度与光效，生成新图片",
+        label: "canvasB.imageTools.lightingLabel",
+        section: "canvasB.imageTools.sectionLighting",
+        description: "canvasB.imageTools.lightingDesc",
         icon: () => <Sun className="size-3.5" />,
         group: "adjust",
         order: 30,
@@ -192,9 +198,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "cinematic_light_correction",
-        label: "电影级光影校正",
-        section: "光影",
-        description: "修正电影灯光，使场景更真实",
+        label: "canvasB.imageTools.cinematicLightLabel",
+        section: "canvasB.imageTools.sectionLighting",
+        description: "canvasB.imageTools.cinematicLightDesc",
         icon: () => <Contrast className="size-3.5" />,
         group: "adjust",
         order: 40,
@@ -203,9 +209,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "removeBackground",
-        label: "去除背景",
-        section: "主体与图层",
-        description: "保留主体并生成透明背景图片",
+        label: "canvasB.imageTools.removeBackgroundLabel",
+        section: "canvasB.imageTools.sectionSubject",
+        description: "canvasB.imageTools.removeBackgroundDesc",
         icon: () => <Eraser className="size-3.5" />,
         group: "adjust",
         order: 50,
@@ -213,9 +219,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "layerDecomposition",
-        label: "AI 图层拆分",
-        section: "主体与图层",
-        description: "识别并拆分为多个可独立编辑的图片图层",
+        label: "canvasB.imageTools.layerDecompositionLabel",
+        section: "canvasB.imageTools.sectionSubject",
+        description: "canvasB.imageTools.layerDecompositionDesc",
         icon: () => <Layers3 className="size-3.5" />,
         group: "adjust",
         order: 60,
@@ -224,9 +230,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     // 镜头：换角度、换时间点或进入 3D 空间
     {
         id: "angle",
-        label: "多角度",
-        section: "视角",
-        description: "调整摄影机角度，生成新视角",
+        label: "canvasB.imageTools.angleLabel",
+        section: "canvasB.imageTools.sectionView",
+        description: "canvasB.imageTools.angleDesc",
         icon: () => <Camera className="size-3.5" />,
         group: "camera",
         order: 10,
@@ -234,9 +240,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "panorama",
-        label: "全景图",
-        section: "视角",
-        description: "基于该图片创建 360° 全景查看节点",
+        label: "canvasB.imageTools.panoramaLabel",
+        section: "canvasB.imageTools.sectionView",
+        description: "canvasB.imageTools.panoramaDesc",
         icon: () => <Globe2 className="size-3.5" />,
         group: "camera",
         order: 20,
@@ -244,9 +250,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "image_projection_before_5s",
-        label: "画面推演-5秒前",
-        section: "画面推演",
-        description: "生成 5 秒前的画面帧",
+        label: "canvasB.imageTools.projectionBeforeLabel",
+        section: "canvasB.imageTools.sectionProjection",
+        description: "canvasB.imageTools.projectionBeforeDesc",
         icon: () => <Rewind className="size-3.5" />,
         group: "camera",
         order: 30,
@@ -255,9 +261,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "image_projection_after_3s",
-        label: "画面推演-3秒后",
-        section: "画面推演",
-        description: "生成 3 秒后的画面帧",
+        label: "canvasB.imageTools.projectionAfterLabel",
+        section: "canvasB.imageTools.sectionProjection",
+        description: "canvasB.imageTools.projectionAfterDesc",
         icon: () => <FastForward className="size-3.5" />,
         group: "camera",
         order: 40,
@@ -266,9 +272,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "previs",
-        label: "生成预演台",
-        section: "3D 预演",
-        description: "让 Agent 识别当前图片并复现为可编辑的 3D 预演台",
+        label: "canvasB.imageTools.previsLabel",
+        section: "canvasB.imageTools.sectionPrevis",
+        description: "canvasB.imageTools.previsDesc",
         icon: () => <Layers3 className="size-3.5" />,
         group: "camera",
         order: 50,
@@ -276,10 +282,34 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     // 宫格与设定图：输出多格联系表
     {
+        id: "short_storyboard",
+        label: "canvasB.imageTools.storyboardLabel",
+        section: "canvasB.imageTools.sectionStoryboard",
+        description: "canvasB.imageTools.storyboardDesc",
+        placeholder: "canvasB.imageTools.storyboardPlaceholder",
+        icon: () => <Clapperboard className="size-3.5" />,
+        group: "sheet",
+        order: 1,
+        toolId: 1000090,
+        run: nineGridRun,
+    },
+    {
+        id: "blocking_storyboard",
+        label: "canvasB.imageTools.blockingStoryboardLabel",
+        section: "canvasB.imageTools.sectionStoryboard",
+        description: "canvasB.imageTools.blockingStoryboardDesc",
+        placeholder: "canvasB.imageTools.blockingStoryboardPlaceholder",
+        icon: () => <Route className="size-3.5" />,
+        group: "sheet",
+        order: 2,
+        toolId: 1000091,
+        run: nineGridRun,
+    },
+    {
         id: "multi_camera_nine_grid",
-        label: "多机位九宫格",
-        section: "分镜宫格",
-        description: "生成 3x3 多机位联系表",
+        label: "canvasB.imageTools.multiCameraLabel",
+        section: "canvasB.imageTools.sectionStoryboard",
+        description: "canvasB.imageTools.multiCameraDesc",
         icon: () => <Grid3x3 className="size-3.5" />,
         group: "sheet",
         order: 10,
@@ -288,9 +318,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "story_pitch_four_grid",
-        label: "剧情推演四宫格",
-        section: "分镜宫格",
-        description: "生成 2x2 剧情推演联系表",
+        label: "canvasB.imageTools.storyPitchLabel",
+        section: "canvasB.imageTools.sectionStoryboard",
+        description: "canvasB.imageTools.storyPitchDesc",
         icon: () => <Grid2x2 className="size-3.5" />,
         group: "sheet",
         order: 20,
@@ -299,9 +329,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "storyboard_25_grid",
-        label: "25宫格连贯分镜",
-        section: "分镜宫格",
-        description: "生成 5x5 连贯分镜联系表",
+        label: "canvasB.imageTools.storyboard25Label",
+        section: "canvasB.imageTools.sectionStoryboard",
+        description: "canvasB.imageTools.storyboard25Desc",
         icon: () => <Clapperboard className="size-3.5" />,
         group: "sheet",
         order: 30,
@@ -310,9 +340,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "character_three_view_generation",
-        label: "角色三视图",
-        section: "设定图",
-        description: "生成 16:9 角色三视图联系表",
+        label: "canvasB.imageTools.characterThreeViewLabel",
+        section: "canvasB.imageTools.sectionSheets",
+        description: "canvasB.imageTools.characterThreeViewDesc",
         icon: () => <PersonStanding className="size-3.5" />,
         group: "sheet",
         order: 40,
@@ -321,9 +351,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "character_face_three_view",
-        label: "角色脸部三视图",
-        section: "设定图",
-        description: "生成 3x2 角色脸部联系表",
+        label: "canvasB.imageTools.characterFaceLabel",
+        section: "canvasB.imageTools.sectionSheets",
+        description: "canvasB.imageTools.characterFaceDesc",
         icon: () => <ScanFace className="size-3.5" />,
         group: "sheet",
         order: 50,
@@ -332,9 +362,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "product_three_view",
-        label: "产品三视图",
-        section: "设定图",
-        description: "生成 3x2 产品联系表",
+        label: "canvasB.imageTools.productThreeViewLabel",
+        section: "canvasB.imageTools.sectionSheets",
+        description: "canvasB.imageTools.productThreeViewDesc",
         icon: () => <Package className="size-3.5" />,
         group: "sheet",
         order: 60,
@@ -344,9 +374,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     // 图片工具：不调用模型的裁剪、尺寸和标记
     {
         id: "crop",
-        label: "裁剪",
-        section: "构图与尺寸",
-        description: "保留所选区域，生成新图片",
+        label: "canvasB.imageTools.cropLabel",
+        section: "canvasB.imageTools.sectionComposition",
+        description: "canvasB.imageTools.cropDesc",
         icon: () => <Crop className="size-3.5" />,
         group: "process",
         order: 10,
@@ -354,9 +384,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "upscale",
-        label: "调整尺寸",
-        section: "构图与尺寸",
-        description: "按比例缩小或插值放大，不是 AI 超分",
+        label: "canvasB.imageTools.upscaleLabel",
+        section: "canvasB.imageTools.sectionComposition",
+        description: "canvasB.imageTools.upscaleDesc",
         icon: () => <Scaling className="size-3.5" />,
         group: "process",
         order: 20,
@@ -364,9 +394,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "annotation",
-        section: "拆分与标记",
-        description: "添加标记，另存为新图片",
-        label: "标注",
+        section: "canvasB.imageTools.sectionSplitMark",
+        description: "canvasB.imageTools.annotationDesc",
+        label: "canvasB.imageTools.annotationLabel",
         icon: () => <PencilLine className="size-3.5" />,
         group: "process",
         order: 40,
@@ -374,9 +404,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "annotationEdit",
-        section: "拆分与标记",
-        description: "用画笔标记区域并让模型按标记修改",
-        label: "标注编辑",
+        section: "canvasB.imageTools.sectionSplitMark",
+        description: "canvasB.imageTools.annotationEditDesc",
+        label: "canvasB.imageTools.annotationEditLabel",
         icon: () => <Brush className="size-3.5" />,
         group: "process",
         order: 45,
@@ -384,9 +414,9 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "split",
-        label: "宫格切分",
-        section: "拆分与标记",
-        description: "按行列拆成多个图片节点",
+        label: "canvasB.imageTools.splitLabel",
+        section: "canvasB.imageTools.sectionSplitMark",
+        description: "canvasB.imageTools.splitDesc",
         icon: () => <Grid2x2 className="size-3.5" />,
         group: "process",
         order: 46,
@@ -394,7 +424,7 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "view",
-        label: "预览",
+        label: "canvasB.imageTools.viewLabel",
         icon: () => <Maximize2 className="size-3.5" />,
         group: "utility",
         order: 10,
@@ -402,17 +432,17 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "replace",
-        label: "替换图片",
+        label: "canvasB.imageTools.replaceLabel",
         icon: () => <Upload className="size-3.5" />,
         group: "more",
-        section: "素材",
+        section: "canvasB.imageTools.sectionAssets",
         order: 45,
         run: (node, handlers) => handlers.onUpload(node),
     },
     {
         id: "copyPrompt",
-        section: "生成信息",
-        label: "复制提示词",
+        section: "canvasB.imageTools.sectionGenerationInfo",
+        label: "canvasB.imageTools.copyPromptLabel",
         icon: () => <Copy className="size-3.5" />,
         group: "more",
         order: 50,
@@ -420,8 +450,8 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "reversePrompt",
-        section: "生成信息",
-        label: "反推提示词",
+        section: "canvasB.imageTools.sectionGenerationInfo",
+        label: "canvasB.imageTools.reversePromptLabel",
         icon: () => <FileText className="size-3.5" />,
         group: "more",
         order: 60,
@@ -429,8 +459,8 @@ const imageToolDefinitions: ImageToolDefinition[] = [
     },
     {
         id: "resize",
-        label: "锁定宽高比",
-        section: "节点管理",
+        label: "canvasB.imageTools.resizeLabel",
+        section: "canvasB.imageTools.sectionNodeManagement",
         active: (node) => !node.metadata?.freeResize,
         icon: (node) => (node.metadata?.freeResize ? <LockOpen className="size-3.5" /> : <Lock className="size-3.5" />),
         group: "more",
@@ -446,15 +476,15 @@ export function buildImageToolbarTools(node: CanvasNodeData, handlers: ImageTool
         icon: tool.icon(node),
         group: tool.group,
         order: tool.order,
-        section: tool.section,
-        description: tool.description,
+        section: tool.section ? translate(tool.section) : undefined,
+        description: tool.description ? translate(tool.description) : undefined,
         active: tool.active?.(node),
         onClick: () => tool.run(node, handlers, tool),
     }));
 }
 
 function resolveToolText(value: string | ((node: CanvasNodeData) => string), node: CanvasNodeData) {
-    return typeof value === "function" ? value(node) : value;
+    return typeof value === "function" ? value(node) : translate(value);
 }
 
 export type NineGridMenuItem = {
@@ -462,6 +492,7 @@ export type NineGridMenuItem = {
     label: string;
     section: string;
     description: string;
+    placeholder?: string;
     toolId: number;
     toolIconName: string;
 };
@@ -475,9 +506,10 @@ export function getNineGridMenuItems(): NineGridMenuItem[] {
         .sort((a, b) => groupRank(a.tool.group) - groupRank(b.tool.group) || a.index - b.index)
         .map(({ tool }) => ({
             id: tool.id,
-            label: typeof tool.label === "function" ? tool.label({} as CanvasNodeData) : tool.label,
-            section: tool.section || "常用操作",
-            description: tool.description || "",
+            label: resolveToolText(tool.label, {} as CanvasNodeData),
+            section: translate(tool.section || "canvasB.imageTools.sectionCommon"),
+            description: tool.description ? translate(tool.description) : "",
+            placeholder: tool.placeholder ? translate(tool.placeholder) : undefined,
             toolId: tool.toolId!,
             toolIconName: resolveToolIconName(tool, {} as CanvasNodeData),
         }));

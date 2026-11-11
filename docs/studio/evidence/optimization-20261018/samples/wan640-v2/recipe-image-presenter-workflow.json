@@ -1,0 +1,173 @@
+{
+  "prompt_id": "389b0f81-1add-4f80-9c7a-27723ebd7ad6",
+  "graph": {
+    "9": {
+      "inputs": {
+        "filename_prefix": "studio/image-ebe177091276c5e30f5ba59bc12e7d16",
+        "images": [
+          "65",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "保存图像"
+      }
+    },
+    "62": {
+      "inputs": {
+        "clip_name": "qwen_3_4b.safetensors",
+        "type": "flux2",
+        "device": "cpu"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "加载CLIP"
+      }
+    },
+    "63": {
+      "inputs": {
+        "vae_name": "flux2-vae.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "加载VAE"
+      }
+    },
+    "65": {
+      "inputs": {
+        "samples": [
+          "70",
+          0
+        ],
+        "vae": [
+          "63",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE解码"
+      }
+    },
+    "66": {
+      "inputs": {
+        "unet_name": "flux-2-klein-4b-fp8.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "UNet加载器"
+      }
+    },
+    "67": {
+      "inputs": {
+        "text": "A friendly adult female science presenter with short dark hair in a plain navy shirt, facing the camera in a bright uncluttered home studio with a small green plant, medium close up, natural realistic face, no text.",
+        "clip": [
+          "62",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP文本编码"
+      }
+    },
+    "68": {
+      "inputs": {
+        "width": 512,
+        "height": 320,
+        "batch_size": 1
+      },
+      "class_type": "EmptySD3LatentImage",
+      "_meta": {
+        "title": "空Latent图像（SD3）"
+      }
+    },
+    "69": {
+      "inputs": {
+        "shift": 3.0,
+        "sampling": "flow",
+        "model": [
+          "66",
+          0
+        ]
+      },
+      "class_type": "ModelSamplingAuraFlow",
+      "_meta": {
+        "title": "采样算法（AuraFlow）"
+      }
+    },
+    "70": {
+      "inputs": {
+        "seed": 182003,
+        "steps": 8,
+        "cfg": 1.0,
+        "sampler_name": "res_multistep",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": [
+          "69",
+          0
+        ],
+        "positive": [
+          "67",
+          0
+        ],
+        "negative": [
+          "71",
+          0
+        ],
+        "latent_image": [
+          "68",
+          0
+        ]
+      },
+      "class_type": "KSampler",
+      "_meta": {
+        "title": "K采样器"
+      }
+    },
+    "71": {
+      "inputs": {
+        "text": "",
+        "clip": [
+          "62",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP文本编码"
+      }
+    }
+  },
+  "status": {
+    "status_str": "success",
+    "completed": true,
+    "messages": [
+      [
+        "execution_start",
+        {
+          "prompt_id": "389b0f81-1add-4f80-9c7a-27723ebd7ad6",
+          "timestamp": 1792313198089
+        }
+      ],
+      [
+        "execution_cached",
+        {
+          "nodes": [],
+          "prompt_id": "389b0f81-1add-4f80-9c7a-27723ebd7ad6",
+          "timestamp": 1792313198090
+        }
+      ],
+      [
+        "execution_success",
+        {
+          "prompt_id": "389b0f81-1add-4f80-9c7a-27723ebd7ad6",
+          "timestamp": 1792313225895
+        }
+      ]
+    ]
+  }
+}

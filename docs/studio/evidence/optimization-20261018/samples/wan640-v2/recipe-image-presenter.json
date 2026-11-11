@@ -1,0 +1,107 @@
+{
+  "key": "recipe-image-presenter",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-recipe-image-presenter",
+  "submitted_at": 1792313197.430537,
+  "adapter_id": "image-ebe177091276c5e30f5ba59bc12e7d16",
+  "adapter_response": {
+    "id": "image-ebe177091276c5e30f5ba59bc12e7d16",
+    "status": "completed",
+    "prompt_id": "389b0f81-1add-4f80-9c7a-27723ebd7ad6",
+    "error": ""
+  },
+  "last_checked_at": 1792313227.6827912,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-presenter.png",
+  "output_sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce",
+  "output_bytes": 205668,
+  "elapsed_sec": 30.27,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "A friendly adult female science presenter with short dark hair in a plain navy shirt, facing the camera in a bright uncluttered home studio with a small green plant, medium close up, natural realistic face, no text.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 182003,
+      "studio_sample_request": "optimization-20261018-wan640-v2-recipe-image-presenter"
+    },
+    "idempotency_key": "ebe177091276c5e30f5ba59bc12e7d168c2903062ffef97135412de86566f9b8"
+  },
+  "workflow_sha256": "5f32eec09245c61f757f5567a8327de54b3b50043c8eef91caa324c9c11d4670",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 182003,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-presenter.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "205668",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

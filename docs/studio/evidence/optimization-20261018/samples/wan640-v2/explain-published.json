@@ -1,0 +1,193 @@
+{
+  "source_image_sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d",
+  "source_video_sha256": "129d88fde8d1488f9fb350a9234705a24129a8d498a09ee6e73796451c24858c",
+  "source_image_adapter_id": "image-5ebcdb8fa4bec6361fade822772e49f4",
+  "source_video_adapter_id": "local-716d685accf34ee8ac68da440678d1fe",
+  "voice_adapter_id": "audio-29b5e2a0e5cb43dc8912877b21d9ed1d",
+  "lip_adapter_id": null,
+  "published_media": [
+    {
+      "id": "sample-explain-image",
+      "url": "/studio-examples/explain/first-frame.png",
+      "mime_type": "image/png",
+      "sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d",
+      "bytes": 207434
+    },
+    {
+      "id": "sample-explain-video",
+      "url": "/studio-examples/explain/source.mp4",
+      "mime_type": "video/mp4",
+      "sha256": "9ac6d993a21af295911cd5c59e5573d1d243b17553d3bd43ddaf45f64b1d862e",
+      "bytes": 279225
+    },
+    {
+      "id": "sample-explain-film",
+      "url": "/studio-examples/explain/film.mp4",
+      "mime_type": "video/mp4",
+      "sha256": "34a748d912ba375be19867faba5de325bc9fec16a96ea91c947488e738cd64e9",
+      "bytes": 300965
+    },
+    {
+      "id": "sample-explain-music",
+      "url": "/studio-examples/shared/music.mp3",
+      "mime_type": "audio/mpeg",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+      "bytes": 48500
+    },
+    {
+      "id": "sample-explain-voice",
+      "url": "/studio-examples/explain/voice.wav",
+      "mime_type": "audio/wav",
+      "sha256": "eeeba6e92a80f4e868244abfba54ae9e48c67ccdae4dad3bf541385f339390ed",
+      "bytes": 63474
+    }
+  ],
+  "film_ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640016",
+        "width": 640,
+        "height": 384,
+        "coded_width": 640,
+        "coded_height": 384,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 22,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "694144",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 49,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc63.1.102 libx264"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/44100",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 135056,
+        "duration": "3.062494",
+        "bit_rate": "82872",
+        "nb_frames": "133",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\explain\\film.mp4",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "300965",
+      "bit_rate": "786194",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  },
+  "review": {
+    "source_reviewed": true,
+    "film_reviewed": true,
+    "notes": "Readable seedling, roots and pot, gentle rotation toward window light; speech pending.",
+    "source_sha256": "129d88fde8d1488f9fb350a9234705a24129a8d498a09ee6e73796451c24858c",
+    "film_sha256": "34a748d912ba375be19867faba5de325bc9fec16a96ea91c947488e738cd64e9",
+    "reviewed_at": "2026-10-18T09:42:39Z",
+    "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+  },
+  "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio. Speech is post-produced with the installed Chatterbox builtin voice."
+}

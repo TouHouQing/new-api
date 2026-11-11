@@ -31,8 +31,6 @@ import (
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"gorm.io/driver/mysql"
-	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"yingce/backend/pkg/integration"
@@ -62,27 +60,27 @@ func InitializeWorkbench() error {
 		return err
 	}
 	driver, dsn := os.Getenv("WORKBENCH_DATABASE_DRIVER"), os.Getenv("WORKBENCH_DATABASE_DSN")
-	var dialector gorm.Dialector
+	var db *gorm.DB
+	var err error
 	switch driver {
 	case "", "sqlite":
 		if dsn == "" {
 			dsn = filepath.Join(dir, "workbench.db") + "?_pragma=busy_timeout(5000)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)"
 		}
-		dialector = sqlite.Open(dsn)
+		db, err = gorm.Open(sqlite.Open(dsn), &gorm.Config{})
 	case "mysql":
 		if dsn == "" {
 			return errors.New("WORKBENCH_DATABASE_DSN is required for MySQL")
 		}
-		dialector = mysql.Open(dsn)
+		db, err = integration.OpenDatabase(driver, dsn)
 	case "postgres", "postgresql":
 		if dsn == "" {
 			return errors.New("WORKBENCH_DATABASE_DSN is required for PostgreSQL")
 		}
-		dialector = postgres.Open(dsn)
+		db, err = integration.OpenDatabase(driver, dsn)
 	default:
 		return errors.New("unsupported workbench database driver")
 	}
-	db, err := gorm.Open(dialector, &gorm.Config{})
 	if err != nil {
 		return err
 	}
@@ -186,6 +184,12 @@ func SetWorkbenchRouter(engine *gin.Engine, assets WebAssets) {
 	agent := engine.Group("/api/workbench-agent")
 	agent.Use(middleware.RouteTag("api"), middleware.UserAuth(), middleware.StudioBridgeOriginGuard(), middleware.DisableCache())
 	agent.Any("/*path", func(c *gin.Context) {
+		// An agent grant only covers creation within the user's account; it
+		// must not inherit a human administrator's global console privileges.
+		if c.Param("path") == "/admin" || strings.HasPrefix(c.Param("path"), "/admin/") {
+			c.AbortWithStatus(http.StatusForbidden)
+			return
+		}
 		if workbenchRuntime == nil {
 			c.AbortWithStatus(http.StatusServiceUnavailable)
 			return

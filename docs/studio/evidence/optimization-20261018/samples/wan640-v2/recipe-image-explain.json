@@ -1,0 +1,107 @@
+{
+  "key": "recipe-image-explain",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-recipe-image-explain",
+  "submitted_at": 1792313167.1637173,
+  "adapter_id": "image-5ebcdb8fa4bec6361fade822772e49f4",
+  "adapter_response": {
+    "id": "image-5ebcdb8fa4bec6361fade822772e49f4",
+    "status": "completed",
+    "prompt_id": "6fb5234e-78c2-480f-a40b-5a334716dcd9",
+    "error": ""
+  },
+  "last_checked_at": 1792313197.4116397,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-explain.png",
+  "output_sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d",
+  "output_bytes": 207434,
+  "elapsed_sec": 30.26,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "A small green seedling in a transparent glass pot on a bright white tabletop beside a sunlit window, visible soil and roots, science teaching visual, clear realistic botanical detail, no text.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 182002,
+      "studio_sample_request": "optimization-20261018-wan640-v2-recipe-image-explain"
+    },
+    "idempotency_key": "5ebcdb8fa4bec6361fade822772e49f4b3382b8d891b09eebdf3deb3e5679baa"
+  },
+  "workflow_sha256": "2638a2eae39568e6ae731f0753a09cee8920c23492a054322f0c1c2a050ce8e8",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 182002,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-explain.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "207434",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

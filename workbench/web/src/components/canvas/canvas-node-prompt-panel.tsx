@@ -6,7 +6,9 @@ import { ArrowUp, ChevronDown, FileText, ImagePlus, LayoutList, LoaderCircle, Ma
 import { ModelPicker } from "@/components/model-picker";
 import { modelOptionName, resolveModelChannel, useEffectiveConfig } from "@/stores/use-config-store";
 import { canonicalGenerationMetadata, nodeGenerationPrompt } from "@/lib/canvas/generation-contract";
-import { PROMPT_EDITOR_VIEWPORT_MARGIN } from "@/lib/canvas/canvas-prompt-editor-size";
+import { PROMPT_EDITOR_VIEWPORT_MARGIN, insertPromptReferenceAtSelection } from "@/lib/canvas/canvas-prompt-editor-size";
+import { useCanvasPromptPreferencesStore } from "@/stores/canvas/use-canvas-prompt-preferences-store";
+import { CanvasPromptFontSizeControl } from "./canvas-prompt-font-size-control";
 import { CreditSymbol, requestCreditCost } from "@/constant/credits";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { modelQuoteDescription, modelQuoteRequest } from "@/lib/model-pricing";
@@ -18,11 +20,12 @@ import { useUserStore } from "@/stores/use-user-store";
 import { CanvasCameraControlPopover } from "./canvas-camera-control-popover";
 import { CanvasImageSettingsPopover } from "./canvas-image-settings-popover";
 import { CanvasAudioSettingsPopover } from "./canvas-audio-settings-popover";
-import { CanvasResourceMentionTextarea } from "./canvas-resource-mention-textarea";
+import { CanvasResourceMentionTextarea, type CanvasResourceMentionTextareaActions } from "./canvas-resource-mention-textarea";
 import { CanvasVideoSettingsPopover } from "./canvas-video-settings-popover";
 import { CanvasVideoPromptTools } from "./canvas-video-prompt-tools";
 import { CanvasPresetPicker, type CanvasPromptPreset } from "./canvas-preset-picker";
 import { CanvasNineGridPicker } from "./canvas-nine-grid-picker";
+import { getNineGridMenuItems } from "./canvas-image-toolbar-tools";
 import { CanvasChooseImageStylePicker } from "./canvas-choose-image-style-picker";
 import { CanvasChooseEffectPicker } from "./canvas-choose-effect-picker";
 import { CanvasChooseMotionPicker } from "./canvas-choose-motion-picker";
@@ -78,18 +81,19 @@ type CanvasNodePromptPanelProps = {
 export type CanvasTheme = (typeof canvasThemes)[keyof typeof canvasThemes];
 
 export const PROMPT_REFERENCE_SHELF_HEIGHT = 58;
-// Keep the compact editor readable at rest: three 20px lines plus 12px vertical padding.
-export const PROMPT_EDITOR_MIN_HEIGHT = 72;
-export const PROMPT_EDITOR_EXPANDED_MIN_HEIGHT = 200;
-export const PROMPT_EDITOR_LINE_HEIGHT = 20;
-export const PROMPT_EDITOR_EXPANDED_LINE_HEIGHT = 24;
-export const PROMPT_EDITOR_VERTICAL_PADDING = 12;
-export const PROMPT_EDITOR_EXPANDED_VERTICAL_PADDING = 20;
-export const PROMPT_EDITOR_MAX_LINES = 8;
-export const PROMPT_EDITOR_EXPANDED_MAX_LINES = 14;
+// Reserve a useful writing area before content grows; references use their own shelf.
+export const PROMPT_EDITOR_MIN_HEIGHT = 160;
+export const PROMPT_EDITOR_EXPANDED_MIN_HEIGHT = 280;
+export const PROMPT_EDITOR_LINE_HEIGHT = 26;
+export const PROMPT_EDITOR_EXPANDED_LINE_HEIGHT = 26;
+export const PROMPT_EDITOR_VERTICAL_PADDING = 16;
+export const PROMPT_EDITOR_EXPANDED_VERTICAL_PADDING = 16;
+export const PROMPT_EDITOR_MAX_LINES = 10;
+export const PROMPT_EDITOR_EXPANDED_MAX_LINES = 18;
 const PROMPT_EDITOR_MODAL_WIDTH = "min(1200px, 92vw)";
 const PROMPT_EDITOR_MODAL_DEFAULT_WIDTH = 1200;
 const PROMPT_EDITOR_MODAL_DEFAULT_HEIGHT = 420;
+const imagePresetMenuItems = getNineGridMenuItems();
 
 export function CanvasNodePromptPanel({
     projectId,
@@ -112,6 +116,7 @@ export function CanvasNodePromptPanel({
     referenceImageSize,
 }: CanvasNodePromptPanelProps) {
     const globalConfig = useEffectiveConfig();
+    const fontSize = useCanvasPromptPreferencesStore((state) => state.fontSize);
     const themeName = useActiveTheme();
     const theme = canvasThemes[themeName];
     const creditsEnabled = useUserStore((state) => state.features.creditsEnabled);
@@ -126,6 +131,8 @@ export function CanvasNodePromptPanel({
     const savedPrompt = nodeGenerationPrompt(node);
     const [prompt, setPrompt] = useState(savedPrompt);
     const promptRef = useRef(savedPrompt);
+    const promptEditorActionsRef = useRef<CanvasResourceMentionTextareaActions | null>(null);
+    const expandedPromptEditorActionsRef = useRef<CanvasResourceMentionTextareaActions | null>(null);
     const [presetOpen, setPresetOpen] = useState(false);
     const [expandedPresetOpen, setExpandedPresetOpen] = useState(false);
     const [nineGridOpen, setNineGridOpen] = useState(false);
@@ -139,8 +146,8 @@ export function CanvasNodePromptPanel({
     const [expandedPromptOpen, setExpandedPromptOpen] = useState(false);
     const [expandedModalSize, setExpandedModalSize] = useState<{ width: number; height: number } | null>(null);
     const expandedModalRef = useRef<HTMLDivElement>(null);
-    const [promptContentHeight, setPromptContentHeight] = useState(() => estimatePromptContentHeight(savedPrompt, false));
-    const [expandedPromptContentHeight, setExpandedPromptContentHeight] = useState(() => estimatePromptContentHeight(savedPrompt, true));
+    const [promptContentHeight, setPromptContentHeight] = useState(() => estimatePromptContentHeight(savedPrompt, false, fontSize));
+    const [expandedPromptContentHeight, setExpandedPromptContentHeight] = useState(() => estimatePromptContentHeight(savedPrompt, true, fontSize));
     const [manualPromptHeight, setManualPromptHeight] = useState<number | null>(null);
     const [paramsExpanded, setParamsExpanded] = useState(false); // #98 决策2：B区参数区折叠状态（手风琴）
     const [promptOptimizerOpen, setPromptOptimizerOpen] = useState(false);
@@ -154,7 +161,9 @@ export function CanvasNodePromptPanel({
         return extras.length ? [...resolvedMentionReferences, ...extras] : resolvedMentionReferences;
     }, [resolvedMentionReferences, promptToolReferences]);
     // 当前提示词持有的九宫格工具图标，用于触发按钮回显已选工具。
-    const activeNineGridIcon = useMemo(() => parseToolMentionTokens(prompt).find((tool) => tool.type === "nine_grid")?.icon ?? "Grid3x3", [prompt]);
+    const activeNineGridTool = useMemo(() => parseToolMentionTokens(prompt).find((tool) => tool.type === "nine_grid"), [prompt]);
+    const activeNineGridIcon = activeNineGridTool?.icon ?? "Grid3x3";
+    const selectedPresetPlaceholder = mode === "image" ? imagePresetMenuItems.find((item) => item.toolId === activeNineGridTool?.toolId)?.placeholder : undefined;
     const activeStyleTool = parseToolMentionTokens(prompt).find((t) => t.type === "style");
     const activeEffectTool = parseToolMentionTokens(prompt).find((t) => t.type === "effect");
     // 当前提示词持有的运镜工具标签（可多个），用于运镜按钮回显与菜单高亮。
@@ -239,8 +248,8 @@ export function CanvasNodePromptPanel({
         color: theme.node.text,
         boxShadow: theme.node.shadow,
     } as CSSProperties;
-    const promptBounds = promptEditorBounds(false, activeReferenceCount > 0);
-    const expandedPromptBounds = promptEditorBounds(true, activeReferenceCount > 0);
+    const promptBounds = promptEditorBounds(false, activeReferenceCount > 0, fontSize);
+    const expandedPromptBounds = promptEditorBounds(true, activeReferenceCount > 0, fontSize);
     const composerHeight = clampPromptHeight(manualPromptHeight ?? promptContentHeight + (activeReferenceCount ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), promptBounds);
     const expandedComposerHeight = clampPromptHeight(expandedPromptContentHeight + (activeReferenceCount ? PROMPT_REFERENCE_SHELF_HEIGHT : 0), expandedPromptBounds);
     const measureExpandedModalSize = () => {
@@ -264,8 +273,8 @@ export function CanvasNodePromptPanel({
         setExpandedPromptOpen(false);
         setExpandedPresetOpen(false);
         setExpandedModalSize(null);
-        setPromptContentHeight(estimatePromptContentHeight(normalizedSavedPrompt, false));
-        setExpandedPromptContentHeight(estimatePromptContentHeight(normalizedSavedPrompt, true));
+        setPromptContentHeight(estimatePromptContentHeight(normalizedSavedPrompt, false, fontSize));
+        setExpandedPromptContentHeight(estimatePromptContentHeight(normalizedSavedPrompt, true, fontSize));
         setManualPromptHeight(null);
     }, [node.id]);
 
@@ -324,17 +333,15 @@ export function CanvasNodePromptPanel({
     };
 
     const insertPromptReference = (reference: CanvasResourceReference) => {
-        const insertText = `${canvasResourceMentionToken(reference)} `;
-        const pendingMentionMatch = /@[^\s@，。！？、,.!?;:]*\s*$/.exec(prompt);
-        const basePrompt = pendingMentionMatch ? prompt.slice(0, pendingMentionMatch.index) : prompt;
-        // 同类型工具标签（style/nine_grid/effect）唯一：已有旧标签时原位覆盖，不再追加。
-        const overwrittenPrompt = overwriteSameTypeToolMention(basePrompt, reference);
-        if (overwrittenPrompt != null) {
-            updatePrompt(overwrittenPrompt.replace(/\s+$/, ""));
+        const token = canvasResourceMentionToken(reference);
+        const editorActions = expandedPromptOpen ? expandedPromptEditorActionsRef.current : promptEditorActionsRef.current;
+        if (editorActions) {
+            editorActions.insertTextAtSelection(token);
             return;
         }
-        const trimmedBase = basePrompt.replace(/\s*$/, "");
-        updatePrompt(trimmedBase ? `${trimmedBase} ${insertText}` : insertText);
+        const pendingMentionMatch = /@[^\s@，。！？、,.!?;:]*\s*$/.exec(prompt);
+        const basePrompt = pendingMentionMatch ? prompt.slice(0, pendingMentionMatch.index) : prompt;
+        updatePrompt(basePrompt ? `${basePrompt.replace(/\s*$/u, "")} ${token} ` : `${token} `);
     };
 
     const removeMotionToolMention = () => updatePromptFromCurrent((currentPrompt) => removeToolMentions(currentPrompt, "motion"));
@@ -391,6 +398,7 @@ export function CanvasNodePromptPanel({
                 </div>
             )}
             <div className="ml-auto flex min-w-0 flex-wrap items-center justify-end gap-1">
+                <CanvasPromptFontSizeControl />
                 {!simpleMode && (mode === "image" || mode === "video") ? (
                     <div className="canvas-node-tool-controls canvas-node-tool-controls-inline flex items-center gap-1" data-canvas-no-zoom data-canvas-wheel-scroll onPointerDown={(e) => e.stopPropagation()}>
                         {mode === "image" ? (
@@ -623,18 +631,21 @@ export function CanvasNodePromptPanel({
                         references={textareaReferences}
                         onSelectReference={onAddReference ? (reference) => onAddReference(node.id, reference) : undefined}
                         includeAssetLibrary
+                        // 节点生成器引用素材最多：菜单够宽时多列显示素材，右侧放大预览当前选中项。
+                        mentionMenuWidth={640}
                         onChange={updatePrompt}
                         autoLinkEnabled={autoLinkEnabled}
                         onReferenceFilesDrop={onReplaceReferenceFiles ? (reference, files) => onReplaceReferenceFiles(node.id, reference, files) : undefined}
                         onContentSizeChange={expanded ? setExpandedPromptContentHeight : setPromptContentHeight}
+                        actionsRef={expanded ? expandedPromptEditorActionsRef : promptEditorActionsRef}
                         containerClassName="min-h-0 flex-1"
                         className={
                             expanded
                                 ? "thin-scrollbar h-full w-full resize-none overflow-y-auto border-none bg-transparent px-3 py-2 text-[var(--fs-body-lg)] leading-6 !outline-none !ring-0 !shadow-none focus:!outline-none focus:!ring-0 focus:!shadow-none placeholder:text-current placeholder:opacity-35"
                                 : "thin-scrollbar h-full w-full resize-none overflow-y-auto border-none bg-transparent px-2 py-2 text-[var(--fs-body)] leading-5 !outline-none !ring-0 !shadow-none focus:!outline-none focus:!ring-0 focus:!shadow-none placeholder:text-current placeholder:opacity-35"
                         }
-                        style={{ color: theme.node.text, outline: "none", boxShadow: "none" }}
-                        placeholder={promptPlaceholder(mode, hasImageContent, hasTextContent)}
+                        style={{ color: theme.node.text, outline: "none", boxShadow: "none", fontSize, lineHeight: 1.6 }}
+                        placeholder={selectedPresetPlaceholder || promptPlaceholder(mode, hasImageContent, hasTextContent)}
                         aria-label={`${modeDisplayName(mode)}提示词`}
                     />
                 </div>
@@ -702,14 +713,26 @@ export function CanvasNodePromptPanel({
                         setExpandedPromptOpen(false);
                     }}
                     styles={{
-                        container: { border: 0, borderRadius: "var(--canvas-composer-radius)", padding: 0, overflow: "hidden", background: theme.node.panel, boxShadow: theme.node.shadow },
+                        container: {
+                            border: 0,
+                            borderRadius: "var(--canvas-composer-radius)",
+                            padding: 0,
+                            overflow: "hidden",
+                            background: theme.node.panel,
+                            boxShadow: theme.node.shadow,
+                        },
                         body: { minHeight: 0, padding: 0 },
                     }}
                 >
                     <div
                         ref={expandedModalRef}
                         className="relative flex min-h-0 flex-col"
-                        style={{ ...composerTokens, color: theme.node.text, maxHeight: `calc(100dvh - ${PROMPT_EDITOR_VIEWPORT_MARGIN}px)`, ...(expandedModalSize ? { height: expandedModalSize.height } : null) }}
+                        style={{
+                            ...composerTokens,
+                            color: theme.node.text,
+                            maxHeight: `calc(100dvh - ${PROMPT_EDITOR_VIEWPORT_MARGIN}px)`,
+                            ...(expandedModalSize ? { height: expandedModalSize.height } : null),
+                        }}
                     >
                         <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-3">
                             <div className="shrink-0 pr-8">{renderComposerHeader(true)}</div>

@@ -1,4 +1,5 @@
 import { isLocalSeparationConfig, isLocalMusicConfig, localMusicOptions, normalizeAudioFormatForConfig, normalizeAudioVoiceForConfig } from "@/lib/audio-generation";
+import type { ThinkingRequest } from "@/lib/text-thinking";
 import { createClientUUID } from "@/lib/client-id";
 import { imageParameterRequest } from "@/lib/image-parameters";
 import { getMediaBlob } from "@/services/file-storage";
@@ -20,7 +21,18 @@ export { logicalModelIDForConfig };
 
 export type BackendGenerationMode = "text" | "image" | "video" | "audio";
 
-export type BackendAudioResult = { dataUrl: string; storageKey?: string; durationMs?: number; bytes?: number; mimeType?: string; format?: string; name?: string; role?: string; assetId?: string; assetVersionId?: string };
+export type BackendAudioResult = {
+    dataUrl: string;
+    storageKey?: string;
+    durationMs?: number;
+    bytes?: number;
+    mimeType?: string;
+    format?: string;
+    name?: string;
+    role?: string;
+    assetId?: string;
+    assetVersionId?: string;
+};
 
 export type BackendGenerationResult = {
     imageLayerPlanning?: import("@/lib/canvas/canvas-image-layer-plan-receipt").NativeImageLayerPlanReceipt;
@@ -37,7 +49,17 @@ export type BackendGenerationResult = {
         assetVersionId?: string;
         nativeImageEdit?: { kind: "mask" | "emotion"; sourceResourceId: string; sourceSha256: string; recipeSha256: string };
     }>;
-    video?: { dataUrl: string; storageKey?: string; width?: number; height?: number; durationMs?: number; bytes?: number; mimeType?: string; assetId?: string; assetVersionId?: string };
+    video?: {
+        dataUrl: string;
+        storageKey?: string;
+        width?: number;
+        height?: number;
+        durationMs?: number;
+        bytes?: number;
+        mimeType?: string;
+        assetId?: string;
+        assetVersionId?: string;
+    };
     audio?: BackendAudioResult;
     audios?: BackendAudioResult[];
     text?: string;
@@ -60,7 +82,8 @@ type BackendGenerationTaskOptions = {
     onTaskUpdate?: (task: GenerationTask) => void;
     onTextDelta?: (text: string) => void;
     streamText?: boolean;
-    enableThinking?: boolean;
+    /** 思考档位或意图（auto/deep）；不传时由模型默认值决定。 */
+    thinkingLevel?: ThinkingRequest;
     clientOperationId?: string;
     retryOf?: string;
     retryContextsByBatchIndex?: Array<{ retryOf: string; attemptGroupId: string; clientOperationId: string }>;
@@ -103,7 +126,7 @@ export async function runBackendGenerationTask(
         onTaskUpdate,
         onTextDelta,
         streamText,
-        enableThinking,
+        thinkingLevel,
         clientOperationId,
         retryOf,
         attemptGroupId,
@@ -116,7 +139,25 @@ export async function runBackendGenerationTask(
     const prepared = await prepareGenerationReferences({ config, mode, referenceImages, referenceVideos, referenceAudios, mask, signal, metadata });
     throwIfAborted(signal);
     return createAndWaitGenerationTask(
-        { projectId, mode, prompt, config, referenceImages, referenceVideos, referenceAudios, textHistory, signal, metadata, onTaskUpdate, onTextDelta, streamText, enableThinking, clientOperationId, retryOf, attemptGroupId },
+        {
+            projectId,
+            mode,
+            prompt,
+            config,
+            referenceImages,
+            referenceVideos,
+            referenceAudios,
+            textHistory,
+            signal,
+            metadata,
+            onTaskUpdate,
+            onTextDelta,
+            streamText,
+            thinkingLevel,
+            clientOperationId,
+            retryOf,
+            attemptGroupId,
+        },
         prepared,
         dependencies,
     );
@@ -325,7 +366,7 @@ function backendGenerationTaskInput(options: BackendGenerationTaskOptions, prepa
             config: backendProviderConfig(config, mode),
             capabilityOptions: logicalModelId ? logicalCapabilityOptions(config, mode) : undefined,
             textHistory: options.textHistory,
-            ...(mode === "text" ? { textOptions: { stream: options.streamText !== false, thinking: options.enableThinking === true } } : {}),
+            ...(mode === "text" ? { textOptions: { stream: options.streamText !== false, ...(options.thinkingLevel ? { thinkingLevel: options.thinkingLevel } : {}) } } : {}),
             referenceImages: prepared.referenceImages,
             referenceVideos: prepared.referenceVideos,
             referenceAudios: prepared.referenceAudios,
@@ -374,7 +415,12 @@ async function prepareBackendMediaReference(media: ReferenceVideo | ReferenceAud
     if (!blob) throw new Error("参考媒体尚未保存，请重新上传后再生成");
     try {
         const kind: "video" | "audio" | "file" = blob.type.startsWith("video/") ? "video" : blob.type.startsWith("audio/") ? "audio" : "file";
-        const resource = await uploadResourceFile(blob, kind, { fileName: media.name, width: "width" in media ? media.width : undefined, height: "height" in media ? media.height : undefined, durationMs: media.durationMs });
+        const resource = await uploadResourceFile(blob, kind, {
+            fileName: media.name,
+            width: "width" in media ? media.width : undefined,
+            height: "height" in media ? media.height : undefined,
+            durationMs: media.durationMs,
+        });
         return backendMediaReference(media, { storageKey: resourceStorageKey(resource.id), type: resource.mimeType || media.type || blob.type });
     } catch (error) {
         throw new Error(error instanceof Error ? `参考媒体上传失败：${error.message}` : "参考媒体上传失败");
@@ -536,13 +582,37 @@ function logicalCapabilityOptions(config: AiConfig, mode: BackendGenerationMode)
     const spec = channel.modelCosts?.find((item) => item.model === modelOptionName(config.model))?.logicalCapabilitySpec;
     const candidates: Record<string, unknown> =
         mode === "image"
-            ? { size: config.size, quality: omittedImageQuality(config.quality), transparentBackground: config.transparentBackground === "true", count: Number(config.count) }
+            ? {
+                  size: config.size,
+                  quality: omittedImageQuality(config.quality),
+                  transparentBackground: config.transparentBackground === "true",
+                  count: Number(config.count),
+              }
             : mode === "video"
-              ? { size: config.size, videoSeconds: Number(config.videoSeconds), vquality: config.vquality, videoGenerateAudio: config.videoGenerateAudio === "true", videoWatermark: config.videoWatermark === "true" }
+              ? {
+                    size: config.size,
+                    videoSeconds: Number(config.videoSeconds),
+                    vquality: config.vquality,
+                    videoGenerateAudio: config.videoGenerateAudio === "true",
+                    videoWatermark: config.videoWatermark === "true",
+                }
               : mode === "audio"
                 ? isLocalMusicConfig(config)
-                    ? { audioMusicMode: config.audioMusicMode || "instrumental", audioSeconds: Number(config.audioSeconds || "30"), audioBpm: Number(config.audioBpm || "90"), audioLanguage: config.audioLanguage || "zh", audioFormat: "flac" }
-                    : { audioVoice: config.audioVoice, audioFormat: config.audioFormat, audioSpeed: Number(config.audioSpeed), audioLanguage: config.audioLanguage, audioDialect: config.audioDialect, audioStems: config.audioStems || "pair" }
+                    ? {
+                          audioMusicMode: config.audioMusicMode || "instrumental",
+                          audioSeconds: Number(config.audioSeconds || "30"),
+                          audioBpm: Number(config.audioBpm || "90"),
+                          audioLanguage: config.audioLanguage || "zh",
+                          audioFormat: "flac",
+                      }
+                    : {
+                          audioVoice: config.audioVoice,
+                          audioFormat: config.audioFormat,
+                          audioSpeed: Number(config.audioSpeed),
+                          audioLanguage: config.audioLanguage,
+                          audioDialect: config.audioDialect,
+                          audioStems: config.audioStems || "pair",
+                      }
                 : {};
     const filtered = Object.fromEntries(Object.entries(candidates).filter(([key]) => Boolean(spec?.options?.[key])));
     // 只把前台模型声明过的参数送进能力匹配。未声明的 quality 不能因为画布选了 4K 档位

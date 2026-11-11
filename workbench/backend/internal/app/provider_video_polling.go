@@ -252,7 +252,7 @@ func isTransientTransportError(err error) bool {
 			return true
 		}
 	}
-	return false
+	return isPlatformTransientTransportError(err)
 }
 
 func isTransientResponseDecodeError(err error) bool {

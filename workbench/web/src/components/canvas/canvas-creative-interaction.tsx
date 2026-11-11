@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Button } from "antd";
+import { useTranslation } from "react-i18next";
+import { translate } from "@/i18n";
 import { CanvasAnchoredDropdown as Dropdown } from "./canvas-anchored-dropdown";
 import localforage from "localforage";
 import type { CanvasAssistantMessage } from "@/types/canvas";
@@ -55,6 +57,7 @@ type Props = {
 
 // 嵌入原助手消息，不拥有输入框、会话列表或模型选择。detail 保存回看快照，run 保存执行事实。
 export function CanvasCreativeInteraction(props: Props) {
+    const { t } = useTranslation();
     const detail = canvasCreativeDetail(props.message)!;
     const [view, setView] = useState<CreativeControllerView>({ state: detail.state, busy: false, hasControl: false });
     const [error, setError] = useState("");
@@ -87,7 +90,7 @@ export function CanvasCreativeInteraction(props: Props) {
             clientKey: `canvas-chat:${props.sessionId}:${props.message.id}`,
             config: () => latest.current.config,
             canvas: () => latest.current.canvas,
-            onOpenCanvas: () => setError("当前会话仅操作所在画布，请在对应画布打开历史会话。"),
+            onOpenCanvas: () => setError(translate("canvasA.creative.otherCanvas")),
             onChange: (next) => {
                 if (!live) return;
                 // Recovery clears the controller error and the rejected action's local UI error together.
@@ -188,15 +191,15 @@ export function CanvasCreativeInteraction(props: Props) {
     const failedGenerations = view.state.media.filter((item) => item.status === "failed" && item.failureKind !== "observation");
     const onlyFailedRemaining = failedGenerations.length > 0 && !view.state.media.some((item) => ["queued", "running", "write_failed"].includes(item.status) || (item.failureKind === "observation" && item.status === "failed"));
     const feedback = onlyFailedRemaining
-        ? "部分作品生成失败。请在失败作品下方重新生成，先核对费用；已成功的作品会保留。"
+        ? t("canvasA.creative.partialFailed")
         : userError
           ? /恢复|连接|网络|接管|执行权|代次/.test(userError)
-              ? "状态读取未完成，可以继续处理重试。已有作品会保留。"
+              ? t("canvasA.creative.feedbackRecover")
               : /报价|费用|价格|过期/.test(userError)
-                ? "生成费用需要重新确认，继续后会显示最新价格。"
+                ? t("canvasA.creative.feedbackQuote")
                 : /素材|参考|引用/.test(userError)
-                  ? "参考素材还需要核对，助手会继续处理，必要时请你选择。"
-                  : "这一步还没有完成。已有内容已保留，可以继续处理或修改要求。"
+                  ? t("canvasA.creative.feedbackReferences")
+                  : t("canvasA.creative.feedbackIncomplete")
           : undefined;
     const submitAnswers = async (submitted: CreativeAnswers) => {
         await controller.current!.answer(submitted, false);
@@ -243,9 +246,9 @@ export function CanvasCreativeInteraction(props: Props) {
             )}
             {view.state.pendingEdits && (
                 <div className="creative-agent-card">
-                    <p>将调整 {view.state.pendingEdits.length} 个节点的指定字段。</p>
+                    <p>{t("canvasA.creative.pendingEdits", { count: view.state.pendingEdits.length })}</p>
                     <Button disabled={blocked} onClick={() => invoke(controller.current?.approveEdits())}>
-                        确认节点调整
+                        {t("canvasA.creative.approveEdits")}
                     </Button>
                 </div>
             )}
@@ -255,7 +258,11 @@ export function CanvasCreativeInteraction(props: Props) {
                 .map((quote) => (
                     <details key={quote.id} className="creative-agent-receipt">
                         <summary>
-                            {quote.approvedQuantity ? "已确认生成" : "历史报价"} · {quote.amountLabel} · {quote.items.length} 项
+                            {t("canvasA.creative.quoteSummary", {
+                                status: quote.approvedQuantity ? t("canvasA.creative.quoteApproved") : t("canvasA.creative.quoteHistory"),
+                                amount: quote.amountLabel,
+                                count: quote.items.length,
+                            })}
                         </summary>
                         <p>{quote.basis}</p>
                         <ul>
@@ -276,7 +283,7 @@ export function CanvasCreativeInteraction(props: Props) {
                         <div className="creative-agent-card" key={item.ref}>
                             <strong>{view.state.proposal?.workflow.nodes.find((node) => node.ref === item.ref)?.title || item.ref}</strong>
                             {!item.error && !hasResource && item.taskId && (
-                                <p className="creative-agent-muted">{view.busy ? (item.status === "running" ? "正在生成，完成后自动显示。" : "已提交，正在等待生成结果。") : "任务已提交。点击下方“继续处理”读取最新结果，无需重复确认费用。"}</p>
+                                <p className="creative-agent-muted">{view.busy ? (item.status === "running" ? t("canvasA.creative.mediaRunning") : t("canvasA.creative.mediaQueued")) : t("canvasA.creative.mediaSubmitted")}</p>
                             )}
                             {hasResource ? (
                                 <CreativeAgentMedia
@@ -290,31 +297,31 @@ export function CanvasCreativeInteraction(props: Props) {
                                                 disabled={blocked}
                                                 menu={{
                                                     items: [
-                                                        { key: "adjust", label: "调整作品" },
-                                                        { key: "redo", label: "重新生成（费用另行确认）" },
+                                                        { key: "adjust", label: t("canvasA.creative.adjust") },
+                                                        { key: "redo", label: t("canvasA.creative.redoMenu") },
                                                     ],
                                                     onClick: ({ key }) =>
                                                         key === "redo" ? invoke(controller.current?.redo(item.ref)) : modify(`请调整《${view.state.proposal?.workflow.nodes.find((entry) => entry.ref === item.ref)?.title || item.ref}》，保留其他作品：`),
                                                 }}
                                             >
                                                 <Button type="text" disabled={blocked}>
-                                                    更多
+                                                    {t("canvasA.creative.more")}
                                                 </Button>
                                             </Dropdown>
                                         ) : null
                                     }
                                 />
                             ) : null}
-                            {item.error && <p className="creative-agent-muted">这项作品还需要处理，已有结果会保留。</p>}
+                            {item.error && <p className="creative-agent-muted">{t("canvasA.creative.itemNeedsWork")}</p>}
                             {item.error && (
                                 <details className="creative-agent-receipt">
-                                    <summary>查看失败原因</summary>
+                                    <summary>{t("canvasA.creative.viewFailure")}</summary>
                                     <p>{generationErrorMessage(item.error)}</p>
                                 </details>
                             )}
                             {props.active && item.status === "failed" && item.failureKind !== "observation" && (
                                 <Button type="primary" disabled={blocked} onClick={() => invoke(controller.current?.redo(item.ref))}>
-                                    重新生成此项 · 先确认费用
+                                    {t("canvasA.creative.redoItem")}
                                 </Button>
                             )}
                             {!hasResource && props.active ? (
@@ -324,15 +331,15 @@ export function CanvasCreativeInteraction(props: Props) {
                                         disabled={blocked}
                                         menu={{
                                             items: [
-                                                { key: "adjust", label: "调整作品" },
-                                                { key: "redo", label: "重新生成（费用另行确认）" },
+                                                { key: "adjust", label: t("canvasA.creative.adjust") },
+                                                { key: "redo", label: t("canvasA.creative.redoMenu") },
                                             ],
                                             onClick: ({ key }) =>
                                                 key === "redo" ? invoke(controller.current?.redo(item.ref)) : modify(`请调整《${view.state.proposal?.workflow.nodes.find((entry) => entry.ref === item.ref)?.title || item.ref}》，保留其他作品：`),
                                         }}
                                     >
                                         <Button type="text" disabled={blocked}>
-                                            更多
+                                            {t("canvasA.creative.more")}
                                         </Button>
                                     </Dropdown>
                                 </div>
@@ -342,7 +349,7 @@ export function CanvasCreativeInteraction(props: Props) {
                 })}
             {!props.active && userError && (
                 <details className="creative-agent-receipt">
-                    <summary>这一步未完成，后续对话中可继续调整</summary>
+                    <summary>{t("canvasA.creative.archivedIncomplete")}</summary>
                     <p>{feedback}</p>
                 </details>
             )}
@@ -350,40 +357,40 @@ export function CanvasCreativeInteraction(props: Props) {
                 <div className="creative-agent-next" role="status">
                     <p>
                         {view.busy
-                            ? "正在处理，请稍候…"
+                            ? t("canvasA.creative.nextBusy")
                             : !view.hasControl
                               ? userError
-                                  ? "暂时无法恢复当前创作，可以重试连接。已有作品会保留。"
-                                  : "正在恢复当前创作，请稍候…"
+                                  ? t("canvasA.creative.nextRecoverFailed")
+                                  : t("canvasA.creative.nextRecovering")
                               : view.state.modificationRequested
-                                ? "在下方告诉我想改哪里，调整后再确认。"
+                                ? t("canvasA.creative.nextModify")
                                 : feedback ||
                                   (view.quote
-                                      ? "确认费用后，就开始本批制作。"
+                                      ? t("canvasA.creative.nextQuote")
                                       : awaitingProposal
-                                        ? "看看方案是否符合你的想法，确认后继续。"
+                                        ? t("canvasA.creative.nextProposal")
                                         : question?.status === "pending"
-                                          ? "选择一个答案，也可以在下方直接补充。"
+                                          ? t("canvasA.creative.nextQuestion")
                                           : status === "completed"
-                                            ? "本阶段已完成。可以查看作品，或告诉我想改哪里。"
-                                            : "准备好了，可以继续。")}
+                                            ? t("canvasA.creative.nextCompleted")
+                                            : t("canvasA.creative.nextReady"))}
                     </p>
                     <div className="creative-agent-actions">
-                        {!view.busy && !view.hasControl && <Button onClick={() => invoke(view.run ? controller.current?.takeControl() : controller.current?.load(detail.runId, detail.state))}>重试连接</Button>}
+                        {!view.busy && !view.hasControl && <Button onClick={() => invoke(view.run ? controller.current?.takeControl() : controller.current?.load(detail.runId, detail.state))}>{t("canvasA.creative.retryConnect")}</Button>}
                         {view.busy && ["running", "waiting_task", "waiting_canvas"].includes(status || "") ? (
-                            <Button onClick={() => invoke(controller.current?.pause())}>停止后续制作</Button>
+                            <Button onClick={() => invoke(controller.current?.pause())}>{t("canvasA.creative.stop")}</Button>
                         ) : !view.busy && view.hasControl && !view.state.modificationRequested && !view.quote && !awaitingProposal && !view.state.pendingEdits && question?.status !== "pending" ? (
                             <>
                                 {!onlyFailedRemaining && (
                                     <Button type="primary" onClick={() => (status === "completed" && !feedback ? props.onReview() : invoke(continueWork()))}>
-                                        {status === "completed" && !feedback ? "继续创作" : "继续处理"}
+                                        {status === "completed" && !feedback ? t("canvasA.creative.continueCreating") : t("canvasA.creative.continueWork")}
                                     </Button>
                                 )}
-                                <Button onClick={() => modify("我想调整当前创作要求：")}>修改</Button>
+                                <Button onClick={() => modify("我想调整当前创作要求：")}>{t("canvasA.creative.modify")}</Button>
                             </>
                         ) : null}
                     </div>
-                    {status === "paused" && <small className="creative-agent-muted">已停止后续制作。已提交的生成可能仍在处理，已有作品不会删除。</small>}
+                    {status === "paused" && <small className="creative-agent-muted">{t("canvasA.creative.pausedNote")}</small>}
                 </div>
             )}
         </div>
@@ -391,6 +398,7 @@ export function CanvasCreativeInteraction(props: Props) {
 }
 
 function CreativeAgentMedia({ storageKey, video, alt, actions }: { storageKey: string; video: boolean; alt: string; actions?: ReactNode }) {
+    const { t } = useTranslation();
     const [url, setUrl] = useState("");
     const [failed, setFailed] = useState(false);
 
@@ -419,12 +427,12 @@ function CreativeAgentMedia({ storageKey, video, alt, actions }: { storageKey: s
                     <img className="w-full max-h-80 object-contain" src={url} alt={alt} />
                 )
             ) : (
-                <p className="creative-agent-muted">{failed ? "作品地址读取失败，请刷新后重试。" : "正在读取作品…"}</p>
+                <p className="creative-agent-muted">{failed ? t("canvasA.creative.mediaUrlFailed") : t("canvasA.creative.mediaLoading")}</p>
             )}
             <div className="creative-agent-actions">
                 {url ? (
                     <a href={url} target="_blank" rel="noreferrer">
-                        查看作品
+                        {t("canvasA.creative.viewMedia")}
                     </a>
                 ) : null}
                 {actions}

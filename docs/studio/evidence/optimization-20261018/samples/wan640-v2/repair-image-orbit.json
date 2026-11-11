@@ -1,0 +1,107 @@
+{
+  "key": "repair-image-orbit",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-repair-image-orbit",
+  "submitted_at": 1792313962.1935616,
+  "adapter_id": "image-bbdae3cc53e18304c580711fef2408cd",
+  "adapter_response": {
+    "id": "image-bbdae3cc53e18304c580711fef2408cd",
+    "status": "completed",
+    "prompt_id": "ecbf9bbd-2a6f-4bf0-9e53-159914d19833",
+    "error": ""
+  },
+  "last_checked_at": 1792313998.4610662,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\repair-image-orbit.png",
+  "output_sha256": "92869edf73f6b387c6e12b5e37dd909bfbf921aa1cf9049f468c69d8b3068251",
+  "output_bytes": 200377,
+  "elapsed_sec": 36.28,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "Front view of a blue enamel camping lantern centered on a round wooden table, a small red fox far behind it on the left, in a bright room with a large grid window and visible depth, wide product photography composition, full lantern including top handle and feet, no text.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 184100,
+      "studio_sample_request": "optimization-20261018-wan640-v2-repair-image-orbit"
+    },
+    "idempotency_key": "bbdae3cc53e18304c580711fef2408cd106c3dbea0feb4f86c40732c7ac09802"
+  },
+  "workflow_sha256": "1847f9a158646981e083dec9b05138f819f3af6c923ba6934b2c3fdd59d00dc8",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 184100,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\repair-image-orbit.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "200377",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

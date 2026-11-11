@@ -1,3 +1,5 @@
+import { translate } from "@/i18n";
+import { markAgentCanvasEntrance } from "@/lib/canvas/agent-canvas-entrance";
 import { agentCanvasFocusTargets, type AgentCanvasFocus } from "@/lib/canvas/agent-canvas-focus";
 import { mergeAgentCanvasEditor } from "@/lib/canvas/agent-canvas-patch";
 import { rebaseCanvasLocalEdits } from "@/lib/canvas/canvas-sync-rebase";
@@ -189,7 +191,7 @@ export function useCanvasProjectLifecycle({
                         });
                 })
                 .catch(() => {
-                    if (!cancelled) message.warning("部分助手会话素材恢复失败，已使用项目记录继续打开");
+                    if (!cancelled) message.warning(translate("canvasPage.lifecycle.assistantAssetsRestoreFailed"));
                 });
         };
         void load()
@@ -198,11 +200,15 @@ export function useCanvasProjectLifecycle({
             })
             .catch((error) => {
                 if (cancelled) return;
-                useSyncProgressStore.getState().setProjectProgress(projectId, { phase: "pending", errorKind: "network", message: error instanceof Error ? `画布同步失败：${error.message}` : "画布同步失败" });
+                useSyncProgressStore.getState().setProjectProgress(projectId, {
+                    phase: "pending",
+                    errorKind: "network",
+                    message: error instanceof Error ? translate("canvasPage.lifecycle.syncFailedWithReason", { error: error.message }) : translate("canvasPage.lifecycle.syncFailed"),
+                });
                 // A cached editor may have become ready during this very load.
                 // Do not cover it with the cold-start error screen.
                 if (editorReadyRef.current) setLoadError("");
-                else setLoadError(error instanceof Error ? error.message : "画布加载失败");
+                else setLoadError(error instanceof Error ? error.message : translate("canvasPage.lifecycle.loadFailed"));
             })
             .finally(() => {
                 if (!cancelled) setSettledProjectId(projectId);
@@ -290,6 +296,13 @@ export function useCanvasProjectLifecycle({
                     observedContentRef.current = { ...observed, nodes: baseline.nodes, connections: baseline.connections };
                     persistentNodesRef.current = baseline.nodes;
                 }
+                // 在新节点第一次渲染之前登记入场顺序，节点挂载时直接带着错开的延迟出现。
+                const knownNodeIds = new Set(nodesRef.current.map((node) => node.id));
+                const knownConnectionIds = new Set(connectionsRef.current.map((connection) => connection.id));
+                markAgentCanvasEntrance(
+                    merged.nodes.filter((node) => !knownNodeIds.has(node.id)).map((node) => node.id),
+                    merged.connections.filter((connection) => !knownConnectionIds.has(connection.id)).map((connection) => connection.id),
+                );
                 nodesRef.current = merged.nodes;
                 connectionsRef.current = merged.connections;
                 setNodes(merged.nodes);
@@ -405,7 +418,7 @@ export function useCanvasProjectLifecycle({
     );
 
     const createAndOpenProject = useCallback(() => {
-        void createCanvasProjectWithRemoteSync(`自由画布 ${useCanvasStore.getState().projects.length + 1}`).then(({ id, syncError }) => {
+        void createCanvasProjectWithRemoteSync(translate("canvasPage.lifecycle.defaultCanvasName", { index: useCanvasStore.getState().projects.length + 1 })).then(({ id, syncError }) => {
             if (syncError) console.warn("新画布等待后台同步", syncError);
             navigate(`/canvas/${id}`);
         });
@@ -416,11 +429,11 @@ export function useCanvasProjectLifecycle({
         try {
             await deleteCanvasProjectsWithRemoteSync([projectId]);
         } catch (error) {
-            message.error(error instanceof Error ? `删除画布失败：${error.message}` : "删除画布失败，请稍后重试");
+            message.error(error instanceof Error ? translate("canvasPage.lifecycle.deleteFailedWithReason", { error: error.message }) : translate("canvasPage.lifecycle.deleteFailed"));
             return;
         }
         if (drawingIds.length) {
-            void Promise.all(drawingIds.map((drawingId) => removeCanvasDrawing(projectId, drawingId))).catch(() => message.warning("项目已删除，但部分本地绘图缓存清理失败"));
+            void Promise.all(drawingIds.map((drawingId) => removeCanvasDrawing(projectId, drawingId))).catch(() => message.warning(translate("canvasPage.lifecycle.drawingCacheCleanupFailed")));
         }
         cleanupAssetImages();
         navigate("/canvas");
@@ -441,7 +454,15 @@ export function useCanvasProjectLifecycle({
     const persistLocalEdits = useCallback(
         async (options: { flush?: boolean } = {}) => {
             const durableNodes = canvasPersistentNodes(nodesRef.current, observedContentRef.current?.nodes);
-            const snapshot = { nodes: durableNodes, connections: connectionsRef.current, chatSessions, activeChatId, canvasAppearance, backgroundMode, showImageInfo };
+            const snapshot = {
+                nodes: durableNodes,
+                connections: connectionsRef.current,
+                chatSessions,
+                activeChatId,
+                canvasAppearance,
+                backgroundMode,
+                showImageInfo,
+            };
             if (observedContentRef.current && !sameCanvasHistorySnapshot(observedContentRef.current, snapshot)) {
                 updateProject(projectId, {
                     nodes: durableNodes,
@@ -471,10 +492,10 @@ export function useCanvasProjectLifecycle({
             try {
                 if (options.requireRemote === false) {
                     await saveRemoteUserDataNow(projectId);
-                    message.success("画布已保存到云端");
+                    message.success(translate("canvasPage.lifecycle.savedToCloud"));
                 } else {
                     await prepareCanvasForCloudAction(projectId);
-                    message.success("画布已保存到云端");
+                    message.success(translate("canvasPage.lifecycle.savedToCloud"));
                 }
                 return true;
             } catch (error) {
@@ -502,6 +523,7 @@ export function useCanvasProjectLifecycle({
         deleteCurrentProject,
         renameCurrentProject,
         saveCanvasProject,
+        persistLocalEdits,
         updateProject,
     };
 }
@@ -518,7 +540,12 @@ function sameCanvasHistorySnapshot(left: CanvasHistorySnapshot, right: CanvasHis
     );
 }
 
-function sameCanvasPatch(project: CanvasProject, patch: Pick<CanvasProject, "nodes" | "connections" | "chatSessions" | "activeChatId" | "backgroundMode" | "showImageInfo"> & { appearance: CanvasProject["appearance"] }) {
+function sameCanvasPatch(
+    project: CanvasProject,
+    patch: Pick<CanvasProject, "nodes" | "connections" | "chatSessions" | "activeChatId" | "backgroundMode" | "showImageInfo"> & {
+        appearance: CanvasProject["appearance"];
+    },
+) {
     return (
         project.nodes === patch.nodes &&
         project.connections === patch.connections &&

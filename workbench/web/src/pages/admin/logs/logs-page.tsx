@@ -180,7 +180,12 @@ export default function LogsPage() {
                         </div>
                         {log.cachedTokens > 0 ? (
                             <div>
-                                <span className="text-foreground/40">缓存</span> {log.cachedTokens.toLocaleString()}
+                                <span className="text-foreground/40">缓存命中</span> {log.cachedTokens.toLocaleString()}
+                            </div>
+                        ) : null}
+                        {(log.cacheWriteTokens ?? 0) > 0 ? (
+                            <div>
+                                <span className="text-foreground/40">缓存写入</span> {(log.cacheWriteTokens ?? 0).toLocaleString()}
                             </div>
                         ) : null}
                     </div>

@@ -1,0 +1,51 @@
+{
+  "artifacts": [
+    {
+      "path": "output\\playwright\\narrative-final\\store-ui-edited.mp4",
+      "bytes": 337517,
+      "sha256": "235e33d7f26836a57980e6feb332ce0f94e0dc402cc3f1e316330d04a684ee35"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\product-ui-edited.mp4",
+      "bytes": 85964,
+      "sha256": "d384b085620a36a734e0802fc1bb0fd159603bd89bc9be80c37c9867a8ce0a7f"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\story-final-ui-edited.mp4",
+      "bytes": 132188,
+      "sha256": "568907621534c934f45c9cb0fb9b93f90b0b7956986905b4b4ac2b6c7fe60026"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\explain-final-ui-edited.mp4",
+      "bytes": 341025,
+      "sha256": "40f917e600e20ae79949b1c353d660835b67dca09b411f2e6c534a818f1f4d52"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\presenter-final-ui-edited.mp4",
+      "bytes": 78054,
+      "sha256": "329878f325bcc931c79ff2411998f3b7df87f46be2f65a0093c458e4a34a6693"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\music-final-ui-edited.mp4",
+      "bytes": 312347,
+      "sha256": "60e3f9fe28035c7ec6d464e4cb98d167c47a2fc9b90e6dac4aed382cb8ec8209"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\visual-concept-30s-ui.mp4",
+      "bytes": 4123645,
+      "sha256": "be988582b382334b997f39473047ca99e900cb286bf61b7e3c7f62d19eb4e9ba"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\visual-concept-teaser-15s-ui.mp4",
+      "bytes": 2175623,
+      "sha256": "19bbc77744a9e3964778be1d7761acda4b00849d83a5ac75d940313881387a0c"
+    },
+    {
+      "path": "output\\playwright\\narrative-final\\visual-concept-portrait-30s-ui.mp4",
+      "bytes": 2955586,
+      "sha256": "ef36d3c05ebfb186a794d4f42aa867f60d1e63360ff6d9ec734f74c0de263e74"
+    }
+  ],
+  "source": "Actual local application UI downloads; not mock renders or paid provider output",
+  "new_model_jobs": 0
+}

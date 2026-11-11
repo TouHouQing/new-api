@@ -72,17 +72,17 @@
   },
   {
     "function": {
-      "description": "仅问未定且影响结果的创作偏好；方向/自主授权已给则不问、不猜。执行授权/配方只走写工具审批，不聊天重索批。本轮一次；options单项，fields合并偏好并推荐。提交后续轮，最多2轮。",
+      "description": "仅问未定且影响结果的创作偏好；方向/自主授权已给则不问、不猜。执行授权/配方只走写工具审批。本轮一次：options 单项，fields 合并偏好并推荐（最多16项，用 section 分组）。长流程问卷设 recordDecision=true，提交后生成决策确认单。提交后续轮，最多2轮。",
       "name": "ask_user",
       "parameters": {
         "additionalProperties": false,
         "properties": {
           "allowFreeform": {
-            "description": "表单外补充，默认允许",
+            "description": "是否允许在表单外补充说明（默认允许）",
             "type": "boolean"
           },
           "fields": {
-            "description": "与options互斥的相关创作偏好表单",
+            "description": "多个相关创作参数组成的动态表单；与 options 二选一",
             "items": {
               "additionalProperties": false,
               "properties": {
@@ -105,7 +105,7 @@
                   ]
                 },
                 "id": {
-                  "description": "字段ID",
+                  "description": "稳定字段 ID，如 aspectRatio",
                   "type": "string"
                 },
                 "options": {
@@ -143,6 +143,10 @@
                 "required": {
                   "type": "boolean"
                 },
+                "section": {
+                  "description": "可选：分组名，如 画面、节奏、交付",
+                  "type": "string"
+                },
                 "title": {
                   "description": "字段显示名称",
                   "type": "string"
@@ -166,12 +170,12 @@
               ],
               "type": "object"
             },
-            "maxItems": 6,
+            "maxItems": 16,
             "minItems": 1,
             "type": "array"
           },
           "maxRounds": {
-            "description": "可选；受固定上限限制",
+            "description": "可选确认上限；服务端以固定上限为准",
             "maximum": 2,
             "minimum": 1,
             "type": "integer"
@@ -206,8 +210,12 @@
             "description": "可选的稳定问题标识",
             "type": "string"
           },
+          "recordDecision": {
+            "description": "true=用户提交后在画布生成「决策确认单」Markdown 节点，后续步骤以它为准",
+            "type": "boolean"
+          },
           "round": {
-            "description": "可选；以已保存轮次为准",
+            "description": "可选确认轮次；服务端以持久化轮次为准",
             "maximum": 2,
             "minimum": 1,
             "type": "integer"

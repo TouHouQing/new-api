@@ -46,7 +46,9 @@ func TestStudioProductionFeatureDatabaseMatrix(t *testing.T) {
 					t.Skip("dedicated acceptance MySQL is not configured")
 				}
 				config, err := mysqldriver.ParseDSN(dsn)
-				if err != nil || config.Net != "tcp" || !strings.HasPrefix(config.Addr, "studio-acceptance-mysql:") || config.DBName == "" || config.DBName == "mysql" || config.DBName == "information_schema" || config.DBName == "performance_schema" || config.DBName == "sys" {
+				require.NoError(t, err)
+				loopbackAllowed := os.Getenv("STUDIO_MATRIX_ALLOW_LOOPBACK") == "1" && strings.HasPrefix(config.Addr, "127.0.0.1:")
+				if config.Net != "tcp" || (!strings.HasPrefix(config.Addr, "studio-acceptance-mysql:") && !loopbackAllowed) || config.DBName == "" || config.DBName == "mysql" || config.DBName == "information_schema" || config.DBName == "performance_schema" || config.DBName == "sys" {
 					t.Fatal("feature matrix refuses any MySQL host outside the dedicated acceptance container")
 				}
 				dialect = mysql.Open(dsn)
@@ -59,7 +61,9 @@ func TestStudioProductionFeatureDatabaseMatrix(t *testing.T) {
 					t.Skip("dedicated acceptance PostgreSQL is not configured")
 				}
 				config, err := pgx.ParseConfig(dsn)
-				if err != nil || config.Host != "studio-acceptance-postgres" || config.Database == "" || config.Database == "postgres" || config.Database == "template0" || config.Database == "template1" {
+				require.NoError(t, err)
+				loopbackAllowed := os.Getenv("STUDIO_MATRIX_ALLOW_LOOPBACK") == "1" && config.Host == "127.0.0.1"
+				if (config.Host != "studio-acceptance-postgres" && !loopbackAllowed) || config.Database == "" || config.Database == "postgres" || config.Database == "template0" || config.Database == "template1" {
 					t.Fatal("feature matrix refuses any PostgreSQL host outside the dedicated acceptance container")
 				}
 				dialect = postgres.Open(dsn)

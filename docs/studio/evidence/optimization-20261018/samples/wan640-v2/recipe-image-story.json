@@ -1,0 +1,107 @@
+{
+  "key": "recipe-image-story",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-recipe-image-story",
+  "submitted_at": 1792313136.9100616,
+  "adapter_id": "image-c29d85f2e2446ef6375ab04140d99566",
+  "adapter_response": {
+    "id": "image-c29d85f2e2446ef6375ab04140d99566",
+    "status": "completed",
+    "prompt_id": "932ec4b2-b8a8-4f23-8ccc-03a3c96e6699",
+    "error": ""
+  },
+  "last_checked_at": 1792313167.1446948,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-story.png",
+  "output_sha256": "925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a",
+  "output_bytes": 320631,
+  "elapsed_sec": 30.25,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "A small red fox at the edge of a woodland path, holding a blue lantern in its mouth at dusk, warm storybook cinematic illustration, full body, no text.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 182001,
+      "studio_sample_request": "optimization-20261018-wan640-v2-recipe-image-story"
+    },
+    "idempotency_key": "c29d85f2e2446ef6375ab04140d995665e96dc5fe58547f7d51c3b97bf9c5f1c"
+  },
+  "workflow_sha256": "b78cb037bb5e99ebb90b8d56e9501d9f51d49283e517a62c5a87660c52b21876",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 182001,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-story.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "320631",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

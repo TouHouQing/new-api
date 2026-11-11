@@ -146,7 +146,10 @@ function handleMoveClip(state: TimelineProject, payload: unknown): TimelineProje
     const clip = findClipOrThrow("moveClip", state, id);
     if (trackId !== undefined) findTrackOrThrow("moveClip", state, trackId);
     const moved = { ...clip, startMs, ...(trackId !== undefined ? { trackId } : {}) };
-    return withClips(state, state.clips.map((c) => (c.id === id ? moved : c)));
+    return withClips(
+        state,
+        state.clips.map((c) => (c.id === id ? moved : c)),
+    );
 }
 
 function handleTrimClip(state: TimelineProject, payload: unknown): TimelineProject {
@@ -176,7 +179,10 @@ function handleTrimClip(state: TimelineProject, payload: unknown): TimelineProje
         ...(clip.fadeInMs !== undefined ? { fadeInMs: Math.min(nextDurationMs, clip.fadeInMs) } : {}),
         ...(clip.fadeOutMs !== undefined ? { fadeOutMs: Math.min(nextDurationMs, clip.fadeOutMs) } : {}),
     };
-    return withClips(state, state.clips.map((c) => (c.id === id ? trimmed : c)));
+    return withClips(
+        state,
+        state.clips.map((c) => (c.id === id ? trimmed : c)),
+    );
 }
 
 function handleSplitClip(state: TimelineProject, payload: unknown): TimelineProject {
@@ -192,7 +198,10 @@ function handleSplitClip(state: TimelineProject, payload: unknown): TimelineProj
     const leftDuration = splitAtMs - clip.startMs;
     const rightDuration = clipEnd - splitAtMs;
     const anchor = clip.analysisOccurrenceId ?? (state.productionMarkers?.some((marker) => marker.source?.clipId === clip.id) ? clip.id : undefined);
-    const left: TimelineClip = { ...clip, durationMs: leftDuration, ...(anchor ? { analysisOccurrenceId: anchor } : {}),
+    const left: TimelineClip = {
+        ...clip,
+        durationMs: leftDuration,
+        ...(anchor ? { analysisOccurrenceId: anchor } : {}),
         ...(clip.fadeInMs !== undefined ? { fadeInMs: Math.min(leftDuration, clip.fadeInMs) } : {}),
         ...(clip.fadeOutMs !== undefined ? { fadeOutMs: Math.min(leftDuration, Math.max(0, clip.fadeOutMs - rightDuration)) } : {}),
     };
@@ -218,16 +227,18 @@ function handleSetClipPlaybackRate(state: TimelineProject, payload: unknown): Ti
     if (clip.kind !== "audio" && clip.kind !== "video") fail("setClipPlaybackRate", "请选择音频或视频片段");
     if (typeof playbackRate !== "number") fail("setClipPlaybackRate", "片段速度无效");
     clipPlaybackRate({ playbackRate });
-    const durationMs = Math.max(1, Math.round(clip.durationMs * clipPlaybackRate(clip) / playbackRate));
+    const durationMs = Math.max(1, Math.round((clip.durationMs * clipPlaybackRate(clip)) / playbackRate));
     if (clip.startMs + durationMs > 86400000) fail("setClipPlaybackRate", "变速后的片段超出24小时限制");
-    const changed = { ...clip, playbackRate, durationMs,
-        ...(clip.fadeInMs !== undefined ? { fadeInMs: Math.min(durationMs, clip.fadeInMs) } : {}),
-        ...(clip.fadeOutMs !== undefined ? { fadeOutMs: Math.min(durationMs, clip.fadeOutMs) } : {}),
-    };
+    const changed = { ...clip, playbackRate, durationMs, ...(clip.fadeInMs !== undefined ? { fadeInMs: Math.min(durationMs, clip.fadeInMs) } : {}), ...(clip.fadeOutMs !== undefined ? { fadeOutMs: Math.min(durationMs, clip.fadeOutMs) } : {}) };
     if (clip.sourceDurationMs && (clip.sourceStartMs ?? 0) + clipSourceOffset(changed, durationMs) > clip.sourceDurationMs) fail("setClipPlaybackRate", "变速后的裁剪范围超出源素材，请先缩短片段");
     const ratio = durationMs / clip.durationMs;
     const clips = state.clips.map((item) => {
-        if (item.id === id) return { ...changed, ...(item.fadeInMs !== undefined ? { fadeInMs: Math.min(durationMs, Math.round(item.fadeInMs * ratio)) } : {}), ...(item.fadeOutMs !== undefined ? { fadeOutMs: Math.min(durationMs, Math.round(item.fadeOutMs * ratio)) } : {}) };
+        if (item.id === id)
+            return {
+                ...changed,
+                ...(item.fadeInMs !== undefined ? { fadeInMs: Math.min(durationMs, Math.round(item.fadeInMs * ratio)) } : {}),
+                ...(item.fadeOutMs !== undefined ? { fadeOutMs: Math.min(durationMs, Math.round(item.fadeOutMs * ratio)) } : {}),
+            };
         if (item.kind !== "subtitle" || item.productionBinding?.sourceClipId !== id) return item;
         if (state.tracks.find((track) => track.id === item.trackId)?.locked) fail("setClipPlaybackRate", "关联字幕轨道已锁定，请先解锁");
         const offset = Math.max(0, Math.min(clip.durationMs, item.startMs - clip.startMs));
@@ -245,7 +256,10 @@ function handleRemoveClip(state: TimelineProject, payload: unknown): TimelinePro
     const { id } = payload as RemoveClipPayload;
     if (typeof id !== "string" || id.length === 0) fail("removeClip", "id must be a non-empty string");
     findClipOrThrow("removeClip", state, id);
-    return withClips(state, state.clips.filter((c) => c.id !== id));
+    return withClips(
+        state,
+        state.clips.filter((c) => c.id !== id),
+    );
 }
 
 /** setClipProperty 允许修改的属性白名单；结构字段（id/kind/nodeId/trackId/startMs/durationMs/...）由专门命令负责。 */
@@ -268,7 +282,10 @@ function handleSetClipProperty(state: TimelineProject, payload: unknown): Timeli
         if (updated.kind !== "subtitle" && updated.kind !== "text") fail("setClipProperty", "caption appearance requires a text clip");
         validateCaptionPresentation(updated.captionPresentation, updated.text ?? "");
     }
-    return withClips(state, state.clips.map((c) => (c.id === id ? updated : c)));
+    return withClips(
+        state,
+        state.clips.map((c) => (c.id === id ? updated : c)),
+    );
 }
 
 function handleAddSubtitle(state: TimelineProject, payload: unknown): TimelineProject {
@@ -284,7 +301,10 @@ function handleRemoveSubtitle(state: TimelineProject, payload: unknown): Timelin
     if (typeof id !== "string" || id.length === 0) fail("removeSubtitle", "id must be a non-empty string");
     const clip = findClipOrThrow("removeSubtitle", state, id);
     if (clip.kind !== "subtitle") fail("removeSubtitle", `clip "${id}" is not a subtitle clip`);
-    return withClips(state, state.clips.filter((c) => c.id !== id));
+    return withClips(
+        state,
+        state.clips.filter((c) => c.id !== id),
+    );
 }
 
 /** 轨道种类的基础标签；新增轨道 label = 基础标签 + 同种类现有轨道数 + 1。 */
@@ -331,7 +351,7 @@ function handleRemoveTrack(state: TimelineProject, payload: unknown): TimelinePr
 function handleSetTrackFlag(state: TimelineProject, payload: unknown): TimelineProject {
     const { trackId, flag, value } = payload as SetTrackFlagPayload;
     if (typeof trackId !== "string" || trackId.length === 0) fail("setTrackFlag", "trackId must be a non-empty string");
-    if (flag !== "visible" && flag !== "muted") fail("setTrackFlag", "flag must be \"visible\" or \"muted\"");
+    if (flag !== "visible" && flag !== "muted") fail("setTrackFlag", 'flag must be "visible" or "muted"');
     if (typeof value !== "boolean") fail("setTrackFlag", "value must be a boolean");
     findTrackOrThrow("setTrackFlag", state, trackId);
     return {
@@ -365,11 +385,14 @@ function handleRebuildSubtitleClips(state: TimelineProject, payload: unknown): T
     const { nodeId, entries, trackId, transcript } = payload as RebuildSubtitleClipsPayload;
     if (typeof nodeId !== "string" || nodeId.length === 0) fail("rebuildSubtitleClips", "nodeId must be a non-empty string");
     assertSubtitleEntries("rebuildSubtitleClips", entries);
-    if (transcript && (
-        ![transcript.id, transcript.revisionId, transcript.sourceClipId].every((id) => typeof id === "string" && id.length > 0 && id.length <= 128)
-        || !Array.isArray(transcript.segmentIds) || transcript.segmentIds.length !== entries.length
-        || transcript.segmentIds.some((id) => typeof id !== "string" || !id || id.length > 80)
-    )) fail("rebuildSubtitleClips", "invalid transcript version or source occurrence");
+    if (
+        transcript &&
+        (![transcript.id, transcript.revisionId, transcript.sourceClipId].every((id) => typeof id === "string" && id.length > 0 && id.length <= 128) ||
+            !Array.isArray(transcript.segmentIds) ||
+            transcript.segmentIds.length !== entries.length ||
+            transcript.segmentIds.some((id) => typeof id !== "string" || !id || id.length > 80))
+    )
+        fail("rebuildSubtitleClips", "invalid transcript version or source occurrence");
 
     const explicitTrack = trackId !== undefined ? findTrackOrThrow("rebuildSubtitleClips", state, trackId) : null;
     if (explicitTrack && explicitTrack.kind !== "subtitle") fail("rebuildSubtitleClips", `track "${trackId}" is not a subtitle track`);
@@ -387,7 +410,12 @@ function handleRebuildSubtitleClips(state: TimelineProject, payload: unknown): T
         text: entry.text,
         ...(transcript ? { productionBinding: { transcriptId: transcript.id, transcriptRevisionId: transcript.revisionId, transcriptSegmentId: transcript.segmentIds[index], sourceClipId: transcript.sourceClipId } } : {}),
     }));
-    const clips = [...state.clips.filter((c) => !(c.kind === "subtitle" && (c.nodeId === nodeId || (transcript && (c.nodeId === `transcription:${transcript.sourceClipId}` || (c.productionBinding?.transcriptId && c.productionBinding.sourceClipId === transcript.sourceClipId)))))), ...rebuilt];
+    const clips = [
+        ...state.clips.filter(
+            (c) => !(c.kind === "subtitle" && (c.nodeId === nodeId || (transcript && (c.nodeId === `transcription:${transcript.sourceClipId}` || (c.productionBinding?.transcriptId && c.productionBinding.sourceClipId === transcript.sourceClipId))))),
+        ),
+        ...rebuilt,
+    ];
     return withClips(state, clips);
 }
 
@@ -398,12 +426,15 @@ function handleRebuildSubtitleClips(state: TimelineProject, payload: unknown): T
 const BUILTIN_HANDLERS: ReadonlyArray<readonly [string, CommandHandler]> = [
     ["addGraphic", addTimelineGraphic],
     ["setGraphic", setTimelineGraphic],
-    ["setOutput", (state, payload) => {
-        if (!payload || typeof payload !== "object" || Object.keys(payload).some(key => key !== "output") || !Object.hasOwn(payload, "output")) fail("setOutput", "请提供完整的画面设置");
-        const output = (payload as { output: TimelineOutput }).output;
-        if (!output || Object.keys(output).some(key => !["width", "height", "fps", "fit"].includes(key))) fail("setOutput", "画面设置包含未知字段");
-        return { ...state, output: timelineOutputFormat(undefined, output) };
-    }],
+    [
+        "setOutput",
+        (state, payload) => {
+            if (!payload || typeof payload !== "object" || Object.keys(payload).some((key) => key !== "output") || !Object.hasOwn(payload, "output")) fail("setOutput", "请提供完整的画面设置");
+            const output = (payload as { output: TimelineOutput }).output;
+            if (!output || Object.keys(output).some((key) => !["width", "height", "fps", "fit"].includes(key))) fail("setOutput", "画面设置包含未知字段");
+            return { ...state, output: timelineOutputFormat(undefined, output) };
+        },
+    ],
     ["addClip", handleAddClip],
     ["moveClip", handleMoveClip],
     ["trimClip", handleTrimClip],

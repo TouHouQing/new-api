@@ -1,0 +1,170 @@
+{
+  "key": "repair-camera-follow",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-repair-camera-follow",
+  "submitted_at": 1792314131.6437376,
+  "adapter_id": "local-5ec1df1158db418da94fc805aeb7fb8e",
+  "adapter_response": {
+    "id": "local-5ec1df1158db418da94fc805aeb7fb8e",
+    "object": "video",
+    "model": "wan2.2-ti2v-5b",
+    "status": "completed",
+    "progress": 100,
+    "seconds": "3.0625",
+    "size": "640x384",
+    "created_at": 1792314131,
+    "completed_at": 1792314219,
+    "metadata": {
+      "prompt_id": "b5995314-dab3-433d-b026-7084544434f0",
+      "reference_images": 1,
+      "elapsed_sec": 88.22,
+      "reference_frames_preserved": []
+    }
+  },
+  "last_checked_at": 1792314222.3970995,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\repair-camera-follow.mp4",
+  "output_sha256": "27dbc308769926fab876823b2f37e50c8c2043ee74b2d02e04dfb9d0d87ccdf3",
+  "output_bytes": 757316,
+  "elapsed_sec": 90.77,
+  "request": {
+    "model": "wan2.2-ti2v-5b",
+    "prompt": "Side tracking camera follows a red fox walking steadily to the right along a straight woodland path. The camera trucks right at exactly the speed of the fox. The full body fox stays centered at the same size, its paws walk naturally. The trees, ground and blue lantern slide left behind it. A smooth side tracking wildlife shot, no approach toward camera, no zoom, no cuts.",
+    "size": "640x384",
+    "metadata": {
+      "seed": 184201,
+      "studio_sample_request": "optimization-20261018-wan640-v2-repair-camera-follow",
+      "frames": 49,
+      "fps": 16,
+      "negative": "blurry, out of focus, extra legs, malformed fox, moving toward the camera, zoom in, camera shake, cuts, text"
+    },
+    "seconds": 3
+  },
+  "reference_sha256": "53a8d2979185c438d710f79303a696a0093f166e7714c2fe35c46c9563d5d4d8",
+  "workflow_sha256": "9da4c2a3af89e1e666660091269b145904a077a436e5d0242c4fbe286160eb32",
+  "actual_nodes": {
+    "UNETLoader": {
+      "unet_name": "wan2.2_ti2v_5B_fp16.safetensors",
+      "weight_dtype": "default"
+    },
+    "CLIPLoader": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "wan2.2_vae.safetensors"
+    },
+    "ModelSamplingSD3": {
+      "shift": 8.0
+    },
+    "Wan22ImageToVideoLatent": {
+      "width": 640,
+      "height": 384,
+      "length": 49,
+      "batch_size": 1
+    },
+    "KSampler": {
+      "seed": 184201,
+      "steps": 20,
+      "cfg": 5.0,
+      "sampler_name": "uni_pc",
+      "scheduler": "simple",
+      "denoise": 1.0
+    },
+    "VAEDecodeTiled": {
+      "tile_size": 256,
+      "overlap": 64,
+      "temporal_size": 16,
+      "temporal_overlap": 4
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640016",
+        "width": 640,
+        "height": 384,
+        "coded_width": 640,
+        "coded_height": 384,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 22,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "1968995",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 49,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\repair-camera-follow.mp4",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "757316",
+      "bit_rate": "1978294",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "prompt": "{\"37\": {\"inputs\": {\"unet_name\": \"wan2.2_ti2v_5B_fp16.safetensors\", \"weight_dtype\": \"default\"}, \"class_type\": \"UNETLoader\"}, \"38\": {\"inputs\": {\"clip_name\": \"umt5_xxl_fp8_e4m3fn_scaled.safetensors\", \"type\": \"wan\", \"device\": \"cpu\"}, \"class_type\": \"CLIPLoader\"}, \"39\": {\"inputs\": {\"vae_name\": \"wan2.2_vae.safetensors\"}, \"class_type\": \"VAELoader\"}, \"48\": {\"inputs\": {\"model\": [\"37\", 0], \"shift\": 8.0}, \"class_type\": \"ModelSamplingSD3\"}, \"6\": {\"inputs\": {\"text\": \"Side tracking camera follows a red fox walking steadily to the right along a straight woodland path. The camera trucks right at exactly the speed of the fox. The full body fox stays centered at the same size, its paws walk naturally. The trees, ground and blue lantern slide left behind it. A smooth side tracking wildlife shot, no approach toward camera, no zoom, no cuts.\", \"clip\": [\"38\", 0]}, \"class_type\": \"CLIPTextEncode\"}, \"7\": {\"inputs\": {\"text\": \"blurry, out of focus, extra legs, malformed fox, moving toward the camera, zoom in, camera shake, cuts, text\", \"clip\": [\"38\", 0]}, \"class_type\": \"CLIPTextEncode\"}, \"55\": {\"inputs\": {\"vae\": [\"39\", 0], \"width\": 640, \"height\": 384, \"length\": 49, \"batch_size\": 1, \"start_image\": [\"studio_load_0\", 0]}, \"class_type\": \"Wan22ImageToVideoLatent\"}, \"3\": {\"inputs\": {\"seed\": 184201, \"steps\": 20, \"cfg\": 5.0, \"sampler_name\": \"uni_pc\", \"scheduler\": \"simple\", \"denoise\": 1.0, \"model\": [\"48\", 0], \"positive\": [\"6\", 0], \"negative\": [\"7\", 0], \"latent_image\": [\"55\", 0]}, \"class_type\": \"KSampler\"}, \"8\": {\"inputs\": {\"samples\": [\"3\", 0], \"vae\": [\"39\", 0], \"tile_size\": 256, \"overlap\": 64, \"temporal_size\": 16, \"temporal_overlap\": 4}, \"class_type\": \"VAEDecodeTiled\"}, \"57\": {\"inputs\": {\"images\": [\"8\", 0], \"fps\": 16.0}, \"class_type\": \"CreateVideo\"}, \"58\": {\"inputs\": {\"video\": [\"57\", 0], \"filename_prefix\": \"studio/local-5ec1df1158db418da94fc805aeb7fb8e\", \"format\": \"auto\"}, \"class_type\": \"SaveVideo\"}, \"studio_load_0\": {\"class_type\": \"LoadImage\", \"inputs\": {\"image\": \"c39194a8ae804830942f687e8215071c.png\"}, \"is_changed\": [\"53a8d2979185c438d710f79303a696a0093f166e7714c2fe35c46c9563d5d4d8\"]}}",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  },
+  "contact_sheet": "output\\optimization-20261018\\samples\\wan640-v2\\repair-camera-follow-review.jpg",
+  "all_frames_decoded": true,
+  "quality_status": "awaiting_visual_review"
+}

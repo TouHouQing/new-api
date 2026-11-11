@@ -23,6 +23,9 @@ func TestReserveUserUploadQuotaRejectsDailyTotalAtLimit(t *testing.T) {
 		if _, err := svc.reserveUserUploadQuota("user-1", chunk); err != nil {
 			t.Fatal(err)
 		}
+		// Completed uploads may be removed from storage while still counting
+		// against today's transfer limit. Isolate that limit from the 1 GB cap.
+		svc.commitUserUploadQuota("user-1", chunk)
 	}
 	// 单文件限(50MB)未命中、今日额度已满 → 拒绝并提示每日上限。
 	if _, err := svc.reserveUserUploadQuota("user-1", chunk); err == nil || !strings.Contains(err.Error(), "小于 2GB") {

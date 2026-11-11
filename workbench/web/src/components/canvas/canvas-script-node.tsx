@@ -233,13 +233,13 @@ export function CanvasScriptNodeContent({
                 <span className="min-w-0 flex-1 truncate text-sm font-semibold" title={node.title || "分镜脚本"}>
                     {node.title || "分镜脚本"}
                 </span>
-                {batchSummary ? (
-                    <span className="min-w-0 max-w-[42%] truncate text-[var(--fs-label)] font-medium" title={batchSummary} style={{ color: batch?.status === "partial_failed" ? theme.accent.danger : theme.node.muted }}>
-                        {batchSummary}
-                    </span>
-                ) : taskFeedback ? (
+                {taskFeedback ? (
                     <span className="min-w-0 max-w-[38%] truncate text-[var(--fs-label)] font-medium" title={taskFeedback} style={{ color: node.metadata?.status === "error" ? theme.accent.danger : theme.node.muted }}>
                         {taskFeedback}
+                    </span>
+                ) : batchSummary ? (
+                    <span className="min-w-0 max-w-[42%] truncate text-[var(--fs-label)] font-medium" title={batchSummary} style={{ color: batch?.status === "partial_failed" ? theme.accent.danger : theme.node.muted }}>
+                        {batchSummary}
                     </span>
                 ) : null}
                 <span className="text-[var(--fs-caption)] font-semibold tabular-nums" style={{ color: theme.node.muted }}>
@@ -297,6 +297,7 @@ export function CanvasScriptNodeContent({
             </div>
             <div
                 data-canvas-wheel-scroll
+                data-canvas-wheel-intent
                 tabIndex={0}
                 role="region"
                 aria-label="分镜镜头列表"

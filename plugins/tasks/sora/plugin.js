@@ -99,6 +99,14 @@ function requestValues(req, model) {
 export function buildSubmitRequest(ctx) {
   const req = ctx.requestBody || {};
   if (!String(req.prompt || "").trim()) throw new Error("field prompt is required");
+  // Both the native protocol and legacy task adapter reach this hook. Keep
+  // safety bounds here without restricting the provider's ratio or size list.
+  const seconds = req.seconds === undefined ? req.duration : req.seconds;
+  if (seconds !== undefined && (!Number.isFinite(Number(seconds)) || Number(seconds) <= 0 || Number(seconds) > 3600))
+    throw new Error("seconds must be between 1 and 3600");
+  const pixels = /^(\d+)x(\d+)$/i.exec(trimmed(req.size));
+  if (pixels && (Number(pixels[1]) < 1 || Number(pixels[2]) < 1 || Number(pixels[1]) > 16384 || Number(pixels[2]) > 16384))
+    throw new Error("video dimensions must be between 1 and 16384 pixels");
   const action = ctx.action === "remix" ? "remix" : ctx.action;
   const headers = { Authorization: "Bearer " + ctx.apiKey };
   if (action === "remix") {

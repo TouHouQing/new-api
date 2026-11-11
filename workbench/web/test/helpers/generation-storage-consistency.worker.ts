@@ -474,16 +474,18 @@ async function runCanvasBatchCommitRace(multiOutput = false, mask = false, reent
         useCanvasStore.getState().updateProject(projectId, { nodes: ref.current });
         await flushCanvasStorePersistence();
         if (reentry) {
-            useCanvasStore.getState().updateProject(projectId, { nodes: ref.current.map((node) => node.id === "node-0" ? { ...node, metadata: { ...node.metadata, status: "error", errorDetails: "previous apply failed", resourceReloadAvailable: true } } : node) });
+            useCanvasStore
+                .getState()
+                .updateProject(projectId, { nodes: ref.current.map((node) => (node.id === "node-0" ? { ...node, metadata: { ...node.metadata, status: "error", errorDetails: "previous apply failed", resourceReloadAvailable: true } } : node)) });
             await flushCanvasStorePersistence();
-            setNodes((current) => current.map((node) => node.id === "node-0" ? { ...node, metadata: { ...node.metadata, status: "loading", taskStage: "正在重新加载资源" } } : node));
+            setNodes((current) => current.map((node) => (node.id === "node-0" ? { ...node, metadata: { ...node.metadata, status: "loading", taskStage: "正在重新加载资源" } } : node)));
         }
         // 模拟任务状态已到编辑器、自动保存尚未跟上的真实生成完成窗口。
         setNodes((current) => current.map((node) => ({ ...node, metadata: { ...node.metadata, taskStage: "正在应用结果" } })));
         useAssetStore.setState({
             assets: (multiOutput ? [0, 1, 2, 3] : [0, 1]).map((index) => ({
                 id: `asset-${index}`,
-                kind: video ? "video" as const : "image" as const,
+                kind: video ? ("video" as const) : ("image" as const),
                 title: "generated",
                 coverUrl: "/image.png",
                 tags: [],
@@ -607,7 +609,7 @@ async function runCanvasCopyGeneration() {
         await flushCanvasStorePersistence();
         // Force a real same-field race: the generation snapshot also changed the
         // title while the latest ordinary save already persisted a user rename.
-        useCanvasStore.getState().updateProject(projectId, { nodes: pendingNodes.map((node) => node.id === "copy" ? { ...node, title: "Latest user title", position: { x: 700, y: 500 } } : node) });
+        useCanvasStore.getState().updateProject(projectId, { nodes: pendingNodes.map((node) => (node.id === "copy" ? { ...node, title: "Latest user title", position: { x: 700, y: 500 } } : node)) });
         await flushCanvasStorePersistence();
         const copyEffect = "attach-node:new-task:copy:0";
         await persistCanvasGenerationEffect({

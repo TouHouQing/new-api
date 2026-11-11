@@ -1,0 +1,84 @@
+{
+  "graph": {
+    "1": {
+      "class_type": "VAELoader",
+      "inputs": {
+        "vae_name": "wan2.2_vae.safetensors"
+      }
+    },
+    "2": {
+      "class_type": "LoadImage",
+      "inputs": {
+        "image": "3e00087e6d1948cb9f0bec50ab7f4e5f.png"
+      }
+    },
+    "3": {
+      "class_type": "VAEEncode",
+      "inputs": {
+        "pixels": [
+          "2",
+          0
+        ],
+        "vae": [
+          "1",
+          0
+        ]
+      }
+    },
+    "4": {
+      "class_type": "VAEDecode",
+      "inputs": {
+        "samples": [
+          "3",
+          0
+        ],
+        "vae": [
+          "1",
+          0
+        ]
+      }
+    },
+    "5": {
+      "class_type": "VAEDecodeTiled",
+      "inputs": {
+        "samples": [
+          "3",
+          0
+        ],
+        "vae": [
+          "1",
+          0
+        ],
+        "tile_size": 256,
+        "overlap": 64,
+        "temporal_size": 16,
+        "temporal_overlap": 4
+      }
+    },
+    "6": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "4",
+          0
+        ],
+        "filename_prefix": "studio/diagnostic/vae-full"
+      }
+    },
+    "7": {
+      "class_type": "SaveImage",
+      "inputs": {
+        "images": [
+          "5",
+          0
+        ],
+        "filename_prefix": "studio/diagnostic/vae-tiled"
+      }
+    }
+  },
+  "submission": {
+    "prompt_id": "94c61391-bafc-456b-af6c-ea8ea9c3be88",
+    "number": 2,
+    "node_errors": {}
+  }
+}

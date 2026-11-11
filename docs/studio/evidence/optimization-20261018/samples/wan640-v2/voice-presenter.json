@@ -1,0 +1,101 @@
+{
+  "key": "voice-presenter",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-voice-presenter",
+  "submitted_at": 1792315086.1781878,
+  "adapter_id": "audio-fd1d04b284bb4cd0b8ecb358ee5373f8",
+  "adapter_response": {
+    "id": "audio-fd1d04b284bb4cd0b8ecb358ee5373f8",
+    "status": "completed",
+    "progress": 100,
+    "seconds": 1.2712916666666667,
+    "actual_seconds": 1.2712916666666667,
+    "voice_id": "default",
+    "output": {
+      "type": "audio",
+      "mime_type": "audio/wav"
+    },
+    "artifacts": [],
+    "error": ""
+  },
+  "last_checked_at": 1792315101.2871132,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\voice-presenter.wav",
+  "output_sha256": "690e476660ce31fe92f6133aa25fdd40b1154fed94c44f5c01914a420d150e3a",
+  "output_bytes": 61100,
+  "elapsed_sec": 15.13,
+  "request": {
+    "operation": "voice_speech",
+    "seconds": 3.0625,
+    "prompt": "Let's help plants grow.",
+    "voice_id": "default",
+    "language": "en",
+    "options": {
+      "speed": 1.1,
+      "pitch": 0,
+      "pause": 0,
+      "expression": 0.5
+    },
+    "studio_sample_request": "optimization-20261018-wan640-v2-voice-presenter"
+  },
+  "references": [],
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "pcm_s16le",
+        "codec_long_name": "PCM signed 16-bit little-endian",
+        "codec_type": "audio",
+        "codec_tag_string": "[1][0][0][0]",
+        "codec_tag": "0x0001",
+        "sample_fmt": "s16",
+        "sample_rate": "24000",
+        "channels": 1,
+        "bits_per_sample": 16,
+        "initial_padding": 0,
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/24000",
+        "duration_ts": 30511,
+        "duration": "1.271292",
+        "bit_rate": "384000",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\voice-presenter.wav",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "wav",
+      "format_long_name": "WAV / WAVE (Waveform Audio)",
+      "duration": "1.271292",
+      "size": "61100",
+      "bit_rate": "384490",
+      "probe_score": 99,
+      "tags": {
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

@@ -1,0 +1,51 @@
+{
+  "key": "composite-recipe-presenter",
+  "status": "completed",
+  "operation": "controlled_image_edit",
+  "engine": "FFmpeg",
+  "operation_id": "edit-77a335229a2f11134c99000f",
+  "adapter_id": null,
+  "submitted_at": 1792316197.3521326,
+  "request": {
+    "model": "ffmpeg-image-edit",
+    "prompt": "A clean original FLUX portrait held as a three-second source for subsequent real speech-driven MuseTalk mouth animation; no native joint audio-video generation is claimed.",
+    "size": "640x384",
+    "metadata": {
+      "frames": 49,
+      "fps": 16
+    }
+  },
+  "source_image_adapter_id": "image-ebe177091276c5e30f5ba59bc12e7d16",
+  "source_image_sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce",
+  "source_image_seed": 182003,
+  "command": [
+    "C:\\Users\\Administrator\\.cache\\codex-studio-toolchains\\ffmpeg\\ffmpeg-9.0.2-essentials_build\\bin\\ffmpeg.exe",
+    "-nostdin",
+    "-v",
+    "error",
+    "-y",
+    "-loop",
+    "1",
+    "-i",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-presenter.png",
+    "-vf",
+    "scale=640:384:force_original_aspect_ratio=increase,crop=640:384,setsar=1",
+    "-r",
+    "16",
+    "-frames:v",
+    "49",
+    "-an",
+    "-c:v",
+    "libx264",
+    "-crf",
+    "20",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\composite-recipe-presenter.mp4"
+  ],
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\composite-recipe-presenter.mp4",
+  "output_sha256": "77a335229a2f11134c99000fdec25b8314c83e2b0d94cd4c444f557e5fc88ffd",
+  "output_bytes": 43105
+}

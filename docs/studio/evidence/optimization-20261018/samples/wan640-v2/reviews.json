@@ -1,0 +1,152 @@
+{
+  "reviewer": "Codex visual inspection of actual locally generated source frames; not an automated identity certification",
+  "reviewed_at": "2026-10-18T09:12:59Z",
+  "presets": {
+    "camera-push": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "Clear push from medium view to close fox and lantern; actual model result, not an exact 3D trajectory.",
+      "reviewed_sha256": "7ea61eaaf6943ff0e67429398055c53147f7423604a9662e90f86469342f921a",
+      "all_49_frames_visually_inspected": true
+    },
+    "camera-orbit": {
+      "source_reviewed": true,
+      "effect_passed": false,
+      "notes": "The actual Wan orbit test still has background color blocks and subject deformation. It did not pass. Use the separately labeled original 3D camera illustration to understand intended parallax; it does not certify Wan motion control.",
+      "task": "repair-camera-orbit",
+      "general_demonstration": true,
+      "reviewed_sha256": "c7882e7319b62fb8854fc2c96011a9fd2285c4dcadda924ebbbc91ddd85e754f",
+      "all_49_frames_visually_inspected": false,
+      "illustration_sha256": "3c5d6431dcd90612210729141e7c991dd74a50516abca9fb7a0955c105495a6d"
+    },
+    "camera-static": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "Table and background remain fixed while the fox blinks and moves its head slightly.",
+      "reviewed_sha256": "ac5a366260552d1154344b17b7393960dec5cfca67f1d0e35815b01ac9a7abc9",
+      "all_49_frames_visually_inspected": true
+    },
+    "camera-follow": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "A short side-follow view retains the full walking fox and shows small background parallax. Some framing drift remains; this is an approximate prompt-driven move, not an exact rig path.",
+      "task": "repair-camera-follow",
+      "reviewed_sha256": "27dbc308769926fab876823b2f37e50c8c2043ee74b2d02e04dfb9d0d87ccdf3",
+      "all_49_frames_visually_inspected": true
+    },
+    "lighting-soft": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "Soft diffused daylight is retained during small fox head and ear movement.",
+      "reviewed_sha256": "5731e69c98d91346dd2054ca0897b6257dbba151f1453a7d5f7ac368c7d794e0",
+      "all_49_frames_visually_inspected": true
+    },
+    "lighting-rim": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "Warm edge light visibly outlines fur against the darker background.",
+      "reviewed_sha256": "05966ba43ffdcc3c2abf85d92b75a7d8f1790b866019565791d95ac4a17cfe6e",
+      "all_49_frames_visually_inspected": true
+    },
+    "lighting-product": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "Clean neutral studio background and broad soft light reveal the blue metal form.",
+      "reviewed_sha256": "d3af2e7075109a514729bc1f60815129322f213bb32c50b4a3563a700d1c68ed",
+      "all_49_frames_visually_inspected": true
+    },
+    "style-watercolor": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "The watercolor fox and lantern remain painted throughout with small natural motion; the corrected test has no artist hand.",
+      "task": "repair-style-watercolor",
+      "reviewed_sha256": "5f105771422f585e3b19208ef57a504ba5e756e706c90371311ae141c65bc298",
+      "all_49_frames_visually_inspected": true
+    },
+    "style-cinema": {
+      "source_reviewed": true,
+      "effect_passed": true,
+      "notes": "Natural fur and enamel detail, restrained cinematic contrast and coherent small motion.",
+      "reviewed_sha256": "fa348444317fedc99dceb5ab9f48f0a67205b6cec941cc7a55e5e5939e05bf92",
+      "all_49_frames_visually_inspected": true
+    },
+    "effect-dust": {
+      "source_reviewed": true,
+      "effect_passed": false,
+      "notes": "Sparkling particle intent is visible but colored grid/block artifacts are unacceptable.",
+      "general_demonstration": true,
+      "reviewed_sha256": "4772c48734d58fd1760ee4f0a368668404dd474592d65928e1d2d0671b65d5e2",
+      "all_49_frames_visually_inspected": false,
+      "illustration_sha256": "03fbe66a7c5174e75719f87d5ce417136426e845336d3486faa834774fff7321"
+    },
+    "effect-rain": {
+      "source_reviewed": true,
+      "effect_passed": false,
+      "notes": "Rain is visible, but colored foreground blocks are unacceptable.",
+      "general_demonstration": true,
+      "reviewed_sha256": "8ac0a79432c9e3876db3c7423beb187a4052ff364f99c26a795abfdd07c104ec",
+      "all_49_frames_visually_inspected": false,
+      "illustration_sha256": "eebf091c6e9ad2dbebffdf43ca1fe50fedef9218b2b68255cffd0a9577ec12bd"
+    }
+  },
+  "recipes": {
+    "store": {
+      "source_reviewed": true,
+      "film_reviewed": true,
+      "notes": "One ceramic cup and coherent hand, readable warm cafe setting and steam; real three-second excerpt.",
+      "source_sha256": "ff2a3ce521ebaf0580a25f1e8ff4d0ec7a7544b47b8adf66d8dfba0f96cb5112",
+      "film_sha256": "7f67f4ee1a094378f65e38e22f4f18c81fea04a224193a53c1c993844458faa7",
+      "reviewed_at": "2026-10-18T09:42:39Z",
+      "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+    },
+    "product": {
+      "source_reviewed": true,
+      "film_reviewed": true,
+      "notes": "The duplicate-mug native Wan result was rejected. The selected source is one clean original FLUX frame with a precise controlled image push; no native image-to-video quality is claimed.",
+      "task": "composite-recipe-product",
+      "source_sha256": "038a5f4bd470563be629220fd7d9bcc142c48ca366bcfb93d90a1f4c450225d1",
+      "film_sha256": "37633071084fa9790da0bcb47478c76adf3d32edd150e67c5369ce24b524ccef",
+      "reviewed_at": "2026-10-18T09:42:39Z",
+      "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+    },
+    "story": {
+      "source_reviewed": true,
+      "film_reviewed": true,
+      "notes": "Six-point final film review caught a short glitched fox frame missed by sparse initial source sampling. The native Wan clip is rejected; use the original clean illustrated fox with a controlled introductory pan. This is an image edit, not verified native video generation.",
+      "task": "composite-recipe-story",
+      "source_sha256": "4e09cc60b88eb982170249a7776c4e62452b3fcadaad1d8e7ba52f1d0d4bda30",
+      "film_sha256": "04f04c35e085fec878dc296592726604d54157dad89c98cb922c428ae428886f",
+      "reviewed_at": "2026-10-18T09:42:39Z",
+      "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+    },
+    "explain": {
+      "source_reviewed": true,
+      "film_reviewed": true,
+      "notes": "Readable seedling, roots and pot, gentle rotation toward window light; speech pending.",
+      "source_sha256": "129d88fde8d1488f9fb350a9234705a24129a8d498a09ee6e73796451c24858c",
+      "film_sha256": "34a748d912ba375be19867faba5de325bc9fec16a96ea91c947488e738cd64e9",
+      "reviewed_at": "2026-10-18T09:42:39Z",
+      "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+    },
+    "presenter": {
+      "source_reviewed": true,
+      "film_reviewed": true,
+      "notes": "The native Wan result hallucinated background text and was rejected. Use the clean original FLUX portrait as the source for separately produced real speech/MuseTalk; no native joint generation claim.",
+      "task": "composite-recipe-presenter",
+      "lip_task": "lip-presenter-nms-v2",
+      "source_sha256": "77a335229a2f11134c99000fdec25b8314c83e2b0d94cd4c444f557e5fc88ffd",
+      "film_sha256": "6d2015d9e71f2cc13a5d3bfd650168e6cb85220f9b2fa527c282bfda2e7862f0",
+      "reviewed_at": "2026-10-18T09:42:39Z",
+      "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+    },
+    "music": {
+      "source_reviewed": true,
+      "film_reviewed": true,
+      "notes": "Coherent boat, lake reflections and dawn light; short original instrumental edit pending.",
+      "source_sha256": "933af8ca88ba4e754c6e2833ccb4def3ab2542a9691378eb547a3b48df8ea1f7",
+      "film_sha256": "1b0779910eae62354102ec08d06e5cbce97abacf5fb38b1928b29581ae53204f",
+      "reviewed_at": "2026-10-18T09:42:39Z",
+      "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+    }
+  }
+}

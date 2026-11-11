@@ -1,10 +1,12 @@
 import { AnimatePresence, motion } from "motion/react";
 import { FileImage, Film, Music2, UploadCloud } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 import type { CanvasTheme } from "@/lib/canvas-theme";
 import { aceternityMotion } from "@/lib/aceternity-motion";
 
 export function CanvasFileDropOverlay({ active, theme }: { active: boolean; theme: CanvasTheme }) {
+    const { t } = useTranslation();
     return (
         <AnimatePresence>
             {active ? (
@@ -16,7 +18,12 @@ export function CanvasFileDropOverlay({ active, theme }: { active: boolean; them
                     exit={{ opacity: 0 }}
                     transition={{ duration: aceternityMotion.duration.state }}
                     className="pointer-events-none absolute inset-3 z-[var(--z-modal-overlay)] grid place-items-center overflow-hidden rounded-[var(--r-5xl)] border backdrop-blur-2xl"
-                    style={{ background: theme.spatial.dropzone, borderColor: theme.spatial.glowStrong, color: theme.node.text, boxShadow: `inset 0 0 0 1px ${theme.spatial.glow}, 0 30px 100px rgba(0,0,0,.22)` }}
+                    style={{
+                        background: theme.spatial.dropzone,
+                        borderColor: theme.spatial.glowStrong,
+                        color: theme.node.text,
+                        boxShadow: `inset 0 0 0 1px ${theme.spatial.glow}, 0 30px 100px rgba(0,0,0,.22)`,
+                    }}
                 >
                     <div className="aceternity-drop-grid absolute inset-0 opacity-70" style={{ color: theme.spatial.glowStrong }} />
                     <motion.div
@@ -33,27 +40,31 @@ export function CanvasFileDropOverlay({ active, theme }: { active: boolean; them
                                 animate={{ y: -10, scale: 1.04 }}
                                 transition={aceternityMotion.spring.panel}
                                 className="absolute inset-0 grid place-items-center rounded-[var(--r-3xl)] border"
-                                style={{ background: theme.node.panel, borderColor: theme.spatial.glowStrong, boxShadow: `0 24px 60px ${theme.spatial.shadow}` }}
+                                style={{
+                                    background: theme.node.panel,
+                                    borderColor: theme.spatial.glowStrong,
+                                    boxShadow: `0 24px 60px ${theme.spatial.shadow}`,
+                                }}
                             >
                                 <UploadCloud className="size-10" style={{ color: theme.accent.primary }} />
                             </motion.div>
                         </div>
-                        <h2 className="text-2xl font-semibold tracking-normal">释放文件，放入创作空间</h2>
+                        <h2 className="text-2xl font-semibold tracking-normal">{t("canvasA.fileDrop.title")}</h2>
                         <p className="mt-2 text-sm leading-6" style={{ color: theme.node.muted }}>
-                            图片、视频和音频会在当前位置创建为可继续连接的节点
+                            {t("canvasA.fileDrop.description")}
                         </p>
                         <div className="mt-6 flex items-center gap-2 text-xs font-medium" style={{ color: theme.node.muted }}>
                             <span className="inline-flex items-center gap-2 rounded-full border px-3 py-2" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}>
                                 <FileImage className="size-3.5" />
-                                图片
+                                {t("canvasA.media.image")}
                             </span>
                             <span className="inline-flex items-center gap-2 rounded-full border px-3 py-2" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}>
                                 <Film className="size-3.5" />
-                                视频
+                                {t("canvasA.media.video")}
                             </span>
                             <span className="inline-flex items-center gap-2 rounded-full border px-3 py-2" style={{ borderColor: theme.toolbar.border, background: theme.spatial.surface }}>
                                 <Music2 className="size-3.5" />
-                                音频
+                                {t("canvasA.media.audio")}
                             </span>
                         </div>
                     </motion.div>

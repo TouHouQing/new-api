@@ -1,0 +1,174 @@
+{
+  "actualBundle": "index.9535ebc7d5.js",
+  "method": "Actual UI Gallery copy -> independentproject -> rename -> briefdraft -> guided video upload -> newTake -> explicitly choose timeline source -> caption -> full short preview -> export -> download MP4 and completeZIP",
+  "cases": [
+    {
+      "kind": "story",
+      "projectId": "31872615-c2ad-4d11-ad5e-12b09678711b",
+      "title": "opt18-narrative-story-归途微光",
+      "brief": "归途微光：基于已拥有原始画面调整亮度与对比度、替换中文字幕，保留原有声音。仅验证复制、换素材候选、编辑和导出闭环；不生成新主体或新声音。",
+      "caption": "一盏灯，照亮回家的方向",
+      "videoSeconds": 3.0625,
+      "formatSeconds": 3.08252,
+      "frames": 49,
+      "size": [
+        640,
+        384
+      ],
+      "filmSHA256": "568907621534c934f45c9cb0fb9b93f90b0b7956986905b4b4ac2b6c7fe60026",
+      "takeCount": 2,
+      "historicalTakePromptModelTaskPreserved": true,
+      "oldTakeSHA256": [
+        "2c6b37132618fe0d058b8e1440ca518129ebf31d18dcec55b6a2f43ea580d593"
+      ],
+      "newTakeSHA256": "99792d1cfad0fc805f75cf24496227cc40af665429e07a780b1d9b8e1dee2753",
+      "pinnedTimelineNowExplicitlyUsesNewTake": true,
+      "audioTracks": [
+        {
+          "id": "sample-story-music-track",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "start": 0,
+          "offset": 0,
+          "duration": 3.0625
+        }
+      ],
+      "allAudioVideoDecoded": true,
+      "modelJobs": 0,
+      "scope": "Existing original subjects/materials with CPU brightness/contrast edit and new theme draft/caption; not newly generated subject/language quality acceptance."
+    },
+    {
+      "kind": "explain",
+      "projectId": "fbffbdd4-51a2-41ad-a329-4ac136f3e24b",
+      "title": "opt18-narrative-explain-根系观察",
+      "brief": "根系观察：基于已拥有原始画面调整亮度与对比度、替换中文字幕，保留原有声音。仅验证复制、换素材候选、编辑和导出闭环；不生成新主体或新声音。",
+      "caption": "一起让植物朝着光生长",
+      "videoSeconds": 3.0625,
+      "formatSeconds": 3.08252,
+      "frames": 49,
+      "size": [
+        640,
+        384
+      ],
+      "filmSHA256": "40f917e600e20ae79949b1c353d660835b67dca09b411f2e6c534a818f1f4d52",
+      "takeCount": 2,
+      "historicalTakePromptModelTaskPreserved": true,
+      "oldTakeSHA256": [
+        "9ac6d993a21af295911cd5c59e5573d1d243b17553d3bd43ddaf45f64b1d862e"
+      ],
+      "newTakeSHA256": "c019035bf9250ab37c0dd8476d0e5fd1094fd2bade0e3e72b9e37065ee60353e",
+      "pinnedTimelineNowExplicitlyUsesNewTake": true,
+      "audioTracks": [
+        {
+          "id": "sample-explain-music-track",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "start": 0,
+          "offset": 0,
+          "duration": 3.0625
+        },
+        {
+          "id": "sample-explain-voice-track",
+          "sha256": "eeeba6e92a80f4e868244abfba54ae9e48c67ccdae4dad3bf541385f339390ed",
+          "start": 0,
+          "offset": 0,
+          "duration": 3.0625
+        }
+      ],
+      "allAudioVideoDecoded": true,
+      "modelJobs": 0,
+      "scope": "Existing original subjects/materials with CPU brightness/contrast edit and new theme draft/caption; not newly generated subject/language quality acceptance."
+    },
+    {
+      "kind": "presenter",
+      "projectId": "d76dffa4-8712-4ad7-9cec-ee0514e63d8b",
+      "title": "opt18-narrative-presenter-植物小课堂",
+      "brief": "植物小课堂：基于已拥有原始画面调整亮度与对比度、替换中文字幕，保留原有声音。仅验证复制、换素材候选、编辑和导出闭环；不生成新主体或新声音。",
+      "caption": "一起帮助植物健康生长",
+      "videoSeconds": 3.0625,
+      "formatSeconds": 3.08252,
+      "frames": 49,
+      "size": [
+        640,
+        384
+      ],
+      "filmSHA256": "329878f325bcc931c79ff2411998f3b7df87f46be2f65a0093c458e4a34a6693",
+      "takeCount": 4,
+      "historicalTakePromptModelTaskPreserved": true,
+      "oldTakeSHA256": [
+        "e08c9072e030ddaa12be7f1bc320f3640aac2bbfc96528b10f4608a2d2c3dd90",
+        "a5a9e1276254f4200a0e3f77a70046aa8b09c66879d01b14e76a551d1e89e7b2"
+      ],
+      "newTakeSHA256": "8d5f23288ce02e674c969d3b15e821b1d0829610fb20bb47de4b12ef5963b684",
+      "pinnedTimelineNowExplicitlyUsesNewTake": true,
+      "audioTracks": [
+        {
+          "id": "sample-presenter-music-track",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "start": 0,
+          "offset": 0,
+          "duration": 3.0625
+        },
+        {
+          "id": "sample-presenter-voice-track",
+          "sha256": "df7ce7fc555dc2f0fb8126cf60ada9de73f880255331361bc7d938a055932f2a",
+          "start": 0,
+          "offset": 0,
+          "duration": 3.0625
+        }
+      ],
+      "allAudioVideoDecoded": true,
+      "modelJobs": 0,
+      "scope": "Existing original subjects/materials with CPU brightness/contrast edit and new theme draft/caption; not newly generated subject/language quality acceptance."
+    },
+    {
+      "kind": "music",
+      "projectId": "ae08e111-9751-4f11-b6eb-cd67e3ef4c87",
+      "title": "opt18-narrative-music-晨光序曲",
+      "brief": "晨光序曲：基于已拥有原始画面调整亮度与对比度、替换中文字幕，保留原有声音。仅验证复制、换素材候选、编辑和导出闭环；不生成新主体或新声音。",
+      "caption": "晨光序曲 · 让宁静展开",
+      "videoSeconds": 3.0625,
+      "formatSeconds": 3.08252,
+      "frames": 49,
+      "size": [
+        640,
+        384
+      ],
+      "filmSHA256": "60e3f9fe28035c7ec6d464e4cb98d167c47a2fc9b90e6dac4aed382cb8ec8209",
+      "takeCount": 2,
+      "historicalTakePromptModelTaskPreserved": true,
+      "oldTakeSHA256": [
+        "49cf70d9e6ac187f955b649c85a266ced3cf4612f098baa903128a6652e3ee82"
+      ],
+      "newTakeSHA256": "28cd49d84d417e6d41e749a5bb6b7a378887d02c6384a42093e159c7bc0daa09",
+      "pinnedTimelineNowExplicitlyUsesNewTake": true,
+      "audioTracks": [
+        {
+          "id": "sample-music-music-track",
+          "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+          "start": 0,
+          "offset": 0,
+          "duration": 3.0625
+        }
+      ],
+      "allAudioVideoDecoded": true,
+      "modelJobs": 0,
+      "scope": "Existing original subjects/materials with CPU brightness/contrast edit and new theme draft/caption; not newly generated subject/language quality acceptance."
+    }
+  ],
+  "outcome": "passed_for_four_editing_workflows",
+  "new_model_jobs": 0,
+  "page_errors": [],
+  "six_new_subject_model_reruns": "not_performed; never mark these CPU edits as model regeneration",
+  "visual_review": {
+    "frames": [
+      "output/playwright/narrative-final/story-final-export-frame.png",
+      "output/playwright/narrative-final/explain-final-export-frame.png",
+      "output/playwright/narrative-final/presenter-final-export-frame.png",
+      "output/playwright/narrative-final/music-final-export-frame.png"
+    ],
+    "reviewed": true,
+    "result": "Readable correct Chinese glyphs; stable intended original subjects; presenter retains original MuseTalk motion and separate original voice track. Mouth softness remains original model limitation."
+  },
+  "test_corrections": [
+    "Presenter already has silent and actual lip Takes. A hardcodedcandidate2 assumption was detected by ZIP auditing, then corrected by actual UI to final candidate4, a CPU color variant of the original real MuseTalk clip. Earlier test upload remains an explicit historical candidate; no hidden deletion or new inference."
+  ]
+}

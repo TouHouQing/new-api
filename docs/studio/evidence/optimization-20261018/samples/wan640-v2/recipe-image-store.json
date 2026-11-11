@@ -1,0 +1,107 @@
+{
+  "key": "recipe-image-store",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-recipe-image-store",
+  "submitted_at": 1792313746.079247,
+  "adapter_id": "image-7ae159876c31ef68b2e66bd98c9ce6aa",
+  "adapter_response": {
+    "id": "image-7ae159876c31ef68b2e66bd98c9ce6aa",
+    "status": "completed",
+    "prompt_id": "a48b86e6-2fab-4e1a-8375-1ae8c32402fa",
+    "error": ""
+  },
+  "last_checked_at": 1792313779.3133073,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-store.png",
+  "output_sha256": "e6119e1257a738c6ae44f67320c5cd26b42e812449a3b2793511ed4fd9020945",
+  "output_bytes": 268349,
+  "elapsed_sec": 33.25,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "An inviting small independent coffee shop named Willow Corner, a plain unbranded white ceramic cup of coffee on a warm wooden counter, pastries softly visible behind it, a barista hand beside the cup, warm morning daylight, realistic commercial photography, no text or logos.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 182005,
+      "studio_sample_request": "optimization-20261018-wan640-v2-recipe-image-store"
+    },
+    "idempotency_key": "7ae159876c31ef68b2e66bd98c9ce6aa02a67cf10df369b6132c22954fa4a3c5"
+  },
+  "workflow_sha256": "0a737c25f82801a7760ca46243d3826f8e11c69f14905e2214fc0e0c34c49f17",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 182005,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-store.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "268349",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

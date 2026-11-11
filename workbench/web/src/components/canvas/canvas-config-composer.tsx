@@ -1,9 +1,12 @@
 import { useMemo, useRef, useState } from "react";
 import { Button } from "antd";
+import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { canvasThemes } from "@/lib/canvas-theme";
 import { isCanvasWorkflowProvider } from "@/lib/canvas/canvas-workflow";
 import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
+import { useCanvasPromptPreferencesStore } from "@/stores/canvas/use-canvas-prompt-preferences-store";
+import { CanvasPromptFontSizeControl } from "./canvas-prompt-font-size-control";
 import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-references";
 import type { CanvasGenerationMode, CanvasNodeMetadata, CanvasWorkspaceMode } from "@/types/canvas";
 import { normalizeGenerationNodeMentionTokens, type NodeGenerationInput } from "./canvas-node-generation";
@@ -28,7 +31,9 @@ type ComposerProps = {
 };
 
 export function CanvasConfigComposer({ nodeId, canvasId, value, inputs, skillReferences = [], generationMode = "image", metadata, onChange, onMetadataChange, onClose, workspaceMode = "professional" }: ComposerProps) {
+    const { t } = useTranslation();
     const readOnly = Boolean(metadata?.locked);
+    const fontSize = useCanvasPromptPreferencesStore((state) => state.fontSize);
     const theme = canvasThemes[useActiveTheme()];
     const container = useRef<HTMLDivElement>(null);
     const caret = useRef<{ start: number; end: number } | null>(null);
@@ -71,12 +76,13 @@ export function CanvasConfigComposer({ nodeId, canvasId, value, inputs, skillRef
         >
             <header className="mb-3 flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                    <h3 className="text-xs font-semibold">{simple ? "快速生成" : "组装提示词"}</h3>
-                    <p className="mt-1 text-xs opacity-60">{workflow ? "工作流按字段顺序接收连接素材" : "输入 @ 选择已连接素材或技能"}</p>
+                    <h3 className="text-xs font-semibold">{simple ? t("canvasA.configComposer.quickTitle") : t("canvasA.configComposer.assembleTitle")}</h3>
+                    <p className="mt-1 text-xs opacity-60">{workflow ? t("canvasA.configComposer.workflowHint") : t("canvasA.configComposer.mentionHint")}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-1">
+                    <CanvasPromptFontSizeControl />
                     {!simple ? <CanvasPresetPicker mode={generationMode} skillReferences={skillReferences} open={presetsOpen} onOpenChange={setPresetsOpen} onSelect={insertPreset} /> : null}
-                    <Button size="small" type="text" aria-label="关闭提示词编辑器" icon={<X className="size-4" />} onClick={onClose} />
+                    <Button size="small" type="text" aria-label={t("canvasA.configComposer.close")} icon={<X className="size-4" />} onClick={onClose} />
                 </div>
             </header>
             {generationMode === "video" && onMetadataChange && !simple ? (
@@ -94,16 +100,24 @@ export function CanvasConfigComposer({ nodeId, canvasId, value, inputs, skillRef
                     />
                 </div>
             ) : null}
-            <div ref={container} className="canvas-config-composer-editor rounded-lg" style={{ background: theme.node.fill }} onBlurCapture={rememberCaret} onKeyUpCapture={rememberCaret} onPointerUpCapture={rememberCaret}>
+            <div
+                ref={container}
+                className="canvas-config-composer-editor rounded-lg"
+                style={{ background: theme.node.fill, height: Math.max(160, Math.ceil(fontSize * 1.6) * 6 + 24), maxHeight: "min(42vh,360px)" }}
+                onBlurCapture={rememberCaret}
+                onKeyUpCapture={rememberCaret}
+                onPointerUpCapture={rememberCaret}
+            >
                 <CanvasResourceMentionTextarea
-                    aria-label="组装生成提示词"
+                    aria-label={t("canvasA.configComposer.editorLabel")}
                     value={prompt}
                     references={references}
                     readOnly={readOnly}
                     onChange={updatePrompt}
                     sendOnEnter={false}
-                    placeholder="输入提示词，按 @ 引用连接素材或技能"
-                    className="min-h-32 max-h-[min(42vh,360px)] w-full px-4 py-3 text-sm leading-7"
+                    placeholder={t("canvasA.configComposer.placeholder")}
+                    className="min-h-40 max-h-[min(42vh,360px)] w-full px-4 py-3"
+                    style={{ fontSize, lineHeight: 1.6 }}
                     onKeyDown={(event) => {
                         event.stopPropagation();
                         if (!readOnly && event.key === "/" && !simple && !event.nativeEvent.isComposing)

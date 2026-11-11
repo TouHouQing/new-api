@@ -1,0 +1,107 @@
+{
+  "key": "repair-image-follow",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-repair-image-follow",
+  "submitted_at": 1792314095.2991967,
+  "adapter_id": "image-34c22183b4b03d05d8c8d61cd26ccca1",
+  "adapter_response": {
+    "id": "image-34c22183b4b03d05d8c8d61cd26ccca1",
+    "status": "completed",
+    "prompt_id": "f25069fa-cf48-40b5-95bc-67c8e128a000",
+    "error": ""
+  },
+  "last_checked_at": 1792314131.623244,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\repair-image-follow.png",
+  "output_sha256": "53a8d2979185c438d710f79303a696a0093f166e7714c2fe35c46c9563d5d4d8",
+  "output_bytes": 351636,
+  "elapsed_sec": 36.34,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "Wide strict side view of one small red fox walking to the right along a level woodland path, the entire fox from nose to tail and all four paws visible, one front paw raised mid step, fox centered with open space ahead, camera at fox eye height, distant trees and a small blue lantern beside the path, natural daylight, sharp realistic wildlife photography, no text.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 184200,
+      "studio_sample_request": "optimization-20261018-wan640-v2-repair-image-follow"
+    },
+    "idempotency_key": "34c22183b4b03d05d8c8d61cd26ccca1908c72c13612437359bad4d10807ae66"
+  },
+  "workflow_sha256": "a5ba8f3661808d7d47b657753130160f50e914150e1ea04ae21f4c254faaf13a",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 184200,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\repair-image-follow.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "351636",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

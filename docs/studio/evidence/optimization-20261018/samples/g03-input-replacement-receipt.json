@@ -1,0 +1,1107 @@
+{
+  "owner": "templates",
+  "globalCompletionOwner": "root",
+  "specSha256": "de0ae87e27cdaed98b592be42360b54a7e9ec4224f6b11cadcbcb65e10ca7d7d",
+  "status": "bounded_six_input_replacements_and_causal_lip_regressions_verified",
+  "candidate": "Five samples image72e701758ddd/index3f385357ed; final presenter appREADY6/index06c10a7197 with separately repaired CPU audio worker. Root owns source/build/global acceptance.",
+  "scope": "Actual independent Gallery copies and applicable input replacements, not six new generations or arbitrary duration/quality/model combinations",
+  "completed": [
+    {
+      "kind": "store",
+      "projectId": "5f0cc5a2-8d46-4e98-91ae-8f8b490e4fa4",
+      "revision": 9,
+      "filmSha256": "16eb944687538d981e6cc3dc5d5602a1865ae5c64d1f1aaec6a97b19ad12b7b5",
+      "actualMP4Probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 384,
+            "r_frame_rate": "16/1"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "r_frame_rate": "0/0"
+          }
+        ],
+        "format": {
+          "duration": "3.082520",
+          "size": "407412"
+        }
+      },
+      "activeClips": [
+        {
+          "node": "sample-store-video-node",
+          "take": "sample-store-video-take",
+          "media": "e56c8f61-966d-4441-bd63-0839478fc26c",
+          "caption": "杉间咖啡 · 来喝一杯手冲",
+          "muted": true
+        }
+      ],
+      "audioTracks": [
+        {
+          "id": "7d58149c-3a6d-4e04-8cb8-aca69a11daa5",
+          "mediaId": "9e45e386-0a66-41ea-8e1a-4412a63e53eb",
+          "offset": 0,
+          "start": 0,
+          "volume": 1
+        }
+      ],
+      "actualSRT": "1\n00:00:00,000 --> 00:00:03,063\n杉间咖啡 · 来喝一杯手冲\n",
+      "zipFiles": [
+        "project.json",
+        "media/0",
+        "media/1",
+        "media/2",
+        "media/3",
+        "media/4"
+      ],
+      "actualUIPlayedToEnd": true,
+      "actualSrtMp4ZipDownloads": true,
+      "newFLUXOrWanGeneration": false,
+      "derivedLipModelGeneration": false,
+      "storedFilmByteProof": {
+        "kind": "store",
+        "projectId": "5f0cc5a2-8d46-4e98-91ae-8f8b490e4fa4",
+        "jobId": "09fd9128-aea2-458a-a267-d6e4c9b489aa",
+        "files": [
+          {
+            "extension": "mp4",
+            "mediaId": "5c3d24d5-722c-4683-b24c-e2d10bf4c614",
+            "httpStatus": 200,
+            "bytes": 407412,
+            "sha256": "16eb944687538d981e6cc3dc5d5602a1865ae5c64d1f1aaec6a97b19ad12b7b5",
+            "downloadSha256": "16eb944687538d981e6cc3dc5d5602a1865ae5c64d1f1aaec6a97b19ad12b7b5",
+            "byteIdentical": true
+          }
+        ]
+      },
+      "audit": {
+        "kind": "store",
+        "project": "5f0cc5a2-8d46-4e98-91ae-8f8b490e4fa4",
+        "activeAudio": [
+          {
+            "title": "owned-new-melody.wav",
+            "storedSha256": "c4643e47b285b4ff2cb707389b1fd2a487ff27aff9ab5ee6e4208ddb3a666de2",
+            "start": 0,
+            "offset": 0,
+            "volume": 1,
+            "duration": null
+          }
+        ],
+        "zipMatchesSavedTimeline": true,
+        "aacDecodedLagSamplesAt24k": 0,
+        "actualMixPearson": 0.9998684337813764,
+        "actualMixNormalizedRmsError": 0.016236694529652596,
+        "oldVoiceAndMusicNotInActiveMix": true,
+        "oldTakeImmutable": [
+          "sample-store-image-take",
+          "sample-store-video-take"
+        ],
+        "sourceChecks": [
+          {
+            "node": "sample-store-image-node",
+            "sha256": "e6119e1257a738c6ae44f67320c5cd26b42e812449a3b2793511ed4fd9020945",
+            "bytes": 268349
+          },
+          {
+            "node": "sample-store-video-node",
+            "sha256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b",
+            "bytes": 292219
+          }
+        ],
+        "historicalOriginalsRetainedInactive": true
+      }
+    },
+    {
+      "kind": "product",
+      "projectId": "ddfa37e6-0022-4522-a7a1-acd23bc50809",
+      "revision": 9,
+      "filmSha256": "ff5761086d8f9fa4347114f70b4fe8a9c1a50323c6de76928c8919a62fb904f1",
+      "actualMP4Probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 384,
+            "r_frame_rate": "16/1"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "r_frame_rate": "0/0"
+          }
+        ],
+        "format": {
+          "duration": "3.082520",
+          "size": "380299"
+        }
+      },
+      "activeClips": [
+        {
+          "node": "sample-product-video-node",
+          "take": "7628cea8-c360-40fa-8174-9a6edb90572e",
+          "media": "d055b832-c5b7-4896-91d7-7e153252e0f3",
+          "caption": "根可见育苗杯 · 生长看得见",
+          "muted": true
+        }
+      ],
+      "audioTracks": [
+        {
+          "duration": 3.0625,
+          "id": "542e9669-fbef-4a14-99c3-6674a50f680e",
+          "mediaId": "d631e4d6-3287-4522-af71-2d5827191c00",
+          "offset": 0,
+          "start": 0,
+          "volume": 0.65
+        }
+      ],
+      "actualSRT": "1\n00:00:00,000 --> 00:00:03,063\n根可见育苗杯 · 生长看得见\n",
+      "zipFiles": [
+        "project.json",
+        "media/0",
+        "media/1",
+        "media/2",
+        "media/3",
+        "media/4",
+        "media/5",
+        "media/6"
+      ],
+      "actualUIPlayedToEnd": true,
+      "actualSrtMp4ZipDownloads": true,
+      "newFLUXOrWanGeneration": false,
+      "derivedLipModelGeneration": false,
+      "storedFilmByteProof": {
+        "kind": "product",
+        "projectId": "ddfa37e6-0022-4522-a7a1-acd23bc50809",
+        "jobId": "e68e553b-81cb-4a03-8dda-4a0deb3a9061",
+        "files": [
+          {
+            "extension": "mp4",
+            "mediaId": "1559841b-f873-47a3-8394-36d6eed52e6a",
+            "httpStatus": 200,
+            "bytes": 380299,
+            "sha256": "ff5761086d8f9fa4347114f70b4fe8a9c1a50323c6de76928c8919a62fb904f1",
+            "downloadSha256": "ff5761086d8f9fa4347114f70b4fe8a9c1a50323c6de76928c8919a62fb904f1",
+            "byteIdentical": true
+          }
+        ]
+      },
+      "audit": {
+        "kind": "product",
+        "project": "ddfa37e6-0022-4522-a7a1-acd23bc50809",
+        "activeAudio": [
+          {
+            "title": "owned-new-melody.wav",
+            "storedSha256": "c4643e47b285b4ff2cb707389b1fd2a487ff27aff9ab5ee6e4208ddb3a666de2",
+            "start": 0,
+            "offset": 0,
+            "volume": 0.65,
+            "duration": 3.0625
+          }
+        ],
+        "zipMatchesSavedTimeline": true,
+        "aacDecodedLagSamplesAt24k": 0,
+        "actualMixPearson": 0.9998705506406804,
+        "actualMixNormalizedRmsError": 0.01611137017607689,
+        "oldVoiceAndMusicNotInActiveMix": true,
+        "oldTakeImmutable": [
+          "sample-product-image-take",
+          "sample-product-video-take"
+        ],
+        "sourceChecks": [
+          {
+            "node": "sample-product-image-node",
+            "sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d",
+            "bytes": 207434
+          },
+          {
+            "node": "sample-product-video-node",
+            "sha256": "9ac6d993a21af295911cd5c59e5573d1d243b17553d3bd43ddaf45f64b1d862e",
+            "bytes": 279225
+          }
+        ],
+        "historicalOriginalsRetainedInactive": true
+      }
+    },
+    {
+      "kind": "story",
+      "projectId": "a897065b-c01c-4bd8-8895-9dd7d5db7bcb",
+      "revision": 8,
+      "filmSha256": "89e12651f506a69aa326130941689af2e04205b2d680c8b73c0b96767ba90f9e",
+      "actualMP4Probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 384,
+            "r_frame_rate": "16/1"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "r_frame_rate": "0/0"
+          }
+        ],
+        "format": {
+          "duration": "3.082520",
+          "size": "351221"
+        }
+      },
+      "activeClips": [
+        {
+          "node": "sample-story-video-node",
+          "take": "8ca3ae66-af05-4428-92ba-72f05100123b",
+          "media": "cbcdbe42-9278-4a1c-a2bd-74d39b1d221c",
+          "caption": "等风停 · 向新的一岸出发",
+          "muted": true
+        }
+      ],
+      "audioTracks": [
+        {
+          "duration": 3.0625,
+          "id": "55b08802-409b-431d-bdcf-7dc930cb0319",
+          "mediaId": "c9f9a5d9-abb1-4c6b-adbb-3abe704be72b",
+          "offset": 0,
+          "start": 0,
+          "volume": 0.65
+        }
+      ],
+      "actualSRT": "1\n00:00:00,000 --> 00:00:03,063\n等风停 · 向新的一岸出发\n",
+      "zipFiles": [
+        "project.json",
+        "media/0",
+        "media/1",
+        "media/2",
+        "media/3",
+        "media/4",
+        "media/5",
+        "media/6"
+      ],
+      "actualUIPlayedToEnd": true,
+      "actualSrtMp4ZipDownloads": true,
+      "newFLUXOrWanGeneration": false,
+      "derivedLipModelGeneration": false,
+      "storedFilmByteProof": {
+        "kind": "story",
+        "projectId": "a897065b-c01c-4bd8-8895-9dd7d5db7bcb",
+        "jobId": "18e5fee4-32e4-4920-ac95-d61b547d6490",
+        "files": [
+          {
+            "extension": "mp4",
+            "mediaId": "e77d1bb2-2460-43d0-b366-10f58114a620",
+            "httpStatus": 200,
+            "bytes": 351221,
+            "sha256": "89e12651f506a69aa326130941689af2e04205b2d680c8b73c0b96767ba90f9e",
+            "downloadSha256": "89e12651f506a69aa326130941689af2e04205b2d680c8b73c0b96767ba90f9e",
+            "byteIdentical": true
+          }
+        ]
+      },
+      "audit": {
+        "kind": "story",
+        "project": "a897065b-c01c-4bd8-8895-9dd7d5db7bcb",
+        "activeAudio": [
+          {
+            "title": "owned-new-melody.wav",
+            "storedSha256": "c4643e47b285b4ff2cb707389b1fd2a487ff27aff9ab5ee6e4208ddb3a666de2",
+            "start": 0,
+            "offset": 0,
+            "volume": 0.65,
+            "duration": 3.0625
+          }
+        ],
+        "zipMatchesSavedTimeline": true,
+        "aacDecodedLagSamplesAt24k": 0,
+        "actualMixPearson": 0.9998705506406804,
+        "actualMixNormalizedRmsError": 0.01611137017607689,
+        "oldVoiceAndMusicNotInActiveMix": true,
+        "oldTakeImmutable": [
+          "sample-story-image-take",
+          "sample-story-video-take"
+        ],
+        "sourceChecks": [
+          {
+            "node": "sample-story-image-node",
+            "sha256": "d414322b8daacaf9d80b7a8bbedcf18ca52c4bcc9089b730c66f0f5d45e1b485",
+            "bytes": 228923
+          },
+          {
+            "node": "sample-story-video-node",
+            "sha256": "49cf70d9e6ac187f955b649c85a266ced3cf4612f098baa903128a6652e3ee82",
+            "bytes": 244869
+          }
+        ],
+        "historicalOriginalsRetainedInactive": true
+      }
+    },
+    {
+      "kind": "explain",
+      "projectId": "3a4381dc-3703-458b-950e-9dd16ddd65c7",
+      "revision": 7,
+      "filmSha256": "e7d6d3118ea3c1c2b203ccce560607389ae414a107aa159fc965fe19e4b42e98",
+      "actualMP4Probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 384,
+            "r_frame_rate": "16/1"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "r_frame_rate": "0/0"
+          }
+        ],
+        "format": {
+          "duration": "3.082520",
+          "size": "379580"
+        }
+      },
+      "activeClips": [
+        {
+          "node": "sample-explain-video-node",
+          "take": "sample-explain-video-take",
+          "media": "c1ab245f-a501-4d0c-aa82-66e96b365958",
+          "caption": "根系吸收水分。",
+          "muted": true
+        }
+      ],
+      "audioTracks": [
+        {
+          "duration": 3.0625,
+          "id": "fdbb7564-87e0-4b9d-a216-23e738a250f3",
+          "mediaId": "76553c8f-afe2-4238-a946-fa26adf03756",
+          "offset": 0,
+          "start": 0,
+          "volume": 0.18
+        },
+        {
+          "id": "268fa49b-2761-48f3-88cb-3e3f66b9f2c1",
+          "mediaId": "0d266f60-a4ef-479e-a866-fd78401d1721",
+          "offset": 0,
+          "start": 0,
+          "volume": 1
+        }
+      ],
+      "actualSRT": "1\n00:00:00,000 --> 00:00:03,063\n根系吸收水分。\n",
+      "zipFiles": [
+        "project.json",
+        "media/0",
+        "media/1",
+        "media/2",
+        "media/3",
+        "media/4",
+        "media/5",
+        "media/6"
+      ],
+      "actualUIPlayedToEnd": true,
+      "actualSrtMp4ZipDownloads": true,
+      "newFLUXOrWanGeneration": false,
+      "derivedLipModelGeneration": false,
+      "storedFilmByteProof": {
+        "kind": "explain",
+        "projectId": "3a4381dc-3703-458b-950e-9dd16ddd65c7",
+        "jobId": "0ee9549e-e37d-437e-8c3a-831d78efbaa3",
+        "files": [
+          {
+            "extension": "mp4",
+            "mediaId": "3dec0e82-2dec-4f3d-831e-fabeb279e017",
+            "httpStatus": 200,
+            "bytes": 379580,
+            "sha256": "e7d6d3118ea3c1c2b203ccce560607389ae414a107aa159fc965fe19e4b42e98",
+            "downloadSha256": "e7d6d3118ea3c1c2b203ccce560607389ae414a107aa159fc965fe19e4b42e98",
+            "byteIdentical": true
+          }
+        ]
+      },
+      "audit": {
+        "kind": "explain",
+        "project": "3a4381dc-3703-458b-950e-9dd16ddd65c7",
+        "activeAudio": [
+          {
+            "title": "owned-new-melody.wav",
+            "storedSha256": "c4643e47b285b4ff2cb707389b1fd2a487ff27aff9ab5ee6e4208ddb3a666de2",
+            "start": 0,
+            "offset": 0,
+            "volume": 0.18,
+            "duration": 3.0625
+          },
+          {
+            "title": "explain-zh.wav",
+            "storedSha256": "97d7ce3783f101182b242da5adbd5005dc22eaa913c1ea54066b5eab2bbd375f",
+            "start": 0,
+            "offset": 0,
+            "volume": 1,
+            "duration": null
+          }
+        ],
+        "zipMatchesSavedTimeline": true,
+        "aacDecodedLagSamplesAt24k": 0,
+        "actualMixPearson": 0.999732416611137,
+        "actualMixNormalizedRmsError": 0.02330697327852249,
+        "oldVoiceAndMusicNotInActiveMix": true,
+        "oldTakeImmutable": [
+          "sample-explain-image-take",
+          "sample-explain-video-take",
+          "sample-explain-voice-take"
+        ],
+        "sourceChecks": [
+          {
+            "node": "sample-explain-image-node",
+            "sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d",
+            "bytes": 207434
+          },
+          {
+            "node": "sample-explain-video-node",
+            "sha256": "9ac6d993a21af295911cd5c59e5573d1d243b17553d3bd43ddaf45f64b1d862e",
+            "bytes": 279225
+          }
+        ],
+        "historicalOriginalsRetainedInactive": true
+      }
+    },
+    {
+      "kind": "presenter",
+      "projectId": "c6e3bee9-5d76-4efb-a811-279a232f140e",
+      "revision": 29,
+      "filmSha256": "1e5b5bd4943d58d129b5b15c9959a905d7eb2f3e9caa77ae3ed2871b8d70a62e",
+      "actualMP4Probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 384,
+            "r_frame_rate": "16/1"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "r_frame_rate": "0/0"
+          }
+        ],
+        "format": {
+          "duration": "2.645020",
+          "size": "96145"
+        }
+      },
+      "activeClips": [
+        {
+          "node": "sample-presenter-video-node",
+          "take": "d4734568-af74-4869-8958-ed1195ace70c",
+          "media": "d4734568-af74-4869-8958-ed1195ace70c",
+          "caption": "你好，一起看植物。",
+          "muted": true
+        }
+      ],
+      "audioTracks": [
+        {
+          "duration": 2.625,
+          "id": "58215082-1acb-4b9a-bf6d-a9648ff1432c",
+          "mediaId": "d73d5001-66dc-4dd2-9a1e-4624e9396846",
+          "offset": 0,
+          "start": 0,
+          "volume": 0.18
+        },
+        {
+          "id": "d77bb52d-15e7-4e5f-87e2-da25aa2f339c",
+          "mediaId": "2c7ed383-01bb-494b-ab85-54682c3fafb7",
+          "offset": 0,
+          "start": 0,
+          "volume": 1
+        }
+      ],
+      "actualSRT": "1\n00:00:00,000 --> 00:00:02,616\n你好，一起看植物。\n",
+      "zipFiles": [
+        "project.json",
+        "media/0",
+        "media/1",
+        "media/2",
+        "media/3",
+        "media/4",
+        "media/5",
+        "media/6",
+        "media/7",
+        "media/8",
+        "media/9",
+        "media/10",
+        "media/11",
+        "media/12",
+        "media/13",
+        "media/14",
+        "media/15"
+      ],
+      "actualUIPlayedToEnd": true,
+      "actualSrtMp4ZipDownloads": true,
+      "newFLUXOrWanGeneration": false,
+      "derivedLipModelGeneration": true,
+      "storedFilmByteProof": {
+        "kind": "presenter",
+        "projectId": "c6e3bee9-5d76-4efb-a811-279a232f140e",
+        "jobId": "ce3bff65-2ef3-4f27-88ae-1c03817776c3",
+        "files": [
+          {
+            "extension": "mp4",
+            "mediaId": "216ca631-c63b-4172-abe4-b611af89f892",
+            "httpStatus": 200,
+            "bytes": 96145,
+            "sha256": "1e5b5bd4943d58d129b5b15c9959a905d7eb2f3e9caa77ae3ed2871b8d70a62e",
+            "downloadSha256": "1e5b5bd4943d58d129b5b15c9959a905d7eb2f3e9caa77ae3ed2871b8d70a62e",
+            "byteIdentical": true
+          }
+        ]
+      },
+      "audit": {
+        "kind": "presenter",
+        "project": "c6e3bee9-5d76-4efb-a811-279a232f140e",
+        "activeAudio": [
+          {
+            "title": "owned-new-melody.wav",
+            "storedSha256": "c4643e47b285b4ff2cb707389b1fd2a487ff27aff9ab5ee6e4208ddb3a666de2",
+            "start": 0,
+            "offset": 0,
+            "volume": 0.18,
+            "duration": 2.625
+          },
+          {
+            "title": "presenter-zh.wav",
+            "storedSha256": "591989f8e1f349784cfec310d8de9c9b8a5cdd6ab9d220780149fd904c359ea0",
+            "start": 0,
+            "offset": 0,
+            "volume": 1,
+            "duration": null
+          }
+        ],
+        "zipMatchesSavedTimeline": true,
+        "aacDecodedLagSamplesAt24k": 0,
+        "actualMixPearson": 0.9992527626504834,
+        "actualMixNormalizedRmsError": 0.0385705940425396,
+        "oldVoiceAndMusicNotInActiveMix": true,
+        "oldTakeImmutable": [
+          "sample-presenter-image-take",
+          "sample-presenter-video-take",
+          "sample-presenter-lip-take",
+          "ee630aa9-599f-4fa0-b885-fa5fb824375c",
+          "sample-presenter-voice-take",
+          "sample-presenter-padded-voice-take",
+          "aa791e15-1a3c-4fe1-bdb4-3222fe35485f"
+        ],
+        "sourceChecks": [
+          {
+            "node": "sample-presenter-image-node",
+            "sha256": "5e8be593ea5ad0135faeb579ee64c5014907d3fc4745fa980b386227c724d145",
+            "bytes": 301161
+          },
+          {
+            "node": "sample-presenter-video-node",
+            "sha256": "9d40586f43ce127a75bb03697af421602f51fdc5e520c9e6d7e46e69c7e8e9f6",
+            "bytes": 71045
+          }
+        ],
+        "historicalOriginalsRetainedInactive": true
+      }
+    },
+    {
+      "kind": "music",
+      "projectId": "d681909f-a2ab-482c-9f54-eb21bd732086",
+      "revision": 6,
+      "filmSha256": "149d3661b2cb6f75ce67e4722a719e529446584eddc104efa97e971b4346006d",
+      "actualMP4Probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "codec_type": "video",
+            "width": 640,
+            "height": 384,
+            "r_frame_rate": "16/1"
+          },
+          {
+            "codec_name": "aac",
+            "codec_type": "audio",
+            "r_frame_rate": "0/0"
+          }
+        ],
+        "format": {
+          "duration": "3.082520",
+          "size": "351076"
+        }
+      },
+      "activeClips": [
+        {
+          "node": "sample-music-video-node",
+          "take": "sample-music-video-take",
+          "media": "f28a3216-b7b3-44df-979c-f5e760460fd3",
+          "caption": "随风入湖 · 新的旋律",
+          "muted": true
+        }
+      ],
+      "audioTracks": [
+        {
+          "duration": 3.0625,
+          "id": "f31877d3-1763-4deb-a692-0f5da70cd9ce",
+          "mediaId": "e5aa8f94-e3a2-4b17-972e-9fedcfbbefc1",
+          "offset": 0,
+          "start": 4,
+          "volume": 0.65
+        }
+      ],
+      "actualSRT": "1\n00:00:00,000 --> 00:00:03,063\n随风入湖 · 新的旋律\n",
+      "zipFiles": [
+        "project.json",
+        "media/0",
+        "media/1",
+        "media/2",
+        "media/3",
+        "media/4"
+      ],
+      "actualUIPlayedToEnd": true,
+      "actualSrtMp4ZipDownloads": true,
+      "newFLUXOrWanGeneration": false,
+      "derivedLipModelGeneration": false,
+      "storedFilmByteProof": {
+        "kind": "music",
+        "projectId": "d681909f-a2ab-482c-9f54-eb21bd732086",
+        "jobId": "277cf0ec-d191-4fb1-a2d4-fe9d70c49f95",
+        "files": [
+          {
+            "extension": "mp4",
+            "mediaId": "03fb6181-31e9-44a5-8ed4-c53d5ce27c4f",
+            "httpStatus": 200,
+            "bytes": 351076,
+            "sha256": "149d3661b2cb6f75ce67e4722a719e529446584eddc104efa97e971b4346006d",
+            "downloadSha256": "149d3661b2cb6f75ce67e4722a719e529446584eddc104efa97e971b4346006d",
+            "byteIdentical": true
+          }
+        ]
+      },
+      "audit": {
+        "kind": "music",
+        "project": "d681909f-a2ab-482c-9f54-eb21bd732086",
+        "activeAudio": [
+          {
+            "title": "owned-new-melody.wav",
+            "storedSha256": "c4643e47b285b4ff2cb707389b1fd2a487ff27aff9ab5ee6e4208ddb3a666de2",
+            "start": 4,
+            "offset": 0,
+            "volume": 0.65,
+            "duration": 3.0625
+          }
+        ],
+        "zipMatchesSavedTimeline": true,
+        "aacDecodedLagSamplesAt24k": 0,
+        "actualMixPearson": 0.9998587264755351,
+        "actualMixNormalizedRmsError": 0.016818897798657417,
+        "oldVoiceAndMusicNotInActiveMix": true,
+        "oldTakeImmutable": [
+          "sample-music-image-take",
+          "sample-music-video-take"
+        ],
+        "sourceChecks": [
+          {
+            "node": "sample-music-image-node",
+            "sha256": "d414322b8daacaf9d80b7a8bbedcf18ca52c4bcc9089b730c66f0f5d45e1b485",
+            "bytes": 228923
+          },
+          {
+            "node": "sample-music-video-node",
+            "sha256": "49cf70d9e6ac187f955b649c85a266ced3cf4612f098baa903128a6652e3ee82",
+            "bytes": 244869
+          }
+        ],
+        "historicalOriginalsRetainedInactive": true
+      }
+    }
+  ],
+  "interruption": {
+    "projectId": "5f0cc5a2-8d46-4e98-91ae-8f8b490e4fa4",
+    "partialUploaded": [
+      "sample-store-image",
+      "sample-store-music"
+    ],
+    "sameProjectAndMappedMediaResumedAfterReload": true,
+    "inducedFailure": "One actual /studio-examples/store/source.mp4 request aborted after checkpoint; no server data deleted"
+  },
+  "voices": {
+    "method": "Two actual installed Windows CPU SAPI voices; original new utterances preserved",
+    "explain": "Microsoft Huihui Desktop, 根系吸收水分。",
+    "presenter": "Microsoft Kangkang, 你好，一起看植物。"
+  },
+  "music": {
+    "method": "New own CPU additive instrumental composition, not AI music inference",
+    "musicCaseUsesDifferentSectionStartSeconds": 4
+  },
+  "sources": {
+    "product": "Reuse native FLUX/Wan explain growing-pot image/source, actually uploaded as new exact media/Take, no mug crop or mirror",
+    "story": "Reuse native FLUX/Wan music lake/boat first-frame/source, actually uploaded; no fox crop",
+    "presenter": "Independent original FLUX B job47dd9ff2-38c2-4c7f-b4af-6d20a13aeecb; SHA5e8be593ea5ad0135faeb579ee64c5014907d3fc4745fa980b386227c724d145; own CPU silent still carrier explicitly not native video"
+  },
+  "originalManifestMediaIntact": [
+    {
+      "sample": "store",
+      "id": "sample-store-image",
+      "sha256": "e6119e1257a738c6ae44f67320c5cd26b42e812449a3b2793511ed4fd9020945"
+    },
+    {
+      "sample": "store",
+      "id": "sample-store-video",
+      "sha256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b"
+    },
+    {
+      "sample": "store",
+      "id": "sample-store-film",
+      "sha256": "7f67f4ee1a094378f65e38e22f4f18c81fea04a224193a53c1c993844458faa7"
+    },
+    {
+      "sample": "store",
+      "id": "sample-store-music",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb"
+    },
+    {
+      "sample": "product",
+      "id": "sample-product-image",
+      "sha256": "b5c28abf65c3521b1775b1f841fab726371af5da45e5e8307076a84ca18388f4"
+    },
+    {
+      "sample": "product",
+      "id": "sample-product-video",
+      "sha256": "e8fb10d19fdd8d04ce11066b1c205ced966076bc690745113a69c078dee395db"
+    },
+    {
+      "sample": "product",
+      "id": "sample-product-film",
+      "sha256": "37633071084fa9790da0bcb47478c76adf3d32edd150e67c5369ce24b524ccef"
+    },
+    {
+      "sample": "product",
+      "id": "sample-product-music",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb"
+    },
+    {
+      "sample": "story",
+      "id": "sample-story-image",
+      "sha256": "925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a"
+    },
+    {
+      "sample": "story",
+      "id": "sample-story-video",
+      "sha256": "2c6b37132618fe0d058b8e1440ca518129ebf31d18dcec55b6a2f43ea580d593"
+    },
+    {
+      "sample": "story",
+      "id": "sample-story-film",
+      "sha256": "04f04c35e085fec878dc296592726604d54157dad89c98cb922c428ae428886f"
+    },
+    {
+      "sample": "story",
+      "id": "sample-story-music",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb"
+    },
+    {
+      "sample": "explain",
+      "id": "sample-explain-image",
+      "sha256": "79f967123833f4255bb7d8d6e2c1436cb5092a5d0046d9a75eccb0ebe2019e5d"
+    },
+    {
+      "sample": "explain",
+      "id": "sample-explain-video",
+      "sha256": "9ac6d993a21af295911cd5c59e5573d1d243b17553d3bd43ddaf45f64b1d862e"
+    },
+    {
+      "sample": "explain",
+      "id": "sample-explain-film",
+      "sha256": "34a748d912ba375be19867faba5de325bc9fec16a96ea91c947488e738cd64e9"
+    },
+    {
+      "sample": "explain",
+      "id": "sample-explain-music",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb"
+    },
+    {
+      "sample": "explain",
+      "id": "sample-explain-voice",
+      "sha256": "eeeba6e92a80f4e868244abfba54ae9e48c67ccdae4dad3bf541385f339390ed"
+    },
+    {
+      "sample": "presenter",
+      "id": "sample-presenter-image",
+      "sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce"
+    },
+    {
+      "sample": "presenter",
+      "id": "sample-presenter-video",
+      "sha256": "e08c9072e030ddaa12be7f1bc320f3640aac2bbfc96528b10f4608a2d2c3dd90"
+    },
+    {
+      "sample": "presenter",
+      "id": "sample-presenter-film",
+      "sha256": "6d2015d9e71f2cc13a5d3bfd650168e6cb85220f9b2fa527c282bfda2e7862f0"
+    },
+    {
+      "sample": "presenter",
+      "id": "sample-presenter-music",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb"
+    },
+    {
+      "sample": "presenter",
+      "id": "sample-presenter-voice",
+      "sha256": "690e476660ce31fe92f6133aa25fdd40b1154fed94c44f5c01914a420d150e3a"
+    },
+    {
+      "sample": "presenter",
+      "id": "sample-presenter-lip",
+      "sha256": "a5a9e1276254f4200a0e3f77a70046aa8b09c66879d01b14e76a551d1e89e7b2"
+    },
+    {
+      "sample": "presenter",
+      "id": "sample-presenter-voice-padded",
+      "sha256": "df7ce7fc555dc2f0fb8126cf60ada9de73f880255331361bc7d938a055932f2a"
+    },
+    {
+      "sample": "music",
+      "id": "sample-music-image",
+      "sha256": "d414322b8daacaf9d80b7a8bbedcf18ca52c4bcc9089b730c66f0f5d45e1b485"
+    },
+    {
+      "sample": "music",
+      "id": "sample-music-video",
+      "sha256": "49cf70d9e6ac187f955b649c85a266ced3cf4612f098baa903128a6652e3ee82"
+    },
+    {
+      "sample": "music",
+      "id": "sample-music-film",
+      "sha256": "1b0779910eae62354102ec08d06e5cbce97abacf5fb38b1928b29581ae53204f"
+    },
+    {
+      "sample": "music",
+      "id": "sample-music-music",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb"
+    }
+  ],
+  "actualAudioAuditMethod": "Decoded exported AAC compared numerically with exact expected replacement PCM mix, backed by exact ZIP media SHA. This is not a human hearing-quality claim.",
+  "limitations": [
+    "Short real examples only, five3.0625s and presenter2.625s; not15/30s campaigns",
+    "Final full-face articulation visibly improved; native84frames and full original audio verified. Mild smoothing/color seam remains; no commercial-naturalness or phoneme-perfect guarantee",
+    "No human listening-quality or independent real-person tracking claim; decoded actual audio and exactZIP mediaSHA prove replacement routing",
+    "Historical original media and Take prompts intentionally retained inactive inside editableZIP, never rewritten as new inference",
+    "Old authoring descriptions/shot titles/reference asset metadata can remain unless explicitly edited; output replacement acceptance does not claim a global semantic rewrite",
+    "No external publishing, paid service, model download or newFLUX/Wan invocation by this agent"
+  ],
+  "failedLipBeforeFix": {
+    "id": "d2960862-4669-45b4-9bca-51babef72dfc",
+    "status": "failed",
+    "settlementFinal": true,
+    "usedQuota": 0,
+    "error": "media submission returned HTTP400",
+    "rootCausalDiagnosis": "Root fixed plugin1.3.1; actual finalTake6 regression passed after separate face/timing/mux causal repairs. Original failed task retained."
+  },
+  "screenshots": [
+    "store-actual-frame.png",
+    "product-actual-frame.png",
+    "story-actual-frame.png",
+    "explain-actual-frame.png",
+    "presenter-actual-frame.png",
+    "music-actual-frame.png",
+    "store-copy-interrupted.png",
+    "store-copy-resumed.png",
+    "presenter-new-mouth-contact.png"
+  ],
+  "evidenceDirectory": "C:/Users/Administrator/Desktop/git/new-api/output/optimization-20261018/browser-templates-g03-replacement",
+  "at": "2026-10-18T23:17:40.188Z",
+  "presenterFinal": {
+    "modelJobId": "068f205d-5f87-40b7-8256-3169064a6eba",
+    "requestId": "21d458e2-5056-4f88-abf1-2e6e76a32885",
+    "upstreamTaskId": "task_DwCaE4yMHMFu6Z4GnybJgljWE1d9HDv4",
+    "status": "succeeded",
+    "settlementFinal": true,
+    "usedQuota": 0,
+    "exactNativeTake": {
+      "createdAt": "2026-10-18T23:05:06.52388455Z",
+      "id": "d4734568-af74-4869-8958-ed1195ace70c",
+      "mediaId": "d4734568-af74-4869-8958-ed1195ace70c",
+      "model": "studio-lip-sync",
+      "prompt": "你好，一起看植物。",
+      "requestSnapshot": "{\"edit\":{\"start\":0,\"end\":2.6161,\"x\":220,\"y\":35,\"width\":215,\"height\":250,\"rotation\":0,\"speed\":0},\"media_id\":\"\",\"model\":\"studio-lip-sync\",\"group\":\"\",\"language\":\"zh\",\"action\":\"lip_sync\",\"node_id\":\"sample-presenter-video-node\",\"prompt\":\"你好，一起看植物。\",\"seconds\":2.6161,\"reference_media_ids\":[\"367ce98e-2636-4c3f-9674-fb511abcaa28\",\"2c7ed383-01bb-494b-ab85-54682c3fafb7\"],\"voice_id\":\"default\",\"options\":{\"lip_audio_start\":0,\"expression\":0}}",
+      "status": "completed",
+      "taskId": "task_DwCaE4yMHMFu6Z4GnybJgljWE1d9HDv4"
+    },
+    "nativeSha256": "9d40586f43ce127a75bb03697af421602f51fdc5e520c9e6d7e46e69c7e8e9f6",
+    "nativeBytes": 71045,
+    "fullFaceSourceROI": {
+      "x": 220,
+      "y": 35,
+      "width": 215,
+      "height": 250
+    },
+    "selectedVideoIntervalSeconds": [
+      0,
+      2.6161
+    ],
+    "originalVoiceMediaId": "2c7ed383-01bb-494b-ab85-54682c3fafb7",
+    "realWorkerTiming": {
+      "policy": "complete-last-feature-window-v1",
+      "fps": 32,
+      "frame_count": 84,
+      "dialogue_samples": 41858,
+      "feature_samples": 42000,
+      "feature_padding_samples": 142,
+      "sample_rate": 16000,
+      "mux_policy": "preserve-inferred-last-frame-v1",
+      "output_frames": 84,
+      "video_seconds": 2.625,
+      "audio_seconds": 2.616125,
+      "container_seconds": 2.625,
+      "face_geometry": {
+        "crop": [
+          220,
+          35,
+          435,
+          285
+        ],
+        "center": [
+          107,
+          175
+        ],
+        "axes": [
+          58,
+          32
+        ],
+        "source": "reviewed-full-face-region"
+      }
+    },
+    "outputFrameAudioDifferenceSeconds": 0.008875000000000188,
+    "actualUIPreview": {
+      "clock": 2.62,
+      "duration": 2.625
+    },
+    "actualUIRender": {
+      "id": "ce3bff65-2ef3-4f27-88ae-1c03817776c3",
+      "requestId": "83b69d51-8315-462c-a0cc-1f9a82ac2638",
+      "status": "succeeded",
+      "settlementFinal": true,
+      "usedQuota": 0,
+      "mediaId": "216ca631-c63b-4172-abe4-b611af89f892",
+      "exactTakeId": "d4734568-af74-4869-8958-ed1195ace70c",
+      "fps": 16,
+      "duration": 2.625
+    },
+    "priorTakesAllUnchanged": [
+      {
+        "id": "sample-presenter-video-take",
+        "mediaId": "5bebc126-93e6-40e9-9a69-a7c8607f46a3",
+        "unchanged": true
+      },
+      {
+        "id": "sample-presenter-lip-take",
+        "mediaId": "4d9393fe-5892-431c-bab4-0a50747efdff",
+        "unchanged": true
+      },
+      {
+        "id": "ee630aa9-599f-4fa0-b885-fa5fb824375c",
+        "mediaId": "6e201b7d-7ed7-4029-9d00-b384fe8380ad",
+        "unchanged": true
+      },
+      {
+        "id": "262eb2de-f1ef-4ebc-bbf4-5b83fac0081f",
+        "mediaId": "262eb2de-f1ef-4ebc-bbf4-5b83fac0081f",
+        "unchanged": true
+      },
+      {
+        "id": "fa98cb08-a632-4b39-9c8a-26d0c29fdd15",
+        "mediaId": "aebcb8e9-2695-4b66-8831-65025cc2b301",
+        "unchanged": true
+      }
+    ],
+    "actualVisualReview": "Reviewed original full-frame B image, model native video frame sheets and28timepoints. Final full-face result visibly opens/closes/articulates and closes toward tail, replacing prior almost-closed smile. Glasses/identity/body/background retained. Mild local smoothing/color seam remains; short draft acceptance does not establish commercial or phoneme-perfect naturalness.",
+    "evidence": [
+      "presenter-new-mouth-contact.png",
+      "presenter-native-face-lip-probe.json",
+      "presenter-final-whole-face-lip-timing.json",
+      "presenter-face-final-export-result.json",
+      "presenter-actual-frame.png"
+    ]
+  },
+  "causalProgression": [
+    {
+      "job": "d2960862-4669-45b4-9bca-51babef72dfc",
+      "result": "failed HTTP400 before output",
+      "cause": "Built-in plugin omitted supported lip_audio_start option",
+      "resolution": "Root plugin1.3.1 and realREADY5 regression; original failed task retained"
+    },
+    {
+      "job": "fefee0fa-a0c3-4b99-b01f-6343a65a3166",
+      "result": "automatic frontal confidence conservatively rejected",
+      "resolution": "Actual same-B user-reviewed manualROI; not falsely counted as an output"
+    },
+    {
+      "job": "81bd2dc0-ff63-4dca-a345-b33d74a8972b",
+      "result": "speech features do not cover interval",
+      "cause": "Floor feature chunks83 vs84 selected source frames",
+      "resolution": "Feature-only142zeros; original41858 dialogue samples and full2.6161s selection unchanged"
+    },
+    {
+      "job": "2dbf4b1a-ddb7-43c0-9e91-4587fedcc3bb",
+      "result": "model succeeded but native mux83frames and weak articulation found by actual review",
+      "cause": "Mux-t/-shortest dropped last inferred frame; detector picked55px nose/mouth crop rather than reviewed full face",
+      "resolution": "CPU84frame Take5 preserved, then one explicitly authorized same-B/same-voice/same-ROI full-face true inference"
+    },
+    {
+      "job": "068f205d-5f87-40b7-8256-3169064a6eba",
+      "result": "full-face Take6 succeeded84frames with complete original audio and visible articulation",
+      "resolution": "Actual UI selected exactTake6, played and exported MP4/SRT/editableZIP; all prior failed/weak versions retained unchanged"
+    }
+  ],
+  "preservedWeakHistory": {
+    "modelTake4": "262eb2de-f1ef-4ebc-bbf4-5b83fac0081f",
+    "cpuMuxTake5": "fa98cb08-a632-4b39-9c8a-26d0c29fdd15",
+    "priorNativeSha256": "677b0d629d2b06d4d59842efef4a4848f4df61c4e56705a171f840d71db3572b",
+    "priorFilmSha256": "ef2fc5571baa40f690c67b604e0b161a7f4de7586f7cd3cbae2abc6e17c86584",
+    "artifactsPrefix": "presenter-before-face-fix"
+  },
+  "activeMixAllMatchesNewOwnedSources": true,
+  "actualMixCorrelationByCase": [
+    {
+      "kind": "store",
+      "correlation": 0.9998684337813764
+    },
+    {
+      "kind": "product",
+      "correlation": 0.9998705506406804
+    },
+    {
+      "kind": "story",
+      "correlation": 0.9998705506406804
+    },
+    {
+      "kind": "explain",
+      "correlation": 0.999732416611137
+    },
+    {
+      "kind": "presenter",
+      "correlation": 0.9992527626504834
+    },
+    {
+      "kind": "music",
+      "correlation": 0.9998587264755351
+    }
+  ],
+  "verificationCorrection": "Normal UI Project actions > Backup project exports editable backup, not render.result.package_media_id delivery package. Initial byte equality assumption for those distinct ZIP artifacts was invalid; retained harness error is superseded by active-content-audit.json content/media-SHA verification."
+}

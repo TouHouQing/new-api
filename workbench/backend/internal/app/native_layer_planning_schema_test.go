@@ -16,7 +16,7 @@ func TestNativeLayerPlanningSealsLocalSchemaAndKeepsOldUnformattedReceiptsStable
 	if err != nil || plan.ResponseSchema != "image-layer-plan-v1" {
 		t.Fatal("new local planning did not seal its output contract", err)
 	}
-	working := canvasGenerationInput{Mode: "text", Config: providerConfig{InterfaceType: protocol.LocalText}, Metadata: input["metadata"].(map[string]any), TextOptions: canvasTextOptions{Thinking: true}}
+	working := canvasGenerationInput{Mode: "text", Config: providerConfig{InterfaceType: protocol.LocalText}, Metadata: input["metadata"].(map[string]any), TextOptions: canvasTextOptions{ThinkingLevel: "medium"}}
 	request := protocolRequestFromInput(working)
 	if request.Extra["response_format"] == nil || request.Extra["think"] != false {
 		t.Fatal("structured format was not delivered to local text transport")

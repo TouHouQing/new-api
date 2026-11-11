@@ -11,7 +11,7 @@ export function getAgentHistory(canvasId: string, cursor?: string, signal?: Abor
 export function restoreAgentRun(runId: string, signal?: AbortSignal) {
     return http.get<{ run: AgentRun; prompt: string }>(`/agent/runs/${encodeURIComponent(runId)}/restore`, { signal });
 }
-export type AgentReasoningMode = "off" | "auto" | "deep";
+export type AgentReasoningMode = import("@/lib/text-thinking").ThinkingRequest;
 export type AgentMediaSettings = {
     logicalModelId?: string;
     channelId?: string;
@@ -43,7 +43,22 @@ export type AgentProfileView = {
 };
 
 export type AgentApprovalPreviewOperation =
-    "add_node" | "update_node" | "connect_nodes" | "arrange_nodes" | "generate_media" | "create_storyboard" | "edit_storyboard" | "create_character" | "plan_step" | "split" | "crop" | "resize" | "production_action" | "adopt_drama_media";
+    | "add_node"
+    | "update_node"
+    | "connect_nodes"
+    | "arrange_nodes"
+    | "generate_media"
+    | "generate_media_item"
+    | "build_board"
+    | "create_storyboard"
+    | "edit_storyboard"
+    | "create_character"
+    | "plan_step"
+    | "split"
+    | "crop"
+    | "resize"
+    | "production_action"
+    | "adopt_drama_media";
 
 export type AgentApprovalPreviewItem = {
     operation: AgentApprovalPreviewOperation;
@@ -196,7 +211,16 @@ export function withdrawAgentInterjection(runId: string, messageId: string) {
 }
 
 export function getAgentCapabilities() {
-    return http.get<{ version: number; permissionModes: AgentPermissionMode[]; contextScopes: string[]; skills: boolean; writeTools: boolean; capabilitySetVersion?: string; capabilitySetHash?: string; nodeTypes?: string[] }>("/agent/capabilities", {
+    return http.get<{
+        version: number;
+        permissionModes: AgentPermissionMode[];
+        contextScopes: string[];
+        skills: boolean;
+        writeTools: boolean;
+        capabilitySetVersion?: string;
+        capabilitySetHash?: string;
+        nodeTypes?: string[];
+    }>("/agent/capabilities", {
         timeout: 15_000,
     });
 }
@@ -248,7 +272,12 @@ export async function decideAgentApproval(runId: string, approvalId: string, dec
 export function subscribeAgentEvents(
     runId: string,
     onEvent: (event: AgentEvent) => void,
-    options: { after?: number; onError?: (error: unknown) => void; onConnectionChange?: (status: "connecting" | "connected" | "reconnecting" | "disconnected") => void; timeoutMs?: number } = {},
+    options: {
+        after?: number;
+        onError?: (error: unknown) => void;
+        onConnectionChange?: (status: "connecting" | "connected" | "reconnecting" | "disconnected") => void;
+        timeoutMs?: number;
+    } = {},
 ) {
     const controller = new AbortController();
     let localSeq = 0;

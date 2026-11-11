@@ -1,0 +1,51 @@
+{
+  "key": "composite-recipe-story",
+  "status": "completed",
+  "operation": "controlled_image_edit",
+  "engine": "FFmpeg",
+  "operation_id": "edit-4e09cc60b88eb982170249a7",
+  "adapter_id": null,
+  "submitted_at": 1792316197.264235,
+  "request": {
+    "model": "ffmpeg-image-edit",
+    "prompt": "A controlled gentle pan establishes the original FLUX storybook fox and lantern without deforming its design. A glitched native Wan attempt is rejected, not certified.",
+    "size": "640x384",
+    "metadata": {
+      "frames": 49,
+      "fps": 16
+    }
+  },
+  "source_image_adapter_id": "image-c29d85f2e2446ef6375ab04140d99566",
+  "source_image_sha256": "925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a",
+  "source_image_seed": 182001,
+  "command": [
+    "C:\\Users\\Administrator\\.cache\\codex-studio-toolchains\\ffmpeg\\ffmpeg-9.0.2-essentials_build\\bin\\ffmpeg.exe",
+    "-nostdin",
+    "-v",
+    "error",
+    "-y",
+    "-loop",
+    "1",
+    "-i",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-story.png",
+    "-vf",
+    "scale=1280:768:force_original_aspect_ratio=increase,crop=1280:768,zoompan=z=1.06:x='iw/2-iw/zoom/2+20*on/48':y='ih/2-ih/zoom/2':d=49:s=640x384:fps=16",
+    "-r",
+    "16",
+    "-frames:v",
+    "49",
+    "-an",
+    "-c:v",
+    "libx264",
+    "-crf",
+    "20",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\composite-recipe-story.mp4"
+  ],
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\composite-recipe-story.mp4",
+  "output_sha256": "4e09cc60b88eb982170249a7776c4e62452b3fcadaad1d8e7ba52f1d0d4bda30",
+  "output_bytes": 134281
+}

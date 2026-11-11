@@ -1,0 +1,48 @@
+{
+  "engine": "Installed offline Whisper Small CPU; actual generated audio transcribed",
+  "transcription": {
+    "text": " Plants need light.",
+    "language": "en",
+    "duration": 1.32075,
+    "segments": [
+      {
+        "id": 0,
+        "start": 0,
+        "end": 0.92,
+        "text": " Plants need light.",
+        "avg_logprob": -0.38549141958355904,
+        "no_speech_prob": 0.009806830435991287
+      }
+    ],
+    "words": [
+      {
+        "start": 0.0,
+        "end": 0.48,
+        "text": " Plants",
+        "confidence": 0.9426282048225403
+      },
+      {
+        "start": 0.48,
+        "end": 0.64,
+        "text": " need",
+        "confidence": 0.9782323837280273
+      },
+      {
+        "start": 0.64,
+        "end": 0.92,
+        "text": " light.",
+        "confidence": 0.990116536617279
+      }
+    ]
+  },
+  "signal": {
+    "sample_rate": 24000,
+    "frames": 31698,
+    "channels": 1,
+    "sample_width": 2,
+    "seconds": 1.32075,
+    "peak": 26343,
+    "rms": 3951.1526257686014,
+    "clipped_samples": 0
+  }
+}

@@ -29,7 +29,7 @@ func TestMySQLNativeFullSchemaAndRestart(t *testing.T) {
 		t.Fatal(err)
 	}
 	tables, err := db.Migrator().GetTables()
-	if err != nil || len(tables) != 146 {
+	if err != nil || len(tables) != 163 {
 		t.Fatal("native table count", len(tables), err)
 	}
 	unit := model.ProjectUnit{ID: "mysql-clock-and-long-text", ProjectID: "mysql-database-fixture", Title: "真实MySQL软件合同", Kind: "chapter", SourceText: strings.Repeat("多语言原文🙂", 18000), CreatedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}

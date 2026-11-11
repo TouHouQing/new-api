@@ -70,7 +70,7 @@ func TestLocalAgentLostResponseRecoversOnlyOriginalToolsAndUsage(t *testing.T) {
 		}
 	}
 	ctx := context.WithValue(context.Background(), providerSubmissionKeyContext{}, "native-agent-step")
-	input := canvasGenerationInput{Mode: "text", Config: providerConfig{BaseURL: server.URL, InterfaceType: protocol.LocalText, Model: "qwen3.5:9b", CapabilityConfig: &ModelCapabilityConfig{Text: &TextCapabilityConfig{ContextWindowTokens: 32768, MaxOutputTokens: 2048}}}, TextOptions: canvasTextOptions{Thinking: true, MaxOutputTokens: 512}, AgentRequests: &agentToolRequests{ChatCompletion: map[string]any{"messages": []any{map[string]any{"role": "user", "content": "Inspect"}}, "tool_choice": "auto"}}}
+	input := canvasGenerationInput{Mode: "text", Config: providerConfig{BaseURL: server.URL, InterfaceType: protocol.LocalText, Model: "qwen3.5:9b", CapabilityConfig: &ModelCapabilityConfig{Text: &TextCapabilityConfig{ContextWindowTokens: 32768, MaxOutputTokens: 2048}}}, TextOptions: canvasTextOptions{ThinkingLevel: "medium", MaxOutputTokens: 512}, AgentRequests: &agentToolRequests{ChatCompletion: map[string]any{"messages": []any{map[string]any{"role": "user", "content": "Inspect"}}, "tool_choice": "auto"}}}
 	result, err := runDeclarativeAgentTask(ctx, input, adapter)
 	if err != nil {
 		t.Fatal(err)
@@ -121,7 +121,7 @@ func TestLocalAgentReadOnlyCanInspectModelsWithoutGenerationAuthority(t *testing
 }
 
 func TestLocalPlainTextUsesSameAdministratorContextContract(t *testing.T) {
-	input := canvasGenerationInput{Mode: "text", Prompt: "write", Config: providerConfig{InterfaceType: protocol.LocalText, Model: "qwen3.5:9b", CapabilityConfig: &ModelCapabilityConfig{Text: &TextCapabilityConfig{ContextWindowTokens: 32768}}}, TextOptions: canvasTextOptions{Thinking: true}, MaxOutputTokens: 2048}
+	input := canvasGenerationInput{Mode: "text", Prompt: "write", Config: providerConfig{InterfaceType: protocol.LocalText, Model: "qwen3.5:9b", CapabilityConfig: &ModelCapabilityConfig{Text: &TextCapabilityConfig{ContextWindowTokens: 32768}}}, TextOptions: canvasTextOptions{ThinkingLevel: "medium"}, MaxOutputTokens: 2048}
 	request := protocolRequestFromInput(input)
 	request.Extra["idempotencyKey"] = "plain-local"
 	var adapter protocol.Adapter

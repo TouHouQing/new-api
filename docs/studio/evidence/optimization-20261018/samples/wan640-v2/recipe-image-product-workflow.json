@@ -1,0 +1,173 @@
+{
+  "prompt_id": "030816cc-eb58-4b71-b5dd-25f3f57ca9b0",
+  "graph": {
+    "9": {
+      "inputs": {
+        "filename_prefix": "studio/image-53c9e3e65776e241a8d011c9bbfec63f",
+        "images": [
+          "65",
+          0
+        ]
+      },
+      "class_type": "SaveImage",
+      "_meta": {
+        "title": "保存图像"
+      }
+    },
+    "62": {
+      "inputs": {
+        "clip_name": "qwen_3_4b.safetensors",
+        "type": "flux2",
+        "device": "cpu"
+      },
+      "class_type": "CLIPLoader",
+      "_meta": {
+        "title": "加载CLIP"
+      }
+    },
+    "63": {
+      "inputs": {
+        "vae_name": "flux2-vae.safetensors"
+      },
+      "class_type": "VAELoader",
+      "_meta": {
+        "title": "加载VAE"
+      }
+    },
+    "65": {
+      "inputs": {
+        "samples": [
+          "70",
+          0
+        ],
+        "vae": [
+          "63",
+          0
+        ]
+      },
+      "class_type": "VAEDecode",
+      "_meta": {
+        "title": "VAE解码"
+      }
+    },
+    "66": {
+      "inputs": {
+        "unet_name": "flux-2-klein-4b-fp8.safetensors",
+        "weight_dtype": "default"
+      },
+      "class_type": "UNETLoader",
+      "_meta": {
+        "title": "UNet加载器"
+      }
+    },
+    "67": {
+      "inputs": {
+        "text": "A ceramic blue travel mug with a fitted lid on a clean light gray studio table, warm softbox lighting, centered product, realistic material, no brand or letters.",
+        "clip": [
+          "62",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP文本编码"
+      }
+    },
+    "68": {
+      "inputs": {
+        "width": 512,
+        "height": 320,
+        "batch_size": 1
+      },
+      "class_type": "EmptySD3LatentImage",
+      "_meta": {
+        "title": "空Latent图像（SD3）"
+      }
+    },
+    "69": {
+      "inputs": {
+        "shift": 3.0,
+        "sampling": "flow",
+        "model": [
+          "66",
+          0
+        ]
+      },
+      "class_type": "ModelSamplingAuraFlow",
+      "_meta": {
+        "title": "采样算法（AuraFlow）"
+      }
+    },
+    "70": {
+      "inputs": {
+        "seed": 182000,
+        "steps": 8,
+        "cfg": 1.0,
+        "sampler_name": "res_multistep",
+        "scheduler": "simple",
+        "denoise": 1.0,
+        "model": [
+          "69",
+          0
+        ],
+        "positive": [
+          "67",
+          0
+        ],
+        "negative": [
+          "71",
+          0
+        ],
+        "latent_image": [
+          "68",
+          0
+        ]
+      },
+      "class_type": "KSampler",
+      "_meta": {
+        "title": "K采样器"
+      }
+    },
+    "71": {
+      "inputs": {
+        "text": "",
+        "clip": [
+          "62",
+          0
+        ]
+      },
+      "class_type": "CLIPTextEncode",
+      "_meta": {
+        "title": "CLIP文本编码"
+      }
+    }
+  },
+  "status": {
+    "status_str": "success",
+    "completed": true,
+    "messages": [
+      [
+        "execution_start",
+        {
+          "prompt_id": "030816cc-eb58-4b71-b5dd-25f3f57ca9b0",
+          "timestamp": 1792313101014
+        }
+      ],
+      [
+        "execution_cached",
+        {
+          "nodes": [],
+          "prompt_id": "030816cc-eb58-4b71-b5dd-25f3f57ca9b0",
+          "timestamp": 1792313101015
+        }
+      ],
+      [
+        "execution_success",
+        {
+          "prompt_id": "030816cc-eb58-4b71-b5dd-25f3f57ca9b0",
+          "timestamp": 1792313135039
+        }
+      ]
+    ]
+  }
+}

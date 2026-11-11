@@ -21,7 +21,26 @@ describe("editor command registry (golden file)", () => {
 
     test("knownOps lists all golden ops", () => {
         expect(createEditorCommandRegistry().knownOps().sort()).toEqual(
-            ["setOutput", "addGraphic", "setGraphic", "addClip", "addSubtitle", "moveClip", "rebuildSubtitleClips", "removeClip", "removeSubtitle", "setClipProperty", "splitClip", "setClipPlaybackRate", "setAudioLink", "setCaptionLink", "trimClip", "addTrack", "removeTrack", "setTrackFlag"].sort(),
+            [
+                "setOutput",
+                "addGraphic",
+                "setGraphic",
+                "addClip",
+                "addSubtitle",
+                "moveClip",
+                "rebuildSubtitleClips",
+                "removeClip",
+                "removeSubtitle",
+                "setClipProperty",
+                "splitClip",
+                "setClipPlaybackRate",
+                "setAudioLink",
+                "setCaptionLink",
+                "trimClip",
+                "addTrack",
+                "removeTrack",
+                "setTrackFlag",
+            ].sort(),
         );
     });
 });
@@ -195,9 +214,7 @@ describe("editor command registry (removeTrack)", () => {
     });
 
     test("rejects an unknown track id", () => {
-        expect(() =>
-            registry.apply(golden.base, { op: "removeTrack", payload: { trackId: "no-such-track" } }),
-        ).toThrow(/track/);
+        expect(() => registry.apply(golden.base, { op: "removeTrack", payload: { trackId: "no-such-track" } })).toThrow(/track/);
     });
 });
 
@@ -230,14 +247,8 @@ describe("editor command registry (setTrackFlag)", () => {
     });
 
     test("rejects unknown track, unknown flag, and non-boolean value", () => {
-        expect(() =>
-            registry.apply(golden.base, { op: "setTrackFlag", payload: { trackId: "no-such-track", flag: "visible", value: false } }),
-        ).toThrow(/track/);
-        expect(() =>
-            registry.apply(golden.base, { op: "setTrackFlag", payload: { trackId: golden.base.tracks[0].id, flag: "locked", value: true } }),
-        ).toThrow(/flag/);
-        expect(() =>
-            registry.apply(golden.base, { op: "setTrackFlag", payload: { trackId: golden.base.tracks[0].id, flag: "visible", value: "on" } }),
-        ).toThrow(/boolean/);
+        expect(() => registry.apply(golden.base, { op: "setTrackFlag", payload: { trackId: "no-such-track", flag: "visible", value: false } })).toThrow(/track/);
+        expect(() => registry.apply(golden.base, { op: "setTrackFlag", payload: { trackId: golden.base.tracks[0].id, flag: "locked", value: true } })).toThrow(/flag/);
+        expect(() => registry.apply(golden.base, { op: "setTrackFlag", payload: { trackId: golden.base.tracks[0].id, flag: "visible", value: "on" } })).toThrow(/boolean/);
     });
 });

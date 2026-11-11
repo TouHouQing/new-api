@@ -30,7 +30,10 @@ export function useCanvasImageLayerMaterials({ projectId, enabled, nodes, nodesR
                 // Transport/UI feedback must never overwrite the durable server
                 // marker. The worker may have completed after this browser lost
                 // its reply or while a local canvas rebase is still pending.
-                setFeedback((current) => ({ ...current, [root.id]: { loading: false, error: error instanceof Error ? error.message : "独立素材另存未完成，请稍后重试" } }));
+                setFeedback((current) => ({
+                    ...current,
+                    [root.id]: { loading: false, error: error instanceof Error ? error.message : "独立素材另存未完成，请稍后重试" },
+                }));
             } finally {
                 if (jobs.current.get(root.id) === controller) jobs.current.delete(root.id);
             }

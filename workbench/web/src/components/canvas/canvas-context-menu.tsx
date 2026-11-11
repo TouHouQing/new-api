@@ -31,7 +31,7 @@ import {
 } from "lucide-react";
 
 import { CanvasCreateMenu, type CanvasCreateCommand } from "@/components/canvas/canvas-create-menu";
-import { ASSET_CATEGORY_OPTIONS } from "@/lib/asset-category";
+import { ASSET_ASSIGNABLE_CATEGORY_OPTIONS } from "@/lib/asset-category";
 import { aceternityMotion } from "@/lib/aceternity-motion";
 import { SpotlightSurface } from "@/components/ui/aceternity/spotlight-surface";
 import { canvasThemes } from "@/lib/canvas-theme";
@@ -46,7 +46,7 @@ import { CanvasNodeType, type CanvasNodeData, type CanvasNodeTypeId, type Canvas
 
 type CanvasAssetCategory = NonNullable<NonNullable<CanvasNodeData["metadata"]>["assetCategory"]>;
 
-const assetCategoryOptions: Array<{ value: CanvasAssetCategory; label: string }> = ASSET_CATEGORY_OPTIONS;
+const assetCategoryOptions: Array<{ value: CanvasAssetCategory; label: string }> = ASSET_ASSIGNABLE_CATEGORY_OPTIONS;
 
 type CanvasNodeContextMenuProps = {
     menu: ContextMenuState;
@@ -65,6 +65,7 @@ type CanvasNodeContextMenuProps = {
     onUpload: () => void;
     onOpenAssets: () => void;
     onOpenProjectCharacters: () => void;
+    onOpenPoseLibrary?: () => void;
     onUndo: () => void;
     onRedo: () => void;
     onPaste: () => void;
@@ -114,6 +115,7 @@ export function CanvasNodeContextMenu({
     onUpload,
     onOpenAssets,
     onOpenProjectCharacters,
+    onOpenPoseLibrary,
     onUndo,
     onRedo,
     onPaste,
@@ -220,7 +222,15 @@ export function CanvasNodeContextMenu({
                 transition={{ duration: aceternityMotion.duration.instant, ease: aceternityMotion.easing.enter }}
                 className="aceternity-floating-panel fixed z-[var(--z-popover)] flex w-[224px] max-h-[calc(100vh-56px)] origin-top-left flex-col overflow-hidden rounded-[var(--r-lg)] border p-1.5 backdrop-blur-2xl backdrop-saturate-150"
                 style={
-                    { left: position.left, top: position.top, background: theme.spatial.elevated, borderColor: theme.toolbar.border, color: theme.node.text, "--menu-hover": theme.toolbar.itemHover, "--tw-ring-color": theme.node.muted } as CSSProperties
+                    {
+                        left: position.left,
+                        top: position.top,
+                        background: theme.spatial.elevated,
+                        borderColor: theme.toolbar.border,
+                        color: theme.node.text,
+                        "--menu-hover": theme.toolbar.itemHover,
+                        "--tw-ring-color": theme.node.muted,
+                    } as CSSProperties
                 }
                 onContextMenu={(event) => event.preventDefault()}
                 onPointerDown={(event) => event.stopPropagation()}
@@ -347,6 +357,7 @@ export function CanvasNodeContextMenu({
                         onUpload={() => runAction(onUpload)}
                         onOpenAssets={() => runAction(onOpenAssets)}
                         onOpenProjectCharacters={() => runAction(onOpenProjectCharacters)}
+                        onOpenPoseLibrary={onOpenPoseLibrary ? () => runAction(onOpenPoseLibrary) : undefined}
                     />
                 ) : null}
             </AnimatePresence>
@@ -365,6 +376,7 @@ function AddNodeContextMenu({
     onUpload,
     onOpenAssets,
     onOpenProjectCharacters,
+    onOpenPoseLibrary,
 }: {
     parentPosition: { left: number; top: number };
     workspaceMode: CanvasWorkspaceMode;
@@ -376,6 +388,7 @@ function AddNodeContextMenu({
     onUpload: () => void;
     onOpenAssets: () => void;
     onOpenProjectCharacters: () => void;
+    onOpenPoseLibrary?: () => void;
 }) {
     const theme = canvasThemes[useActiveTheme()];
     const installations = usePluginStore((state) => state.installations);
@@ -401,6 +414,7 @@ function AddNodeContextMenu({
             onUpload,
             onOpenMyAssets: onOpenAssets,
             onOpenProjectCharacters,
+            onOpenPoseLibrary,
         },
     };
     const commands: CanvasCreateCommand[] = resolveAddNodeMenuCommands(createContext).map((command) => ({
@@ -491,7 +505,13 @@ function MenuButton({
         <button
             type="button"
             className={`canvas-menu-item group flex w-full items-center gap-2.5 rounded-[var(--r-md)] px-2 text-left outline-none enabled:hover:bg-[var(--menu-item-hover)] focus-visible:ring-2 disabled:cursor-not-allowed disabled:opacity-40 ${detail ? "min-h-11 py-1.5" : "h-8"}`}
-            style={{ color, background: active ? theme.toolbar.activeBg : undefined, "--menu-item-hover": danger ? `${theme.accent.danger}1a` : "var(--menu-hover)" } as CSSProperties}
+            style={
+                {
+                    color,
+                    background: active ? theme.toolbar.activeBg : undefined,
+                    "--menu-item-hover": danger ? `${theme.accent.danger}1a` : "var(--menu-hover)",
+                } as CSSProperties
+            }
             disabled={disabled}
             onClick={onClick}
         >

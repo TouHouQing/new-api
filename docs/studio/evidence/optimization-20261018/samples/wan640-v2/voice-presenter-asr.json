@@ -1,0 +1,54 @@
+{
+  "engine": "Installed offline Whisper Small CPU; actual generated audio transcribed",
+  "transcription": {
+    "text": " Let's help plants grow.",
+    "language": "en",
+    "duration": 1.2713125,
+    "segments": [
+      {
+        "id": 0,
+        "start": 0,
+        "end": 0.96,
+        "text": " Let's help plants grow.",
+        "avg_logprob": -0.3262554274664985,
+        "no_speech_prob": 0.0029370142146945
+      }
+    ],
+    "words": [
+      {
+        "start": 0.0,
+        "end": 0.32,
+        "text": " Let's",
+        "confidence": 0.9481054246425629
+      },
+      {
+        "start": 0.32,
+        "end": 0.42,
+        "text": " help",
+        "confidence": 0.9122164249420166
+      },
+      {
+        "start": 0.42,
+        "end": 0.66,
+        "text": " plants",
+        "confidence": 0.9981827735900879
+      },
+      {
+        "start": 0.66,
+        "end": 0.96,
+        "text": " grow.",
+        "confidence": 0.997261643409729
+      }
+    ]
+  },
+  "signal": {
+    "sample_rate": 24000,
+    "frames": 30511,
+    "channels": 1,
+    "sample_width": 2,
+    "seconds": 1.2712916666666667,
+    "peak": 27952,
+    "rms": 4253.207718683182,
+    "clipped_samples": 0
+  }
+}

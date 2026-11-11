@@ -7,13 +7,7 @@
 import { create, type StoreApi, type UseBoundStore } from "zustand";
 
 import type { TimelineProject } from "@/types/timeline";
-import {
-    createEditorHistory,
-    pushEditorHistory,
-    redoEditorHistory,
-    undoEditorHistory,
-    type EditorHistory,
-} from "@/lib/timeline/editor-history";
+import { createEditorHistory, pushEditorHistory, redoEditorHistory, undoEditorHistory, type EditorHistory } from "@/lib/timeline/editor-history";
 import { getEditorCommandRegistry, type EditCommand, type EditorCommandRegistry } from "@/lib/timeline/editor-commands";
 
 export type SaveTimeline = (project: TimelineProject) => Promise<void>;
@@ -86,12 +80,11 @@ export function createEditorStore(options: EditorStoreOptions = {}): UseBoundSto
         let saveChain: Promise<void> = Promise.resolve();
         const panelDrafts = new Set<string>();
 
-        const setSaveError = (err: unknown) =>
-            set({ saveError: err instanceof Error ? err.message : String(err) });
+        const setSaveError = (err: unknown) => set({ saveError: err instanceof Error ? err.message : String(err) });
 
         const committedProject = () => {
             const { project, history, inPreview } = get();
-            return inPreview ? history?.current ?? null : project;
+            return inPreview ? (history?.current ?? null) : project;
         };
 
         const performSave = (): Promise<void> => {
@@ -128,7 +121,8 @@ export function createEditorStore(options: EditorStoreOptions = {}): UseBoundSto
             isDirty: false,
             hasPendingPanelEdits: false,
             setPanelDraftDirty: (key, dirty) => {
-                if (dirty) panelDrafts.add(key); else panelDrafts.delete(key);
+                if (dirty) panelDrafts.add(key);
+                else panelDrafts.delete(key);
                 const pending = panelDrafts.size > 0;
                 if (get().hasPendingPanelEdits !== pending) set({ hasPendingPanelEdits: pending });
             },
@@ -142,7 +136,10 @@ export function createEditorStore(options: EditorStoreOptions = {}): UseBoundSto
             seekRequest: null,
 
             selectClip: (id) => {
-                if (id !== get().selectedClipId && get().hasPendingPanelEdits) { set({ saveError: "请先应用或放弃面板中的修改，再选择其他片段" }); return; }
+                if (id !== get().selectedClipId && get().hasPendingPanelEdits) {
+                    set({ saveError: "请先应用或放弃面板中的修改，再选择其他片段" });
+                    return;
+                }
                 set({ selectedClipId: id });
             },
 
@@ -158,7 +155,19 @@ export function createEditorStore(options: EditorStoreOptions = {}): UseBoundSto
                     clearTimeout(saveTimer);
                     saveTimer = null;
                 }
-                set({ project, history: createEditorHistory(project), inPreview: false, isDirty: false, saving: false, saveError: null, lastSavedAt: null, selectedClipId: null, transportMs: 0, pausePlaybackRequest: get().pausePlaybackRequest + 1, seekRequest: { timeMs: 0 } });
+                set({
+                    project,
+                    history: createEditorHistory(project),
+                    inPreview: false,
+                    isDirty: false,
+                    saving: false,
+                    saveError: null,
+                    lastSavedAt: null,
+                    selectedClipId: null,
+                    transportMs: 0,
+                    pausePlaybackRequest: get().pausePlaybackRequest + 1,
+                    seekRequest: { timeMs: 0 },
+                });
             },
 
             dispatch: (cmd) => {

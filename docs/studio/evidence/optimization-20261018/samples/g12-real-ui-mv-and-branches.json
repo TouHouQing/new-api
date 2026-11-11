@@ -1,0 +1,162 @@
+{
+  "scope": "G12 one real30s visual-concept MV editing exercise and independent15s teaser/30s portrait branches",
+  "spec_sha256": "de0ae87e27cdaed98b592be42360b54a7e9ec4224f6b11cadcbcb65e10ca7d7d",
+  "tested_at": "2026-10-18T11:18:10.179395+00:00",
+  "method": "Fresh isolated Edge context, actual UI login as authorized editor15; imported owned strict editable ZIP; CPU musical-structure analysis; manual beat review; actual program-clock playback; apply; actual render/download; ZIP and FFprobe decode audit. No hidden app-state injection, no new model inference.",
+  "master_named_snapshot": {
+    "revision": 1,
+    "name": "opt18-MV-母版-30秒原始剪辑",
+    "evidence": "output/playwright/narrative-final/50-mv-master-snapshot.txt"
+  },
+  "actual_exports": [
+    {
+      "projectId": "RziT8XoJRc_f-mnUqIubV",
+      "title": "opt18-narrative · 30秒视觉概念练习母版",
+      "file": "output\\playwright\\narrative-final\\visual-concept-30s-ui.mp4",
+      "sha256": "be988582b382334b997f39473047ca99e900cb286bf61b7e3c7f62d19eb4e9ba",
+      "videoSeconds": 30.0,
+      "formatSeconds": 30.02002,
+      "frames": 480,
+      "size": [
+        640,
+        384
+      ],
+      "clips": 20,
+      "uniqueTakes": 11,
+      "sourceMusicSHA256": "10d6a5c95fdd1797759b575ce42eeea7638d014a6eb1691f3b28a10ee84966ca",
+      "originalMusicSHA256": "10d6a5c95fdd1797759b575ce42eeea7638d014a6eb1691f3b28a10ee84966ca",
+      "musicTrack": {
+        "id": "opt18-mv-music-track",
+        "mediaId": "Qvk2Bhb0QRoy8jYlQ4hZk",
+        "start": 0,
+        "offset": 0,
+        "duration": 30,
+        "volume": 0.6
+      },
+      "fit": "letterbox",
+      "allVideoAudioDecoded": true,
+      "nonRepeatingBoundedSourceIntervals": true,
+      "newModelJobs": 0
+    },
+    {
+      "projectId": "np0nXjO2Y72AMwoejZL_w",
+      "title": "opt18-narrative-Teaser-15s",
+      "file": "output\\playwright\\narrative-final\\visual-concept-teaser-15s-ui.mp4",
+      "sha256": "19bbc77744a9e3964778be1d7761acda4b00849d83a5ac75d940313881387a0c",
+      "videoSeconds": 15.0,
+      "formatSeconds": 15.02002,
+      "frames": 240,
+      "size": [
+        640,
+        384
+      ],
+      "clips": 10,
+      "uniqueTakes": 10,
+      "sourceMusicSHA256": "10d6a5c95fdd1797759b575ce42eeea7638d014a6eb1691f3b28a10ee84966ca",
+      "originalMusicSHA256": "10d6a5c95fdd1797759b575ce42eeea7638d014a6eb1691f3b28a10ee84966ca",
+      "musicTrack": {
+        "id": "opt18-mv-music-track",
+        "mediaId": "BtaD91O9K4X3zSir1gZO6",
+        "start": 5,
+        "offset": 0,
+        "duration": 15,
+        "volume": 0.6
+      },
+      "fit": "letterbox",
+      "allVideoAudioDecoded": true,
+      "nonRepeatingBoundedSourceIntervals": true,
+      "newModelJobs": 0
+    },
+    {
+      "projectId": "LKOOIOX_k7XfXKZD7Z-sL",
+      "title": "opt18-narrative-Portrait-30s",
+      "file": "output\\playwright\\narrative-final\\visual-concept-portrait-30s-ui.mp4",
+      "sha256": "ef36d3c05ebfb186a794d4f42aa867f60d1e63360ff6d9ec734f74c0de263e74",
+      "videoSeconds": 30.0,
+      "formatSeconds": 30.02002,
+      "frames": 480,
+      "size": [
+        384,
+        640
+      ],
+      "clips": 20,
+      "uniqueTakes": 11,
+      "sourceMusicSHA256": "10d6a5c95fdd1797759b575ce42eeea7638d014a6eb1691f3b28a10ee84966ca",
+      "originalMusicSHA256": "10d6a5c95fdd1797759b575ce42eeea7638d014a6eb1691f3b28a10ee84966ca",
+      "musicTrack": {
+        "id": "opt18-mv-music-track",
+        "mediaId": "YtJ1gOm4I-zHefds9f63k",
+        "start": 0,
+        "offset": 0,
+        "duration": 30,
+        "volume": 0.6
+      },
+      "fit": "blur",
+      "allVideoAudioDecoded": true,
+      "nonRepeatingBoundedSourceIntervals": true,
+      "newModelJobs": 0
+    }
+  ],
+  "pacing_options": {
+    "master": {
+      "distinct": 2,
+      "reason": "slow and normal deduplicated under these short clips"
+    },
+    "teaser": {
+      "distinct": 1,
+      "reason": "all requested paces produce same bounded material plan"
+    }
+  },
+  "music": {
+    "kind": "self-authored CPU sine+click tutorial score, not AI-generated music",
+    "measured_original_preserved": true,
+    "manual_corrected_beats": 59,
+    "manual_sections": [
+      "opening",
+      "development",
+      "change",
+      "visual focus",
+      "closure"
+    ],
+    "not_claimed_as_measured_musical_climax": true,
+    "master_clock_max_attack_offset_seconds": 0.0049886621315192725,
+    "teaser_original_song_interval": [
+      5,
+      20
+    ],
+    "teaser_phase_guard": "prepare was safely rejected until the independent child music track was explicitly set to start5,duration15. No override/bypass.",
+    "waveform_limitation": "The procedural score repeats every0.5sec, so waveform alone cannot distinguish source0 fromsource5; exact source-file SHA, explicit persisted track.start=5 and15sec render are the interval evidence."
+  },
+  "visual_review": {
+    "contact_sheets": [
+      "output/playwright/narrative-final/visual-concept-30s-contact.jpg",
+      "output/playwright/narrative-final/visual-concept-teaser-15s-ui-contact.jpg",
+      "output/playwright/narrative-final/visual-concept-portrait-30s-ui-contact.jpg"
+    ],
+    "reviewed": true,
+    "portrait": "Actual384x640 portrait retains whole subjects inside blurred fill. Readable captions and no cropped subject claim; not smart subject tracking.",
+    "teaser": "Five sampled video frames readable. Black unused bottom row in5x2 contact grid is padding, not film content.",
+    "limitations": [
+      "Unrelated original short tutorial subjects form a visual-concept collage, not an automatically generated30sec story.",
+      "Existing model follow shot retains previously disclosed framing drift/softness.",
+      "This validates editable song/source intervals and independent output branches, not all3 MV creative directions or unrestricted model quality."
+    ]
+  },
+  "new_model_jobs": 0,
+  "source_changes_during_trial": 0,
+  "outcome": "passed_with_stated_scope",
+  "global_completion_authority": "root only",
+  "master_after_both_branch_exports": {
+    "projectId": "RziT8XoJRc_f-mnUqIubV",
+    "independentBranchChangesDidNotModifyMaster": true,
+    "fieldsUnchanged": {
+      "timeline": true,
+      "audioTracks": true,
+      "width": true,
+      "height": true,
+      "fit": true,
+      "musicVideoPlan": true,
+      "appliedEditPlans": true
+    }
+  }
+}

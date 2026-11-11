@@ -115,12 +115,12 @@ func (w *taskWorkerCoordinator) failTimelineTask(task *model.Task, stage string,
 	s := w.service
 	done, err := s.repo.UpdateTaskTerminalState(task.ID, task.LeaseOwner, model.TaskStatusRunning, model.TaskStatusFailed, stage, message, time.Now())
 	if err != nil {
-		return fmt.Errorf("写入转写失败态失败: %w", err)
+		return fmt.Errorf("写入时间线任务失败态失败: %w", err)
 	}
 	if !done {
 		return fmt.Errorf("时间线任务状态或租约已变化：%w", repository.ErrTaskStateConflict)
 	}
-	s.logInfo(task.UserID, task.ID, fmt.Sprintf("时间线转写失败: %s", message), "")
+	s.logInfo(task.UserID, task.ID, fmt.Sprintf("%s: %s", stage, message), "")
 	return nil
 }
 
@@ -287,10 +287,11 @@ func (s *Service) CreateTimelineTranscriptionTask(userID string, req TimelineTra
 // Timeline 为前端 TimelineProject 快照（v2：tracks/clips 平铺）。
 // 片段通过 directMedia.storageKey=resource:<id> 引用后端资源。
 type TimelineRenderCreateRequest struct {
+	AspectRatio string `json:"aspectRatio,omitempty"`
+	cutRender   *timelineCutRenderContext
+	prepareOnly bool
 	ProjectID   string        `json:"projectId"`
 	Timeline    renderProject `json:"timeline"`
-	AspectRatio string        `json:"aspectRatio,omitempty"`
-	cutRender   *timelineCutRenderContext
 }
 
 type timelineRenderInput struct {
@@ -420,6 +421,9 @@ func (s *Service) CreateTimelineRenderTask(userID string, req TimelineRenderCrea
 	if req.cutRender != nil {
 		task.ID = req.cutRender.TaskID
 		task.Operation = "cut-render:" + req.cutRender.CutID
+	}
+	if req.prepareOnly {
+		return &task, nil
 	}
 	if err := s.createTaskWithinStorageQuota(&task, nil, policy); err != nil {
 		if req.cutRender != nil {

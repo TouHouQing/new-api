@@ -1,0 +1,169 @@
+{
+  "key": "preset-lighting-soft",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-preset-lighting-soft",
+  "submitted_at": 1792312470.5893502,
+  "adapter_id": "local-a82e46f66b4b42af871370cc1e3a5a7a",
+  "adapter_response": {
+    "id": "local-a82e46f66b4b42af871370cc1e3a5a7a",
+    "object": "video",
+    "model": "wan2.2-ti2v-5b",
+    "status": "completed",
+    "progress": 100,
+    "seconds": "3.0625",
+    "size": "640x384",
+    "created_at": 1792312470,
+    "completed_at": 1792312553,
+    "metadata": {
+      "prompt_id": "200fd257-ff20-4893-92b6-06dddaeebf9e",
+      "reference_images": 1,
+      "elapsed_sec": 82.84,
+      "reference_frames_preserved": []
+    }
+  },
+  "last_checked_at": 1792312555.2902343,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\preset-lighting-soft.mp4",
+  "output_sha256": "5731e69c98d91346dd2054ca0897b6257dbba151f1453a7d5f7ac368c7d794e0",
+  "output_bytes": 307307,
+  "elapsed_sec": 84.72,
+  "request": {
+    "model": "wan2.2-ti2v-5b",
+    "prompt": "A small red fox beside a blue enamel lantern on a table, soft diffused daylight, very gentle soft shadows, evenly lit fur and readable material detail, calm breathing and slight ear movement, static camera, no text.",
+    "size": "640x384",
+    "metadata": {
+      "seed": 181004,
+      "studio_sample_request": "optimization-20261018-wan640-v2-preset-lighting-soft",
+      "frames": 49,
+      "fps": 16
+    },
+    "seconds": 3
+  },
+  "reference_sha256": "8672502d2cce45a07e2d2c766018c29c423cc85396cbc268e79384f9d08b46c2",
+  "workflow_sha256": "225d46cdc449da4caa95faeef1ee0e58c55961574556b11721667501adcd2a3b",
+  "actual_nodes": {
+    "UNETLoader": {
+      "unet_name": "wan2.2_ti2v_5B_fp16.safetensors",
+      "weight_dtype": "default"
+    },
+    "CLIPLoader": {
+      "clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+      "type": "wan",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "wan2.2_vae.safetensors"
+    },
+    "ModelSamplingSD3": {
+      "shift": 8.0
+    },
+    "Wan22ImageToVideoLatent": {
+      "width": 640,
+      "height": 384,
+      "length": 49,
+      "batch_size": 1
+    },
+    "KSampler": {
+      "seed": 181004,
+      "steps": 20,
+      "cfg": 5.0,
+      "sampler_name": "uni_pc",
+      "scheduler": "simple",
+      "denoise": 1.0
+    },
+    "VAEDecodeTiled": {
+      "tile_size": 256,
+      "overlap": 64,
+      "temporal_size": 16,
+      "temporal_overlap": 4
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640016",
+        "width": 640,
+        "height": 384,
+        "coded_width": 640,
+        "coded_height": 384,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 22,
+        "color_range": "tv",
+        "color_space": "bt709",
+        "color_transfer": "iec61966-2-1",
+        "color_primaries": "bt709",
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "791936",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 49,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\preset-lighting-soft.mp4",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "307307",
+      "bit_rate": "802761",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "prompt": "{\"37\": {\"inputs\": {\"unet_name\": \"wan2.2_ti2v_5B_fp16.safetensors\", \"weight_dtype\": \"default\"}, \"class_type\": \"UNETLoader\"}, \"38\": {\"inputs\": {\"clip_name\": \"umt5_xxl_fp8_e4m3fn_scaled.safetensors\", \"type\": \"wan\", \"device\": \"cpu\"}, \"class_type\": \"CLIPLoader\"}, \"39\": {\"inputs\": {\"vae_name\": \"wan2.2_vae.safetensors\"}, \"class_type\": \"VAELoader\"}, \"48\": {\"inputs\": {\"model\": [\"37\", 0], \"shift\": 8.0}, \"class_type\": \"ModelSamplingSD3\"}, \"6\": {\"inputs\": {\"text\": \"A small red fox beside a blue enamel lantern on a table, soft diffused daylight, very gentle soft shadows, evenly lit fur and readable material detail, calm breathing and slight ear movement, static camera, no text.\", \"clip\": [\"38\", 0]}, \"class_type\": \"CLIPTextEncode\"}, \"7\": {\"inputs\": {\"text\": \"\\u8272\\u8c03\\u8273\\u4e3d\\uff0c\\u8fc7\\u66dd\\uff0c\\u9759\\u6001\\uff0c\\u7ec6\\u8282\\u6a21\\u7cca\\u4e0d\\u6e05\\uff0c\\u5b57\\u5e55\\uff0c\\u98ce\\u683c\\uff0c\\u4f5c\\u54c1\\uff0c\\u753b\\u4f5c\\uff0c\\u753b\\u9762\\uff0c\\u9759\\u6b62\\uff0c\\u6574\\u4f53\\u53d1\\u7070\\uff0c\\u6700\\u5dee\\u8d28\\u91cf\\uff0c\\u4f4e\\u8d28\\u91cf\\uff0cJPEG\\u538b\\u7f29\\u6b8b\\u7559\\uff0c\\u4e11\\u964b\\u7684\\uff0c\\u6b8b\\u7f3a\\u7684\\uff0c\\u591a\\u4f59\\u7684\\u624b\\u6307\\uff0c\\u753b\\u5f97\\u4e0d\\u597d\\u7684\\u624b\\u90e8\\uff0c\\u753b\\u5f97\\u4e0d\\u597d\\u7684\\u8138\\u90e8\\uff0c\\u7578\\u5f62\\u7684\\uff0c\\u6bc1\\u5bb9\\u7684\\uff0c\\u5f62\\u6001\\u7578\\u5f62\\u7684\\u80a2\\u4f53\\uff0c\\u624b\\u6307\\u878d\\u5408\\uff0c\\u9759\\u6b62\\u4e0d\\u52a8\\u7684\\u753b\\u9762\\uff0c\\u6742\\u4e71\\u7684\\u80cc\\u666f\\uff0c\\u4e09\\u6761\\u817f\\uff0c\\u80cc\\u666f\\u4eba\\u5f88\\u591a\\uff0c\\u5012\\u7740\\u8d70\", \"clip\": [\"38\", 0]}, \"class_type\": \"CLIPTextEncode\"}, \"55\": {\"inputs\": {\"vae\": [\"39\", 0], \"width\": 640, \"height\": 384, \"length\": 49, \"batch_size\": 1, \"start_image\": [\"studio_load_0\", 0]}, \"class_type\": \"Wan22ImageToVideoLatent\"}, \"3\": {\"inputs\": {\"seed\": 181004, \"steps\": 20, \"cfg\": 5.0, \"sampler_name\": \"uni_pc\", \"scheduler\": \"simple\", \"denoise\": 1.0, \"model\": [\"48\", 0], \"positive\": [\"6\", 0], \"negative\": [\"7\", 0], \"latent_image\": [\"55\", 0]}, \"class_type\": \"KSampler\"}, \"8\": {\"inputs\": {\"samples\": [\"3\", 0], \"vae\": [\"39\", 0], \"tile_size\": 256, \"overlap\": 64, \"temporal_size\": 16, \"temporal_overlap\": 4}, \"class_type\": \"VAEDecodeTiled\"}, \"57\": {\"inputs\": {\"images\": [\"8\", 0], \"fps\": 16.0}, \"class_type\": \"CreateVideo\"}, \"58\": {\"inputs\": {\"video\": [\"57\", 0], \"filename_prefix\": \"studio/local-a82e46f66b4b42af871370cc1e3a5a7a\", \"format\": \"auto\"}, \"class_type\": \"SaveVideo\"}, \"studio_load_0\": {\"class_type\": \"LoadImage\", \"inputs\": {\"image\": \"ff3f4c70af6d459b8b184fc9c95b3467.png\"}, \"is_changed\": [\"8672502d2cce45a07e2d2c766018c29c423cc85396cbc268e79384f9d08b46c2\"]}}",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  },
+  "contact_sheet": "output\\optimization-20261018\\samples\\wan640-v2\\preset-lighting-soft-review.jpg",
+  "all_frames_decoded": true,
+  "quality_status": "awaiting_visual_review"
+}

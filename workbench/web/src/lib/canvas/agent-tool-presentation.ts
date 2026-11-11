@@ -13,6 +13,7 @@ export const AGENT_TOOL_NAMES = [
     "ask_user",
     "canvas_apply_ops",
     "canvas_arrange_nodes",
+    "canvas_build_board",
     "canvas_create_character",
     "canvas_create_storyboard",
     "canvas_edit_batch_table",
@@ -20,17 +21,20 @@ export const AGENT_TOOL_NAMES = [
     "canvas_get_state",
     "canvas_inspect_image",
     "canvas_list_node_types",
+    "canvas_preflight",
     "canvas_read_batch_table",
     "canvas_read_storyboard",
     "drama_adopt_canvas_media",
     "drama_get_context",
     "finish_run",
     "generate_media",
+    "generate_media_batch",
     "image_annotation_render",
     "image_layer_split",
     "image_layer_plan",
     "image_process",
     "image_text_detect",
+    "media_batch_control",
     "memory_update",
     "model_list",
     "plan_update",
@@ -79,8 +83,47 @@ export const AGENT_TOOL_METADATA: Record<string, AgentToolMetadataEntry> = {
     // 短剧工具只在关联短剧的精修画布上出现：读取作品上下文，或把画布媒体采用为短剧的新版本（总要审批）。
     drama_get_context: { summary: "已读取短剧设定与分集", failureMessage: "读取短剧信息失败" },
     drama_adopt_canvas_media: { summary: ({ pending }) => (pending ? "准备采用到短剧" : "已采用到短剧，成为新的当前版本"), failureMessage: "采用到短剧失败" },
-    generate_media: { summary: ({ pending, detail }) => (pending ? "准备创建媒体节点并生成" : field(detail, "eventType") === "tool_completed" ? "生成结果已回写画布节点" : "媒体节点已创建，生成任务已提交"), failureMessage: "媒体生成未完成" },
-    image_process: { summary: ({ pending, detail }) => (pending ? "准备处理图片，等待确认配方" : String(field(field(detail, "result"), "summary") || "本地图片处理已提交，不调用模型")), failureMessage: "图片处理或画布采用未完成；请查看任务中心" },
+    generate_media: {
+        summary: ({ pending, detail }) => (pending ? "准备创建媒体节点并生成" : field(detail, "eventType") === "tool_completed" ? "生成结果已回写画布节点" : "媒体节点已创建，生成任务已提交"),
+        failureMessage: "媒体生成未完成",
+    },
+    image_process: {
+        summary: ({ pending, detail }) => (pending ? "准备处理图片，等待确认配方" : String(field(field(detail, "result"), "summary") || "本地图片处理已提交，不调用模型")),
+        failureMessage: "图片处理或画布采用未完成；请查看任务中心",
+    },
+    // 批量生成：一次审批，后台并发提交；回执里是本批的完成情况。
+    generate_media_batch: {
+        summary: ({ pending, detail }) => {
+            if (pending) return "准备批量生成";
+            const summary = field(field(detail, "result"), "summary");
+            return typeof summary === "string" && summary ? summary : "批量生成已结束";
+        },
+        failureMessage: "批量生成未开始",
+    },
+    media_batch_control: {
+        summary: ({ pending, detail }) => {
+            if (pending) return "准备操作批次";
+            const summary = field(field(detail, "result"), "summary");
+            return typeof summary === "string" && summary ? summary : "批次操作已完成";
+        },
+        failureMessage: "批次操作未完成",
+    },
+    canvas_build_board: {
+        summary: ({ pending, detail }) => {
+            if (pending) return "准备搭建制作看板";
+            const summary = field(field(detail, "result"), "summary");
+            return typeof summary === "string" && summary ? summary : "制作看板已搭好";
+        },
+        failureMessage: "搭建看板失败",
+    },
+    canvas_preflight: {
+        summary: ({ pending, detail }) => {
+            if (pending) return "准备体检";
+            const summary = field(field(detail, "result"), "summary");
+            return typeof summary === "string" && summary ? summary : "体检完成";
+        },
+        failureMessage: "体检未完成",
+    },
     // 看图：只有这个工具会把图片字节真的交给模型，所以只有它可以说"画面/看图"。
     // 回执字段来源：`backend/internal/app/cloud_agent_runtime.go`（payload["result"] = 回执）。
     canvas_inspect_image: {
@@ -127,10 +170,34 @@ export const AGENT_TOOL_METADATA: Record<string, AgentToolMetadataEntry> = {
 /** 画布上"读到清单"的只读工具：无像素，chip 必须是存在式。 */
 const AGENT_CANVAS_READ_TOOLS = new Set(["canvas_get_state", "canvas_list_node_types", "canvas_read_storyboard", "canvas_read_batch_table"]);
 /** 非画布信息的只读工具（模型、任务、技能、偏好）。`skills_load` 是历史事件名，保留兼容。 */
-const AGENT_INFO_READ_TOOLS = new Set(["model_list", "task_get", "task_history", "skill_search", "skill_read_file", "skills_load", "agent_profile_read", "production_catalog", "production_read", "skill_market_search", "drama_get_context"]);
+const AGENT_INFO_READ_TOOLS = new Set([
+    "model_list",
+    "task_get",
+    "task_history",
+    "skill_search",
+    "skill_read_file",
+    "skills_load",
+    "agent_profile_read",
+    "production_catalog",
+    "production_read",
+    "skill_market_search",
+    "drama_get_context",
+    "canvas_preflight",
+]);
 const AGENT_VISION_TOOLS = new Set(["canvas_inspect_image", "image_layer_plan"]);
-const AGENT_CREATE_TOOLS = new Set(["generate_media", "canvas_create_storyboard", "canvas_create_character", "image_annotation_render", "previs_scene_create"]);
-const AGENT_OPERATE_TOOLS = new Set(["canvas_apply_ops", "canvas_arrange_nodes", "canvas_edit_storyboard", "canvas_edit_batch_table", "image_layer_split", "image_process", "image_text_detect", "previs_apply_patch", "production_edit"]);
+const AGENT_CREATE_TOOLS = new Set(["generate_media", "previs_scene_create", "generate_media_batch", "canvas_build_board", "canvas_create_storyboard", "canvas_create_character", "image_annotation_render"]);
+const AGENT_OPERATE_TOOLS = new Set([
+    "canvas_apply_ops",
+    "canvas_arrange_nodes",
+    "canvas_edit_storyboard",
+    "canvas_edit_batch_table",
+    "image_layer_split",
+    "image_process",
+    "image_text_detect",
+    "previs_apply_patch",
+    "production_edit",
+    "media_batch_control",
+]);
 
 export type AgentToolCategory = "read" | "vision" | "create" | "operate" | "other";
 
@@ -210,7 +277,7 @@ export function agentToolStatus(title: string, text: string, detail?: unknown): 
 export function friendlyAgentToolSummary(toolName: string, text: string, detail?: unknown, pending = false) {
     const status = agentToolStatus(toolName, text, detail);
     const failed = status === "failed" || status === "rejected";
-    const mediaTool = toolName === "generate_media" || toolName === "image_layer_split";
+    const mediaTool = toolName === "generate_media" || toolName === "image_layer_split" || toolName === "generate_media_batch";
     const result = record(field(detail, "result"));
     const phase = result.phase;
     if (mediaTool && failed && phase === "admission") return "参数未通过校验，未提交生成任务";

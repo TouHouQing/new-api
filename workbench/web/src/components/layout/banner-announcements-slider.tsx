@@ -3,6 +3,7 @@ import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 
 import { getActiveBanners, type BannerAnnouncement } from "@/services/api/announcements";
 import { BannerAnnouncementLinkHint, BannerAnnouncementTitle, bannerAnnouncementBarStyle } from "@/components/layout/banner-announcement-content";
@@ -12,6 +13,7 @@ const BANNER_AUTO_SLIDE_MS = 4000;
 const BANNER_DISMISS_STORAGE_PREFIX = "yingce.banner-announcements.dismissed";
 
 export function BannerAnnouncementsSlider() {
+    const { t } = useTranslation();
     const navigate = useNavigate();
     const reducedMotion = useReducedMotion();
     const userId = useUserStore((state) => state.user?.id);
@@ -75,7 +77,7 @@ export function BannerAnnouncementsSlider() {
                 onClick={handleClick}
                 disabled={!hasLink}
                 className="group flex h-full w-full min-w-0 items-center justify-center px-8 transition-opacity enabled:hover:opacity-90 disabled:cursor-default"
-                title={hasLink ? "点击查看详情" : undefined}
+                title={hasLink ? t("account.layout.banner.viewDetails") : undefined}
             >
                 <span className="flex min-w-0 items-center justify-center gap-2">
                     {/* 标题内容区：通过外层弹性居中对齐，不用固定高度控制 */}
@@ -96,7 +98,13 @@ export function BannerAnnouncementsSlider() {
                     {hasLink ? <BannerAnnouncementLinkHint chevronClassName="size-3.5 opacity-80 transition-opacity duration-150 group-hover:opacity-100" /> : null}
                 </span>
             </button>
-            <button type="button" onClick={handleDismiss} aria-label="关闭通知" title="关闭" className="absolute right-3 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-white transition-colors hover:bg-white/20">
+            <button
+                type="button"
+                onClick={handleDismiss}
+                aria-label={t("account.layout.banner.dismiss")}
+                title={t("common.close")}
+                className="absolute right-3 top-1/2 grid size-6 -translate-y-1/2 place-items-center rounded-full text-white transition-colors hover:bg-white/20"
+            >
                 <X className="size-3.5" aria-hidden="true" />
             </button>
         </div>

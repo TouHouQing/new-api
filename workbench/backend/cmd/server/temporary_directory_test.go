@@ -10,6 +10,8 @@ func TestTemporaryDirectoryFreshVolumeAndInvalidPath(t *testing.T) {
 	t.Run("new volume", func(t *testing.T) {
 		directory := filepath.Join(t.TempDir(), "data", "tmp")
 		t.Setenv("TMPDIR", directory)
+		t.Setenv("TMP", directory)
+		t.Setenv("TEMP", directory)
 		if err := prepareTemporaryDirectory(); err != nil {
 			t.Fatal(err)
 		}
@@ -24,6 +26,8 @@ func TestTemporaryDirectoryFreshVolumeAndInvalidPath(t *testing.T) {
 			t.Fatal(err)
 		}
 		t.Setenv("TMPDIR", file)
+		t.Setenv("TMP", file)
+		t.Setenv("TEMP", file)
 		if err := prepareTemporaryDirectory(); err == nil {
 			t.Fatal("invalid temporary storage admitted")
 		}

@@ -1,0 +1,41 @@
+{
+  "key": "preset-camera-orbit",
+  "status": "completed",
+  "tag": "optimization-20261018-preset-camera-orbit",
+  "submitted_at": 1792310713.6028101,
+  "adapter_id": "local-ba6638b401674dfd8a104aef2e2e72c0",
+  "adapter_response": {
+    "id": "local-ba6638b401674dfd8a104aef2e2e72c0",
+    "object": "video",
+    "model": "wan2.2-ti2v-5b",
+    "status": "completed",
+    "progress": 100,
+    "seconds": "3.0625",
+    "size": "384x224",
+    "created_at": 1792310713,
+    "completed_at": 1792310765,
+    "metadata": {
+      "prompt_id": "3648506f-0c1c-4047-a3a5-f95bb49d7bbd",
+      "reference_images": 1,
+      "elapsed_sec": 51.42,
+      "reference_frames_preserved": []
+    }
+  },
+  "last_checked_at": 1792310740.8339963,
+  "output_path": "output\\optimization-20261018\\samples\\raw\\preset-camera-orbit.mp4",
+  "output_sha256": "66d99ff1c54f6bc458eb5538f12e9a8c78f6c5b57b75c9861c948c6aa1d53e46",
+  "output_bytes": 180058,
+  "quality_status": "rejected_low_resolution_corruption",
+  "request": {
+    "model": "wan2.2-ti2v-5b",
+    "prompt": "A blue enamel lantern sits on a table with a small red fox behind it. A slow camera orbit moves around the lantern from its front toward a three quarter side view. The lantern stays centered while the background perspective shifts. The product does not spin. Smooth continuous single shot, no text.",
+    "size": "384x224",
+    "metadata": {
+      "seed": 181001,
+      "studio_sample_request": "optimization-20261018-preset-camera-orbit",
+      "frames": 49,
+      "fps": 16
+    },
+    "seconds": 3
+  }
+}

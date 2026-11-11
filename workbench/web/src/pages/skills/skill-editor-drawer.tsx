@@ -13,7 +13,28 @@ import { createSkill, updateSkill, type Skill, type SkillMutationInput, type Ski
 
 type SkillFormValues = Omit<SkillMutationInput, "isPrivate"> & { is_public: boolean };
 
-export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boolean; skill: Skill | null; onClose: () => void; onSaved: (skill: Skill) => void }) {
+/** 后台基本信息：不含正文和公开状态。 */
+export type SkillInfoInput = Omit<SkillMutationInput, "instruction" | "isPrivate">;
+
+const HTTP_URL_PATTERN = /^https?:\/\/[^\s/$.?#].[^\s]*$/i;
+
+/**
+ * admin 存在时为后台模式：只改基本信息（不显示正文、公开状态和 AI 起草），保存走管理员接口。
+ * 正文与附属文件统一在技能工作台修改。
+ */
+export function SkillEditorDrawer({
+    open,
+    skill,
+    onClose,
+    onSaved,
+    admin,
+}: {
+    open: boolean;
+    skill: Skill | null;
+    onClose: () => void;
+    onSaved: (skill: Skill) => void;
+    admin?: { save: (skillId: string, input: SkillInfoInput) => Promise<{ skill: Skill }> };
+}) {
     const { message, modal } = App.useApp();
     const [form] = Form.useForm<SkillFormValues>();
     const [saving, setSaving] = useState(false);
@@ -22,6 +43,16 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
     const [drafting, setDrafting] = useState(false);
     const effectiveConfig = useEffectiveConfig();
     const isPackageSkill = Boolean(skill && skill.sourceType !== "markdown" && skill.sourceType !== "builtin" && skill.sourceType !== "");
+    const infoOnly = Boolean(admin);
+    const initialMarkdownUrl = skill?.markdownUrl || skill?.sourceUrl || "";
+    // 内置技能的 markdownUrl 是包内相对路径；后台未改动时原样保留，不按外链校验。
+    const markdownUrlRules = admin
+        ? [
+              {
+                  validator: (_: unknown, value?: string) => (!value || value === initialMarkdownUrl || HTTP_URL_PATTERN.test(value) ? Promise.resolve() : Promise.reject(new Error("请输入有效的 HTTP(S) 链接"))),
+              },
+          ]
+        : [{ type: "url" as const, message: "请输入有效的 HTTP(S) 链接" }];
 
     useEffect(() => {
         if (!open) return;
@@ -43,7 +74,14 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
             onClose();
             return;
         }
-        modal.confirm({ title: "放弃未保存的修改？", content: "当前填写内容不会保留。", okText: "放弃修改", okButtonProps: { danger: true }, cancelText: "继续编辑", onOk: onClose });
+        modal.confirm({
+            title: "放弃未保存的修改？",
+            content: "当前填写内容不会保留。",
+            okText: "放弃修改",
+            okButtonProps: { danger: true },
+            cancelText: "继续编辑",
+            onOk: onClose,
+        });
     };
 
     const submit = async (values: SkillFormValues) => {
@@ -59,7 +97,19 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
                 showcaseMedia: (values.showcaseMedia || []).map((item) => ({ ...item, showcaseUri: item.showcaseUri || "" })),
                 extraInfo: values.extraInfo || "",
             };
-            const result = skill ? await updateSkill(skill.skillId, input) : await createSkill(input);
+            const result =
+                admin && skill
+                    ? await admin.save(skill.skillId, {
+                          skillName: input.skillName,
+                          description: input.description,
+                          tag: input.tag,
+                          markdownUrl: input.markdownUrl,
+                          showcaseMedia: input.showcaseMedia,
+                          extraInfo: input.extraInfo,
+                      })
+                    : skill
+                      ? await updateSkill(skill.skillId, input)
+                      : await createSkill(input);
             setDirty(false);
             message.success(skill ? "技能已更新" : "技能已创建");
             onSaved(result.skill);
@@ -101,11 +151,12 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
 
     return (
         <AppDrawer
-            className="library-drawer"
+            className={admin ? "library-drawer admin-drawer-panel" : "library-drawer"}
+            rootClassName={admin ? "admin-drawer" : undefined}
             open={open}
             size={720}
             mask={{ closable: !dirty }}
-            title={skill ? "编辑技能" : "创建技能"}
+            title={admin ? "编辑技能信息" : skill ? "编辑技能" : "创建技能"}
             onClose={requestClose}
             extra={
                 <Button type="primary" loading={saving} icon={<Save className="size-4" />} onClick={() => form.submit()}>
@@ -113,7 +164,9 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
                 </Button>
             }
         >
-            {!isPackageSkill ? (
+            {infoOnly ? (
+                <div className="mb-4 rounded-xl border bg-foreground/[.02] p-3 text-sm leading-6 text-foreground/58">{adminInfoNotice(skill)}</div>
+            ) : !isPackageSkill ? (
                 <div className="mb-4 rounded-xl border bg-foreground/[.02] p-3">
                     <div className="mb-2 flex items-center gap-2 text-sm font-medium">
                         <PenLine className="size-4" />
@@ -169,7 +222,7 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
                     <Input.TextArea autoSize={{ minRows: 3, maxRows: 6 }} maxLength={500} showCount placeholder="说明适用场景、输入条件和最终产出" />
                 </Form.Item>
 
-                {!isPackageSkill ? (
+                {!isPackageSkill && !infoOnly ? (
                     <Form.Item
                         name="instruction"
                         label="技能指令"
@@ -183,13 +236,15 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
                     </Form.Item>
                 ) : null}
 
-                <div className="grid gap-x-4 sm:grid-cols-[minmax(0,1fr)_180px]">
-                    <Form.Item name="markdownUrl" label={isPackageSkill ? "来源地址" : "Markdown 地址"} rules={[{ type: "url", message: "请输入有效的 HTTP(S) 链接" }]}>
+                <div className={infoOnly ? "grid gap-x-4" : "grid gap-x-4 sm:grid-cols-[minmax(0,1fr)_180px]"}>
+                    <Form.Item name="markdownUrl" label={isPackageSkill ? "来源地址" : "Markdown 地址"} rules={markdownUrlRules}>
                         <Input type="url" inputMode="url" spellCheck={false} placeholder="https://example.com/SKILL.md" />
                     </Form.Item>
-                    <Form.Item name="is_public" label="公开状态" valuePropName="checked" extra="公开后其他用户可以加入使用。">
-                        <Switch checkedChildren="公开" unCheckedChildren="私有" />
-                    </Form.Item>
+                    {!infoOnly ? (
+                        <Form.Item name="is_public" label="公开状态" valuePropName="checked" extra="公开后其他用户可以加入使用。">
+                            <Switch checkedChildren="公开" unCheckedChildren="私有" />
+                        </Form.Item>
+                    ) : null}
                 </div>
 
                 <Form.List name="showcaseMedia">
@@ -245,6 +300,13 @@ export function SkillEditorDrawer({ open, skill, onClose, onSaved }: { open: boo
             </Form>
         </AppDrawer>
     );
+}
+
+function adminInfoNotice(skill: Skill | null) {
+    const base = "这里只修改名称、简介、分类和展示信息；正文与附属文件请在技能工作台中编辑。公开状态由作者决定，不在后台修改。";
+    if (skill?.sourceType === "builtin") return `${base}保存后，系统升级时不再用内置版本覆盖这些信息。`;
+    if (skill?.sourceType === "github") return `${base}保存后，GitHub 同步不再覆盖名称和简介，文件内容仍以仓库为准。`;
+    return base;
 }
 
 function emptyMedia(): SkillShowcaseMedia {

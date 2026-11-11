@@ -36,6 +36,13 @@ type Runtime struct {
 	engine *gin.Engine
 }
 
+// OpenDatabase shares the standalone server's dialect, connection settings,
+// long-text storage and index migrations with the embedded workbench.
+// Hosts using a pure-Go SQLite driver may instead supply their own connection.
+func OpenDatabase(driver, dsn string) (*gorm.DB, error) {
+	return database.Open(database.Config{Driver: driver, DSN: dsn})
+}
+
 // Open requires a dedicated database, never the host's account database. The
 // caller owns its connection and must call Close before closing that database.
 func Open(config Config) (*Runtime, error) {

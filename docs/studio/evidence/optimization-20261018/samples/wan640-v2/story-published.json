@@ -1,0 +1,183 @@
+{
+  "source_image_sha256": "925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a",
+  "source_video_sha256": "4e09cc60b88eb982170249a7776c4e62452b3fcadaad1d8e7ba52f1d0d4bda30",
+  "source_image_adapter_id": "image-c29d85f2e2446ef6375ab04140d99566",
+  "source_video_adapter_id": null,
+  "voice_adapter_id": null,
+  "lip_adapter_id": null,
+  "published_media": [
+    {
+      "id": "sample-story-image",
+      "url": "/studio-examples/story/first-frame.png",
+      "mime_type": "image/png",
+      "sha256": "925f819b30d7b2f3d0f516d90f7337f37cb76e4c21a7909a37a982338355fd3a",
+      "bytes": 320631
+    },
+    {
+      "id": "sample-story-video",
+      "url": "/studio-examples/story/source.mp4",
+      "mime_type": "video/mp4",
+      "sha256": "2c6b37132618fe0d058b8e1440ca518129ebf31d18dcec55b6a2f43ea580d593",
+      "bytes": 100841
+    },
+    {
+      "id": "sample-story-film",
+      "url": "/studio-examples/story/film.mp4",
+      "mime_type": "video/mp4",
+      "sha256": "04f04c35e085fec878dc296592726604d54157dad89c98cb922c428ae428886f",
+      "bytes": 137120
+    },
+    {
+      "id": "sample-story-music",
+      "url": "/studio-examples/shared/music.mp3",
+      "mime_type": "audio/mpeg",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+      "bytes": 48500
+    }
+  ],
+  "film_ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640016",
+        "width": 640,
+        "height": 384,
+        "coded_width": 640,
+        "coded_height": 384,
+        "has_b_frames": 2,
+        "pix_fmt": "yuv420p",
+        "level": 22,
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "265051",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 45,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc63.1.102 libx264"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/44100",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 135056,
+        "duration": "3.062494",
+        "bit_rate": "83930",
+        "nb_frames": "133",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\story\\film.mp4",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "137120",
+      "bit_rate": "358191",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  },
+  "review": {
+    "source_reviewed": true,
+    "film_reviewed": true,
+    "notes": "Six-point final film review caught a short glitched fox frame missed by sparse initial source sampling. The native Wan clip is rejected; use the original clean illustrated fox with a controlled introductory pan. This is an image edit, not verified native video generation.",
+    "task": "composite-recipe-story",
+    "source_sha256": "4e09cc60b88eb982170249a7776c4e62452b3fcadaad1d8e7ba52f1d0d4bda30",
+    "film_sha256": "04f04c35e085fec878dc296592726604d54157dad89c98cb922c428ae428886f",
+    "reviewed_at": "2026-10-18T09:42:39Z",
+    "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+  },
+  "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio. This sample preserves the clean FLUX-generated subject with a precise FFmpeg image edit. The rejected native Wan attempt is not used and is not claimed as verified."
+}

@@ -35,7 +35,7 @@ function fixture(overrides = {}) {
     const output = path.join(root, "output");
     writeFileSync(output, "");
     const env = {
-        ...process.env,
+        ...Object.fromEntries(Object.entries(process.env).filter(([name]) => name.toLowerCase() !== "path")),
         PATH: `${bin}${path.delimiter}${process.env.PATH}`,
         GITHUB_OUTPUT: shellPath(output),
         GITHUB_SHA: sha,

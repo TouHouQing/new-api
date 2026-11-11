@@ -1,0 +1,66 @@
+{
+  "key": "right-speaker-interval-v1",
+  "status": "completed",
+  "tag": "optimization-20261018-g17-selection-right-speaker-interval-v1",
+  "submitted_at": 1792318792.9798644,
+  "adapter_id": "audio-8c1ca63d5c604ba9a080f4780e27ba48",
+  "adapter_response": {
+    "id": "audio-8c1ca63d5c604ba9a080f4780e27ba48",
+    "status": "completed",
+    "progress": 100,
+    "seconds": 1.3125,
+    "actual_seconds": 1.3125,
+    "voice_id": "",
+    "output": {
+      "type": "video",
+      "mime_type": "video/mp4"
+    },
+    "source_selection": {
+      "video_interval": {
+        "start": 0.5,
+        "end": 1.8125,
+        "x": 640,
+        "y": 0,
+        "width": 640,
+        "height": 384
+      },
+      "audio_start": 0.5,
+      "output_scope": "selected_interval_candidate",
+      "original_video_retained": true
+    },
+    "artifacts": [],
+    "error": ""
+  },
+  "last_checked_at": 1792318987.1776621,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\g17-selection\\raw\\right-speaker-interval-v1.mp4",
+  "output_sha256": "99d94971e1f10a1dabb89d1be0feb9f9ab63bee5f7e22356d9194bd683292a63",
+  "output_bytes": 70409,
+  "elapsed_sec": 194.22,
+  "request": {
+    "operation": "lip_sync",
+    "seconds": 1.3125,
+    "prompt": "Let's help plants grow.",
+    "edit": {
+      "start": 0.5,
+      "end": 1.8125,
+      "x": 640,
+      "y": 0,
+      "width": 640,
+      "height": 384
+    },
+    "options": {
+      "lip_audio_start": 0.5
+    },
+    "studio_sample_request": "optimization-20261018-g17-selection-right-speaker-interval-v1"
+  },
+  "references": [
+    {
+      "type": "video",
+      "sha256": "8e6b7ddc5b72d455186d763bdeb547dd3dd7760afcaa5597d2f80b1198ff8270"
+    },
+    {
+      "type": "audio",
+      "sha256": "abbf67bdad1efe868672ee5c57c8e6434030a88f55d767194f02f947835ad544"
+    }
+  ]
+}

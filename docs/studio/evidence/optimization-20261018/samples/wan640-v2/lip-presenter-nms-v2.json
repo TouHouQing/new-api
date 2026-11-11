@@ -1,0 +1,181 @@
+{
+  "key": "lip-presenter-nms-v2",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-lip-presenter-nms-v2",
+  "submitted_at": 1792315783.3451703,
+  "adapter_id": "audio-2dc7d8e8c1c04da6a336fc2670dc5d63",
+  "adapter_response": {
+    "id": "audio-2dc7d8e8c1c04da6a336fc2670dc5d63",
+    "status": "completed",
+    "progress": 100,
+    "seconds": 3.0625,
+    "actual_seconds": 3.0625,
+    "voice_id": "",
+    "output": {
+      "type": "video",
+      "mime_type": "video/mp4"
+    },
+    "artifacts": [],
+    "error": ""
+  },
+  "last_checked_at": 1792315937.40474,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\lip-presenter-nms-v2.mp4",
+  "output_sha256": "ce6275df832f0e0a4bbdc63c65e4ed8b11582c855a9596cccd6ad1e22aedcec9",
+  "output_bytes": 57350,
+  "elapsed_sec": 154.09,
+  "request": {
+    "operation": "lip_sync",
+    "seconds": 3.0625,
+    "prompt": "Let's help plants grow.",
+    "studio_sample_request": "optimization-20261018-wan640-v2-lip-presenter-nms-v2"
+  },
+  "references": [
+    {
+      "type": "video",
+      "sha256": "77a335229a2f11134c99000fdec25b8314c83e2b0d94cd4c444f557e5fc88ffd"
+    },
+    {
+      "type": "audio",
+      "sha256": "df7ce7fc555dc2f0fb8126cf60ada9de73f880255331361bc7d938a055932f2a"
+    }
+  ],
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640016",
+        "width": 640,
+        "height": 384,
+        "coded_width": 640,
+        "coded_height": 384,
+        "has_b_frames": 2,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "5:3",
+        "pix_fmt": "yuv420p",
+        "level": 22,
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "111401",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 46,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc63.1.102 libx264"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "16000",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/16000",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 49000,
+        "duration": "3.062500",
+        "bit_rate": "30892",
+        "nb_frames": "49",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\lip-presenter-nms-v2.mp4",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "57350",
+      "bit_rate": "149812",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  },
+  "contact_sheet": "output\\optimization-20261018\\samples\\wan640-v2\\lip-presenter-nms-v2-review.jpg",
+  "all_frames_decoded": true,
+  "quality_status": "awaiting_visual_review"
+}

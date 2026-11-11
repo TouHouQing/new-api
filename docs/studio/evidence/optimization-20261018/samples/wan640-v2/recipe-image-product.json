@@ -1,0 +1,107 @@
+{
+  "key": "recipe-image-product",
+  "status": "completed",
+  "tag": "optimization-20261018-wan640-v2-recipe-image-product",
+  "submitted_at": 1792313100.5709283,
+  "adapter_id": "image-53c9e3e65776e241a8d011c9bbfec63f",
+  "adapter_response": {
+    "id": "image-53c9e3e65776e241a8d011c9bbfec63f",
+    "status": "completed",
+    "prompt_id": "030816cc-eb58-4b71-b5dd-25f3f57ca9b0",
+    "error": ""
+  },
+  "last_checked_at": 1792313136.8914194,
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-product.png",
+  "output_sha256": "b5c28abf65c3521b1775b1f841fab726371af5da45e5e8307076a84ca18388f4",
+  "output_bytes": 173880,
+  "elapsed_sec": 36.34,
+  "request": {
+    "model": "flux.2-klein-4b",
+    "prompt": "A ceramic blue travel mug with a fitted lid on a clean light gray studio table, warm softbox lighting, centered product, realistic material, no brand or letters.",
+    "size": "512x320",
+    "metadata": {
+      "seed": 182000,
+      "studio_sample_request": "optimization-20261018-wan640-v2-recipe-image-product"
+    },
+    "idempotency_key": "53c9e3e65776e241a8d011c9bbfec63fcb1abc5b28178e952fa61d673cbf115b"
+  },
+  "workflow_sha256": "077cf05bd89e2fa789ba6a9a916b0ad1113158665b7801d471493c3ee7901558",
+  "actual_nodes": {
+    "CLIPLoader": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "flux2",
+      "device": "cpu"
+    },
+    "VAELoader": {
+      "vae_name": "flux2-vae.safetensors"
+    },
+    "UNETLoader": {
+      "unet_name": "flux-2-klein-4b-fp8.safetensors",
+      "weight_dtype": "default"
+    },
+    "KSampler": {
+      "seed": 182000,
+      "steps": 8,
+      "cfg": 1.0,
+      "sampler_name": "res_multistep",
+      "scheduler": "simple",
+      "denoise": 1.0
+    }
+  },
+  "ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "png",
+        "codec_long_name": "PNG (Portable Network Graphics) image",
+        "codec_type": "video",
+        "codec_tag_string": "[0][0][0][0]",
+        "codec_tag": "0x0000",
+        "width": 512,
+        "height": 320,
+        "coded_width": 512,
+        "coded_height": 320,
+        "has_b_frames": 0,
+        "pix_fmt": "rgb24",
+        "level": -99,
+        "color_range": "pc",
+        "color_space": "gbr",
+        "r_frame_rate": "25/1",
+        "avg_frame_rate": "25/1",
+        "time_base": "1/25",
+        "disposition": {
+          "default": 0,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-product.png",
+      "nb_streams": 1,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "png_pipe",
+      "format_long_name": "piped png sequence",
+      "size": "173880",
+      "probe_score": 99
+    }
+  },
+  "quality_status": "awaiting_visual_review"
+}

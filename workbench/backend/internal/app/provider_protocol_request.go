@@ -50,6 +50,10 @@ func protocolRequestFromInput(input canvasGenerationInput) protocol.GenerationRe
 		GenerateAudio:   parseBool(input.Config.VideoGenerateAudio, false),
 		Watermark:       parseBool(input.Config.VideoWatermark, false),
 		Operation:       firstNonEmpty(metadataString(input.Metadata, "videoEditOperation"), metadataString(input.Metadata, "videoOperation")),
+		// InterfaceType 让声明式插件宿主按协议线格式适配参考素材内容块
+		// （如 Anthropic Messages 用 type=image + source，不用 OpenAI image_url）。
+		InterfaceType: strings.TrimSpace(input.Config.InterfaceType),
+		BaseURL:       strings.TrimSpace(input.Config.BaseURL),
 		Extra: map[string]any{
 			"videoSeconds":            input.Config.VideoSeconds,
 			"audioVoice":              input.Config.AudioVoice,
@@ -90,7 +94,8 @@ func protocolRequestFromInput(input canvasGenerationInput) protocol.GenerationRe
 		if profile := input.Config.CapabilityConfig; profile != nil && profile.Text != nil {
 			request.Extra["context_length"] = profile.Text.ContextWindowTokens
 		}
-		request.Extra["think"] = input.TextOptions.Thinking
+		thinking, _ := resolveTextThinkingPlan(input, protocol.TextWireChatCompletion)
+		request.Extra["think"] = thinking.enabled()
 		if plan, err := decodeNativeLayerPlanning(input.Metadata["nativeLayerPlanning"]); err == nil && plan != nil && plan.ResponseSchema == "image-layer-plan-v1" {
 			request.Extra["response_format"] = imageplan.OutputSchema(plan.ReferenceSize)
 			request.Extra["think"] = false

@@ -23,6 +23,7 @@ func TestStudioWorkflowAccountBillingPreservesLimitAndSettlementWithoutToken(t *
 	require.NoError(t, model.DB.Create(&job).Error)
 	require.NoError(t, model.EnsureStudioWorkflowCharge(1, job.ID, "billing-request"))
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest("POST", "/v1/videos", nil)
 	info := &relaycommon.RelayInfo{UserId: 1, IsPlayground: true, StudioWorkflowID: job.ID, RequestId: "billing-request", ForcePreConsume: true, UserSetting: dto.UserSetting{BillingPreference: "wallet_only"}}
 	require.NotNil(t, PreConsumeBilling(c, 1500, info))
 	user, err := model.GetUserById(1, false)

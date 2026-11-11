@@ -2,16 +2,16 @@ package app
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 	"testing"
-	"time"
 
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/repository"
 
+	"github.com/google/uuid"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -96,7 +96,9 @@ func newProjectNameConflictPostgresService(t *testing.T) (*Service, *gorm.DB) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = adminSQL.Close() })
-	schema := fmt.Sprintf("project_name_conflict_app_%d", time.Now().UnixNano())
+	// Parallel tests can share Windows' coarse timestamp resolution. A random
+	// suffix prevents two temporary schemas from colliding in the same run.
+	schema := "project_name_conflict_app_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 	if err := admin.Exec("CREATE SCHEMA " + schema).Error; err != nil {
 		t.Fatal(err)
 	}

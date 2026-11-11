@@ -1,14 +1,18 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Button, Checkbox, Input } from "antd";
-import { ArrowLeft, BookMarked, Check, ChevronRight, Cpu, Gauge, LockKeyhole, PlugZap, Search, ShieldCheck, Sparkles, Wrench, Blocks, CirclePlay } from "lucide-react";
+import { ArrowLeft, BookMarked, Check, ChevronRight, Cpu, Gauge, LockKeyhole, PlugZap, Search, ShieldCheck, Sparkles, Wrench, Blocks, CirclePlay, X } from "lucide-react";
 
 import { ModelPicker } from "@/components/model-picker";
+import { ThinkingLevelSlider } from "@/components/thinking-level-slider";
+import { modelCapabilityConfigFor } from "@/lib/model-capabilities";
+import { LEGACY_TEXT_THINKING_CONFIG, resolveThinkingLevel, thinkingLevelsFor } from "@/lib/text-thinking";
 import { Switch } from "@/components/ui/base/switch";
 import type { CanvasTheme } from "@/lib/canvas-theme";
 import AgentMemoryPane from "@/pages/settings/agent-memory-pane";
 import type { AgentPermissionMode, AgentProfileLayer, AgentProfileScope, AgentProfileView, AgentReasoningMode } from "@/services/api/agent";
 import type { Skill, SkillAgentMode } from "@/services/api/skills";
 import type { AiConfig } from "@/stores/use-config-store";
+import { AgentConnectorsBar } from "./canvas-cloud-agent-connectors";
 
 /** 对话固定的技能上限；与技能商店弹窗一致，后端另有含点名在内的 16 个硬上限。 */
 export const AGENT_PINNED_SKILL_LIMIT = 8;
@@ -44,6 +48,8 @@ type AgentSettingsProps = {
     maxGenerationTasks: string;
     maxVideoSeconds: string;
     onBack: () => void;
+    /** 设置页也能直接收起 Agent，不必先返回对话。 */
+    onCollapse?: () => void;
     onModelChange: (model: string) => void;
     onPermissionChange: (mode: AgentPermissionMode) => void;
     onContextToggle: (value: AgentContextKey) => void;
@@ -59,21 +65,16 @@ type AgentSettingsProps = {
     onMaxVideoSecondsChange: (value: string) => void;
 };
 
-const permissionOptions: Array<{ value: AgentPermissionMode; label: string; description: string; icon: typeof ShieldCheck; color: string }> = [
-    { value: "read_only", label: "只读", description: "只分析和建议", icon: LockKeyhole, color: "#4f7cff" },
-    { value: "request_approval", label: "请求审批", description: "写入和生成前确认", icon: ShieldCheck, color: "#b58336" },
-    { value: "auto", label: "自动执行", description: "预算内执行已授权工具", icon: CirclePlay, color: "#429477" },
+// 颜色走状态语义 token，明暗主题和皮肤自动适配；short 是输入框权限胶囊上的两字名。
+const permissionOptions: Array<{ value: AgentPermissionMode; label: string; short: string; description: string; icon: typeof ShieldCheck; color: string }> = [
+    { value: "read_only", label: "只读", short: "只读", description: "只分析和建议", icon: LockKeyhole, color: "var(--status-loading)" },
+    { value: "request_approval", label: "请求审批", short: "审批", description: "写入和生成前确认", icon: ShieldCheck, color: "var(--status-warning)" },
+    { value: "auto", label: "自动执行", short: "自动", description: "预算内执行已授权工具", icon: CirclePlay, color: "var(--status-success)" },
 ];
 
 const contextOptions: Array<{ value: AgentContextKey; label: string; description: string }> = [
     { value: "canvas", label: "画布节点目录", description: "每次请求只带节点 id、类型和标题；正文按页读取，不含媒体或未同步修改" },
     { value: "project", label: "项目制作", description: "当前项目的素材、剪辑、审片与交付；编辑继续受审批和预算限制，未绑定项目时可创建" },
-];
-
-const reasoningOptions: Array<{ value: AgentReasoningMode; label: string; description: string }> = [
-    { value: "off", label: "关闭", description: "直接执行" },
-    { value: "auto", label: "自动", description: "按任务决定" },
-    { value: "deep", label: "深入", description: "复杂任务优先规划" },
 ];
 
 export function CanvasCloudAgentSettings(props: AgentSettingsProps) {
@@ -96,6 +97,7 @@ export function CanvasCloudAgentSettings(props: AgentSettingsProps) {
                         {section === "skills" ? `${props.selectedSkillIds.length} 已固定` : "当前 Agent"}
                     </span>
                 ) : null}
+                {props.onCollapse ? <Button type="text" shape="circle" icon={<X className="size-4" />} onClick={props.onCollapse} aria-label="收起 Agent" title="收起" /> : null}
             </header>
 
             {section === "home" ? <SettingsHome props={props} theme={theme} onOpen={setSection} /> : null}
@@ -110,28 +112,11 @@ export function CanvasCloudAgentSettings(props: AgentSettingsProps) {
 }
 
 function SettingsHome({ props, theme, onOpen }: { props: AgentSettingsProps; theme: CanvasTheme; onOpen: (section: SettingsSection) => void }) {
+    const thinking = modelCapabilityConfigFor(props.config, props.selectedModel).text?.thinking || LEGACY_TEXT_THINKING_CONFIG;
     return (
         <div className="canvas-agent-settings-scroll thin-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto p-4">
             <section>
-                <SettingLabel label="推理模式" hint="新运行生效" />
-                <div className="grid grid-cols-3 gap-2">
-                    {reasoningOptions.map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            aria-pressed={props.reasoningMode === option.value}
-                            onClick={() => props.onReasoningModeChange(option.value)}
-                            className="rounded-xl p-3 text-left"
-                            style={{ background: props.reasoningMode === option.value ? theme.toolbar.itemHover : theme.node.fill, border: `1px solid ${props.reasoningMode === option.value ? theme.accent.primary : "transparent"}` }}
-                        >
-                            <div className="text-xs font-semibold">{option.label}</div>
-                            <div className="mt-1 text-[var(--fs-label)] opacity-50">{option.description}</div>
-                        </button>
-                    ))}
-                </div>
-                <p className="mt-2 text-xs leading-5" style={{ color: theme.node.muted }}>
-                    推理只用于目标拆解、缺口判断和下一步工具选择，不会把内部思考过程展示给用户。
-                </p>
+                <ThinkingLevelSlider levels={thinkingLevelsFor(thinking)} value={props.reasoningMode} resolvedLevel={resolveThinkingLevel(thinking, props.reasoningMode)} onChange={props.onReasoningModeChange} />
             </section>
             <section>
                 <SettingLabel label="对话模型" hint="新运行生效" />
@@ -162,7 +147,11 @@ function SettingsHome({ props, theme, onOpen }: { props: AgentSettingsProps; the
                                 key={option.value}
                                 type="button"
                                 className="flex min-w-0 flex-col gap-2 rounded-xl p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-current/30"
-                                style={{ background: theme.node.fill, color: theme.node.text, boxShadow: active ? `inset 0 0 0 1px ${theme.node.muted}` : "none" }}
+                                style={{
+                                    background: theme.node.fill,
+                                    color: theme.node.text,
+                                    boxShadow: active ? `inset 0 0 0 1px ${theme.node.muted}` : "none",
+                                }}
                                 onClick={() => props.onPermissionChange(option.value)}
                                 aria-pressed={active}
                             >
@@ -189,7 +178,7 @@ function SettingsHome({ props, theme, onOpen }: { props: AgentSettingsProps; the
                     <SettingRow theme={theme} icon={<BookMarked className="size-4" />} title="长期偏好" summary={profileSummary(props.profileView)} onClick={() => onOpen("profile")} />
                     <SettingRow theme={theme} icon={<BookMarked className="size-4" />} title="个人记忆" summary="Agent 在对话中自己记住和改写，可随时撤销；只属于你" onClick={() => onOpen("memories")} />
                     <SettingRow theme={theme} icon={<Blocks className="size-4" />} title="Skills · 用户技能库" summary={skillsSummary(props.installedSkills, props.selectedSkillIds)} onClick={() => onOpen("skills")} />
-                    <SettingRow theme={theme} icon={<Wrench className="size-4" />} title="工具与连接" summary="画布、技能参考文件、生成任务" onClick={() => onOpen("mcp")} />
+                    <SettingRow theme={theme} icon={<Wrench className="size-4" />} title="工具与连接" summary="画布、技能参考文件、生成任务；第三方连接即将支持" onClick={() => onOpen("mcp")} />
                     <SettingRow theme={theme} icon={<Gauge className="size-4" />} title="预算" summary={`每轮最多 ${props.maxCredits || "未设置"} 积分 · 固定计价模型`} onClick={() => onOpen("budget")} />
                 </div>
             </section>
@@ -415,7 +404,16 @@ function profileDraftKey(scope: AgentProfileScope, projectId: string | undefined
 }
 
 function profileLayer(view: AgentProfileView | null, scope: AgentProfileScope, projectId: string | undefined, canvasId: string): AgentProfileLayer {
-    return view?.layers.find((item) => item.scope === scope) || { scope, projectId: scope === "project" ? projectId : undefined, canvasId: scope === "canvas" ? canvasId : undefined, content: "", revision: 0, hash: "" };
+    return (
+        view?.layers.find((item) => item.scope === scope) || {
+            scope,
+            projectId: scope === "project" ? projectId : undefined,
+            canvasId: scope === "canvas" ? canvasId : undefined,
+            content: "",
+            revision: 0,
+            hash: "",
+        }
+    );
 }
 
 function profileSummary(view: AgentProfileView | null) {
@@ -519,6 +517,10 @@ function McpWorkspace({ theme }: { theme: CanvasTheme }) {
                     </div>
                 ))}
             </section>
+            <section>
+                <SettingLabel label="第三方连接" hint="即将支持" />
+                <AgentConnectorsBar />
+            </section>
             <p className="text-xs leading-5" style={{ color: theme.node.muted }}>
                 自定义 MCP 暂未开放。实际工具权限、密钥和调用配额需由 Agent 后端校验，不能在浏览器中假设已启用。
             </p>
@@ -545,7 +547,13 @@ function ContextWorkspace({ props, theme }: { props: AgentSettingsProps; theme: 
                             onClick={() => props.onContextToggle(option.value)}
                             aria-pressed={active}
                         >
-                            <span className="grid size-5 shrink-0 place-items-center rounded" style={{ background: active ? theme.accent.primary : theme.node.panel, color: active ? theme.accent.onPrimary : theme.node.muted }}>
+                            <span
+                                className="grid size-5 shrink-0 place-items-center rounded"
+                                style={{
+                                    background: active ? theme.accent.primary : theme.node.panel,
+                                    color: active ? theme.accent.onPrimary : theme.node.muted,
+                                }}
+                            >
                                 {active ? <Check className="size-3" /> : null}
                             </span>
                             <span className="min-w-0 flex-1">
@@ -642,9 +650,12 @@ function sectionSubtitle(section: SettingsSection) {
 export function agentPermissionLabel(mode: AgentPermissionMode) {
     return permissionOptions.find((option) => option.value === mode)?.label || "请求审批";
 }
+export function agentPermissionShortLabel(mode: AgentPermissionMode) {
+    return permissionOptions.find((option) => option.value === mode)?.short || "审批";
+}
 export function agentPermissionVisual(mode: AgentPermissionMode) {
     const option = permissionOptions.find((item) => item.value === mode) || permissionOptions[0];
-    return { color: option.color, soft: `${option.color}1f`, icon: option.icon };
+    return { color: option.color, soft: `color-mix(in srgb, ${option.color} 12%, transparent)`, icon: option.icon };
 }
 export function agentPermissionMenuItems(mode: AgentPermissionMode, onChange: (mode: AgentPermissionMode) => void) {
     return permissionOptions.map((option) => ({

@@ -1,0 +1,32 @@
+{
+  "source": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\first-frame.png",
+  "source_sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce",
+  "output": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\g17-selection\\two-presenters-source.mp4",
+  "output_sha256": "8e6b7ddc5b72d455186d763bdeb547dd3dd7760afcaa5597d2f80b1198ff8270",
+  "method": "Two side-by-side instances of our original fictional portrait; right side is mirrored with a distinct hue. A deliberate multi-face selection test, not two independently generated identities.",
+  "ffmpeg_args": [
+    "-nostdin",
+    "-y",
+    "-v",
+    "error",
+    "-loop",
+    "1",
+    "-i",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\first-frame.png",
+    "-filter_complex",
+    "[0:v]scale=640:384,split[left][right];[right]hflip,hue=h=35[distinct];[left][distinct]hstack=inputs=2[v]",
+    "-map",
+    "[v]",
+    "-t",
+    "2",
+    "-r",
+    "16",
+    "-c:v",
+    "libx264",
+    "-crf",
+    "18",
+    "-pix_fmt",
+    "yuv420p",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\g17-selection\\two-presenters-source.mp4"
+  ]
+}

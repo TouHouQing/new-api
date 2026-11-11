@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { RefObject } from "react";
 import { Layers3 } from "lucide-react";
 
@@ -27,11 +28,34 @@ type CanvasProjectSelectionToolbarProps = {
     onSendSelectionToAgent: () => void;
 };
 
-export function CanvasProjectSelectionToolbar({ anchorRef, containerRef, count, selectedVideoCount, selectedImageCount, groupingImages, onCreateImageLayerGroup, mergingVideos, onAlign, onArrange, onCreateStoryboard, onCreateReferenceGroup, onBatchConnect, onMergeVideos, onSendSelectionToAgent }: CanvasProjectSelectionToolbarProps) {
+export function CanvasProjectSelectionToolbar({
+    anchorRef,
+    containerRef,
+    count,
+    selectedVideoCount,
+    selectedImageCount,
+    groupingImages,
+    onCreateImageLayerGroup,
+    mergingVideos,
+    onAlign,
+    onArrange,
+    onCreateStoryboard,
+    onCreateReferenceGroup,
+    onBatchConnect,
+    onMergeVideos,
+    onSendSelectionToAgent,
+}: CanvasProjectSelectionToolbarProps) {
+    const { t } = useTranslation();
     const theme = canvasThemes[useCanvasThemeStore((state) => state.theme)];
 
     const handlers = {
-        onAlign, onArrange, onCreateStoryboard, onCreateReferenceGroup, onBatchConnect, onMergeVideos, onSendSelectionToAgent,
+        onAlign,
+        onArrange,
+        onCreateStoryboard,
+        onCreateReferenceGroup,
+        onBatchConnect,
+        onMergeVideos,
+        onSendSelectionToAgent,
     } as Partial<ToolbarHandlers> as ToolbarHandlers;
 
     const ctx: ToolContext = {
@@ -55,11 +79,18 @@ export function CanvasProjectSelectionToolbar({ anchorRef, containerRef, count, 
 
     const prefs = readToolbarPrefs("selection") ?? defaultToolbarPrefs("selection");
     const items = resolveToolbarEntries("selection", ctx, prefs);
-    if (selectedImageCount === count && count > 0 && count <= 32) items.push({ id: "create-image-layer-group", label: groupingImages ? "正在创建图层组" : "合成图层组（免费）", icon: <Layers3 className="size-4" />, onClick: onCreateImageLayerGroup, disabled: groupingImages });
+    if (selectedImageCount === count && count > 0 && count <= 32)
+        items.push({
+            id: "create-image-layer-group",
+            label: groupingImages ? "正在创建图层组" : "合成图层组（免费）",
+            icon: <Layers3 className="size-4" />,
+            onClick: onCreateImageLayerGroup,
+            disabled: groupingImages,
+        });
 
     return (
         <CanvasSelectionToolbar anchorRef={anchorRef} containerRef={containerRef} count={count}>
-            <FloatingDock items={items} size="compact" className="canvas-floating-dock" style={canvasDockStyle(theme)} ariaLabel="多选节点布局工具" />
+            <FloatingDock items={items} size="compact" className="canvas-floating-dock" style={canvasDockStyle(theme)} ariaLabel={t("canvasPage.selectionToolbar.ariaLabel")} />
         </CanvasSelectionToolbar>
     );
 }

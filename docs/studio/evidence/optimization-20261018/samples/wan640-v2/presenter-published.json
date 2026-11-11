@@ -1,0 +1,207 @@
+{
+  "source_image_sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce",
+  "source_video_sha256": "77a335229a2f11134c99000fdec25b8314c83e2b0d94cd4c444f557e5fc88ffd",
+  "source_image_adapter_id": "image-ebe177091276c5e30f5ba59bc12e7d16",
+  "source_video_adapter_id": null,
+  "voice_adapter_id": "audio-fd1d04b284bb4cd0b8ecb358ee5373f8",
+  "lip_adapter_id": "audio-2dc7d8e8c1c04da6a336fc2670dc5d63",
+  "published_media": [
+    {
+      "id": "sample-presenter-image",
+      "url": "/studio-examples/presenter/first-frame.png",
+      "mime_type": "image/png",
+      "sha256": "43585cb3e93d70b4b19b2249b39e48d6eee05bfee78da81e8450d60b1ac46dce",
+      "bytes": 205668
+    },
+    {
+      "id": "sample-presenter-video",
+      "url": "/studio-examples/presenter/source.mp4",
+      "mime_type": "video/mp4",
+      "sha256": "e08c9072e030ddaa12be7f1bc320f3640aac2bbfc96528b10f4608a2d2c3dd90",
+      "bytes": 34453
+    },
+    {
+      "id": "sample-presenter-film",
+      "url": "/studio-examples/presenter/film.mp4",
+      "mime_type": "video/mp4",
+      "sha256": "6d2015d9e71f2cc13a5d3bfd650168e6cb85220f9b2fa527c282bfda2e7862f0",
+      "bytes": 74240
+    },
+    {
+      "id": "sample-presenter-music",
+      "url": "/studio-examples/shared/music.mp3",
+      "mime_type": "audio/mpeg",
+      "sha256": "a9b1cf4c09472436ad4c008749236207f6d83fe67a8337df911638397fbe8feb",
+      "bytes": 48500
+    },
+    {
+      "id": "sample-presenter-voice",
+      "url": "/studio-examples/presenter/voice.wav",
+      "mime_type": "audio/wav",
+      "sha256": "690e476660ce31fe92f6133aa25fdd40b1154fed94c44f5c01914a420d150e3a",
+      "bytes": 61100
+    },
+    {
+      "id": "sample-presenter-lip",
+      "url": "/studio-examples/presenter/lip-synced.mp4",
+      "mime_type": "video/mp4",
+      "sha256": "a5a9e1276254f4200a0e3f77a70046aa8b09c66879d01b14e76a551d1e89e7b2",
+      "bytes": 40880
+    },
+    {
+      "id": "sample-presenter-voice-padded",
+      "url": "/studio-examples/presenter/voice-padded.wav",
+      "mime_type": "audio/wav",
+      "sha256": "df7ce7fc555dc2f0fb8126cf60ada9de73f880255331361bc7d938a055932f2a",
+      "bytes": 147078
+    }
+  ],
+  "film_ffprobe": {
+    "streams": [
+      {
+        "index": 0,
+        "codec_name": "h264",
+        "codec_long_name": "H.264 / AVC / MPEG-4 AVC / MPEG-4 part 10",
+        "profile": "High",
+        "codec_type": "video",
+        "codec_tag_string": "avc1",
+        "codec_tag": "0x31637661",
+        "mime_codec_string": "avc1.640016",
+        "width": 640,
+        "height": 384,
+        "coded_width": 640,
+        "coded_height": 384,
+        "has_b_frames": 2,
+        "sample_aspect_ratio": "1:1",
+        "display_aspect_ratio": "5:3",
+        "pix_fmt": "yuv420p",
+        "level": 22,
+        "chroma_location": "left",
+        "field_order": "progressive",
+        "is_avc": "true",
+        "nal_length_size": "4",
+        "id": "0x1",
+        "r_frame_rate": "16/1",
+        "avg_frame_rate": "16/1",
+        "time_base": "1/16384",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 50176,
+        "duration": "3.062500",
+        "bit_rate": "103724",
+        "bits_per_raw_sample": "8",
+        "nb_frames": "49",
+        "extradata_size": 46,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "VideoHandler",
+          "encoder": "Lavc63.1.102 libx264"
+        }
+      },
+      {
+        "index": 1,
+        "codec_name": "aac",
+        "codec_long_name": "AAC (Advanced Audio Coding)",
+        "profile": "LC",
+        "codec_type": "audio",
+        "codec_tag_string": "mp4a",
+        "codec_tag": "0x6134706d",
+        "mime_codec_string": "mp4a.40.2",
+        "sample_fmt": "fltp",
+        "sample_rate": "44100",
+        "channels": 1,
+        "channel_layout": "mono",
+        "bits_per_sample": 0,
+        "initial_padding": 1024,
+        "id": "0x2",
+        "r_frame_rate": "0/0",
+        "avg_frame_rate": "0/0",
+        "time_base": "1/44100",
+        "start_pts": 0,
+        "start_time": "0.000000",
+        "duration_ts": 135056,
+        "duration": "3.062494",
+        "bit_rate": "80997",
+        "nb_frames": "133",
+        "extradata_size": 5,
+        "disposition": {
+          "default": 1,
+          "dub": 0,
+          "original": 0,
+          "comment": 0,
+          "lyrics": 0,
+          "karaoke": 0,
+          "forced": 0,
+          "hearing_impaired": 0,
+          "visual_impaired": 0,
+          "clean_effects": 0,
+          "attached_pic": 0,
+          "timed_thumbnails": 0,
+          "non_diegetic": 0,
+          "captions": 0,
+          "descriptions": 0,
+          "metadata": 0,
+          "dependent": 0,
+          "still_image": 0,
+          "multilayer": 0
+        },
+        "tags": {
+          "language": "und",
+          "handler_name": "SoundHandler"
+        }
+      }
+    ],
+    "format": {
+      "filename": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\web\\public\\studio-examples\\presenter\\film.mp4",
+      "nb_streams": 2,
+      "nb_programs": 0,
+      "nb_stream_groups": 0,
+      "format_name": "mov,mp4,m4a,3gp,3g2,mj2",
+      "format_long_name": "QuickTime / MOV",
+      "start_time": "0.000000",
+      "duration": "3.062500",
+      "size": "74240",
+      "bit_rate": "193933",
+      "probe_score": 100,
+      "tags": {
+        "major_brand": "isom",
+        "minor_version": "512",
+        "compatible_brands": "isomiso2avc1mp41",
+        "encoder": "Lavf63.1.102"
+      }
+    }
+  },
+  "review": {
+    "source_reviewed": true,
+    "film_reviewed": true,
+    "notes": "The native Wan result hallucinated background text and was rejected. Use the clean original FLUX portrait as the source for separately produced real speech/MuseTalk; no native joint generation claim.",
+    "task": "composite-recipe-presenter",
+    "lip_task": "lip-presenter-nms-v2",
+    "source_sha256": "77a335229a2f11134c99000fdec25b8314c83e2b0d94cd4c444f557e5fc88ffd",
+    "film_sha256": "6d2015d9e71f2cc13a5d3bfd650168e6cb85220f9b2fa527c282bfda2e7862f0",
+    "reviewed_at": "2026-10-18T09:42:39Z",
+    "final_review": "All audio/video frames decoded; frame contact sheet inspected, captions readable, source identity retained. Explain/presenter final mixed MP4 audio transcribed exactly as intended by installed offline Whisper Small. This is a short example, not a full-length production."
+  },
+  "notes": "A real short visual example, not a complete 15- or 30-second campaign. The source first frame, clips, caption and sound are editable. Music is the original procedural tutorial arpeggio. This sample preserves the clean FLUX-generated subject with a precise FFmpeg image edit. The rejected native Wan attempt is not used and is not claimed as verified. Speech is post-produced with the installed Chatterbox builtin voice. MuseTalk mouth synchronization is a derived edit, not native joint audio-video generation; the silent original Take is retained."
+}

@@ -129,7 +129,6 @@ export function CanvasShortDramaEmptyState({
         "--canvas-entry-on-accent": theme.accent.onPrimary,
         "--canvas-entry-surface": theme.spatial.elevated,
         "--canvas-entry-border": theme.toolbar.border,
-        "--canvas-entry-shadow": theme.spatial.shadow,
     } as CSSProperties;
     const submit = () => {
         const value = prompt.trim();

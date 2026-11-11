@@ -1,0 +1,447 @@
+{
+  "spec_sha256": "de0ae87e27cdaed98b592be42360b54a7e9ec4224f6b11cadcbcb65e10ca7d7d",
+  "tested_at": "2026-10-18T13:28:55.733238+00:00",
+  "scope": "AC14 actual local2Hookx2Benefit text-onlycreativecampaign: sample review, confirmedbatch, fourindependentvariants, once422failure/samejobrecovery, immutablemaster/sharedTake, actualcaptionedMP4+editableZIP",
+  "outcome": "passed_for_explicit_text_only_campaign_and_editing_scope",
+  "candidate": {
+    "image": "5130d4d5440f2a4919127b24864054237a06c15f61cd7d6233d6e13e892db1d6",
+    "asset": "index.ca105c576e.js"
+  },
+  "actual_UI_login": {
+    "isolated_Edge_context": true,
+    "account": 15,
+    "credentialsNeverPrinted": true,
+    "workflow_and_project_mutations_via_actual_UI": true,
+    "readonly_evidence_requests": "Reused actualUIrequestauthorization inbrowsermemory; no credentialfiledump/stateinjection."
+  },
+  "campaign": {
+    "id": "7b7f8336-99a1-4c53-a312-73aee96c9216",
+    "title": "opt18-真实文本实验-2开场x2卖点-短文案修复回归",
+    "source_project_id": "gZBncydkNeHxAeh0iHVLg",
+    "source_revision": 1,
+    "source_digest": "fa84c4934b90d48a8779510a3041fcb7c3d0d624fc334c5acd65170f995e2021",
+    "revision": 1,
+    "total_budget": 20000,
+    "axes": [
+      {
+        "id": "hook",
+        "label": "开场吸引点",
+        "kind": "hook",
+        "path": "/nodes/0/data/prompt",
+        "values": [
+          {
+            "id": "a",
+            "label": "A",
+            "value": "[NARRATIVE_CAMPAIGN_ONLY_20261018] 只输出这句中文开场，不要解释：忙碌的今天，先喝一口香气。"
+          },
+          {
+            "id": "b",
+            "label": "B",
+            "value": "[NARRATIVE_CAMPAIGN_ONLY_20261018] 只输出这句中文开场，不要解释：推开门，让咖啡香迎接你。"
+          }
+        ]
+      },
+      {
+        "id": "benefit",
+        "label": "要展示的卖点",
+        "kind": "benefit",
+        "path": "/nodes/5/data/prompt",
+        "values": [
+          {
+            "id": "a",
+            "label": "A",
+            "value": "[NARRATIVE_CAMPAIGN_ONLY_20261018] 只输出这句中文卖点，不要解释：新鲜现磨，香气就在这一杯。"
+          },
+          {
+            "id": "b",
+            "label": "B",
+            "value": "[NARRATIVE_CAMPAIGN_ONLY_20261018] [NARRATIVE_CAMPAIGN_FAIL_BENEFIT_B] 只输出这句中文卖点，不要解释：柔和口感，让片刻更加从容。"
+          }
+        ]
+      }
+    ],
+    "variants": [
+      {
+        "id": "v1",
+        "values": {
+          "benefit": "a",
+          "hook": "a"
+        },
+        "budget": 5000,
+        "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v1",
+        "project_revision": 1,
+        "changed_node_ids": [
+          "sample-store-script-node",
+          "opt18-campaign-benefit"
+        ]
+      },
+      {
+        "id": "v2",
+        "values": {
+          "benefit": "b",
+          "hook": "a"
+        },
+        "budget": 5000,
+        "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v2",
+        "project_revision": 1,
+        "changed_node_ids": [
+          "sample-store-script-node",
+          "opt18-campaign-benefit"
+        ]
+      },
+      {
+        "id": "v3",
+        "values": {
+          "benefit": "a",
+          "hook": "b"
+        },
+        "budget": 5000,
+        "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v3",
+        "project_revision": 1,
+        "changed_node_ids": [
+          "sample-store-script-node",
+          "opt18-campaign-benefit"
+        ]
+      },
+      {
+        "id": "v4",
+        "values": {
+          "benefit": "b",
+          "hook": "b"
+        },
+        "budget": 5000,
+        "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v4",
+        "project_revision": 1,
+        "changed_node_ids": [
+          "sample-store-script-node",
+          "opt18-campaign-benefit"
+        ]
+      }
+    ],
+    "sample_variant_id": "v1",
+    "created_at": "2026-10-18T13:14:49Z"
+  },
+  "sample_review": {
+    "actual_output": [
+      "忙碌的今天，先喝一口香气。",
+      "新鲜现磨，香气就在这一杯。"
+    ],
+    "sample_approved_revision": 5,
+    "explicit_UI_approval": true,
+    "other_variants_blocked_before_sample_approval": true,
+    "evidence": [
+      "08-sample-actual-text-ui.txt",
+      "08-sample-actual-text-ui.png",
+      "09-sample-approval-confirm.txt",
+      "10-batch-budget-confirm.txt"
+    ]
+  },
+  "budgets": {
+    "total": 20000,
+    "each": [
+      5000,
+      5000,
+      5000,
+      5000
+    ],
+    "sample": 5000,
+    "confirmedRemainingBatch": 15000,
+    "actualChargedQuota": [
+      0,
+      0,
+      0,
+      0
+    ],
+    "allSettlementsFinal": true,
+    "noSecondCampaignCharge": true,
+    "browserTokenCreationRequests": [],
+    "noExternalPaidCost": true
+  },
+  "jobs": [
+    {
+      "id": "8d82c9a3-8cab-4321-88f6-fe8d67406df6",
+      "request_id": "campaign_7b7f8336-99a1-4c53-a312-73aee96c9216_v1",
+      "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v1",
+      "status": "succeeded",
+      "nodes": [
+        "sample-store-script-node",
+        "opt18-campaign-benefit"
+      ],
+      "used_quota": 0
+    },
+    {
+      "id": "4dbc1bfd-00c3-4ece-98bf-43e4c34e2f83",
+      "request_id": "campaign_7b7f8336-99a1-4c53-a312-73aee96c9216_v2",
+      "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v2",
+      "status": "succeeded",
+      "nodes": [
+        "sample-store-script-node",
+        "opt18-campaign-benefit"
+      ],
+      "used_quota": 0
+    },
+    {
+      "id": "4da69e66-96c5-4df8-bcd6-067c2c0f5d11",
+      "request_id": "campaign_7b7f8336-99a1-4c53-a312-73aee96c9216_v3",
+      "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v3",
+      "status": "succeeded",
+      "nodes": [
+        "sample-store-script-node",
+        "opt18-campaign-benefit"
+      ],
+      "used_quota": 0
+    },
+    {
+      "id": "b88e1dcc-2672-4373-a2b0-df1be676385b",
+      "request_id": "campaign_7b7f8336-99a1-4c53-a312-73aee96c9216_v4",
+      "project_id": "7b7f8336-99a1-4c53-a312-73aee96c9216_v4",
+      "status": "succeeded",
+      "nodes": [
+        "sample-store-script-node",
+        "opt18-campaign-benefit"
+      ],
+      "used_quota": 0
+    }
+  ],
+  "failure_and_recovery": {
+    "resumedOnlyProject": [
+      "7b7f8336-99a1-4c53-a312-73aee96c9216_v2"
+    ],
+    "sameJobId": "4dbc1bfd-00c3-4ece-98bf-43e4c34e2f83",
+    "sameStableRequestId": "campaign_7b7f8336-99a1-4c53-a312-73aee96c9216_v2",
+    "completedHookTakeUnchanged": true,
+    "otherThreeJobsAndProjectsExactlyUnchanged": true,
+    "faultsInjected": 1,
+    "newExperimentActualQwenRequests": 8,
+    "oldRejectedCopyExampleQwenRequests": 2,
+    "forwardedTotal": 10,
+    "allActualQwenHTTP200": true,
+    "beforeRejectedRequestNotForwarded": true,
+    "fourDistinctShortTextPairs": [
+      {
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v1",
+        "caption": "忙碌的今天，先喝一口香气。\n新鲜现磨，香气就在这一杯。",
+        "texts": [
+          "忙碌的今天，先喝一口香气。",
+          "新鲜现磨，香气就在这一杯。"
+        ]
+      },
+      {
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v2",
+        "caption": "忙碌的今天，先喝一口香气。\n柔和口感，让片刻更加从容。",
+        "texts": [
+          "忙碌的今天，先喝一口香气。",
+          "柔和口感，让片刻更加从容。"
+        ]
+      },
+      {
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v3",
+        "caption": "推开门，让咖啡香迎接你。\n新鲜现磨，香气就在这一杯。",
+        "texts": [
+          "推开门，让咖啡香迎接你。",
+          "新鲜现磨，香气就在这一杯。"
+        ]
+      },
+      {
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v4",
+        "caption": "推开门，让咖啡香迎接你。\n柔和口感，让片刻更加从容。",
+        "texts": [
+          "推开门，让咖啡香迎接你。",
+          "柔和口感，让片刻更加从容。"
+        ]
+      }
+    ]
+  },
+  "fault_semantics": {
+    "type": "Explicitly declared isolated fault injection, not naturalprovideroutage",
+    "HTTP": 422,
+    "code": "local_inference_failed",
+    "stage": "BeforeforwardingtoOllama",
+    "injectedRequestsNotForwarded": 1,
+    "counterEvidence": "output/playwright/narrative-campaign/proxy-final-state.json",
+    "HTTP503_not_used_as_failed": "Production deliberately treats postchannel5xx/408asuncertainunlessdispatcherprovesprechannelselectionrejection. This safeguardwaspreserved, notrewrittenforthetest."
+  },
+  "model_runs": {
+    "newExperimentRealQwenCalls": 8,
+    "previousRejectedCopySampleRealQwenCalls": 2,
+    "totalRealQwenCalls": 10,
+    "newImageOrVideoInference": 0,
+    "externalModelCalls": 0,
+    "limits": "Only8shortliteralChinesehook/benefitrequestsvalidatedafterfix; not proof ofunrestrictedcreativecopyquality."
+  },
+  "real_films_and_master": {
+    "masterUnchangedIncludingRevision": true,
+    "masterRevision": 1,
+    "allFourShareSameOriginalMediaIdAndTake": true,
+    "outputs": [
+      {
+        "variant": "v1",
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v1",
+        "caption": "忙碌的今天，先喝一口香气。\n新鲜现磨，香气就在这一杯。",
+        "film": "output\\playwright\\narrative-campaign\\variant-v1.mp4",
+        "sha256": "f567fdcab6e4dfe0cde42a931305a36187a2cabbea6bfc5a37dc382be2a0fb59",
+        "size": [
+          640,
+          384
+        ],
+        "seconds": 3.0625,
+        "frames": 49,
+        "allAudioVideoDecoded": true,
+        "sourceVideoMediaId": "em41_X_v3fAvoXhGi2Q2L",
+        "selectedTakeId": "sample-store-video-take",
+        "sourceTakeSHA256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b",
+        "sharedOriginalVideoAndTakesUnchanged": true,
+        "assetsAndMusicTrackSharedUnchanged": true,
+        "captionExplicitlyAppliedInUIFromActualModelOutputs": true
+      },
+      {
+        "variant": "v2",
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v2",
+        "caption": "忙碌的今天，先喝一口香气。\n柔和口感，让片刻更加从容。",
+        "film": "output\\playwright\\narrative-campaign\\variant-v2.mp4",
+        "sha256": "9f48705df7ad417832e81c365b0c279cdac9753c61a3a100376c5dd855abffcb",
+        "size": [
+          640,
+          384
+        ],
+        "seconds": 3.0625,
+        "frames": 49,
+        "allAudioVideoDecoded": true,
+        "sourceVideoMediaId": "em41_X_v3fAvoXhGi2Q2L",
+        "selectedTakeId": "sample-store-video-take",
+        "sourceTakeSHA256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b",
+        "sharedOriginalVideoAndTakesUnchanged": true,
+        "assetsAndMusicTrackSharedUnchanged": true,
+        "captionExplicitlyAppliedInUIFromActualModelOutputs": true
+      },
+      {
+        "variant": "v3",
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v3",
+        "caption": "推开门，让咖啡香迎接你。\n新鲜现磨，香气就在这一杯。",
+        "film": "output\\playwright\\narrative-campaign\\variant-v3.mp4",
+        "sha256": "3dce59e2b8f94ea21b24bcd4bbbd4fbd1899277978cdbdc321b815d11133f20e",
+        "size": [
+          640,
+          384
+        ],
+        "seconds": 3.0625,
+        "frames": 49,
+        "allAudioVideoDecoded": true,
+        "sourceVideoMediaId": "em41_X_v3fAvoXhGi2Q2L",
+        "selectedTakeId": "sample-store-video-take",
+        "sourceTakeSHA256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b",
+        "sharedOriginalVideoAndTakesUnchanged": true,
+        "assetsAndMusicTrackSharedUnchanged": true,
+        "captionExplicitlyAppliedInUIFromActualModelOutputs": true
+      },
+      {
+        "variant": "v4",
+        "projectId": "7b7f8336-99a1-4c53-a312-73aee96c9216_v4",
+        "caption": "推开门，让咖啡香迎接你。\n柔和口感，让片刻更加从容。",
+        "film": "output\\playwright\\narrative-campaign\\variant-v4.mp4",
+        "sha256": "7a970c847fc3c710b50aefd000a49531c2892de9cf7aaf4904b6cb2d5ade02bc",
+        "size": [
+          640,
+          384
+        ],
+        "seconds": 3.0625,
+        "frames": 49,
+        "allAudioVideoDecoded": true,
+        "sourceVideoMediaId": "em41_X_v3fAvoXhGi2Q2L",
+        "selectedTakeId": "sample-store-video-take",
+        "sourceTakeSHA256": "b27d9109aa8536f73db7afb7b24c40e7afb3a209c5bfa96677edd554da947b6b",
+        "sharedOriginalVideoAndTakesUnchanged": true,
+        "assetsAndMusicTrackSharedUnchanged": true,
+        "captionExplicitlyAppliedInUIFromActualModelOutputs": true
+      }
+    ],
+    "newImageOrVideoInference": 0,
+    "allFourContentHashesDifferDueToExplicitTextChanges": true,
+    "comparison": "output/playwright/narrative-campaign/four-variant-comparison.jpg"
+  },
+  "manual_visual_review": {
+    "comparison": "output/playwright/narrative-campaign/four-variant-comparison.jpg",
+    "reviewed": true,
+    "result": "Fouractualsameframecoffeeclips havefourcorrectdifferenttwo-lineChinesecaptions; wholecup/handsremainvisible, captionswithinframe/readable. Eachclip49frames/3.0625s640x384, allaudio/videodecoded. ThecaptiontextwasexplicitlyappliedfromactualQwenoutputsusingtheexistingUI."
+  },
+  "resolved_product_defects": [
+    {
+      "cause": "Plainmoderewroteexplicitshortcopyintovisualprompt",
+      "root_fix": "Compatibleexplicittexttaskrecognition; defaultvisualpromptandstructuredshotmodespreserved",
+      "actual_retest": "Newfrozenexperimentcorrectshortcopysampleandfouroutputs; oldbadsampleneverapproved",
+      "old_evidence": [
+        "output/playwright/narrative-campaign/before-copy-fix-sample-ui.txt",
+        "output/playwright/narrative-campaign/before-copy-fix-sample-ui.png",
+        "output/playwright/narrative-campaign/before-copy-fix-v1-project.zip",
+        "output/playwright/narrative-campaign/job-v1-before-copy-fix.json"
+      ]
+    },
+    {
+      "cause": "Rawstudio.production.failedkey",
+      "root_fix": "Useexistingstudio.production.statusnamespace",
+      "actual_retest": "UIshowed失败/已完成duringactualfailure/recovery."
+    },
+    {
+      "cause": "RawnodeIDsexposedinusercards",
+      "root_fix": "Maptoreadablemasternodetitles",
+      "actual_retest": "UIshowed开场文案、卖点文案; IDsremainonlyreceiptinternals."
+    }
+  ],
+  "test_fixture_correction": "Pass-throughbody leftalias inmodel; isolated proxy initially rejectedbeforeOllama because it expectedrealmodelname. Fixed onlyown ignored proxy toacceptuniquealiasandmap toqwen. Sameexistingjob resumed and2realQwenHTTP200 completed. Failedreceipt kept.",
+  "original_quality_failed_experiment": {
+    "id": "a05769a9-065f-4343-9c7d-0fe5f786777f",
+    "sampleApproved": false,
+    "qualityOutcome": "failed_before_compatibility_fix; keptasevidence",
+    "newExperimentDoesNotOverwriteIt": true
+  },
+  "model_quality_scope": {
+    "G04": "No new six-shot or clothing/two-person/product-view generation ispartofthiscampaigntrial. SharedsameTake isnotnewcontinuityquality evidence.",
+    "G13": "Actualfourtext-onlyversions/sample/batch/failure-recovery/edit-exportpassed; physicalvideoissharedoriginal, notfournewAI-generatedvideos.",
+    "remaining": "G04detailedqualitycasesbelowandnewvisualgenerativequalityremainoutsidevalidatedscope. Shortcopydefectisresolvedandretested.",
+    "G04_detailed": [
+      {
+        "case": "Six shots of the same person including side/far view and wardrobechange",
+        "state": "verification_blocked",
+        "reason": "No controlled actual six-shot character/wardrobe artifact reviewed in this bounded trial. Cross-stylefoxpresetclips cannot standin for this case."
+      },
+      {
+        "case": "Two independently generated people interacting",
+        "state": "verification_blocked",
+        "reason": "G17 controlled explicit-speaker test used a self-made composite of one fictional presenter duplicated. This proves ROI isolation, not two independent identities or interaction continuity."
+      },
+      {
+        "case": "Productthreeview nativevideo",
+        "state": "failed_quality_for_attempted_path",
+        "reason": "Original nativeWanproductattempt duplicated/deformed subject andwasnotaccepted. Published cleanFLUX+preciseCPUimageeditpreservesproduct butdoesnotprove newnative3viewgeneration.",
+        "evidence": "docs/studio/evidence/optimization-20261018/samples/wan640-v2/reviews.json"
+      }
+    ],
+    "G13_visual_generation": "This explicit locallyauthorizedcampaign path reusesactual completedcoffeevideoandchangesonlytext. NewvisualHook/benefitgenerationqualityisnottested, notinferredfrom4sharedpictureversions."
+  },
+  "cleanup": {
+    "dedicated_channel_and_own_settings": {
+      "dedicatedChannelDeleted": true,
+      "ownZeroPriceAliasRemoved": true,
+      "ownAllowedPortRemoved": true,
+      "unrelatedConcurrentOptionEntriesPreserved": true
+    },
+    "temporary_credit": {
+      "actor": 15,
+      "temporaryAddedQuota": 20000,
+      "beforeCleanupQuota": 20000,
+      "actualUsedQuotaSinceStart": 0,
+      "returnedUnusedQuota": 20000,
+      "afterCleanupQuota": 0,
+      "originalQuota": 0,
+      "allTemporaryUnusedCreditReturned": true,
+      "mutation": "Atomic subtract onlyreturnedunusedamount; no absolutebalanceoverride orotherfieldchange",
+      "externalPaidCost": 0
+    },
+    "private_proxy": "Exactowned13023listenerPIDverifiedbycommandline, stoppedafterallrealrequestsfinished; no13023listenerremains",
+    "browser": "OwnisolatedEdgecontext/browserclosednormally; harnessreportedclosed=true,errors=[]",
+    "shared_services": "ComfyUI/Ollama/modeladapter/productionappnotrestartedbythischild",
+    "source_failure_and_actual_outputs": "Preservedactualevidence; neverretriedearlierpolicydenieddeletions"
+  },
+  "source_edits_by_child_during_supplemental_acceptance": 0,
+  "global_completion_authority": "Parent/rootonly; G04continuityandG13newvisualgenerationqualitylimitsremainexplicit, notacceptedbythistext-onlyproof."
+}

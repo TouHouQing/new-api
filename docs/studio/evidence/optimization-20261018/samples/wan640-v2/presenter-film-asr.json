@@ -1,0 +1,44 @@
+{
+  "source": "Final edited MP4 audio track, not the original isolated TTS file",
+  "transcription": {
+    "text": " Let's help plants grow.",
+    "language": "en",
+    "duration": 3.0625,
+    "segments": [
+      {
+        "id": 0,
+        "start": 0,
+        "end": 1.0,
+        "text": " Let's help plants grow.",
+        "avg_logprob": -0.29797180493672687,
+        "no_speech_prob": 0.004243645817041397
+      }
+    ],
+    "words": [
+      {
+        "start": 0.0,
+        "end": 0.34,
+        "text": " Let's",
+        "confidence": 0.9488694369792938
+      },
+      {
+        "start": 0.34,
+        "end": 0.42,
+        "text": " help",
+        "confidence": 0.9285598397254944
+      },
+      {
+        "start": 0.42,
+        "end": 0.68,
+        "text": " plants",
+        "confidence": 0.9980345368385315
+      },
+      {
+        "start": 0.68,
+        "end": 1.0,
+        "text": " grow.",
+        "confidence": 0.9976195693016052
+      }
+    ]
+  }
+}

@@ -1,4 +1,3 @@
-
 .creation-home .creation-thread-scroll {
     flex: 1 1 auto;
     min-height: 0;
@@ -8,8 +7,12 @@
     scrollbar-gutter: auto;
     scrollbar-color: color-mix(in srgb, var(--user-ink, var(--creation-text)) 20%, transparent) transparent;
 }
-.creation-home .creation-thread-scroll::-webkit-scrollbar { width: 6px; }
-.creation-home .creation-thread-scroll::-webkit-scrollbar-track { background: transparent; }
+.creation-home .creation-thread-scroll::-webkit-scrollbar {
+    width: 6px;
+}
+.creation-home .creation-thread-scroll::-webkit-scrollbar-track {
+    background: transparent;
+}
 .creation-home .creation-thread-scroll::-webkit-scrollbar-thumb {
     border: 0;
     border-radius: 999px;
@@ -18,7 +21,6 @@
 .creation-home .creation-thread-scroll::-webkit-scrollbar-thumb:hover {
     background: color-mix(in srgb, var(--user-ink, var(--creation-text)) 30%, transparent);
 }
-
 
 .creation-home .creation-thread-stage {
     width: min(900px, calc(100% - 56px));
@@ -52,7 +54,9 @@
     white-space: normal;
 }
 
-html:not(.dark) .creation-home .creation-user-message { background: transparent; }
+html:not(.dark) .creation-home .creation-user-message {
+    background: transparent;
+}
 
 .creation-home .creation-user-message-meta {
     display: flex;
@@ -70,22 +74,34 @@ html:not(.dark) .creation-home .creation-user-message { background: transparent;
     overflow: hidden;
     border: 0;
     border-radius: 50%;
-    background: rgba(255, 255, 255, .08);
+    background: rgba(255, 255, 255, 0.08);
     color: var(--creation-muted);
 }
-.creation-home .creation-user-avatar svg { width: 15px; height: 15px; }
-.creation-home .creation-user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.creation-home .creation-user-avatar svg {
+    width: 15px;
+    height: 15px;
+}
+.creation-home .creation-user-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
 .creation-home .creation-user-message-meta strong {
     color: var(--creation-text);
     font-size: var(--fs-body);
     font-weight: 620;
     white-space: nowrap;
 }
-html:not(.dark) .creation-home .creation-user-avatar { background: rgba(15, 23, 42, .07); color: var(--creation-faint); }
-
+html:not(.dark) .creation-home .creation-user-avatar {
+    background: rgba(15, 23, 42, 0.07);
+    color: var(--creation-faint);
+}
 
 .creation-home .creation-user-message-meta time,
-.creation-home .creation-message-heading time { color: var(--creation-faint); font-size: var(--fs-micro); }
+.creation-home .creation-message-heading time {
+    color: var(--creation-faint);
+    font-size: var(--fs-micro);
+}
 
 .creation-home .creation-user-message-actions {
     display: flex;
@@ -106,19 +122,33 @@ html:not(.dark) .creation-home .creation-user-avatar { background: rgba(15, 23, 
     color: var(--creation-faint);
     padding: 0;
     cursor: pointer;
-    opacity: .66;
-    transition: background-color var(--motion-state) ease, color var(--motion-state) ease, opacity var(--motion-state) ease;
+    opacity: 0.66;
+    transition:
+        background-color var(--motion-state) ease,
+        color var(--motion-state) ease,
+        opacity var(--motion-state) ease;
 }
-.creation-home .creation-user-message-actions button svg { width: 15px; height: 15px; }
+.creation-home .creation-user-message-actions button svg {
+    width: 15px;
+    height: 15px;
+}
 .creation-home .creation-user-message-actions button:hover {
     background: var(--creation-surface-hover);
     color: var(--creation-text);
     opacity: 1;
 }
-.creation-home .creation-user-message-actions button svg { width: var(--space-3); height: var(--space-3); }
-.creation-home .creation-user-message-actions button:focus-visible { outline: 2px solid var(--creation-accent); outline-offset: 1px; }
+.creation-home .creation-user-message-actions button svg {
+    width: var(--space-3);
+    height: var(--space-3);
+}
+.creation-home .creation-user-message-actions button:focus-visible {
+    outline: 2px solid var(--creation-accent);
+    outline-offset: 1px;
+}
 @media (hover: hover) and (pointer: fine) {
-    .creation-home .creation-user-message:not(:hover):not(:focus-within) .creation-user-message-actions { opacity: 0; }
+    .creation-home .creation-user-message:not(:hover):not(:focus-within) .creation-user-message-actions {
+        opacity: 0;
+    }
 }
 
 .creation-home .creation-user-message-copy-wrap {
@@ -127,9 +157,11 @@ html:not(.dark) .creation-home .creation-user-avatar { background: rgba(15, 23, 
     border-radius: var(--r-lg) var(--r-lg) 4px var(--r-lg);
     background: color-mix(in srgb, var(--creation-accent) 10%, var(--creation-surface));
     padding: 10px 12px;
-    box-shadow: 0 1px 2px 0 rgb(0 0 0 / .18);
+    box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.18);
 }
-html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 1px 2px 0 rgb(15 23 42 / .08); }
+html:not(.dark) .creation-home .creation-user-message-copy-wrap {
+    box-shadow: 0 1px 2px 0 rgb(15 23 42 / 0.08);
+}
 
 .creation-home .creation-user-message-copy-wrap p {
     margin: 0;
@@ -156,8 +188,15 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     gap: var(--space-2);
 }
 
-.creation-home .creation-message-heading strong { color: var(--creation-text); font-size: var(--fs-body); font-weight: 620; }
-.creation-home .creation-message-progress-copy { color: var(--creation-muted); font-size: var(--fs-body); }
+.creation-home .creation-message-heading strong {
+    color: var(--creation-text);
+    font-size: var(--fs-body);
+    font-weight: 620;
+}
+.creation-home .creation-message-progress-copy {
+    color: var(--creation-muted);
+    font-size: var(--fs-body);
+}
 .creation-home .creation-message-variant-action {
     display: inline-flex;
     min-height: var(--space-7);
@@ -172,12 +211,28 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     font-size: var(--fs-label);
     cursor: pointer;
 }
-.creation-home .creation-message-variant-action:hover { background: var(--creation-surface-hover); color: var(--creation-text); }
-.creation-home .creation-message-variant-action:focus-visible { outline: 2px solid var(--creation-accent); outline-offset: 1px; }
-.creation-home .creation-message-variant-action svg { width: var(--space-3); height: var(--space-3); }
+.creation-home .creation-message-variant-action:hover {
+    background: var(--creation-surface-hover);
+    color: var(--creation-text);
+}
+.creation-home .creation-message-variant-action:focus-visible {
+    outline: 2px solid var(--creation-accent);
+    outline-offset: 1px;
+}
+.creation-home .creation-message-variant-action svg {
+    width: var(--space-3);
+    height: var(--space-3);
+}
 @media (hover: hover) and (pointer: fine) {
-    .creation-home .creation-assistant-message:not(:hover):not(:focus-within) .creation-message-variant-action { opacity: 0; }
-    .creation-home .creation-message-variant-action { transition: opacity var(--motion-state) ease, background-color var(--motion-state) ease, color var(--motion-state) ease; }
+    .creation-home .creation-assistant-message:not(:hover):not(:focus-within) .creation-message-variant-action {
+        opacity: 0;
+    }
+    .creation-home .creation-message-variant-action {
+        transition:
+            opacity var(--motion-state) ease,
+            background-color var(--motion-state) ease,
+            color var(--motion-state) ease;
+    }
 }
 
 .creation-home .creation-message-content {
@@ -193,14 +248,26 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     max-width: 720px;
     padding: var(--space-3) 0 0 var(--space-8);
 }
-.creation-home .creation-message-reasoning-wrap > div { margin-bottom: 0; }
+.creation-home .creation-message-reasoning-wrap > div {
+    margin-bottom: 0;
+}
 
-
-.creation-home .creation-thread-composer .creation-chat-writing-surface { min-height: 0; }
-.creation-home .creation-thread-composer .creation-chat-editor textarea { min-height: 44px; }
-.creation-home .creation-thread-composer .creation-reference-panel { margin-bottom: var(--space-1); }
-.creation-home .creation-thread-composer .creation-reference-track-wrapper { min-height: 40px; }
-.creation-home .creation-thread-composer .creation-reference-track.is-empty { padding-top: 0; padding-bottom: 0; }
+.creation-home .creation-thread-composer .creation-chat-writing-surface {
+    min-height: 0;
+}
+.creation-home .creation-thread-composer .creation-chat-editor textarea {
+    min-height: 44px;
+}
+.creation-home .creation-thread-composer .creation-reference-panel {
+    margin-bottom: var(--space-1);
+}
+.creation-home .creation-thread-composer .creation-reference-track-wrapper {
+    min-height: 40px;
+}
+.creation-home .creation-thread-composer .creation-reference-track.is-empty {
+    padding-top: 0;
+    padding-bottom: 0;
+}
 .creation-home .creation-media-pending {
     position: relative;
     display: grid;
@@ -212,7 +279,13 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     margin: var(--space-3) 0 0 var(--space-8);
     border: 0;
     border-radius: var(--r-lg);
-    background: linear-gradient(115deg, color-mix(in srgb, var(--status-loading) 16%, var(--creation-surface-muted)), color-mix(in srgb, var(--creation-text) 7%, var(--creation-surface)), color-mix(in srgb, var(--status-loading) 28%, var(--creation-surface-muted)), color-mix(in srgb, var(--creation-text) 10%, var(--creation-surface)));
+    background: linear-gradient(
+        115deg,
+        color-mix(in srgb, var(--status-loading) 16%, var(--creation-surface-muted)),
+        color-mix(in srgb, var(--creation-text) 7%, var(--creation-surface)),
+        color-mix(in srgb, var(--status-loading) 28%, var(--creation-surface-muted)),
+        color-mix(in srgb, var(--creation-text) 10%, var(--creation-surface))
+    );
     background-size: 280% 280%;
     padding: 0;
     animation: creation-media-breathe 2.4s ease-in-out infinite;
@@ -224,7 +297,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     inset: 0;
     background: linear-gradient(105deg, transparent 12%, color-mix(in srgb, var(--status-loading) 24%, transparent) 48%, color-mix(in srgb, var(--creation-text) 12%, transparent) 58%, transparent 88%);
     content: "";
-    opacity: .38;
+    opacity: 0.38;
     transform: translateX(-38%);
     animation: creation-media-breathe-layer 2.4s ease-in-out infinite;
 }
@@ -240,7 +313,10 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     animation: creation-media-icon-breathe 1.8s ease-in-out infinite;
 }
 
-.creation-home .creation-media-pending-icon svg { width: var(--space-5); height: var(--space-5); }
+.creation-home .creation-media-pending-icon svg {
+    width: var(--space-5);
+    height: var(--space-5);
+}
 
 .creation-home .creation-media-pending > button {
     position: absolute;
@@ -256,12 +332,37 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     cursor: pointer;
 }
 
-.creation-home .creation-media-result { max-width: 680px; padding: var(--space-3) 0 0 var(--space-8); }
-.creation-home .creation-image-result-grid { display: flex; max-width: 680px; flex-wrap: wrap; gap: var(--space-2); }
-.creation-home .creation-image-result { width: min(320px, 100%); aspect-ratio: auto; background: var(--creation-surface-muted); }
-.creation-home .creation-image-result img { display: block; width: 100%; height: auto; max-height: 360px; object-fit: contain; }
-.creation-home .creation-video-result { width: min(680px, 100%); }
-.creation-home .creation-video-result video { display: block; width: 100%; height: 100%; object-fit: contain; }
+.creation-home .creation-media-result {
+    max-width: 680px;
+    padding: var(--space-3) 0 0 var(--space-8);
+}
+.creation-home .creation-image-result-grid {
+    display: flex;
+    max-width: 680px;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+.creation-home .creation-image-result {
+    width: min(320px, 100%);
+    aspect-ratio: auto;
+    background: var(--creation-surface-muted);
+}
+.creation-home .creation-image-result img {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-height: 360px;
+    object-fit: contain;
+}
+.creation-home .creation-video-result {
+    width: min(680px, 100%);
+}
+.creation-home .creation-video-result video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
 
 .creation-home .creation-media-error {
     display: flex;
@@ -287,7 +388,10 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     cursor: pointer;
 }
 
-.creation-home .creation-media-error svg { width: var(--space-4); height: var(--space-4); }
+.creation-home .creation-media-error svg {
+    width: var(--space-4);
+    height: var(--space-4);
+}
 
 .creation-home .creation-chat-attachment-preview.is-file {
     width: min(220px, 100%);
@@ -304,8 +408,18 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     padding: 0 var(--space-2);
 }
 
-.creation-home .creation-chat-file-icon > svg { width: var(--space-4); height: var(--space-4); flex: 0 0 auto; }
-.creation-home .creation-chat-file-icon em { overflow: hidden; font-size: var(--fs-label); font-style: normal; text-overflow: ellipsis; white-space: nowrap; }
+.creation-home .creation-chat-file-icon > svg {
+    width: var(--space-4);
+    height: var(--space-4);
+    flex: 0 0 auto;
+}
+.creation-home .creation-chat-file-icon em {
+    overflow: hidden;
+    font-size: var(--fs-label);
+    font-style: normal;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
 
 .creation-home .creation-user-message-attachments button.is-file {
     display: grid;
@@ -315,41 +429,85 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     cursor: default;
 }
 
-.creation-home .creation-user-message-attachments button.is-file > svg { width: var(--space-4); height: var(--space-4); }
+.creation-home .creation-user-message-attachments button.is-file > svg {
+    width: var(--space-4);
+    height: var(--space-4);
+}
 
 @keyframes creation-media-breathe {
-    0%, 100% { background-position: 0% 50%; filter: brightness(.9) saturate(.82); }
-    50% { background-position: 100% 50%; filter: brightness(1.12) saturate(1.18); }
+    0%,
+    100% {
+        background-position: 0% 50%;
+        filter: brightness(0.9) saturate(0.82);
+    }
+    50% {
+        background-position: 100% 50%;
+        filter: brightness(1.12) saturate(1.18);
+    }
 }
 
 @keyframes creation-media-breathe-layer {
-    0%, 100% { opacity: .24; transform: translateX(-38%) scale(1); }
-    50% { opacity: .72; transform: translateX(38%) scale(1.04); }
+    0%,
+    100% {
+        opacity: 0.24;
+        transform: translateX(-38%) scale(1);
+    }
+    50% {
+        opacity: 0.72;
+        transform: translateX(38%) scale(1.04);
+    }
 }
 
 @keyframes creation-media-icon-breathe {
-    0%, 100% { opacity: .58; transform: scale(.94); }
-    50% { opacity: 1; transform: scale(1); }
+    0%,
+    100% {
+        opacity: 0.58;
+        transform: scale(0.94);
+    }
+    50% {
+        opacity: 1;
+        transform: scale(1);
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
     .creation-home .creation-media-pending,
     .creation-home .creation-media-pending::before,
-    .creation-home .creation-media-pending-icon { animation: none; }
+    .creation-home .creation-media-pending-icon {
+        animation: none;
+    }
 }
 
 @media (max-width: 800px) {
-    .creation-home .creation-thread-toolbar { align-items: flex-end; padding: var(--space-3); }
+    .creation-home .creation-thread-toolbar {
+        align-items: flex-end;
+        padding: var(--space-3);
+    }
     .creation-home .creation-thread-stage,
-    .creation-home .creation-thread-composer { width: calc(100% - 28px); }
-    .creation-home .creation-thread-stage { padding-top: var(--space-5); }
-    .creation-home .creation-user-message { width: 92%; max-width: none; }
+    .creation-home .creation-thread-composer {
+        width: calc(100% - 28px);
+    }
+    .creation-home .creation-thread-stage {
+        padding-top: var(--space-5);
+    }
+    .creation-home .creation-user-message {
+        width: 92%;
+        max-width: none;
+    }
     .creation-home .creation-message-content,
     .creation-home .creation-message-error,
     .creation-home .creation-message-reasoning-wrap,
-    .creation-home .creation-media-result { padding-left: 0; }
-    .creation-home .creation-media-pending { width: min(var(--creation-media-pending-max-width), 100%); margin-left: 0; }
-    .creation-home .creation-media-error { width: 100%; margin-left: 0; }
+    .creation-home .creation-media-result {
+        padding-left: 0;
+    }
+    .creation-home .creation-media-pending {
+        width: min(var(--creation-media-pending-max-width), 100%);
+        margin-left: 0;
+    }
+    .creation-home .creation-media-error {
+        width: 100%;
+        margin-left: 0;
+    }
 }
 
 /* —— 创建页空态推荐主卡（吸收 boardui pro-prompt 光晕卡形态）—— */
@@ -366,10 +524,20 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     padding: var(--space-4) var(--space-5);
     text-align: left;
     cursor: pointer;
-    transition: border-color var(--motion-state) ease, transform var(--motion-state) ease, box-shadow var(--motion-state) ease;
+    transition:
+        border-color var(--motion-state) ease,
+        transform var(--motion-state) ease,
+        box-shadow var(--motion-state) ease;
 }
-.creation-home .creation-hero-prompt:hover { border-color: var(--creation-border-strong); box-shadow: 0 10px 30px -16px color-mix(in srgb, var(--creation-accent) 46%, transparent); transform: translateY(-1px); }
-.creation-home .creation-hero-prompt:focus-visible { outline: 2px solid var(--creation-accent); outline-offset: 2px; }
+.creation-home .creation-hero-prompt:hover {
+    border-color: var(--creation-border-strong);
+    box-shadow: 0 10px 30px -16px color-mix(in srgb, var(--creation-accent) 46%, transparent);
+    transform: translateY(-1px);
+}
+.creation-home .creation-hero-prompt:focus-visible {
+    outline: 2px solid var(--creation-accent);
+    outline-offset: 2px;
+}
 .creation-home .creation-hero-prompt-ray {
     position: absolute;
     inset: -60% -22% auto auto;
@@ -379,9 +547,22 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     filter: blur(2px);
     pointer-events: none;
 }
-.creation-home .creation-hero-prompt-copy { position: relative; display: flex; min-width: 0; flex-direction: column; gap: 2px; }
-.creation-home .creation-hero-prompt-copy strong { color: var(--creation-text); font-size: var(--fs-body); font-weight: 640; }
-.creation-home .creation-hero-prompt-hint { color: var(--creation-muted); font-size: var(--fs-caption); }
+.creation-home .creation-hero-prompt-copy {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 2px;
+}
+.creation-home .creation-hero-prompt-copy strong {
+    color: var(--creation-text);
+    font-size: var(--fs-body);
+    font-weight: 640;
+}
+.creation-home .creation-hero-prompt-hint {
+    color: var(--creation-muted);
+    font-size: var(--fs-caption);
+}
 .creation-home .creation-hero-prompt-text {
     max-width: 100%;
     overflow: hidden;
@@ -393,7 +574,10 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-.creation-home .creation-hero-prompt .suggest-icon { position: relative; flex: 0 0 auto; }
+.creation-home .creation-hero-prompt .suggest-icon {
+    position: relative;
+    flex: 0 0 auto;
+}
 .creation-home .creation-hero-prompt-spark {
     position: relative;
     flex: 0 0 auto;
@@ -401,13 +585,19 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: color-mix(in srgb, var(--creation-accent) 80%, var(--creation-muted));
     width: var(--space-4);
     height: var(--space-4);
-    opacity: .85;
+    opacity: 0.85;
 }
-.creation-home .creation-empty-suggest-grid { display: grid; width: 100%; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.creation-home .creation-empty-suggest-grid {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--space-2);
+}
 @media (max-width: 760px) {
-    .creation-home .creation-empty-suggest-grid { grid-template-columns: 1fr; }
+    .creation-home .creation-empty-suggest-grid {
+        grid-template-columns: 1fr;
+    }
 }
-
 
 /* —— 创建页历史抽屉：新建置顶卡 + 时间分组（吸收 boardui agent-chat-history）—— */
 .creation-history-new {
@@ -423,10 +613,19 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: var(--creation-history-text);
     text-align: left;
     cursor: pointer;
-    transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+    transition:
+        background-color 150ms ease,
+        border-color 150ms ease,
+        transform 150ms ease;
 }
-.creation-history-new:hover { border-color: color-mix(in srgb, var(--creation-history-accent) 74%, var(--creation-history-line)); background: color-mix(in srgb, var(--creation-history-accent) 10%, transparent); }
-.creation-history-new:focus-visible { outline: 2px solid color-mix(in srgb, var(--creation-history-accent) 70%, transparent); outline-offset: 1px; }
+.creation-history-new:hover {
+    border-color: color-mix(in srgb, var(--creation-history-accent) 74%, var(--creation-history-line));
+    background: color-mix(in srgb, var(--creation-history-accent) 10%, transparent);
+}
+.creation-history-new:focus-visible {
+    outline: 2px solid color-mix(in srgb, var(--creation-history-accent) 70%, transparent);
+    outline-offset: 1px;
+}
 .creation-history-new-icon {
     display: grid;
     width: 34px;
@@ -437,11 +636,35 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     background: color-mix(in srgb, var(--creation-history-accent) 16%, transparent);
     color: var(--creation-history-accent);
 }
-.creation-history-new-icon svg { width: 16px; height: 16px; }
-.creation-history-new-copy { display: flex; min-width: 0; flex-direction: column; gap: 1px; }
-.creation-history-new-copy strong { font-size: var(--fs-label); font-weight: 650; }
-.creation-history-new-copy small { overflow: hidden; color: var(--creation-history-muted); font-size: var(--fs-micro); text-overflow: ellipsis; white-space: nowrap; }
-.creation-history-group-head { position: sticky; z-index: 1; top: 0; margin-top: 4px; padding: 10px 4px 5px; background: linear-gradient(to bottom, var(--creation-history-bg) 78%, transparent); }
+.creation-history-new-icon svg {
+    width: 16px;
+    height: 16px;
+}
+.creation-history-new-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: 1px;
+}
+.creation-history-new-copy strong {
+    font-size: var(--fs-label);
+    font-weight: 650;
+}
+.creation-history-new-copy small {
+    overflow: hidden;
+    color: var(--creation-history-muted);
+    font-size: var(--fs-micro);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.creation-history-group-head {
+    position: sticky;
+    z-index: 1;
+    top: 0;
+    margin-top: 4px;
+    padding: 10px 4px 5px;
+    background: linear-gradient(to bottom, var(--creation-history-bg) 78%, transparent);
+}
 .creation-history-group-head h4 {
     display: flex;
     align-items: baseline;
@@ -450,9 +673,15 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: var(--creation-history-muted);
     font-size: var(--fs-micro);
     font-weight: 640;
-    letter-spacing: .04em;
+    letter-spacing: 0.04em;
 }
-.creation-history-group-head h4::after { content: ""; flex: 1; height: 1px; background: var(--creation-history-line); transform: translateY(-2px); }
+.creation-history-group-head h4::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--creation-history-line);
+    transform: translateY(-2px);
+}
 
 /* ===== 2026-09 user workspace alignment =====
    这一组规则只作用于真实用户端壳层和首页，后台与画布编辑器保持原有职责和交互。
@@ -503,12 +732,12 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     border-radius: 10px;
     padding: 0 7px;
     text-align: left;
-    transition: background-color 160ms cubic-bezier(.16, 1, .3, 1);
+    transition: background-color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .app-user-workspace .app-workspace-sidebar-brand-button:hover,
 .app-user-workspace .app-workspace-sidebar-brand-button:focus-visible {
-    background: rgba(62, 62, 68, .055);
+    background: rgba(62, 62, 68, 0.055);
 }
 
 .app-user-workspace .app-workspace-sidebar-collapse-button {
@@ -518,14 +747,17 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     flex: 0 0 30px;
     place-items: center;
     border-radius: 9px;
-    color: rgba(25, 25, 28, .42);
-    opacity: .72;
-    transition: background-color 160ms cubic-bezier(.16, 1, .3, 1), color 160ms cubic-bezier(.16, 1, .3, 1), opacity 160ms cubic-bezier(.16, 1, .3, 1);
+    color: rgba(25, 25, 28, 0.42);
+    opacity: 0.72;
+    transition:
+        background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+        color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+        opacity 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .app-user-workspace .app-workspace-sidebar-collapse-button:hover,
 .app-user-workspace .app-workspace-sidebar-collapse-button:focus-visible {
-    background: rgba(62, 62, 68, .075);
+    background: rgba(62, 62, 68, 0.075);
     color: #17171a;
     opacity: 1;
 }
@@ -543,13 +775,15 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     height: 36px;
     place-items: center;
     border-radius: 11px;
-    color: rgba(25, 25, 28, .55);
-    transition: background-color 160ms cubic-bezier(.16, 1, .3, 1), color 160ms cubic-bezier(.16, 1, .3, 1);
+    color: rgba(25, 25, 28, 0.55);
+    transition:
+        background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+        color 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .app-user-workspace .app-workspace-sidebar-rail-button:hover,
 .app-user-workspace .app-workspace-sidebar-rail-button:focus-visible {
-    background: rgba(62, 62, 68, .075);
+    background: rgba(62, 62, 68, 0.075);
     color: #17171a;
 }
 
@@ -560,7 +794,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 .app-user-workspace .app-workspace-sidebar-footer {
     padding: 10px 9px 12px;
-    border-top: 1px solid rgba(0, 0, 0, .055);
+    border-top: 1px solid rgba(0, 0, 0, 0.055);
 }
 
 .app-user-workspace .app-workspace-sidebar-search {
@@ -584,7 +818,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     border-radius: 13px;
     font-size: 13px;
     font-weight: 500;
-    letter-spacing: -.01em;
+    letter-spacing: -0.01em;
 }
 
 .app-user-workspace .app-workspace-nav-link .app-workspace-nav-main {
@@ -613,15 +847,15 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .app-user-workspace .app-workspace-nav-link:hover:not(.is-active) {
-    background: rgba(72, 72, 73, .04);
+    background: rgba(72, 72, 73, 0.04);
 }
 
 .app-user-workspace .app-workspace-nav-group-toggle {
     min-height: 28px;
     padding: 0 11px 4px;
-    color: rgba(0, 0, 0, .48);
+    color: rgba(0, 0, 0, 0.48);
     font-size: 12px;
-    letter-spacing: .02em;
+    letter-spacing: 0.02em;
 }
 
 .app-user-workspace .app-workspace-nav-group-toggle > svg {
@@ -634,13 +868,13 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 .app-user-workspace .app-workspace-nav-group[data-nav-group-heading=""] + .app-workspace-nav-group[data-nav-group-heading=""] {
     padding-top: 12px;
-    border-top: 1px solid rgba(0, 0, 0, .055);
+    border-top: 1px solid rgba(0, 0, 0, 0.055);
 }
 
 .app-user-workspace .app-workspace-brand-wordmark {
     font-size: 15px;
     font-weight: 700;
-    letter-spacing: -.03em;
+    letter-spacing: -0.03em;
 }
 
 .app-user-workspace .app-workspace-topbar {
@@ -652,7 +886,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     justify-content: flex-end;
     gap: 12px;
     padding: 0 20px;
-    border-bottom: 1px solid rgba(0, 0, 0, .055);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.055);
     background: #ffffff;
 }
 
@@ -662,12 +896,12 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     align-items: center;
     gap: 8px;
     margin-right: auto;
-    color: rgba(0, 0, 0, .42);
+    color: rgba(0, 0, 0, 0.42);
     font-size: 13px;
 }
 
 .app-user-workspace .app-workspace-topbar-breadcrumb > span:not(.truncate) {
-    color: rgba(0, 0, 0, .2);
+    color: rgba(0, 0, 0, 0.2);
 }
 
 .app-user-workspace .app-workspace-topbar-announcement {
@@ -739,12 +973,15 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     align-items: center;
     gap: 8px;
     padding: 0 12px 0 8px;
-    border: 1px solid rgba(0, 0, 0, .075);
+    border: 1px solid rgba(0, 0, 0, 0.075);
     border-radius: 999px;
     background: #fff;
-    color: rgba(0, 0, 0, .68);
+    color: rgba(0, 0, 0, 0.68);
     font-size: 12px;
-    transition: border-color .18s ease, background-color .18s ease, transform .18s ease;
+    transition:
+        border-color 0.18s ease,
+        background-color 0.18s ease,
+        transform 0.18s ease;
 }
 
 .app-user-workspace .app-workspace-topbar-credit-pill:hover {
@@ -759,9 +996,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     height: 24px;
     flex: none;
     place-items: center;
-    filter: drop-shadow(0 1px 1px rgba(92, 42, 0, .22));
+    filter: drop-shadow(0 1px 1px rgba(92, 42, 0, 0.22));
     transform-origin: 50% 70%;
-    transition: transform .18s ease;
+    transition: transform 0.18s ease;
 }
 
 .app-user-workspace .app-workspace-credit-gift svg {
@@ -817,7 +1054,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     padding: 10px 10px 10px 14px;
     border-radius: 12px;
     background: #fff;
-    box-shadow: 0 10px 24px rgba(16, 18, 22, .12);
+    box-shadow: 0 10px 24px rgba(16, 18, 22, 0.12);
     color: #171717;
 }
 
@@ -839,7 +1076,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     font-size: 13px;
     font-weight: 720;
     line-height: 1.2;
-    letter-spacing: -.01em;
+    letter-spacing: -0.01em;
 }
 
 .app-user-workspace .app-workspace-sidebar-checkin-offer {
@@ -869,7 +1106,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     font-size: 12px;
     font-weight: 650;
     white-space: nowrap;
-    transition: background-color 160ms cubic-bezier(.16, 1, .3, 1), transform 160ms cubic-bezier(.16, 1, .3, 1);
+    transition:
+        background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+        transform 160ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .app-user-workspace .app-workspace-sidebar-checkin-claim:hover,
@@ -887,12 +1126,12 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 .app-user-workspace .app-workspace-sidebar-checkin-claim:active,
 .app-user-workspace .app-workspace-sidebar-checkin.is-collapsed:active {
-    transform: scale(.98);
+    transform: scale(0.98);
 }
 
 .app-user-workspace .app-workspace-sidebar-checkin-claim:disabled,
 .app-user-workspace .app-workspace-sidebar-checkin.is-collapsed:disabled {
-    opacity: .72;
+    opacity: 0.72;
     transform: none;
 }
 
@@ -906,7 +1145,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 .dark .app-user-workspace .app-workspace-sidebar-checkin {
     background: #fff;
-    box-shadow: 0 12px 28px rgba(0, 0, 0, .38);
+    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.38);
     color: #171717;
 }
 
@@ -940,12 +1179,12 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     border-radius: 12px;
     color: inherit;
     text-decoration: none;
-    transition: background-color var(--motion-state, 180ms) var(--motion-ease-out, cubic-bezier(.16, 1, .3, 1));
+    transition: background-color var(--motion-state, 180ms) var(--motion-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 .app-user-workspace .app-workspace-sidebar-storage:hover,
 .app-user-workspace .app-workspace-sidebar-storage:focus-visible {
-    background: var(--user-surface-hover, rgba(72, 72, 73, .055));
+    background: var(--user-surface-hover, rgba(72, 72, 73, 0.055));
 }
 
 .app-user-workspace .app-workspace-sidebar-storage:hover .app-workspace-sidebar-storage-icon,
@@ -1011,7 +1250,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     font-size: var(--fs-label);
     font-weight: 620;
     font-variant-numeric: tabular-nums;
-    letter-spacing: .01em;
+    letter-spacing: 0.01em;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1046,7 +1285,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     height: 100%;
     border-radius: inherit;
     background: var(--workspace-accent);
-    transition: width var(--motion-state, 180ms) var(--motion-ease-out, cubic-bezier(.16, 1, .3, 1)), background-color var(--motion-state, 180ms) var(--motion-ease-out, cubic-bezier(.16, 1, .3, 1));
+    transition:
+        width var(--motion-state, 180ms) var(--motion-ease-out, cubic-bezier(0.16, 1, 0.3, 1)),
+        background-color var(--motion-state, 180ms) var(--motion-ease-out, cubic-bezier(0.16, 1, 0.3, 1));
 }
 
 .app-user-workspace .app-workspace-sidebar-storage.has-usage .app-workspace-sidebar-storage-track > span {
@@ -1169,12 +1410,14 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     border-radius: 12px;
     color: #222;
     text-align: left;
-    transition: background-color .18s ease, transform .18s ease;
+    transition:
+        background-color 0.18s ease,
+        transform 0.18s ease;
 }
 
 .app-user-workspace .app-workspace-sidebar-profile:hover,
 .app-user-workspace .app-workspace-sidebar-profile:focus-visible {
-    background: rgba(72, 72, 73, .055);
+    background: rgba(72, 72, 73, 0.055);
 }
 
 .app-user-workspace .app-workspace-sidebar-profile.is-collapsed {
@@ -1192,7 +1435,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     overflow: hidden;
     border-radius: 50%;
     background: #e6e6e6;
-    color: rgba(0, 0, 0, .52);
+    color: rgba(0, 0, 0, 0.52);
 }
 
 .app-user-workspace .app-workspace-sidebar-profile-avatar.is-large {
@@ -1232,7 +1475,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .app-user-workspace .app-workspace-sidebar-profile-copy span {
-    color: rgba(0, 0, 0, .42);
+    color: rgba(0, 0, 0, 0.42);
     font-size: 11px;
 }
 
@@ -1245,7 +1488,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     place-items: center;
     border-radius: 10px;
     color: var(--user-ink-muted);
-    transition: background-color .18s ease, color .18s ease;
+    transition:
+        background-color 0.18s ease,
+        color 0.18s ease;
 }
 
 .app-user-workspace .app-workspace-sidebar-notification:hover {
@@ -1307,7 +1552,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .app-user-workspace .app-workspace-sidebar-profile-summary span:not(.app-workspace-sidebar-profile-avatar) {
-    color: rgba(0, 0, 0, .46);
+    color: rgba(0, 0, 0, 0.46);
     font-size: 11px;
 }
 
@@ -1315,7 +1560,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     display: flex;
     flex-direction: column;
     gap: 2px;
-    border-top: 1px solid rgba(0, 0, 0, .07);
+    border-top: 1px solid rgba(0, 0, 0, 0.07);
     padding-top: 8px;
 }
 
@@ -1328,10 +1573,12 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     gap: 8px;
     padding: 0 8px;
     border-radius: 8px;
-    color: rgba(0, 0, 0, .68);
+    color: rgba(0, 0, 0, 0.68);
     font-size: 12px;
     text-align: left;
-    transition: background-color .18s ease, color .18s ease;
+    transition:
+        background-color 0.18s ease,
+        color 0.18s ease;
 }
 
 .app-user-workspace .app-workspace-sidebar-profile-menu a:hover,
@@ -1396,13 +1643,13 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: #151515;
     font-size: clamp(24px, 2.4vw, 32px);
     font-weight: 650;
-    letter-spacing: -.04em;
+    letter-spacing: -0.04em;
     line-height: 1.2;
 }
 
 .app-user-workspace .creation-home-heading p {
     margin: 0;
-    color: rgba(0, 0, 0, .42);
+    color: rgba(0, 0, 0, 0.42);
     font-size: 13px;
 }
 
@@ -1412,7 +1659,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     gap: 4px;
     margin: 0 auto 14px;
     padding: 4px;
-    border: 1px solid rgba(0, 0, 0, .07);
+    border: 1px solid rgba(0, 0, 0, 0.07);
     border-radius: 999px;
     background: #f7f7f7;
 }
@@ -1422,14 +1669,14 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     min-height: 32px;
     justify-content: center;
     border-radius: 999px;
-    color: rgba(0, 0, 0, .54);
+    color: rgba(0, 0, 0, 0.54);
     font-size: 13px;
 }
 
 .app-user-workspace .creation-empty-workspace > .creation-mode-capsule .creation-chat-control[aria-selected="true"] {
     background: #ffffff;
     color: #161616;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, .09);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.09);
 }
 
 .app-user-workspace .creation-empty-composer {
@@ -1437,15 +1684,17 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 .app-user-workspace .creation-composer {
-    border: 1px solid rgba(0, 0, 0, .10);
+    border: 1px solid rgba(0, 0, 0, 0.1);
     border-radius: 18px;
     background: #ffffff;
-    box-shadow: 0 10px 36px rgba(31, 35, 42, .08);
+    box-shadow: 0 10px 36px rgba(31, 35, 42, 0.08);
 }
 
 .app-user-workspace .creation-composer:focus-within {
-    border-color: rgba(91, 78, 224, .38);
-    box-shadow: 0 12px 40px rgba(31, 35, 42, .11), 0 0 0 3px rgba(91, 78, 224, .08);
+    border-color: rgba(91, 78, 224, 0.38);
+    box-shadow:
+        0 12px 40px rgba(31, 35, 42, 0.11),
+        0 0 0 3px rgba(91, 78, 224, 0.08);
 }
 
 .app-user-workspace .creation-chat-writing-surface {
@@ -1463,7 +1712,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .app-user-workspace .creation-chat-dock {
     min-height: 54px;
     padding: 7px 12px 10px 16px;
-    border-top: 1px solid rgba(0, 0, 0, .06);
+    border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .app-user-workspace .creation-home .creation-chat-control {
@@ -1491,18 +1740,18 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     align-items: flex-start;
     gap: 9px;
     padding: 12px;
-    border: 1px solid rgba(0, 0, 0, .07);
+    border: 1px solid rgba(0, 0, 0, 0.07);
     border-radius: 13px;
     background: #ffffff;
-    box-shadow: 0 3px 12px rgba(31, 35, 42, .035);
+    box-shadow: 0 3px 12px rgba(31, 35, 42, 0.035);
     text-align: left;
 }
 
 .app-user-workspace .creation-empty-suggest .creation-hero-prompt:hover,
 .app-user-workspace .creation-empty-suggest .suggest-card:hover {
-    border-color: rgba(91, 78, 224, .28);
+    border-color: rgba(91, 78, 224, 0.28);
     background: #fcfbff;
-    box-shadow: 0 8px 20px rgba(31, 35, 42, .07);
+    box-shadow: 0 8px 20px rgba(31, 35, 42, 0.07);
     transform: translateY(-1px);
 }
 
@@ -1545,8 +1794,12 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 }
 
 @media (max-width: 900px) {
-    .app-user-workspace .app-workspace-topbar-announcement { display: none; }
-    .app-user-workspace .creation-empty-suggest { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .app-user-workspace .app-workspace-topbar-announcement {
+        display: none;
+    }
+    .app-user-workspace .creation-empty-suggest {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 @media (max-width: 1023px) {
@@ -1558,40 +1811,85 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
         width: min(260px, calc(100vw - 48px)) !important;
         transform: translateX(-100%);
     }
-    .app-user-workspace .app-workspace-sidebar.is-mobile-expanded { visibility: visible; transform: translateX(0); }
-    .app-user-workspace .app-workspace-mobile-menu { display: grid; }
-    .app-user-workspace .app-workspace-topbar { padding: 0 14px; }
-    .app-user-workspace .app-workspace-topbar-breadcrumb { margin-left: 2px; }
-    .app-user-workspace .creation-empty-workspace { width: min(100% - 28px, 820px); padding-top: 24px; }
+    .app-user-workspace .app-workspace-sidebar.is-mobile-expanded {
+        visibility: visible;
+        transform: translateX(0);
+    }
+    .app-user-workspace .app-workspace-mobile-menu {
+        display: grid;
+    }
+    .app-user-workspace .app-workspace-topbar {
+        padding: 0 14px;
+    }
+    .app-user-workspace .app-workspace-topbar-breadcrumb {
+        margin-left: 2px;
+    }
+    .app-user-workspace .creation-empty-workspace {
+        width: min(100% - 28px, 820px);
+        padding-top: 24px;
+    }
 }
 
 @media (max-width: 560px) {
-    .app-user-workspace .creation-home-heading { margin-top: 8px; }
-    .app-user-workspace .creation-home-heading h1 { font-size: 24px; }
-    .app-user-workspace .creation-empty-suggest { grid-template-columns: 1fr; }
+    .app-user-workspace .creation-home-heading {
+        margin-top: 8px;
+    }
+    .app-user-workspace .creation-home-heading h1 {
+        font-size: 24px;
+    }
+    .app-user-workspace .creation-empty-suggest {
+        grid-template-columns: 1fr;
+    }
     .app-user-workspace .creation-empty-suggest .creation-hero-prompt,
-    .app-user-workspace .creation-empty-suggest .suggest-card { min-height: 58px; }
+    .app-user-workspace .creation-empty-suggest .suggest-card {
+        min-height: 58px;
+    }
 }
 
 .dark .app-user-workspace .app-workspace-sidebar,
-.dark .app-user-workspace .app-workspace-sidebar-nav { background: #1b1b1d; }
+.dark .app-user-workspace .app-workspace-sidebar-nav {
+    background: #1b1b1d;
+}
 .dark .app-user-workspace .app-workspace-topbar,
 .dark .app-user-workspace .creation-home,
 .dark .app-user-workspace .creation-composer,
 .dark .app-user-workspace .creation-empty-suggest .creation-hero-prompt,
-.dark .app-user-workspace .creation-empty-suggest .suggest-card { background: #18181a; }
-.dark .app-user-workspace .app-workspace-sidebar-footer { border-top-color: rgba(255,255,255,.08); }
-.dark .app-user-workspace .app-workspace-topbar-credit-pill { border-color: rgba(255,255,255,.11); background: #202024; color: rgba(255,255,255,.72); }
-.dark .app-user-workspace .app-workspace-topbar-credit-pill strong { color: #fff; }
-.dark .app-user-workspace .app-workspace-sidebar-profile { color: #f5f5f5; }
+.dark .app-user-workspace .creation-empty-suggest .suggest-card {
+    background: #18181a;
+}
+.dark .app-user-workspace .app-workspace-sidebar-footer {
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
+.dark .app-user-workspace .app-workspace-topbar-credit-pill {
+    border-color: rgba(255, 255, 255, 0.11);
+    background: #202024;
+    color: rgba(255, 255, 255, 0.72);
+}
+.dark .app-user-workspace .app-workspace-topbar-credit-pill strong {
+    color: #fff;
+}
+.dark .app-user-workspace .app-workspace-sidebar-profile {
+    color: #f5f5f5;
+}
 .dark .app-user-workspace .app-workspace-sidebar-profile-copy span,
-.dark .app-user-workspace .app-workspace-sidebar-profile-summary span:not(.app-workspace-sidebar-profile-avatar) { color: rgba(255,255,255,.46); }
-.dark .app-user-workspace .app-workspace-sidebar-profile-menu { border-top-color: rgba(255,255,255,.08); }
+.dark .app-user-workspace .app-workspace-sidebar-profile-summary span:not(.app-workspace-sidebar-profile-avatar) {
+    color: rgba(255, 255, 255, 0.46);
+}
+.dark .app-user-workspace .app-workspace-sidebar-profile-menu {
+    border-top-color: rgba(255, 255, 255, 0.08);
+}
 .dark .app-user-workspace .app-workspace-sidebar-profile-menu a,
-.dark .app-user-workspace .app-workspace-sidebar-profile-menu button { color: rgba(255,255,255,.72); }
+.dark .app-user-workspace .app-workspace-sidebar-profile-menu button {
+    color: rgba(255, 255, 255, 0.72);
+}
 .dark .app-user-workspace .app-workspace-sidebar-profile-menu a:hover,
-.dark .app-user-workspace .app-workspace-sidebar-profile-menu button:hover { background: rgba(108,94,236,.15); color: #dcd8ff; }
-.dark .app-user-workspace .creation-home-heading h1 { color: #f5f5f5; }
+.dark .app-user-workspace .app-workspace-sidebar-profile-menu button:hover {
+    background: rgba(108, 94, 236, 0.15);
+    color: #dcd8ff;
+}
+.dark .app-user-workspace .creation-home-heading h1 {
+    color: #f5f5f5;
+}
 .dark .app-user-workspace .creation-home-heading p,
 .dark .app-user-workspace .app-workspace-topbar-breadcrumb > span:not(.truncate) {
     color: rgba(255, 255, 255, 0.28) !important;
@@ -1612,9 +1910,17 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 .dark .app-user-workspace .app-workspace-sidebar-collapse-button svg {
     color: currentColor !important;
 }
-.dark .app-user-workspace .app-workspace-topbar { border-bottom-color: rgba(255, 255, 255, .08); }
-.dark .app-user-workspace .creation-empty-workspace > .creation-mode-capsule { background: #232326; border-color: rgba(255,255,255,.08); }
-.dark .app-user-workspace .creation-empty-workspace > .creation-mode-capsule .creation-chat-control[aria-selected="true"] { background: #303034; color: #ffffff; }
+.dark .app-user-workspace .app-workspace-topbar {
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+}
+.dark .app-user-workspace .creation-empty-workspace > .creation-mode-capsule {
+    background: #232326;
+    border-color: rgba(255, 255, 255, 0.08);
+}
+.dark .app-user-workspace .creation-empty-workspace > .creation-mode-capsule .creation-chat-control[aria-selected="true"] {
+    background: #303034;
+    color: #ffffff;
+}
 
 /* 用户首页：扩大内容承载区，但让输入区保持聚焦；精选作品采用一大四小的信息层级。 */
 .app-user-workspace .creation-empty-workspace {
@@ -1665,7 +1971,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: color-mix(in srgb, var(--foreground) 42%, transparent);
     font-size: 11px;
     font-weight: 650;
-    letter-spacing: .12em;
+    letter-spacing: 0.12em;
     text-transform: uppercase;
 }
 
@@ -1674,7 +1980,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: var(--foreground);
     font-size: clamp(20px, 2vw, 26px);
     font-weight: 690;
-    letter-spacing: -.035em;
+    letter-spacing: -0.035em;
 }
 
 .creation-featured-heading p {
@@ -1703,20 +2009,23 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     min-width: 0;
     flex-direction: column;
     overflow: hidden;
-    border: 1px solid rgba(28, 28, 32, .075);
+    border: 1px solid rgba(28, 28, 32, 0.075);
     border-radius: 18px;
     background: #fff;
     padding: 0;
     color: #18181b;
     text-align: left;
-    box-shadow: 0 1px 1px rgba(24, 24, 28, .02);
-    transition: transform 220ms cubic-bezier(.16, 1, .3, 1), border-color 220ms cubic-bezier(.16, 1, .3, 1), box-shadow 220ms cubic-bezier(.16, 1, .3, 1);
+    box-shadow: 0 1px 1px rgba(24, 24, 28, 0.02);
+    transition:
+        transform 220ms cubic-bezier(0.16, 1, 0.3, 1),
+        border-color 220ms cubic-bezier(0.16, 1, 0.3, 1),
+        box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .creation-featured-card:hover,
 .creation-featured-card:focus-visible {
-    border-color: rgba(28, 28, 32, .14);
-    box-shadow: 0 16px 36px -22px rgba(20, 20, 28, .35);
+    border-color: rgba(28, 28, 32, 0.14);
+    box-shadow: 0 16px 36px -22px rgba(20, 20, 28, 0.35);
     transform: translateY(-3px);
 }
 
@@ -1743,9 +2052,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     position: absolute;
     inset: auto 0 0;
     height: 34%;
-    background: linear-gradient(transparent, rgba(0, 0, 0, .18));
+    background: linear-gradient(transparent, rgba(0, 0, 0, 0.18));
     content: "";
-    opacity: .6;
+    opacity: 0.6;
     pointer-events: none;
 }
 
@@ -1754,7 +2063,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     width: 100%;
     height: 100%;
     object-fit: cover;
-    transition: transform 500ms cubic-bezier(.16, 1, .3, 1), filter 220ms ease;
+    transition:
+        transform 500ms cubic-bezier(0.16, 1, 0.3, 1),
+        filter 220ms ease;
 }
 
 .creation-featured-card:hover .creation-featured-media img,
@@ -1768,9 +2079,9 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     top: 14px;
     left: 14px;
     z-index: 1;
-    border: 1px solid rgba(255, 255, 255, .25);
+    border: 1px solid rgba(255, 255, 255, 0.25);
     border-radius: 999px;
-    background: rgba(25, 25, 28, .58);
+    background: rgba(25, 25, 28, 0.58);
     padding: 5px 9px;
     color: #fff;
     font-size: 11px;
@@ -1795,7 +2106,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: inherit;
     font-size: 14px;
     font-weight: 650;
-    letter-spacing: -.015em;
+    letter-spacing: -0.015em;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -1806,7 +2117,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
 
 .creation-featured-copy > span {
     overflow: hidden;
-    color: rgba(24, 24, 27, .48);
+    color: rgba(24, 24, 27, 0.48);
     font-size: 11px;
     line-height: 1.5;
     text-overflow: ellipsis;
@@ -1837,7 +2148,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     border: 0;
     border-radius: 24px;
     background: var(--user-page-bg);
-    box-shadow: 0 28px 90px rgba(20, 20, 28, .2);
+    box-shadow: 0 28px 90px rgba(20, 20, 28, 0.2);
     max-height: min(82vh, 760px);
 }
 .workspace-wallet-modal .ant-modal-body {
@@ -1861,9 +2172,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     justify-content: space-between;
     gap: 28px;
     padding: 30px 34px 24px;
-    background:
-        radial-gradient(circle at 82% 18%, rgba(110, 94, 236, .13), transparent 34%),
-        var(--user-surface);
+    background: radial-gradient(circle at 82% 18%, rgba(110, 94, 236, 0.13), transparent 34%), var(--user-surface);
 }
 
 .workspace-wallet-header h2 {
@@ -1871,7 +2180,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: var(--user-ink);
     font-size: 25px;
     font-weight: 690;
-    letter-spacing: -.035em;
+    letter-spacing: -0.035em;
 }
 
 .workspace-wallet-header p {
@@ -1899,12 +2208,11 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     display: grid;
     min-width: 156px;
     gap: 2px;
-    border: 1px solid rgba(107, 94, 231, .13);
+    border: 1px solid rgba(107, 94, 231, 0.13);
     border-radius: 18px;
     background: var(--user-surface-raised);
     padding: 14px 17px;
     box-shadow: none;
-    
 }
 
 .workspace-wallet-balance span,
@@ -1917,7 +2225,7 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: var(--user-ink);
     font-size: 24px;
     font-weight: 720;
-    letter-spacing: -.04em;
+    letter-spacing: -0.04em;
 }
 
 .workspace-wallet-tabs {
@@ -1941,7 +2249,10 @@ html:not(.dark) .creation-home .creation-user-message-copy-wrap { box-shadow: 0 
     color: var(--user-ink-muted);
     font-size: 12px;
     font-weight: 600;
-    transition: background-color 160ms cubic-bezier(.16, 1, .3, 1), color 160ms ease, box-shadow 160ms ease;
+    transition:
+        background-color 160ms cubic-bezier(0.16, 1, 0.3, 1),
+        color 160ms ease,
+        box-shadow 160ms ease;
 }
 
 .workspace-wallet-tabs button svg {

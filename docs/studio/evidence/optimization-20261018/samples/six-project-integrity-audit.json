@@ -1,0 +1,82 @@
+{
+  "samples": [
+    {
+      "id": "store",
+      "project_url": "/studio-examples/store/project.json",
+      "project_sha256": "1a03d20bafa459c57aea7e7a21e3fc7a63ee2d87befb93c0185200ea8ab04182",
+      "nodes": 5,
+      "shots": 1,
+      "assets": 1,
+      "media": 4,
+      "all_media_bytes_hashes_match": true,
+      "all_snapshots_media_ids_declared": true,
+      "all_node_edge_shot_take_version_links_resolve": true,
+      "all_strict_input_paths_and_binding_defaults_match": true
+    },
+    {
+      "id": "product",
+      "project_url": "/studio-examples/product/project.json",
+      "project_sha256": "37c0faf2328fcc9f221b74e4dff17196daed03001004cbb1366d2b89e763717c",
+      "nodes": 5,
+      "shots": 1,
+      "assets": 1,
+      "media": 4,
+      "all_media_bytes_hashes_match": true,
+      "all_snapshots_media_ids_declared": true,
+      "all_node_edge_shot_take_version_links_resolve": true,
+      "all_strict_input_paths_and_binding_defaults_match": true
+    },
+    {
+      "id": "story",
+      "project_url": "/studio-examples/story/project.json",
+      "project_sha256": "e5b879b24436cbfca34a4e375aec7401b8419d7f0b32312839b713ca786dc2d2",
+      "nodes": 5,
+      "shots": 1,
+      "assets": 1,
+      "media": 4,
+      "all_media_bytes_hashes_match": true,
+      "all_snapshots_media_ids_declared": true,
+      "all_node_edge_shot_take_version_links_resolve": true,
+      "all_strict_input_paths_and_binding_defaults_match": true
+    },
+    {
+      "id": "explain",
+      "project_url": "/studio-examples/explain/project.json",
+      "project_sha256": "89e4ae9cadabb86bfedfcdaad556551d066a9d5183f341b307b0e6fe91167885",
+      "nodes": 6,
+      "shots": 1,
+      "assets": 1,
+      "media": 5,
+      "all_media_bytes_hashes_match": true,
+      "all_snapshots_media_ids_declared": true,
+      "all_node_edge_shot_take_version_links_resolve": true,
+      "all_strict_input_paths_and_binding_defaults_match": true
+    },
+    {
+      "id": "presenter",
+      "project_url": "/studio-examples/presenter/project.json",
+      "project_sha256": "2fd3ad18edd9d3f9a4abf864f313ea04b13d0376c77af8bd33d7cb5b6d8c408d",
+      "nodes": 6,
+      "shots": 1,
+      "assets": 1,
+      "media": 7,
+      "all_media_bytes_hashes_match": true,
+      "all_snapshots_media_ids_declared": true,
+      "all_node_edge_shot_take_version_links_resolve": true,
+      "all_strict_input_paths_and_binding_defaults_match": true
+    },
+    {
+      "id": "music",
+      "project_url": "/studio-examples/music/project.json",
+      "project_sha256": "f0c82781f2db8d8302261e3ca68f6de31ce9046f90b054214339e399815c03fb",
+      "nodes": 5,
+      "shots": 1,
+      "assets": 1,
+      "media": 4,
+      "all_media_bytes_hashes_match": true,
+      "all_snapshots_media_ids_declared": true,
+      "all_node_edge_shot_take_version_links_resolve": true,
+      "all_strict_input_paths_and_binding_defaults_match": true
+    }
+  ]
+}

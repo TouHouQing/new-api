@@ -6,7 +6,7 @@ import { usePopoverAnchorAlign } from "@/hooks/use-popover-anchor-align";
 import { imageQualityLabel } from "@/lib/image-quality";
 import { canvasThemes, type CanvasTheme } from "@/lib/canvas-theme";
 import { modelCapabilityConfigFor, videoDurationOptions } from "@/lib/model-capabilities";
-import { formatPriceRange, modelQuoteDescription, modelQuoteRequest, normalizeTierResolution, priceTierSummaryLabel, priceTiersForCurrentSelection } from "@/lib/model-pricing";
+import { formatPriceRange, modelQuoteDescription, modelQuoteRequest, normalizeTierResolution, priceTierSummaryLabel, priceTiersForCurrentSelection, referenceVideoBillingLabel, tokenPriceRuleDescription } from "@/lib/model-pricing";
 import { compatibleModelInGroup, configuredModelDisplayName, modelCompatibilityError, resolveCompatibleModel, type ModelRequirements } from "@/lib/model-selection";
 import { groupModelsForPicker, isDirectSystemModel, modelChannelLabel, type ModelPickerGroup } from "@/lib/model-picker-groups";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ import { useActiveTheme } from "@/stores/canvas/use-canvas-theme-store";
 import { useUserStore } from "@/stores/use-user-store";
 import { ModelLogo } from "@/components/model-logo";
 import { ModelTags } from "@/components/model-tags";
+import { referenceCapabilityTag } from "@/lib/model-tags";
 import { quoteModel, type LogicalModelQuote, type PublicChannelModelAvailability } from "@/services/api/logical-models";
 
 type ModelPickerProps = {
@@ -267,12 +268,15 @@ export function ModelPicker({
                                 <section key={group.key} className="canvas-model-picker-group canvas-model-picker-model-pane min-w-0">
                                     {group.kind === "newapi-group" ? (
                                         <div className="px-3 py-2 text-xs text-foreground/60">
-                                            {group.label} · 选择{capability === "video" ? "视频" : capability === "image" ? "图片" : capability === "text" ? "文本" : ""}模型
+                                            {group.label} · 选择
+                                            {capability === "video" ? "视频" : capability === "image" ? "图片" : capability === "text" ? "文本" : ""}模型
                                         </div>
                                     ) : null}
                                     {!group.models.length ? (
                                         <p role="status" className="px-3 py-4 text-sm text-foreground/60">
-                                            该分组暂无可用的{capability === "video" ? "视频" : capability === "image" ? "图片" : capability === "text" ? "文本" : ""}模型，请检查 New API 中的渠道、模型启用状态和端点配置。
+                                            该分组暂无可用的
+                                            {capability === "video" ? "视频" : capability === "image" ? "图片" : capability === "text" ? "文本" : ""}
+                                            模型，请检查 New API 中的渠道、模型启用状态和端点配置。
                                         </p>
                                     ) : null}
                                     <div className="grid min-w-0 gap-1">
@@ -437,6 +441,12 @@ export function ModelLabel({
     const logicalSpec = logicalCost?.logicalCapabilitySpec;
     const videoProfile = capability === "video" ? modelCapabilityConfigFor(config, model).video : undefined;
     const videoSummary = videoProfile ? [videoProfile.durationSupported === false ? "" : formatDurationSummary(videoProfile), videoProfile.resolutions.map((item) => item.toUpperCase()).join("/")].filter(Boolean).join(" · ") : "";
+    // 文本模型同样标出能识别几张图、几个视频；未开启识图 / 视频识别时上限为 0，不出标签。
+    const textReferences = capability === "text" ? modelCapabilityConfigFor(config, model).text?.references : undefined;
+    const capabilityTag = referenceCapabilityTag(textReferences);
+    const modelTags = capabilityTag ? [capabilityTag, ...(logicalCost?.tags || [])] : logicalCost?.tags;
+    // 只给能挂参考视频的视频模型标注；不收参考视频的模型写“参考视频不计费”会误导。
+    const referenceLabel = channel.scope === "system" && !logicalCost?.externalBilling && (videoProfile?.references?.maxVideos ?? 0) > 0 ? referenceVideoBillingLabel(logicalCost) : "";
     const capabilitySummary = disabledReason || logicalCost?.description?.trim() || (isDirectSystemModel(config, model) ? "" : logicalSpec ? logicalCapabilitySummary(logicalSpec) : videoProfile ? videoSummary : meta.description);
     return (
         <span className="flex w-full min-w-0 items-center gap-2 overflow-hidden py-0">
@@ -455,6 +465,7 @@ export function ModelLabel({
                         <span className="canvas-model-picker-option-price">
                             {/* 候选模型展示自身价目；当前参数的精确报价只在选中后的触发器显示。 */}
                             <ModelPrice price={modelMenuPrice(config, model, capability, true, requirements)} />
+                            {referenceLabel ? <span className="canvas-model-picker-reference-billing">{referenceLabel}</span> : null}
                         </span>
                     ) : null}
                     <ModelAvailabilityBadge availability={modelAvailability(config, model)} available={logicalCost?.available ?? true} showAvailability={channel.scope === "system"} />
@@ -462,7 +473,7 @@ export function ModelLabel({
                 <span className={cn("canvas-model-picker-description mt-1 block", showDescription && "is-visible")} style={{ color: theme.node.muted }}>
                     {capabilitySummary}
                 </span>
-                <ModelTags tags={logicalCost?.tags} />
+                <ModelTags tags={modelTags} />
             </span>
             {!creationVariant && meta.time ? (
                 <span className="shrink-0 rounded-full px-2 py-0.5 text-[var(--fs-tiny)] tabular-nums" style={{ background: theme.toolbar.itemHover, color: theme.node.muted }}>
@@ -551,7 +562,11 @@ function modelMenuPrice(config: AiConfig, model: string, capability?: ModelCapab
     if (cost.billingMode === "token") {
         const rate = cost.outputTokenPriceMicrocredits;
         return capability === "video" && typeof rate === "number" && Number.isFinite(rate) && rate >= 0
-            ? { kind: "estimate", label: formatPriceRange([rate / 1_000_000], "积分/百万视频 Token"), title: "按视频 Token 单价预估，优先按有效上游用量结算；未返回用量时按视频公式结算" }
+            ? {
+                  kind: "estimate",
+                  label: formatPriceRange([rate / 1_000_000], "积分/百万视频 Token"),
+                  title: "按视频 Token 单价预估，优先按有效上游用量结算；未返回用量时按视频公式结算",
+              }
             : { kind: "estimate" };
     }
     return { kind: "fixed", value: cost.unitPriceMicrocredits / 1_000_000, unit: cost.billingMode === "per_second" ? "秒" : "次" };
@@ -574,11 +589,12 @@ function channelTierPriceSummary(
     capability?: ModelCapability,
 ): Extract<ModelMenuPrice, { kind: "tiers" }> {
     const label = priceTierSummaryLabel(visibleTiers, capability);
+    const ruleNotes = allTiers.flatMap((tier) => tier.tokenPriceRules || []).map(tokenPriceRuleDescription);
     return {
         kind: "tiers",
         label,
         compactLabel: label,
-        title: `系统规格价格：${allTiers.map((tier) => `${tierSpecificationLabel(tier)} ${priceTierSummaryLabel([tier], capability)}`).join("；")}${allTiers.some((tier) => tier.billingMode === "token") ? (capability === "video" ? "；优先按有效上游用量结算，未返回用量时按视频公式结算" : "；Token 费用为预估，最终按成功任务的实际用量结算") : ""}`,
+        title: `系统规格价格：${allTiers.map((tier) => `${tierSpecificationLabel(tier)} ${priceTierSummaryLabel([tier], capability)}`).join("；")}${allTiers.some((tier) => tier.billingMode === "token") ? (capability === "video" ? "；优先按有效上游用量结算，未返回用量时按视频公式结算" : "；Token 费用为预估，最终按成功任务的实际用量结算") : ""}${ruleNotes.length ? `。分时与上下文价格（上海时间，任务创建时锁定时段，按实际输入 Token 选档，未命中按上述基础价）：${ruleNotes.join("；")}` : ""}`,
     };
 }
 
@@ -593,7 +609,13 @@ function tierDurationLabel(seconds: number) {
 
 function tierSpecificationLabel(tier: NonNullable<NonNullable<AiConfig["channels"][number]["modelCosts"]>[number]["logicalPriceTiers"]>[number]) {
     const selector = tier.selector || {};
-    const operationLabels: Record<string, string> = { text_to_image: "文生图", image_to_image: "图生图", text_to_video: "文生视频", image_to_video: "图生视频", video_to_video: "视频生视频" };
+    const operationLabels: Record<string, string> = {
+        text_to_image: "文生图",
+        image_to_image: "图生图",
+        text_to_video: "文生视频",
+        image_to_video: "图生视频",
+        video_to_video: "视频生视频",
+    };
     const operation = selector.operation && selector.operation !== "*" ? operationLabels[selector.operation] || selector.operation : "";
     const details = [
         operation,

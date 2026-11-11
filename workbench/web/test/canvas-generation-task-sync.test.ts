@@ -41,7 +41,25 @@ describe("applyGeneratedMediaResultMetadata", () => {
         const music = audioAsset("music-asset", "resource:music");
         withAssetStorePersistenceSuppressed(() => useAssetStore.setState({ assets: [voice, music] }));
         const node: CanvasNodeData = { ...videoNode(voice.id, voice.data.storageKey!), type: CanvasNodeType.Audio, metadata: { content: voice.data.url, storageKey: voice.data.storageKey, assetId: voice.id, taskId: "audio-task", status: "success" } };
-        const task = { id: "audio-task", type: "canvas_audio", status: "succeeded" as const, prompt: "", attempts: 1, createdAt: "", updatedAt: "", outputs: [{ outputIndex: 0, mediaType: "audio" as const, materializedAssetId: voice.id }, { outputIndex: 1, mediaType: "audio" as const, materializedAssetId: music.id }], resultJson: JSON.stringify({ audios: [{ dataUrl: voice.data.url, storageKey: voice.data.storageKey }, { dataUrl: music.data.url, storageKey: music.data.storageKey }] }) };
+        const task = {
+            id: "audio-task",
+            type: "canvas_audio",
+            status: "succeeded" as const,
+            prompt: "",
+            attempts: 1,
+            createdAt: "",
+            updatedAt: "",
+            outputs: [
+                { outputIndex: 0, mediaType: "audio" as const, materializedAssetId: voice.id },
+                { outputIndex: 1, mediaType: "audio" as const, materializedAssetId: music.id },
+            ],
+            resultJson: JSON.stringify({
+                audios: [
+                    { dataUrl: voice.data.url, storageKey: voice.data.storageKey },
+                    { dataUrl: music.data.url, storageKey: music.data.storageKey },
+                ],
+            }),
+        };
         expect(generationTaskOutputsApplied(node, task)).toBe(false);
         const root: CanvasNodeData = { ...node, metadata: { ...node.metadata, generationOutputCount: 2, audioOutputNodeIds: ["music"] } };
         const child: CanvasNodeData = { ...node, id: "music", metadata: { ...node.metadata, content: music.data.url, storageKey: music.data.storageKey, assetId: music.id, audioOutputIndex: 1, audioOutputSourceNodeId: root.id } };
@@ -78,7 +96,20 @@ describe("applyGeneratedMediaResultMetadata", () => {
         expect(generationTaskOutputsApplied({ ...node, metadata: { ...node.metadata, assetId: "missing" } }, task)).toBe(false);
     });
     test("图层组恢复检查每个现存子图绑定，已删除图层不需要复活", () => {
-        const root: CanvasNodeData = { ...videoNode("composite", "resource:composite"), type: CanvasNodeType.Image, metadata: { assetId: "composite", storageKey: "resource:composite", content: "/composite.png", status: "success", taskId: "task", generationOutputCount: 2, batchChildIds: ["child", "deleted"], imageLayerGroup: { width: 640, height: 480, layers: [{ nodeId: "child", x: 0, y: 0, visible: true }] } } };
+        const root: CanvasNodeData = {
+            ...videoNode("composite", "resource:composite"),
+            type: CanvasNodeType.Image,
+            metadata: {
+                assetId: "composite",
+                storageKey: "resource:composite",
+                content: "/composite.png",
+                status: "success",
+                taskId: "task",
+                generationOutputCount: 2,
+                batchChildIds: ["child", "deleted"],
+                imageLayerGroup: { width: 640, height: 480, layers: [{ nodeId: "child", x: 0, y: 0, visible: true }] },
+            },
+        };
         const child: CanvasNodeData = { ...root, id: "child", metadata: { batchRootId: root.id, content: "/child.png", storageKey: "resource:child" } };
         const task = { id: "task", type: "canvas_image", status: "succeeded" as const, prompt: "", attempts: 1, createdAt: "", updatedAt: "", resultJson: JSON.stringify({ images: [{ dataUrl: "/first.png" }, { dataUrl: "/second.png" }] }) };
         withAssetStorePersistenceSuppressed(() => useAssetStore.setState({ assets: [imageAsset("composite", "resource:composite"), imageAsset("child-asset", "resource:child")] }));
@@ -102,14 +133,43 @@ describe("applyGeneratedMediaResultMetadata", () => {
         expect(() => commitCanvasGenerationResult([{ ...live, metadata: { taskId: "new-task" } }], before, result, "task", [child])).toThrow("其他生成任务");
     });
     test("专用拆层的模型成功不能冒充后台合成完成，需要校正是持久终态", () => {
-        const task = { id: "task", type: "canvas_image", status: "succeeded" as const, inputJson: JSON.stringify({ mode: "image", metadata: { layerDecomposition: true } }), prompt: "", attempts: 1, createdAt: "", updatedAt: "", resultJson: JSON.stringify({ images: [{ storageKey: "resource:layer1" }, { storageKey: "resource:layer2" }] }) };
-        const node: CanvasNodeData = { ...videoNode("composite", "resource:composite"), type: CanvasNodeType.Image, metadata: { taskId: task.id, status: "success", content: "/composite.png", storageKey: "resource:composite", assetId: "composite", generationOutputCount: 2, nativeLayerDecomposition: { sourceTaskId: task.id, resultSha256: "a".repeat(64), compositeTaskId: "cpu-compose" }, imageLayerGroup: { width: 640, height: 480, layers: [], compositeStatus: "updating" } } };
+        const task = {
+            id: "task",
+            type: "canvas_image",
+            status: "succeeded" as const,
+            inputJson: JSON.stringify({ mode: "image", metadata: { layerDecomposition: true } }),
+            prompt: "",
+            attempts: 1,
+            createdAt: "",
+            updatedAt: "",
+            resultJson: JSON.stringify({ images: [{ storageKey: "resource:layer1" }, { storageKey: "resource:layer2" }] }),
+        };
+        const node: CanvasNodeData = {
+            ...videoNode("composite", "resource:composite"),
+            type: CanvasNodeType.Image,
+            metadata: {
+                taskId: task.id,
+                status: "success",
+                content: "/composite.png",
+                storageKey: "resource:composite",
+                assetId: "composite",
+                generationOutputCount: 2,
+                nativeLayerDecomposition: { sourceTaskId: task.id, resultSha256: "a".repeat(64), compositeTaskId: "cpu-compose" },
+                imageLayerGroup: { width: 640, height: 480, layers: [], compositeStatus: "updating" },
+            },
+        };
         expect(canvasTaskBindingStatus(node, task)).toBe("loading");
         withAssetStorePersistenceSuppressed(() => useAssetStore.setState({ assets: [imageAsset("composite", "resource:composite")] }));
         expect(generationTaskOutputsApplied(node, task)).toBe(false);
         const ready = { ...node, metadata: { ...node.metadata, imageLayerGroup: { ...node.metadata!.imageLayerGroup!, compositeStatus: "ready" as const } } };
         expect(generationTaskOutputsApplied(ready, task)).toBe(false);
-        const fixed = { ...ready, metadata: { ...ready.metadata, imageLayerGroup: { ...ready.metadata.imageLayerGroup, nativeComposition: { version: 1 as const, taskId: "cpu-compose", resourceId: "composite", sourceGroupSha256: "b".repeat(64), requestSha256: "c".repeat(64) } } } };
+        const fixed = {
+            ...ready,
+            metadata: {
+                ...ready.metadata,
+                imageLayerGroup: { ...ready.metadata.imageLayerGroup, nativeComposition: { version: 1 as const, taskId: "cpu-compose", resourceId: "composite", sourceGroupSha256: "b".repeat(64), requestSha256: "c".repeat(64) } },
+            },
+        };
         expect(generationTaskOutputsApplied(fixed, task)).toBe(true);
         expect(canvasTaskBindingStatus(fixed, task)).toBe("success");
         const correction = { ...node, metadata: { taskId: task.id, status: "error" as const, nativeLayerDecomposition: { sourceTaskId: task.id, resultSha256: "a".repeat(64), status: "needs_correction" as const } } };
@@ -125,15 +185,19 @@ describe("applyGeneratedMediaResultMetadata", () => {
     });
     test("clears the previous asset binding when a regenerated media result lands", () => {
         const node = videoNode("asset-old", "video:old");
-        const next = applyGeneratedMediaResultMetadata(node, videoMetadata({
-            url: "https://example.test/new.mp4",
-            storageKey: "video:new",
-            width: 1280,
-            height: 720,
-            bytes: 12,
-            mimeType: "video/mp4",
-            durationMs: 4000,
-        }), { prompt: "新提示词" });
+        const next = applyGeneratedMediaResultMetadata(
+            node,
+            videoMetadata({
+                url: "https://example.test/new.mp4",
+                storageKey: "video:new",
+                width: 1280,
+                height: 720,
+                bytes: 12,
+                mimeType: "video/mp4",
+                durationMs: 4000,
+            }),
+            { prompt: "新提示词" },
+        );
 
         expect(next.assetId).toBeUndefined();
         expect(next.storageKey).toBe("video:new");

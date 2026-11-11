@@ -1,3 +1,4 @@
+import { translate } from "@/i18n";
 import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 import { experimentalLayerSignature, imageLayerCompositeSignature } from "@/lib/canvas/canvas-image-layers";
 import { buildExperimentalImageLayerResult } from "@/lib/canvas/canvas-generation-task-sync";
@@ -68,7 +69,16 @@ export function useCanvasImageLayerGroups({
         for (const root of nodes) {
             if (root.metadata?.nativeImageLayerWorkflow) continue;
             if (root.metadata?.status === "loading" && root.metadata.imageLayerWorkflow?.stage === "planning" && !activeLayerGroupIds?.has(root.id)) {
-                setNodes((current) => current.map((node) => (node.id === root.id ? { ...node, metadata: { ...node.metadata, status: "error", errorDetails: "拆解规划等待已中断，未自动提交拆图任务；请重新发起拆分。" } } : node)));
+                setNodes((current) =>
+                    current.map((node) =>
+                        node.id === root.id
+                            ? {
+                                  ...node,
+                                  metadata: { ...node.metadata, status: "error", errorDetails: translate("canvasPage.layerGroups.planningInterrupted") },
+                              }
+                            : node,
+                    ),
+                );
                 continue;
             }
             const plan = root.metadata?.experimentalLayerPlan;
@@ -78,7 +88,16 @@ export function useCanvasImageLayerGroups({
             if (ready.length !== children.length && (activeLayerGroupIds?.has(root.id) || runningNodeId === root.id || children.some((node) => node?.metadata?.status === "loading" && node.metadata.taskId))) continue;
             if (!ready.length) {
                 if (root.metadata?.status !== "error") {
-                    setNodes((current) => current.map((node) => (node.id === root.id ? { ...node, metadata: { ...node.metadata, status: "error", errorDetails: "拆层未完成：没有已验收图层；不会自动继续扣费。请展开检查并单独重试失败层。" } } : node)));
+                    setNodes((current) =>
+                        current.map((node) =>
+                            node.id === root.id
+                                ? {
+                                      ...node,
+                                      metadata: { ...node.metadata, status: "error", errorDetails: translate("canvasPage.layerGroups.noAcceptedLayers") },
+                                  }
+                                : node,
+                        ),
+                    );
                 }
                 continue;
             }
@@ -112,7 +131,11 @@ export function useCanvasImageLayerGroups({
                                   metadata: { ...preparedNode.metadata, imageBatchExpanded: node.metadata?.imageBatchExpanded ?? false },
                               }
                             : byId.has(node.id)
-                              ? { ...node, title: byId.get(node.id)!.title, metadata: { ...node.metadata, ...byId.get(node.id)!.metadata, batchRootId: root.id } }
+                              ? {
+                                    ...node,
+                                    title: byId.get(node.id)!.title,
+                                    metadata: { ...node.metadata, ...byId.get(node.id)!.metadata, batchRootId: root.id },
+                                }
                               : node,
                     );
                 });
@@ -130,8 +153,14 @@ export function useCanvasImageLayerGroups({
                                       metadata: {
                                           ...node.metadata,
                                           status: node.metadata.content ? node.metadata.status : "error",
-                                          errorDetails: error instanceof Error ? error.message : "实验拆层合成失败",
-                                          imageLayerGroup: node.metadata.imageLayerGroup ? { ...node.metadata.imageLayerGroup, compositeStatus: "error", compositeError: error instanceof Error ? error.message : "实验拆层合成失败" } : undefined,
+                                          errorDetails: error instanceof Error ? error.message : translate("canvasPage.layerGroups.compositeFailed"),
+                                          imageLayerGroup: node.metadata.imageLayerGroup
+                                              ? {
+                                                    ...node.metadata.imageLayerGroup,
+                                                    compositeStatus: "error",
+                                                    compositeError: error instanceof Error ? error.message : translate("canvasPage.layerGroups.compositeFailed"),
+                                                }
+                                              : undefined,
                                           experimentalLayerPlan: { ...node.metadata.experimentalLayerPlan, errorSignature: signature },
                                       },
                                   }
@@ -175,7 +204,10 @@ export function useCanvasImageLayerGroups({
                     node.id === root.id && node.metadata?.imageLayerGroup
                         ? {
                               ...node,
-                              metadata: { ...node.metadata, imageLayerGroup: { ...node.metadata.imageLayerGroup, compositeStatus: "updating", compositeError: undefined } },
+                              metadata: {
+                                  ...node.metadata,
+                                  imageLayerGroup: { ...node.metadata.imageLayerGroup, compositeStatus: "updating", compositeError: undefined },
+                              },
                           }
                         : node,
                 ),
@@ -202,7 +234,13 @@ export function useCanvasImageLayerGroups({
                                 naturalHeight: media.naturalHeight,
                                 imageOperationTaskId: media.imageOperationTaskId,
                                 imageOperationOutputIndex: media.imageOperationOutputIndex,
-                                imageLayerGroup: { ...liveGroup, nativeComposition: media.imageLayerGroup!.nativeComposition, compositeSignature: signature, compositeStatus: "ready", compositeError: undefined },
+                                imageLayerGroup: {
+                                    ...liveGroup,
+                                    nativeComposition: media.imageLayerGroup!.nativeComposition,
+                                    compositeSignature: signature,
+                                    compositeStatus: "ready",
+                                    compositeError: undefined,
+                                },
                             },
                         };
                     }),
@@ -216,7 +254,17 @@ export function useCanvasImageLayerGroups({
                         current.map((node) => {
                             const liveGroup = node.metadata?.imageLayerGroup;
                             if (node.id !== root.id || !liveGroup || liveGroup.compositeIntentId !== group.compositeIntentId || imageLayerCompositeSignature(liveGroup, current) !== signature) return node;
-                            return { ...node, metadata: { ...node.metadata, imageLayerGroup: { ...liveGroup, compositeStatus: "error", compositeError: error instanceof Error ? error.message : "合成图更新失败" } } };
+                            return {
+                                ...node,
+                                metadata: {
+                                    ...node.metadata,
+                                    imageLayerGroup: {
+                                        ...liveGroup,
+                                        compositeStatus: "error",
+                                        compositeError: error instanceof Error ? error.message : translate("canvasPage.layerGroups.compositeUpdateFailed"),
+                                    },
+                                },
+                            };
                         }),
                     );
                 })

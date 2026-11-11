@@ -20,11 +20,12 @@ import (
 )
 
 type testWorkbenchHost struct {
-	actor  WorkbenchHostUser
-	models []WorkbenchHostModel
-	groups []WorkbenchHostGroup
-	bill   WorkbenchHostBilling
-	calls  int
+	actor        WorkbenchHostUser
+	models       []WorkbenchHostModel
+	groups       []WorkbenchHostGroup
+	bill         WorkbenchHostBilling
+	calls        int
+	billingReads int
 }
 
 type workbenchVideoTestHost struct {
@@ -56,7 +57,9 @@ func TestWorkbenchDramaTaskAdmissionUsesHostModelsAndSegmentIdentity(t *testing.
 	project := model.Project{ID: "drama-project", UserID: user.ID, Name: "医院病房"}
 	require.NoError(t, db.Create(&project).Error)
 	run := &dramaRun{s: svc, project: &project}
-	job := &model.DramaJob{ID: "prompt-job", EpisodeID: "episode", ShotID: "drama-segment", Kind: model.DramaJobSegmentPrompt}
+	require.NoError(t, db.AutoMigrate(&model.DramaJob{}))
+	job := &model.DramaJob{ID: "prompt-job", ProjectID: project.ID, Status: model.DramaJobQueued, EpisodeID: "episode", ShotID: "drama-segment", Kind: model.DramaJobSegmentPrompt}
+	require.NoError(t, db.Create(job).Error)
 	// Go through the real task admission, not the orchestrator's task hook.
 	for _, capability := range []string{"text", "image", "video"} {
 		t.Run(capability, func(t *testing.T) {
@@ -73,10 +76,13 @@ func TestWorkbenchDramaTaskAdmissionUsesHostModelsAndSegmentIdentity(t *testing.
 				config["size"], config["videoSeconds"], config["vquality"] = "16:9", "5", "720p"
 				operation = "text_to_video"
 			}
-			task, err := run.createTaskWith(choice, capability, operation, "A hospital room", map[string]any{"config": config, "metadata": run.metadata(job)})
+			task, err := run.createTaskWith(job, choice, capability, operation, "A hospital room", map[string]any{"config": config, "metadata": run.metadata(job)})
 			require.NoError(t, err)
 			stored, err := svc.repo.Task(task.ID)
 			require.NoError(t, err)
+			var bound model.DramaJob
+			require.NoError(t, db.First(&bound, "id = ?", job.ID).Error)
+			assert.Equal(t, task.ID, bound.TaskID, "job binding and hosted task admission must commit together")
 			var input map[string]any
 			require.NoError(t, json.Unmarshal([]byte(stored.InputJSON), &input))
 			metadata := input["metadata"].(map[string]any)
@@ -96,7 +102,7 @@ func TestWorkbenchDramaTaskAdmissionUsesHostModelsAndSegmentIdentity(t *testing.
 		})
 	}
 	run.project = &model.Project{ID: project.ID, UserID: "newapi:other"}
-	_, err = run.createTaskWith(DramaModelChoice{ChannelID: "newapi-text", ModelKey: "text-key"}, "text", "text", "test", map[string]any{"metadata": run.metadata(job)})
+	_, err = run.createTaskWith(job, DramaModelChoice{ChannelID: "newapi-text", ModelKey: "text-key"}, "text", "text", "test", map[string]any{"metadata": run.metadata(job)})
 	require.Error(t, err, "segment metadata must not bypass project ownership")
 	assert.Zero(t, host.calls, "admission must not invoke inference")
 }
@@ -291,6 +297,7 @@ func (h *testWorkbenchHost) Groups(context.Context, string) ([]WorkbenchHostGrou
 }
 func (h *testWorkbenchHost) Balance(context.Context, string) (int64, error) { return 8_000_000, nil }
 func (h *testWorkbenchHost) Billing(context.Context, string, string, int) (WorkbenchHostBilling, error) {
+	h.billingReads++
 	return h.bill, nil
 }
 func (h *testWorkbenchHost) Relay(context.Context, WorkbenchRelay) (*http.Response, error) {

@@ -1,0 +1,51 @@
+{
+  "key": "composite-recipe-product",
+  "status": "completed",
+  "operation": "controlled_image_edit",
+  "engine": "FFmpeg",
+  "operation_id": "edit-038a5f4bd470563be629220f",
+  "adapter_id": null,
+  "submitted_at": 1792316197.1434588,
+  "request": {
+    "model": "ffmpeg-image-edit",
+    "prompt": "Controlled 4% camera push over one clean FLUX-generated mug image; rejected duplicate-mug Wan attempt is not selected.",
+    "size": "640x384",
+    "metadata": {
+      "frames": 49,
+      "fps": 16
+    }
+  },
+  "source_image_adapter_id": "image-53c9e3e65776e241a8d011c9bbfec63f",
+  "source_image_sha256": "b5c28abf65c3521b1775b1f841fab726371af5da45e5e8307076a84ca18388f4",
+  "source_image_seed": 182000,
+  "command": [
+    "C:\\Users\\Administrator\\.cache\\codex-studio-toolchains\\ffmpeg\\ffmpeg-9.0.2-essentials_build\\bin\\ffmpeg.exe",
+    "-nostdin",
+    "-v",
+    "error",
+    "-y",
+    "-loop",
+    "1",
+    "-i",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\recipe-image-product.png",
+    "-vf",
+    "scale=1280:768:force_original_aspect_ratio=increase,crop=1280:768,zoompan=z='1+0.04*on/48':x='iw/2-iw/zoom/2':y='ih/2-ih/zoom/2':d=49:s=640x384:fps=16",
+    "-r",
+    "16",
+    "-frames:v",
+    "49",
+    "-an",
+    "-c:v",
+    "libx264",
+    "-crf",
+    "20",
+    "-pix_fmt",
+    "yuv420p",
+    "-movflags",
+    "+faststart",
+    "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\composite-recipe-product.mp4"
+  ],
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\wan640-v2\\raw\\composite-recipe-product.mp4",
+  "output_sha256": "038a5f4bd470563be629220fd7d9bcc142c48ca366bcfb93d90a1f4c450225d1",
+  "output_bytes": 61837
+}

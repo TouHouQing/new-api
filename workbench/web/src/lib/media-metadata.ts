@@ -23,9 +23,7 @@ export async function probeMediaDurationMs(file: File): Promise<number | undefin
 
 /** Read an existing resource without downloading a second full blob. */
 export async function probeMediaURLDurationMs(url: string, kind: "video" | "audio"): Promise<number | undefined> {
-    const el: HTMLVideoElement | HTMLAudioElement = kind === "video"
-        ? document.createElement("video")
-        : document.createElement("audio");
+    const el: HTMLVideoElement | HTMLAudioElement = kind === "video" ? document.createElement("video") : document.createElement("audio");
     let timeoutId: number | undefined;
     el.preload = "metadata";
     // 某些浏览器只有在静音时才允许视频元素主动加载元数据；这里只禁止声音，不触发自动播放。

@@ -22,7 +22,7 @@ describe("canvas node drag overlays", () => {
         expect(projectSource).not.toContain("angleNode?.metadata?.content && !isCanvasNodeMoving");
         expect(projectSource).toContain("emotionNode?.metadata?.content && !isCanvasNodeMoving");
         expect(projectSource).toContain("selectedNodeBounds && !selectionBox && !isCanvasNodeMoving");
-        const toolbarCondition = projectSource.match(/node=\{([^}]+)\? null : toolbarNode\}/)?.[1] ?? "";
+        const toolbarCondition = projectSource.match(/node=\{([^}]+)\?\s*null\s*:\s*toolbarNode\s*\}/)?.[1] ?? "";
         for (const guard of ["isCanvasNodeMoving", "connectingParams", "batchConnectionPreview", "nodeImageSettingsOpen", "emotionNodeId", "angleNodeId"]) expect(toolbarCondition).toContain(guard);
         expect(projectSource).toContain("onNodeDragEnd: handleNodeDragEnd");
         expect(projectSource).toContain("setDialogNodeId(node.id);");

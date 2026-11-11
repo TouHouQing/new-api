@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button, Collapse, Grid, InputNumber, Popover } from "antd";
 import { AppModal } from "@/components/ui/product/app-modal";
+import { useTranslation } from "react-i18next";
 import { usePopoverAnchorAlign } from "@/hooks/use-popover-anchor-align";
 import { ArrowDown, ArrowUp, Eye, EyeOff, Layers3, RefreshCw } from "lucide-react";
 import { useCanvasNodeActions, type CanvasNodeActionContextValue } from "./canvas-node-action-context";
@@ -40,6 +41,7 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
     const contextualActions = useCanvasNodeActions();
     const { updateNode, extractLayerMaterials, imageLayerMaterialFeedback } = actions || contextualActions;
     const screens = Grid.useBreakpoint();
+    const { t } = useTranslation();
     const [open, setOpen] = useState(false);
     const changeOpen = (next: boolean) => {
         setOpen(next);
@@ -69,7 +71,18 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
             }
             return {
                 ...current,
-                metadata: { ...current.metadata, imageLayerGroup: { ...live, layers, compositeIntentId: crypto.randomUUID(), pendingTaskId: undefined, pendingSignature: undefined, compositeStatus: "updating", compositeError: undefined } },
+                metadata: {
+                    ...current.metadata,
+                    imageLayerGroup: {
+                        ...live,
+                        layers,
+                        compositeIntentId: crypto.randomUUID(),
+                        pendingTaskId: undefined,
+                        pendingSignature: undefined,
+                        compositeStatus: "updating",
+                        compositeError: undefined,
+                    },
+                },
             };
         });
     const adjust = (nodeId: string, patch: { x?: number; y?: number; opacity?: number }) =>
@@ -103,14 +116,23 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
                 metadata: {
                     ...current.metadata,
                     manualSize: true,
-                    imageLayerGroup: { ...live, width, height, compositeIntentId: crypto.randomUUID(), pendingTaskId: undefined, pendingSignature: undefined, compositeStatus: "updating", compositeError: undefined },
+                    imageLayerGroup: {
+                        ...live,
+                        width,
+                        height,
+                        compositeIntentId: crypto.randomUUID(),
+                        pendingTaskId: undefined,
+                        pendingSignature: undefined,
+                        compositeStatus: "updating",
+                        compositeError: undefined,
+                    },
                 },
             };
         });
     };
     const panel = (
         <div className="max-h-[min(72vh,640px)] w-72 max-w-[calc(100vw-48px)] space-y-2 overflow-y-auto pr-1" data-canvas-no-zoom data-canvas-wheel-scroll onPointerDown={(event) => event.stopPropagation()} onWheel={(event) => event.stopPropagation()}>
-            <div className="text-sm font-medium">图层顺序（上方在前）</div>
+            <div className="text-sm font-medium">{t("canvasB.imageLayers.orderTitle")}</div>
             {node.metadata?.nativeImageLayerWorkflow?.warnings?.length ? (
                 <div role="status" className="space-y-1 text-xs text-amber-600 dark:text-amber-400">
                     <p>合成已完成，以下画面细节需要检查：</p>
@@ -121,7 +143,11 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
             ) : null}
             {group.incomplete ? (
                 <p role="status" className="text-xs text-amber-600 dark:text-amber-400">
-                    已收纳 {group.incomplete.completed}/{group.incomplete.total} 层，{group.incomplete.failed} 层尚未通过。{group.incomplete.missingBackground ? "当前预览缺少完整背景。" : "当前显示部分合成。"}展开查看失败层并单独重试。
+                    {t(group.incomplete.missingBackground ? "canvasB.imageLayers.incompleteMissingBackground" : "canvasB.imageLayers.incompletePartial", {
+                        completed: group.incomplete.completed,
+                        total: group.incomplete.total,
+                        failed: group.incomplete.failed,
+                    })}
                 </p>
             ) : null}
             <div className="max-h-64 space-y-1 overflow-y-auto">
@@ -130,16 +156,16 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
                     return (
                         <div key={layer.nodeId} className="rounded px-1 py-1">
                             <div className="flex items-center gap-1">
-                                <button type="button" aria-label={`切换第 ${index + 1} 层可见性`} aria-pressed={layer.visible} className="p-1" onClick={() => change(layer.nodeId)}>
+                                <button type="button" aria-label={t("canvasB.imageLayers.toggleVisibility", { index: index + 1 })} aria-pressed={layer.visible} className="p-1" onClick={() => change(layer.nodeId)}>
                                     {layer.visible ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
                                 </button>
                                 <span className="min-w-0 flex-1 truncate text-xs" title={names.get(layer.nodeId) || layer.nodeId}>
                                     {names.get(layer.nodeId) || `第 ${index + 1} 层`}
                                 </span>
-                                <button type="button" aria-label={`第 ${index + 1} 层上移`} disabled={index === group.layers.length - 1} className="p-1 disabled:opacity-30" onClick={() => change(layer.nodeId, 1)}>
+                                <button type="button" aria-label={t("canvasB.imageLayers.moveUp", { index: index + 1 })} disabled={index === group.layers.length - 1} className="p-1 disabled:opacity-30" onClick={() => change(layer.nodeId, 1)}>
                                     <ArrowUp className="size-4" />
                                 </button>
-                                <button type="button" aria-label={`第 ${index + 1} 层下移`} disabled={index === 0} className="p-1 disabled:opacity-30" onClick={() => change(layer.nodeId, -1)}>
+                                <button type="button" aria-label={t("canvasB.imageLayers.moveDown", { index: index + 1 })} disabled={index === 0} className="p-1 disabled:opacity-30" onClick={() => change(layer.nodeId, -1)}>
                                     <ArrowDown className="size-4" />
                                 </button>
                             </div>
@@ -183,7 +209,7 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
             <p className="text-xs opacity-60">叠放、位置和透明度免费处理，不调用模型。位置使用原图像素；拖动画布节点只调整工作区布局。</p>
             {extractLayerMaterials && hasTransparentForeground ? (
                 <button type="button" disabled={Boolean(materialLoading)} className="text-xs underline disabled:opacity-50" onClick={() => void extractLayerMaterials(node)}>
-                    {materialLoading ? "正在另存独立素材…可关闭页面" : node.metadata?.imageLayerMaterials?.groupId ? "查看或更新独立素材（免费）" : "另存独立素材（免费）"}
+                    {materialLoading ? "正在另存独立素材…可关闭页面" : node.metadata?.imageLayerMaterials?.groupId ? "查看或更新独立素材（免费）" : t("canvasB.imageLayers.saveMaterials")}
                 </button>
             ) : null}
             <p className="text-xs opacity-60">{hasTransparentForeground ? "独立素材只裁去外部透明留白，保留原文件像素和色彩信息；原位图层保持不变。" : "这些图片已经是独立素材，可直接选用或下载。"}</p>
@@ -199,7 +225,7 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
             ) : null}
             {group.compositeStatus === "updating" ? (
                 <p role="status" className="text-xs">
-                    正在更新合成图…
+                    {t("canvasB.imageLayers.updatingComposite")}
                 </p>
             ) : null}
             {group.compositeStatus === "error" ? (
@@ -215,7 +241,14 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
                                           ...current,
                                           metadata: {
                                               ...current.metadata,
-                                              imageLayerGroup: { ...current.metadata.imageLayerGroup, compositeIntentId: crypto.randomUUID(), pendingTaskId: undefined, pendingSignature: undefined, compositeStatus: "updating", compositeError: undefined },
+                                              imageLayerGroup: {
+                                                  ...current.metadata.imageLayerGroup,
+                                                  compositeIntentId: crypto.randomUUID(),
+                                                  pendingTaskId: undefined,
+                                                  pendingSignature: undefined,
+                                                  compositeStatus: "updating",
+                                                  compositeError: undefined,
+                                              },
                                           },
                                       }
                                     : current,
@@ -223,7 +256,7 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
                         }
                     >
                         <RefreshCw className="size-3" />
-                        重试合成
+                        {t("canvasB.imageLayers.retryComposite")}
                     </button>
                 </div>
             ) : null}
@@ -232,8 +265,8 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
     const trigger = (
         <button
             type="button"
-            title="管理图层"
-            aria-label="管理图层"
+            title={t("canvasB.imageLayers.manageLayers")}
+            aria-label={t("canvasB.imageLayers.manageLayers")}
             aria-expanded={open}
             className={
                 variant === "toolbar"
@@ -258,7 +291,7 @@ export function CanvasImageLayerControls({ node, actions, variant = "overlay", o
     ) : (
         <>
             {trigger}
-            <AppModal title="管理图层" open={open} centered width={360} onCancel={() => changeOpen(false)} footer={<Button onClick={() => changeOpen(false)}>返回画布</Button>}>
+            <AppModal title={t("canvasB.imageLayers.manageLayers")} open={open} centered width={360} onCancel={() => changeOpen(false)} footer={<Button onClick={() => changeOpen(false)}>返回画布</Button>}>
                 {panel}
             </AppModal>
         </>

@@ -47,6 +47,8 @@ function operation(value: unknown): AgentApprovalPreviewOperation | null {
         value === "connect_nodes" ||
         value === "arrange_nodes" ||
         value === "generate_media" ||
+        value === "generate_media_item" ||
+        value === "build_board" ||
         value === "create_storyboard" ||
         value === "edit_storyboard" ||
         value === "create_character" ||
@@ -144,7 +146,12 @@ function canvasFallback(args: RecordValue | null): AgentApprovalPresentation {
         }
         const from = shortReference(op.fromNodeId);
         const to = shortReference(op.toNodeId);
-        items.push({ operation: kind, nodeTitle: `来源（引用 ${from}）`, targetNodeTitle: `目标（引用 ${to}）`, summary: `建立来源（引用 ${from}）→目标（引用 ${to}）的引用连线` });
+        items.push({
+            operation: kind,
+            nodeTitle: `来源（引用 ${from}）`,
+            targetNodeTitle: `目标（引用 ${to}）`,
+            summary: `建立来源（引用 ${from}）→目标（引用 ${to}）的引用连线`,
+        });
     }
     const counts = items.reduce<Record<string, number>>((out, item) => {
         out[item.operation] = (out[item.operation] || 0) + 1;
@@ -228,11 +235,41 @@ export function agentApprovalPresentation(detail: unknown): AgentApprovalPresent
             typeof request?.expectedRevision === "number" ? `依据版本：${request.expectedRevision}` : "",
         ].filter(Boolean);
         if (typeof request?.status === "string") details.push(`状态：${({ approved: "通过审片", changes_requested: "需要修改", draft: "草稿", ready: "待制作", completed: "已完成" } as Record<string, string>)[request.status] || text(request.status, 64)}`);
-        return { source: "server", kind: "production", title: `确认${subject}操作`, description: text(rawPreview.description, 500), items: [{ operation: "production_action", summary, nodeTitle: target || subject, details }], productionArguments: values };
+        return {
+            source: "server",
+            kind: "production",
+            title: `确认${subject}操作`,
+            description: text(rawPreview.description, 500),
+            items: [{ operation: "production_action", summary, nodeTitle: target || subject, details }],
+            productionArguments: values,
+        };
     }
     const serverPreview = normalizeServerPreview(payload?.preview);
     if (serverPreview) return serverPreview;
     if (name === "canvas_apply_ops") return canvasFallback(args);
     if (name === "generate_media") return mediaFallback(args, payload);
-    return { source: "fallback", kind: "agent_approval", title: "确认执行操作", description: "Agent 请求执行一项操作，但审批参数无法识别；请重新读取画布后再申请审批。", items: [] };
+    if (name === "generate_media_batch" && Array.isArray(args?.items)) {
+        const batch = mediaFallback(args, payload);
+        const items = args.items.flatMap((value) => {
+            const item = record(value);
+            const nodeId = text(item?.nodeId);
+            if (!nodeId) return [];
+            const nodeTitle = text(item?.title, 120) || `节点（引用 ${shortReference(nodeId)}）`;
+            return [{ ...batch.items[0], nodeId, nodeTitle, summary: `生成《${nodeTitle}》` }];
+        });
+        return {
+            ...batch,
+            kind: "media_batch",
+            title: "确认批量生成",
+            description: `本批次包含 ${items.length} 个目标；确认后按所选模型与规格分别提交，保留每项执行记录。`,
+            items,
+        };
+    }
+    return {
+        source: "fallback",
+        kind: "agent_approval",
+        title: "确认执行操作",
+        description: "Agent 请求执行一项操作，但审批参数无法识别；请重新读取画布后再申请审批。",
+        items: [],
+    };
 }

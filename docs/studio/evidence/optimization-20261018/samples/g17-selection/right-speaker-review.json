@@ -1,0 +1,62 @@
+{
+  "adapter_id": "audio-8c1ca63d5c604ba9a080f4780e27ba48",
+  "output_path": "C:\\Users\\Administrator\\Desktop\\git\\new-api\\output\\optimization-20261018\\samples\\g17-selection\\raw\\right-speaker-interval-v1.mp4",
+  "output_sha256": "99d94971e1f10a1dabb89d1be0feb9f9ab63bee5f7e22356d9194bd683292a63",
+  "video_frames": 21,
+  "actual_seconds": 1.3125,
+  "actual_size": [
+    1280,
+    384
+  ],
+  "requested_video_interval": [
+    0.5,
+    1.8125
+  ],
+  "requested_audio_start": 0.5,
+  "selected_roi": [
+    640,
+    0,
+    640,
+    384
+  ],
+  "original_source_sha256": "8e6b7ddc5b72d455186d763bdeb547dd3dd7760afcaa5597d2f80b1198ff8270",
+  "mean_absolute_pixel_difference_0_255": {
+    "unselected_left": 2.9719287367724867,
+    "selected_right": 3.218831832320602,
+    "selected_mouth": 29.219113533928347
+  },
+  "complete_selected_dialogue_correlation_to_original": 0.996031555951973,
+  "audio_rms": 0.12663075261539491,
+  "all_frames_audio_decoded": true,
+  "visual_review": {
+    "outcome": "passed_for_explicit_region_and_interval",
+    "reviewed_at": "2026-10-18T10:25:14.607186+00:00",
+    "observations": [
+      "Right selected speaker mouth changes across the complete 21-frame candidate; left speaker retains the original smiling pose.",
+      "Right speaker identity, clothing and scene remain recognizable. Source and output comparison reviewed at frames0/8/16/20 and mouth detail at0/4/8/12/16/20.",
+      "The original complete TTS line is preserved by the independent audio start (correlation0.99603 to the original selected PCM), with no speech retiming or freeze fallback."
+    ],
+    "limitations": [
+      "A 1.3125-second controlled duplicated fictional portrait test, not a general multi-person identity tracker.",
+      "The generated mouth is visibly softer than the original image; it is a reviewable candidate and not certified as delivery-quality photorealism.",
+      "Genuine overlapping/occluded/crossing faces still require a tighter region or shorter interval; missing/ambiguous detections reject processing."
+    ],
+    "comparison_images": [
+      "output/optimization-20261018/samples/g17-selection/speaker-comparison.jpg",
+      "output/optimization-20261018/samples/g17-selection/mouth-comparison.jpg"
+    ]
+  },
+  "source_selection_receipt": {
+    "video_interval": {
+      "start": 0.5,
+      "end": 1.8125,
+      "x": 640,
+      "y": 0,
+      "width": 640,
+      "height": 384
+    },
+    "audio_start": 0.5,
+    "output_scope": "selected_interval_candidate",
+    "original_video_retained": true
+  }
+}

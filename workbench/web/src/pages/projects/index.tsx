@@ -254,10 +254,12 @@ function DramaCover({ item }: { item: DramaListItem }) {
 function DramaCard({ item, onDelete }: { item: DramaListItem; onDelete: () => void }) {
     const progress = item.episodeCount ? Math.round((item.doneCount / item.episodeCount) * 100) : 0;
     const needsAction = item.status === "paused" && Boolean(item.pauseReason);
+    // 保存了创建页表单的草稿回到创建页继续编辑，其余进入制作台。
+    const href = item.hasDraftForm ? `/projects/new?draft=${encodeURIComponent(item.project.id)}` : `/projects/${item.project.id}`;
     const stage = item.episodeCount ? `${item.doneCount}/${item.episodeCount} 集成片` : item.status === "running" ? "正在改编小说" : item.status === "draft" ? "尚未开始" : "等待分集";
     return (
         <article className={`drama-library-card is-${item.status}`}>
-            <Link to={`/projects/${item.project.id}`} className="drama-library-open" aria-label={`打开《${item.project.name}》`}>
+            <Link to={href} className="drama-library-open" aria-label={`打开《${item.project.name}》`}>
                 <DramaCover item={item} />
                 <span className={`drama-chip drama-library-badge is-${needsAction ? "paused" : item.status}`}>
                     <span className="drama-dot" />
@@ -292,7 +294,11 @@ function DramaCard({ item, onDelete }: { item: DramaListItem; onDelete: () => vo
                     placement="bottomRight"
                     menu={{
                         items: [
-                            { key: "open", icon: <ExternalLink className="size-3.5" />, label: <Link to={`/projects/${item.project.id}`}>打开制作台</Link> },
+                            {
+                                key: "open",
+                                icon: <ExternalLink className="size-3.5" />,
+                                label: <Link to={href}>{item.hasDraftForm ? "编辑草稿" : "打开制作台"}</Link>,
+                            },
                             { type: "divider" },
                             { key: "delete", danger: true, icon: <Trash2 className="size-3.5" />, label: "删除作品", onClick: onDelete },
                         ],

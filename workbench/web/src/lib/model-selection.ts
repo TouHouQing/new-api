@@ -12,6 +12,8 @@ export type ModelInputSummary = {
     videoCount: number;
     audioCount: number;
     characterCount: number;
+    /** 参考视频的已知时长（毫秒），按连接顺序；未知为 0。仅用于报价，提交后由后端实测。 */
+    videoDurationsMs?: number[];
 };
 
 export type ModelRequirements = {
@@ -40,7 +42,7 @@ export type ModelReferenceLimits = {
  * 或 1 张参考图片，两者不能同时使用。
  */
 export function audioReferenceCapacity(config: AiConfig, model: string) {
-    if(["yingce-local-audio","yingce-local-separation"].includes(audioProtocol(config,model) || ""))return 1;
+    if (["yingce-local-audio", "yingce-local-separation"].includes(audioProtocol(config, model) || "")) return 1;
     return audioProtocol(config, model) === "doubao-streaming-tts" ? 3 : 0;
 }
 
@@ -156,8 +158,8 @@ export function modelCompatibilityError(config: AiConfig, model: string, require
 
     if (capability === "text") {
         const text = modelCapabilityConfigFor(config, model).text;
-        if (input.imageCount > (text?.references.maxImages ?? 0)) return `最多支持 ${(text?.references.maxImages ?? 0)} 张参考图`;
-        if (input.videoCount > (text?.references.maxVideos ?? 0)) return `最多支持 ${(text?.references.maxVideos ?? 0)} 个参考视频`;
+        if (input.imageCount > (text?.references.maxImages ?? 0)) return `最多支持 ${text?.references.maxImages ?? 0} 张参考图`;
+        if (input.videoCount > (text?.references.maxVideos ?? 0)) return `最多支持 ${text?.references.maxVideos ?? 0} 个参考视频`;
         if (input.audioCount > 0) return "文本模型不支持参考音频";
         return "";
     }
@@ -200,10 +202,27 @@ export function modelRequestOptions(config: AiConfig, capability: ModelCapabilit
         case "video":
             return { size: config.size, videoSeconds: Number(config.videoSeconds), vquality: config.vquality, videoGenerateAudio: config.videoGenerateAudio === "true", videoWatermark: config.videoWatermark === "true" };
         case "audio":
-            if (isLocalMusicConfig(config)) { const {audioLyrics: _, ...options} = localMusicOptions(config); return {...options, audioSeconds: Number(options.audioSeconds), audioBpm: Number(options.audioBpm), audioLanguage: config.audioLanguage || "zh", audioFormat: "flac"}; }
+            if (isLocalMusicConfig(config)) {
+                const { audioLyrics: _, ...options } = localMusicOptions(config);
+                return { ...options, audioSeconds: Number(options.audioSeconds), audioBpm: Number(options.audioBpm), audioLanguage: config.audioLanguage || "zh", audioFormat: "flac" };
+            }
             if (isLocalSeparationConfig(config)) return { audioStems: config.audioStems || "pair" };
             if (isLocalAudioConfig(config)) return { audioVoice: normalizeAudioVoiceForConfig(config, config.audioVoice), audioFormat: config.audioFormat, audioSpeed: Number(config.audioSpeed), audioLanguage: config.audioLanguage || "zh" };
-            return { audioVoice: config.audioVoice, audioFormat: config.audioFormat, audioSpeed: Number(config.audioSpeed), audioEmotionControlMethod: config.audioEmotionControlMethod, audioEmotionRandom: config.audioEmotionRandom === "true", audioEmotionHappy: Number(config.audioEmotionHappy), audioEmotionAngry: Number(config.audioEmotionAngry), audioEmotionSad: Number(config.audioEmotionSad), audioEmotionAfraid: Number(config.audioEmotionAfraid), audioEmotionDisgusted: Number(config.audioEmotionDisgusted), audioEmotionMelancholic: Number(config.audioEmotionMelancholic), audioEmotionSurprised: Number(config.audioEmotionSurprised), audioEmotionCalm: Number(config.audioEmotionCalm) };
+            return {
+                audioVoice: config.audioVoice,
+                audioFormat: config.audioFormat,
+                audioSpeed: Number(config.audioSpeed),
+                audioEmotionControlMethod: config.audioEmotionControlMethod,
+                audioEmotionRandom: config.audioEmotionRandom === "true",
+                audioEmotionHappy: Number(config.audioEmotionHappy),
+                audioEmotionAngry: Number(config.audioEmotionAngry),
+                audioEmotionSad: Number(config.audioEmotionSad),
+                audioEmotionAfraid: Number(config.audioEmotionAfraid),
+                audioEmotionDisgusted: Number(config.audioEmotionDisgusted),
+                audioEmotionMelancholic: Number(config.audioEmotionMelancholic),
+                audioEmotionSurprised: Number(config.audioEmotionSurprised),
+                audioEmotionCalm: Number(config.audioEmotionCalm),
+            };
         default:
             return {};
     }
@@ -392,17 +411,12 @@ export function resolveModelGenerationDefaults(
     return {};
 }
 
-export function resolveModelVideoBooleanOptions(
-    config: AiConfig,
-    model: string,
-    explicit: Partial<ModelVideoBooleanOptions> = {},
-    fallback: Partial<ModelVideoBooleanOptions> = {},
-): ModelVideoBooleanOptions {
+export function resolveModelVideoBooleanOptions(config: AiConfig, model: string, explicit: Partial<ModelVideoBooleanOptions> = {}, fallback: Partial<ModelVideoBooleanOptions> = {}): ModelVideoBooleanOptions {
     const profile = modelCapabilityConfigFor(config, model).video!;
     const defaults = resolveModelGenerationDefaults(config, model, "video", explicit, fallback);
     return {
-        videoGenerateAudio: profile.generateAudio.supported ? defaults.videoGenerateAudio ?? String(profile.generateAudio.default) : "false",
-        videoWatermark: profile.watermark.supported ? defaults.videoWatermark ?? String(profile.watermark.default) : "false",
+        videoGenerateAudio: profile.generateAudio.supported ? (defaults.videoGenerateAudio ?? String(profile.generateAudio.default)) : "false",
+        videoWatermark: profile.watermark.supported ? (defaults.videoWatermark ?? String(profile.watermark.default)) : "false",
     };
 }
 
@@ -418,8 +432,8 @@ export function maxModelInputCapacity(config: AiConfig, capability: "image" | "v
 }
 
 export function modelGroupReferenceLimits(config: AiConfig, selected: string, capability: ModelCapability, requirements?: ModelRequirements): ModelReferenceLimits | undefined {
-    if(capability === "audio" && audioProtocol(config,selected) === "yingce-local-music")return {maxImages:0,maxVideos:0,maxAudios:0};
-    if(capability==="audio"&&["yingce-local-audio","yingce-local-separation"].includes(audioProtocol(config,selected) || ""))return {maxImages:0,maxVideos:0,maxAudios:1};
+    if (capability === "audio" && audioProtocol(config, selected) === "yingce-local-music") return { maxImages: 0, maxVideos: 0, maxAudios: 0 };
+    if (capability === "audio" && ["yingce-local-audio", "yingce-local-separation"].includes(audioProtocol(config, selected) || "")) return { maxImages: 0, maxVideos: 0, maxAudios: 1 };
     if (capability !== "image" && capability !== "video") return undefined;
     const options = selectableModelsByCapability(config, capability);
     const selectedGroup = groupModelsByDisplayName(config, options).find((group) => group.models.includes(selected));
