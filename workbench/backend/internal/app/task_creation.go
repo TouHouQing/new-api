@@ -767,7 +767,7 @@ func (s *Service) resolveSystemChannelModelSelection(access *userGroupAccess, in
 	if normalizeCapability(intent.Capability) != normalizeCapability(channelModel.Capability) {
 		return input, ModelCapabilityNotSupported("所选模型与任务能力不匹配")
 	}
-	if normalizeCapability(channelModel.Capability) != "audio" {
+	if normalizeCapability(channelModel.Capability) != "audio" && !delegatesVideoCapabilityToUpstream(channelID, channelModel.Capability, channelModel.Protocol) {
 		if capabilitySpec == nil {
 			return input, InvalidModelSelection("指定的模型能力配置无效，请联系管理员")
 		}

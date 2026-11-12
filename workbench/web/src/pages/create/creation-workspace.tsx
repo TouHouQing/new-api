@@ -896,52 +896,52 @@ function ThinkingControl({ levels, value, resolvedLevel, onChange, disabled }: {
 
 function DurationMenu({ profile, seconds, onChange }: { profile: VideoCapabilityConfig; seconds: string; onChange: (value: string) => void }) {
     const [open, setOpen] = useState(false);
-    const value = Number(normalizeVideoValue(profile, { seconds }).seconds);
+    const value = isNewAPIWorkbench ? Math.max(1, Number(seconds) || profile.duration.default) : Number(normalizeVideoValue(profile, { seconds }).seconds);
     const presets = profile.duration.selection === "enum" ? videoDurationOptions(profile) : [];
     const fallbackPreset = presets.length ? presets : [profile.duration.default];
-    const min = profile.duration.selection === "range" ? profile.duration.min || 1 : Math.min(...fallbackPreset);
-    const max = profile.duration.selection === "range" ? Math.max(min, profile.duration.max || min) : Math.max(...fallbackPreset);
-    const step = Math.max(1, profile.duration.step || 1);
-    const durationControl =
-        profile.duration.selection === "range" ? (
-            <>
-                {!isNewAPIWorkbench ? (
-                    <>
-                        <input className="h-8 w-full" style={{ accentColor: "var(--creation-text)" }} type="range" min={min} max={max} step={step} value={value} aria-label="视频时长（秒）" onChange={(event) => onChange(event.target.value)} />
-                        <div className="flex justify-between px-0.5 text-[var(--fs-tiny)] text-[var(--creation-muted)]">
-                            <span>{min}s</span>
-                            <span>{max}s</span>
-                        </div>
-                    </>
-                ) : null}
-                <label className="creation-custom-value is-duration">
-                    <span>自定义时长</span>
-                    <span className="creation-duration-custom-field">
-                        <input
-                            type="number"
-                            min={min}
-                            max={max}
-                            step={step}
-                            inputMode="numeric"
-                            value={seconds}
-                            onFocus={(event) => event.currentTarget.select()}
-                            onBlur={() => onChange(String(value))}
-                            onChange={(event) => onChange(event.target.value)}
-                            aria-label="自定义视频时长，单位秒"
-                        />
-                        <em>秒</em>
-                    </span>
-                </label>
-            </>
-        ) : (
-            <div className="creation-duration-choices">
-                {presets.map((item) => (
-                    <button key={item} type="button" className={item === value ? "is-selected" : ""} onClick={() => onChange(String(item))}>
-                        {item}s
-                    </button>
-                ))}
+    const min = isNewAPIWorkbench ? 1 : profile.duration.selection === "range" ? profile.duration.min || 1 : Math.min(...fallbackPreset);
+    const max = isNewAPIWorkbench ? undefined : profile.duration.selection === "range" ? Math.max(min, profile.duration.max || min) : Math.max(...fallbackPreset);
+    const step = isNewAPIWorkbench ? 1 : Math.max(1, profile.duration.step || 1);
+    const customDurationField = (
+        <label className="creation-custom-value is-duration">
+            <span>自定义时长</span>
+            <span className="creation-duration-custom-field">
+                <input
+                    type="number"
+                    min={min}
+                    max={max}
+                    step={step}
+                    inputMode="numeric"
+                    value={seconds}
+                    onFocus={(event) => event.currentTarget.select()}
+                    onBlur={() => onChange(String(value))}
+                    onChange={(event) => onChange(event.target.value)}
+                    aria-label="自定义视频时长，单位秒"
+                />
+                <em>秒</em>
+            </span>
+        </label>
+    );
+    const durationControl = isNewAPIWorkbench ? (
+        customDurationField
+    ) : profile.duration.selection === "range" ? (
+        <>
+            <input className="h-8 w-full" style={{ accentColor: "var(--creation-text)" }} type="range" min={min} max={max} step={step} value={value} aria-label="视频时长（秒）" onChange={(event) => onChange(event.target.value)} />
+            <div className="flex justify-between px-0.5 text-[var(--fs-tiny)] text-[var(--creation-muted)]">
+                <span>{min}s</span>
+                <span>{max}s</span>
             </div>
-        );
+            {customDurationField}
+        </>
+    ) : (
+        <div className="creation-duration-choices">
+            {presets.map((item) => (
+                <button key={item} type="button" className={item === value ? "is-selected" : ""} onClick={() => onChange(String(item))}>
+                    {item}s
+                </button>
+            ))}
+        </div>
+    );
     return (
         <Popover
             open={open}

@@ -17,7 +17,7 @@ import { useAuthEntry } from "@/hooks/use-auth-entry";
 import { useExternalAssetSources } from "@/hooks/use-external-asset-sources";
 import { LEGACY_TEXT_THINKING_CONFIG, isThinkingLevel, resolveThinkingLevel, thinkingLevelsFor, type ThinkingLevel, type ThinkingRequest } from "@/lib/text-thinking";
 import { modelCapabilityConfigFor, normalizeImageValue, normalizeVideoValue, videoDurationAllowed, videoDurationOptions } from "@/lib/model-capabilities";
-import { modelGroupReferenceLimits, resolveCompatibleModel, resolveVideoOperationForModel, mergedImageCapabilityConfig, type ModelRequirements } from "@/lib/model-selection";
+import { delegatesVideoCapabilityToUpstream, modelGroupReferenceLimits, resolveCompatibleModel, resolveVideoOperationForModel, mergedImageCapabilityConfig, type ModelRequirements } from "@/lib/model-selection";
 import type { BackendGenerationResult } from "@/services/api/generation-task";
 import type { Skill } from "@/services/api/skills";
 import type { GenerationTask } from "@/services/api/task-center";
@@ -343,6 +343,12 @@ export default function CreatePage() {
     useEffect(() => {
         if (!composerPreferencesHydrated || !composerPreferencesInitialized || mode !== "video") return;
         const saved = useCreationPreferencesStore.getState().preferences.video;
+        if (delegatesVideoCapabilityToUpstream(config, selectedModel)) {
+            setSeconds(saved?.seconds || seconds || "5");
+            setRatio(saved?.ratio || ratio || "16:9");
+            setVideoQuality((saved?.videoQuality || videoQuality || "720").replace(/p$/i, ""));
+            return;
+        }
         // 优先恢复用户上次选择；只有当前模型不支持该值时，normalizeVideoValue 才回退到模型默认值。
         const normalized = normalizeVideoValue(videoProfile, {
             seconds: saved?.seconds || String(videoProfile.duration.default),
@@ -861,7 +867,7 @@ export default function CreatePage() {
             releaseSubmitGate();
             return;
         }
-        if (mode === "video" && !videoDurationAllowed(videoProfile, Number(seconds))) {
+        if (mode === "video" && !delegatesVideoCapabilityToUpstream(config, selectedModel) && !videoDurationAllowed(videoProfile, Number(seconds))) {
             toast.error(t("create.page.durationUnsupported"));
             releaseRetryLock();
             releaseSubmitGate();

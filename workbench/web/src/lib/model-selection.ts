@@ -93,6 +93,17 @@ export function isDirectSystemModel(config: AiConfig, value: string) {
     return channel.scope === "system" && channel.id !== PUBLIC_MODEL_CATALOG_ID && !cost?.logicalModelId;
 }
 
+/**
+ * New API 视频模型的真实能力由 New API 与上游决定。工作台只负责表达创作输入，
+ * 不能用可能滞后的本地能力快照提前禁用模型或拒绝请求。
+ */
+export function delegatesVideoCapabilityToUpstream(config: AiConfig, value: string) {
+    if (!value) return false;
+    const channel = resolveModelChannel(config, value);
+    const cost = channel.modelCosts?.find((item) => item.model === modelOptionName(value));
+    return cost?.capability === "video" && (Boolean(cost.externalBilling) || Boolean(cost.newApiGroup));
+}
+
 export function groupModelsByDisplayName(config: AiConfig, models: string[]): DisplayModelGroup[] {
     const groups = new Map<string, DisplayModelGroup>();
     models.forEach((model) => {
@@ -120,6 +131,7 @@ export function modelCompatibilityError(config: AiConfig, model: string, require
     const visualInputCount = input ? input.imageCount + input.characterCount : 0;
     const channel = resolveModelChannel(config, model);
     const logicalCost = channel.modelCosts?.find((item) => item.model === modelOptionName(model));
+    if (capability === "video" && delegatesVideoCapabilityToUpstream(config, model)) return "";
     const logicalSpecs = logicalCost?.logicalCapabilityProfiles?.length ? logicalCost.logicalCapabilityProfiles : logicalCost?.logicalCapabilitySpec ? [logicalCost.logicalCapabilitySpec] : [];
     if (logicalSpecs.length) {
         const publicOptionNames = logicalCost?.logicalCapabilitySpec?.options || {};
@@ -317,6 +329,7 @@ export function resolveCompatibleModel(config: AiConfig, selected: string, requi
     if (!requirements?.capability) return selected;
     const options = selectableModelsByCapability(config, requirements.capability);
     if (!options.length) return selected;
+    if (requirements.capability === "video" && delegatesVideoCapabilityToUpstream(config, selected)) return selected;
     const selectedGroup = groupModelsByDisplayName(config, options).find((group) => group.models.includes(selected));
     if (!selectedGroup) return selected;
     return compatibleModelInGroup(config, selectedGroup.models, requirements, selected);
@@ -435,6 +448,10 @@ export function modelGroupReferenceLimits(config: AiConfig, selected: string, ca
     if (capability === "audio" && audioProtocol(config, selected) === "yingce-local-music") return { maxImages: 0, maxVideos: 0, maxAudios: 0 };
     if (capability === "audio" && ["yingce-local-audio", "yingce-local-separation"].includes(audioProtocol(config, selected) || "")) return { maxImages: 0, maxVideos: 0, maxAudios: 1 };
     if (capability !== "image" && capability !== "video") return undefined;
+    if (capability === "video" && delegatesVideoCapabilityToUpstream(config, selected)) {
+        const unrestricted = Number.MAX_SAFE_INTEGER;
+        return { maxImages: unrestricted, maxVideos: unrestricted, maxAudios: unrestricted };
+    }
     const options = selectableModelsByCapability(config, capability);
     const selectedGroup = groupModelsByDisplayName(config, options).find((group) => group.models.includes(selected));
     const groupModels = selectedGroup?.models || (selected ? [selected] : []);
@@ -490,6 +507,7 @@ export function resolveVideoOperationForOperations(input: ModelInputSummary, ope
 }
 
 export function resolveVideoOperationForModel(config: AiConfig, model: string, input: ModelInputSummary, storedOperation?: string) {
+    if (delegatesVideoCapabilityToUpstream(config, model)) return resolveVideoOperation(input, storedOperation);
     const operations = modelCapabilityConfigFor(config, model).video?.operations || [];
     return resolveVideoOperationForOperations(input, operations, storedOperation);
 }

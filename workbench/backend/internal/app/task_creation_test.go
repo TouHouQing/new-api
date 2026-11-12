@@ -370,8 +370,16 @@ func TestResolveSystemChannelModelSelectionRejectsUnsupportedRequest(t *testing.
 	if _, err := videoSvc.resolveSystemChannelModelSelection(testGroupAccess(videoSvc), map[string]any{
 		"mode":   "video",
 		"config": map[string]any{"channelId": videoChannel.ID, "model": videoModel.ModelKey},
-	}, "canvas_video", "audio_to_video"); err == nil {
-		t.Fatal("resolveSystemChannelModelSelection() should reject an unsupported operation")
+	}, "canvas_video", "audio_to_video"); err != nil {
+		t.Fatalf("New API video capability admission should be delegated to the upstream: %v", err)
+	}
+	matched, err := videoSvc.channelModelMatchesIntent(&videoModel, &ModelRequestIntent{
+		Capability: "video",
+		Operation:  "audio_to_video",
+		Inputs:     map[string]int{"audio": 99},
+	})
+	if err != nil || !matched {
+		t.Fatalf("New API video catalog filtering should be delegated to the upstream: matched=%v err=%v", matched, err)
 	}
 }
 

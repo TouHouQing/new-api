@@ -464,6 +464,9 @@ func (s *Service) channelModelMatchesIntent(cm *model.ChannelModel, intent *Mode
 	if normalizeCapability(intent.Capability) != "" && normalizeCapability(cm.Capability) != normalizeCapability(intent.Capability) {
 		return false, nil
 	}
+	if delegatesVideoCapabilityToUpstream(cm.ChannelID, cm.Capability, cm.Protocol) {
+		return true, nil
+	}
 	if normalizeCapability(cm.Capability) == "audio" && protocol.LocalAudioCapabilities(string(cm.Protocol)) == nil {
 		return true, nil
 	}
@@ -477,6 +480,23 @@ func (s *Service) channelModelMatchesIntent(cm *model.ChannelModel, intent *Mode
 	}
 	match := MatchCapability(spec, *intent)
 	return match.Matched, nil
+}
+
+// New API 视频模型由 New API 和真实上游判断生成方式、参考素材与参数是否可执行。
+// 本地能力快照只用于展示，不能在工作台入口提前拒绝请求。
+func delegatesVideoCapabilityToUpstream(channelID, capability string, protocol model.ChannelInterfaceType) bool {
+	if normalizeCapability(capability) != "video" {
+		return false
+	}
+	if strings.HasPrefix(strings.TrimSpace(channelID), "newapi-") {
+		return true
+	}
+	switch protocol {
+	case model.ChannelInterfaceNewAPIChannel1, model.ChannelInterfaceNewAPIChannel2, model.ChannelInterfaceNewAPIVideo:
+		return true
+	default:
+		return false
+	}
 }
 
 // modelCapabilityConfigToMap 将 ModelCapabilityConfig 转换为 map[string]any
