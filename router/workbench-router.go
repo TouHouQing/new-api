@@ -359,6 +359,10 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 	if err != nil {
 		return nil, err
 	}
+	balanceMicrocredits, err := (newAPIWorkbenchHost{}).Balance(ctx, id)
+	if err != nil {
+		return nil, err
+	}
 	items := make([]integration.Model, 0)
 	profiles, profileErr := workbenchLocalProfiles(ctx)
 	localModels := make(map[string]bool)
@@ -411,19 +415,38 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 				} else if exists && capability == "text" {
 					label = fmt.Sprintf("输入 $%.6g / 百万 Token，由 New API 结算", price.ModelRatio*2*ratio)
 				}
-				cap := int64(5_000_000)
 				knownFree := strings.TrimSpace(price.BillingExpr) == "0" || (exists && price.BillingExpr == "" && price.BillingMode != "expression" && ((price.QuotaType == 1 && price.ModelPrice == 0) || (price.QuotaType == 0 && price.ModelRatio == 0)))
+				cap := workbenchSpendingCapMicrocredits(balanceMicrocredits, knownFree)
 				if knownFree {
-					cap = 0
 					label += "；当前模型价格为零"
+				} else if cap > 0 {
+					label += fmt.Sprintf("；单次最多使用当前余额 $%.6g", float64(cap)/1_000_000)
 				} else {
-					label += "；单次费用上限 $5"
+					label += "；当前余额不足以预授权"
 				}
 				items = append(items, integration.Model{Key: workbenchGroupModelKey(name, capability, group), Group: group, Name: name, Description: descriptions[name], Capability: capability, Protocol: protocol, PriceLabel: label, SpendingCapMicrocredits: cap, CapabilityConfig: contract})
 			}
 		}
 	}
 	return items, nil
+}
+
+func workbenchSpendingCapMicrocredits(balanceMicrocredits int64, knownFree bool) int64 {
+	if knownFree || balanceMicrocredits <= 0 {
+		return 0
+	}
+	return balanceMicrocredits
+}
+
+func workbenchBudgetQuota(microcredits int64) (int64, error) {
+	if microcredits < 0 || common.QuotaPerUnit <= 0 || math.IsInf(common.QuotaPerUnit, 0) || math.IsNaN(common.QuotaPerUnit) {
+		return 0, errors.New("invalid workbench spending limit")
+	}
+	quota := decimal.NewFromInt(microcredits).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).Div(decimal.NewFromInt(1_000_000)).Floor()
+	if quota.IsNegative() || quota.GreaterThan(decimal.NewFromInt(int64(common.MaxQuota))) {
+		return 0, errors.New("workbench spending limit exceeds supported quota")
+	}
+	return quota.IntPart(), nil
 }
 
 func workbenchMicrocredits(quota int64) (int64, error) {
@@ -501,10 +524,10 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 	if selected == nil && call.Request.Method == http.MethodPost {
 		return nil, errors.New("model is no longer enabled for this account")
 	}
-	if call.BudgetMicrocredits < 0 || call.BudgetMicrocredits > 5_000_000 {
-		return nil, errors.New("invalid workbench spending limit")
+	budget, err := workbenchBudgetQuota(call.BudgetMicrocredits)
+	if err != nil {
+		return nil, err
 	}
-	budget := decimal.NewFromInt(call.BudgetMicrocredits).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).Div(decimal.NewFromInt(1_000_000)).Floor().IntPart()
 	now := time.Now()
 	jobID := fmt.Sprintf("wb:%s:%d", call.TaskID, call.Attempt)
 	job := model.StudioWorkflowJob{ID: jobID, RequestID: jobID, UserID: n, ProjectID: "workbench:" + call.ProjectID, Kind: "workbench", Status: "running", Budget: budget, LeaseOwner: "workbench", LeaseUntil: now.Add(40 * time.Minute).Unix(), Plan: "{}", Result: "{}", CreatedAt: now, UpdatedAt: now}

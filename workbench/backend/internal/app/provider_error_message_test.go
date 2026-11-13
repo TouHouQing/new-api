@@ -54,7 +54,7 @@ func TestWorkflowSpendingLimitIsNotReportedAsAuthenticationFailure(t *testing.T)
 		providerPayloadErrorMessage(raw),
 		providerUserFacingErrorMessage(providerHTTPError{StatusCode: http.StatusForbidden, Body: raw}),
 	} {
-		if !strings.Contains(message, "工作流") || !strings.Contains(message, "费用上限") {
+		if !strings.Contains(message, "工作台") || !strings.Contains(message, "费用上限") {
 			t.Fatalf("workflow limit message = %q", message)
 		}
 		if strings.Contains(message, "鉴权") || strings.Contains(message, "API Key") {

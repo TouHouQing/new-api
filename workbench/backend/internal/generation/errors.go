@@ -2,7 +2,7 @@ package generation
 
 import "strings"
 
-const workflowSpendingLimitMessage = "上游工作流已达到独立费用上限，请提高该工作流的费用上限或切换模型/渠道后重试。账号额度充足时也可能触发该工作流限额"
+const workflowSpendingLimitMessage = "本次生成超过工作台预授权的任务费用上限。账号总余额可能仍然充足，请缩短时长、降低分辨率，或重新创建预算足够的任务后重试"
 
 func workflowSpendingLimitUserMessage(raw string) string {
 	normalized := strings.ToLower(strings.TrimSpace(raw))

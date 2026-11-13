@@ -90,6 +90,21 @@ func TestWorkbenchVideoSizeAcceptsCanvasRatiosAndPixelDimensions(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded, "local models still need a verified runtime")
 }
 
+func TestWorkbenchSpendingCapUsesAvailableBalance(t *testing.T) {
+	assert.Equal(t, int64(12_000_000), workbenchSpendingCapMicrocredits(12_000_000, false))
+	assert.Equal(t, int64(0), workbenchSpendingCapMicrocredits(12_000_000, true))
+	assert.Equal(t, int64(0), workbenchSpendingCapMicrocredits(0, false))
+
+	quota, err := workbenchBudgetQuota(12_000_000)
+	require.NoError(t, err)
+	expected := int64(float64(12_000_000) * common.QuotaPerUnit / 1_000_000)
+	assert.Equal(t, expected, quota)
+	_, err = workbenchBudgetQuota(-1)
+	require.Error(t, err)
+	_, err = workbenchBudgetQuota(int64(common.MaxQuota) * 1_000_000)
+	require.Error(t, err)
+}
+
 func TestInternalRelayRestoresServerRequestURIWithoutBypassingAuthentication(t *testing.T) {
 	previousRelay, previousCallback := studioPrivateRelay, service.StudioWorkflowRelay
 	configureStudioWorkflowRelay()

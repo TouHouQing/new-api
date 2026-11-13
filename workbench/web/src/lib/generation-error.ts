@@ -14,7 +14,7 @@ const NETWORK_ERROR_MESSAGE = "网络异常。";
 const MODEL_CAPABILITY_ERROR_MESSAGE = "所选模型不支持当前生成方式或输入，请切换模型或调整输入后重试。";
 const MODEL_PARAMETER_ERROR_MESSAGE = "当前模型不支持这组参数或参考素材，请调整输入或切换模型后重试。";
 const MODEL_SERVICE_ERROR_MESSAGE = "模型服务处理失败，请稍后重试或换用其他模型。";
-const WORKFLOW_SPENDING_LIMIT_MESSAGE = "上游工作流已达到独立费用上限，请提高该工作流的费用上限或切换模型后重试。账号额度充足时也可能触发该工作流限额。";
+const WORKFLOW_SPENDING_LIMIT_MESSAGE = "本次生成超过工作台预授权的任务费用上限。账号总余额可能仍然充足，请缩短时长、降低分辨率，或重新创建预算足够的任务后重试。";
 
 const REASON_MESSAGES: Record<string, string> = {
     model_price_not_configured: "当前模型暂未配置价格，请换用其他模型或联系管理员。",
