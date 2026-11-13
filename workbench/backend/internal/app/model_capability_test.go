@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"yingce/backend/internal/model"
 )
 
 func TestValidateImageTaskRejectsOversizedGrokPromptByUTF8Bytes(t *testing.T) {
@@ -50,6 +52,45 @@ func TestValidateVideoTaskRejectsPromptAboveCapabilityLimit(t *testing.T) {
 	err := validateVideoTask(profile, input)
 	if err == nil || !strings.Contains(err.Error(), "最多 10000 个字符") || !strings.Contains(err.Error(), "23142 个字符") || !strings.Contains(err.Error(), "不会自动截断") {
 		t.Fatalf("validateVideoTask() error = %v", err)
+	}
+}
+
+func TestValidateVideoTaskDelegatesNewAPICapabilitiesToUpstream(t *testing.T) {
+	profile := DefaultModelCapabilityConfigForModel(string(model.ChannelInterfaceNewAPIChannel1), "workflow-video")
+	profile.Video.Operations = []string{"text_to_video"}
+	profile.Video.DefaultOperation = "text_to_video"
+	profile.Video.Duration = VideoDurationConfig{Selection: "enum", Values: []int{5}, Default: 5}
+	profile.Video.References.MaxImages = 0
+	profile.Video.References.PromptMaxChars = 10
+	input := canvasGenerationInput{
+		Mode:   "video",
+		Prompt: strings.Repeat("镜", 100),
+		Config: providerConfig{
+			ChannelID:     "newapi-video",
+			InterfaceType: string(model.ChannelInterfaceNewAPIChannel1),
+			Model:         "workflow-video",
+			VideoSeconds:  "9",
+			Size:          "16:9",
+			VQuality:      "720p",
+			CapabilityConfig: &ModelCapabilityConfig{
+				Version: 1,
+				Video:   profile.Video,
+			},
+		},
+		ReferenceImages: []providerMedia{{URL: "https://example.test/reference.png"}},
+		Metadata:        map[string]interface{}{"videoEditOperation": "audio_to_video"},
+	}
+	if err := validateVideoTask(profile.Video, input); err != nil {
+		t.Fatalf("New API video capability validation should be delegated: %v", err)
+	}
+	if err := (&Service{}).ValidateTaskCapability(map[string]any{
+		"mode":            "video",
+		"prompt":          input.Prompt,
+		"referenceImages": []any{map[string]any{"url": "https://example.test/reference.png"}},
+		"metadata":        input.Metadata,
+		"config":          input.Config,
+	}); err != nil {
+		t.Fatalf("ValidateTaskCapability() should delegate New API video capabilities: %v", err)
 	}
 }
 

@@ -305,6 +305,9 @@ func (s *Service) ValidateTaskCapability(input map[string]any) error {
 	if channelID == "" {
 		channelID = systemChannelIDFromBaseURL(taskInput.Config.BaseURL)
 	}
+	if taskInput.Mode == "video" && delegatesVideoCapabilityToUpstream(channelID, "video", model.ChannelInterfaceType(taskInput.Config.InterfaceType)) {
+		return nil
+	}
 	if channelID == "" {
 		if taskInput.Mode == "image" {
 			profile := DefaultImageCapabilityConfig(taskInput.Config.InterfaceType, taskInput.Config.Model)
@@ -456,6 +459,9 @@ func applyFixedVideoResolution(input *canvasGenerationInput, profile *VideoCapab
 }
 
 func validateVideoTask(profile *VideoCapabilityConfig, input canvasGenerationInput) error {
+	if delegatesVideoCapabilityToUpstream(input.Config.ChannelID, "video", model.ChannelInterfaceType(input.Config.InterfaceType)) {
+		return nil
+	}
 	if profile == nil {
 		return BadAuthRequest("当前视频模型能力参数无效")
 	}

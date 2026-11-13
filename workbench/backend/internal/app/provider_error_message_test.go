@@ -47,6 +47,22 @@ func TestTaskFailurePreservesSafeProviderDetail(t *testing.T) {
 	}
 }
 
+func TestWorkflowSpendingLimitIsNotReportedAsAuthenticationFailure(t *testing.T) {
+	raw := `{"error":{"message":"workflow spending limit reached; increase the limit before starting another generation"}}`
+	for _, message := range []string{
+		(providerHTTPError{StatusCode: http.StatusForbidden, Body: raw}).Error(),
+		providerPayloadErrorMessage(raw),
+		providerUserFacingErrorMessage(providerHTTPError{StatusCode: http.StatusForbidden, Body: raw}),
+	} {
+		if !strings.Contains(message, "工作流") || !strings.Contains(message, "费用上限") {
+			t.Fatalf("workflow limit message = %q", message)
+		}
+		if strings.Contains(message, "鉴权") || strings.Contains(message, "API Key") {
+			t.Fatalf("workflow limit was reported as an authentication failure: %q", message)
+		}
+	}
+}
+
 func TestProviderErrorDetailThroughHTTPAndBusinessFailures(t *testing.T) {
 	t.Setenv("CANVAS_ALLOWED_PRIVATE_UPSTREAM_HOSTS", "127.0.0.1")
 	const detail = "生成的图片可能违反了关于裸露、色情或情色内容的防护限制。请修改提示语。"

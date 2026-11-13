@@ -16,6 +16,9 @@ import (
 
 func (s *Service) validateResolvedVideoCapability(input *canvasGenerationInput) error {
 	channelID := strings.TrimSpace(input.Config.ChannelID)
+	if delegatesVideoCapabilityToUpstream(channelID, "video", model.ChannelInterfaceType(input.Config.InterfaceType)) {
+		return nil
+	}
 	if channelID == "" || input.Config.frozenExecutionConfig {
 		profile := input.Config.CapabilityConfig
 		if profile == nil || profile.Video == nil {

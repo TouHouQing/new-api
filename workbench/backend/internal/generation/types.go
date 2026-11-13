@@ -277,6 +277,9 @@ type HTTPError struct {
 }
 
 func (e HTTPError) Error() string {
+	if message := workflowSpendingLimitUserMessage(e.Body); message != "" {
+		return message
+	}
 	switch e.StatusCode {
 	case 524:
 		return "上游网关超时（524）：模型请求可能仍在服务端执行并产生费用，请勿立即重试，请先到供应商后台核对任务或账单"

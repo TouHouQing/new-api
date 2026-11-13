@@ -141,6 +141,9 @@ func withProviderRequestKind(ctx context.Context, requestKind string) context.Co
 }
 
 func (e providerHTTPError) Error() string {
+	if message := workflowSpendingLimitUserMessage(e.Body); message != "" {
+		return message
+	}
 	if e.StatusCode == http.StatusBadRequest || e.StatusCode == http.StatusUnprocessableEntity {
 		return providerErrorWithDetail(e.summary(), e.Body)
 	}
@@ -148,6 +151,21 @@ func (e providerHTTPError) Error() string {
 		return message
 	}
 	return appendProviderErrorDetail(e.summary(), e.Body)
+}
+
+const workflowSpendingLimitMessage = "上游工作流已达到独立费用上限，请提高该工作流的费用上限或切换模型/渠道后重试。账号额度充足时也可能触发该工作流限额"
+
+func workflowSpendingLimitUserMessage(raw string) string {
+	normalized := strings.ToLower(strings.TrimSpace(raw))
+	switch {
+	case strings.Contains(normalized, "workflow spending limit reached"),
+		strings.Contains(normalized, "workflow spending limit"),
+		strings.Contains(normalized, "workflow_spending_limit"),
+		strings.Contains(normalized, "spending limit reached"):
+		return workflowSpendingLimitMessage
+	default:
+		return ""
+	}
 }
 
 const volcengineSpeechResourceDeniedMessage = "语音合成服务未开通，或音色与模型版本不匹配。请在火山引擎控制台开通语音合成 1.0，并确认当前音色属于这一版本"
@@ -235,6 +253,8 @@ func providerPayloadErrorCategory(raw string) (string, bool) {
 	case strings.Contains(normalized, "must be followed by tool messages"),
 		strings.Contains(normalized, "insufficient tool messages following"):
 		return "会话里的工具调用与结果不匹配，本轮已停止；这不是额度或提示词问题，如反复出现请反馈", true
+	case workflowSpendingLimitUserMessage(raw) != "":
+		return workflowSpendingLimitMessage, true
 	case strings.Contains(normalized, "quota"), strings.Contains(normalized, "insufficient"), strings.Contains(normalized, "balance"), strings.Contains(normalized, "billing"):
 		return "模型服务额度不足，请检查渠道余额或配额", true
 	case strings.Contains(normalized, "model") && (strings.Contains(normalized, "not found") || strings.Contains(normalized, "permission") || strings.Contains(normalized, "access")):

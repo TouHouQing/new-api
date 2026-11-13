@@ -22,6 +22,13 @@ describe("safe upstream error details", () => {
         expect(generationErrorMessage(`模型服务暂时不可用（HTTP 503）；上游：model_not_found request id abc`)).toContain("更换模型");
         expect(generationErrorMessage(`模型服务拒绝请求；上游：image file too large 25MB`)).toContain("压缩图片");
     });
+    test("reports a workflow spending limit as an upstream workflow cap", () => {
+        const message = generationErrorMessage("模型服务鉴权失败，请检查 API Key 和模型权限；上游：workflow spending limit reached; increase the limit before starting another generation");
+        expect(message).toContain("工作流");
+        expect(message).toContain("费用上限");
+        expect(message).not.toContain("鉴权失败");
+        expect(message).not.toContain("API Key");
+    });
     test("upstream marker does not bypass URL hiding", () => {
         expect(generationErrorMessage("模型服务请求失败；上游：https://private.test")).toBe("模型服务请求失败");
     });
