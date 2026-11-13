@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 )
 
-const CurrentSchemaVersion int64 = 106
+const CurrentSchemaVersion int64 = 107
 
 const baselineSchemaChecksum = "sha256:open-ai-canvas-schema-v1-20260830"
 const schemaMigrationAppliedAtIndexChecksum = "sha256:schema-migrations-applied-at-index-v2-20260830"
@@ -374,6 +374,23 @@ var schemaMigrations = []migration{
 		}
 		return nil
 	}},
+	{version: 107, name: "newapi_billing_source", checksum: "sha256:newapi-billing-source-v93-20261114", apply: migrateNewAPIBillingSource},
+}
+
+func migrateNewAPIBillingSource(tx *gorm.DB) error {
+	if !tx.Migrator().HasTable(&model.BillingOrder{}) {
+		return nil
+	}
+	if !tx.Migrator().HasColumn(&model.BillingOrder{}, "BillingSource") {
+		if err := tx.Migrator().AddColumn(&model.BillingOrder{}, "BillingSource"); err != nil {
+			return fmt.Errorf("增加 New API 计费来源列：%w", err)
+		}
+	}
+	// Old host rows remain readable and are explicitly marked as New API
+	// authority mirrors. No amount, status or billing mode is rewritten.
+	return tx.Model(&model.BillingOrder{}).
+		Where("billing_mode = ? AND (billing_source IS NULL OR billing_source = '')", model.BillingModeHost).
+		Update("billing_source", model.BillingSourceNewAPI).Error
 }
 
 // migrateReferenceVideoCostPrice 为价格档成本和账单成本快照增加带参考视频的成本价。
@@ -1308,6 +1325,9 @@ func ReadSchemaStatus(db *gorm.DB) (SchemaStatus, error) {
 	}
 	if !db.Migrator().HasColumn(&model.Task{}, "ClientOperationID") || !db.Migrator().HasColumn(&model.Task{}, "CreationIntentSHA256") {
 		return status, fmt.Errorf("数据库结构记录为%d，但缺少生成请求核对字段；请核对完整备份", CurrentSchemaVersion)
+	}
+	if !db.Migrator().HasColumn(&model.BillingOrder{}, "BillingSource") {
+		return status, fmt.Errorf("数据库结构记录为%d，但缺少 New API 计费来源字段；请核对完整备份", CurrentSchemaVersion)
 	}
 	status.Ready = true
 	return status, nil

@@ -109,6 +109,9 @@ func (s *Service) UpdateCreditPolicy(actor *model.User, policy CreditPolicy) (Cr
 }
 
 func (s *Service) ensureSignupBonus(userID string) error {
+	if s.WorkbenchHosted() {
+		return nil
+	}
 	enabled, err := s.FeatureEnabled(FeatureCredits)
 	if err != nil || !enabled {
 		return err
@@ -124,6 +127,9 @@ func (s *Service) ensureSignupBonus(userID string) error {
 func (s *Service) CheckinCredits(user *model.User) (*model.CreditAccount, bool, error) {
 	if user == nil {
 		return nil, false, Unauthorized("请先登录")
+	}
+	if s.WorkbenchHosted() {
+		return nil, false, BadAuthRequest("宿主模式下签到与账户奖励由 New API 管理")
 	}
 	if err := s.RequireFeature(FeatureCredits); err != nil {
 		return nil, false, err

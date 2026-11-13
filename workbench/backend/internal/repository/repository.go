@@ -33,8 +33,11 @@ var ErrProjectUnitShotsChanged = errors.New("镜头已被修改，请刷新后�
 
 var ErrCanvasRevisionConflict = errors.New("画布已被更新，请刷新后重试")
 
+var ErrNewAPIBillingAuthorityRequired = errors.New("hosted workbench billing must be authorized by New API")
+
 type Repository struct {
 	db                   *gorm.DB
+	newAPIBillingOnly    bool
 	canvasEditProofs     []model.CanvasEditProof
 	canvasChangeNotifier func(string, string)
 	canvasChanges        map[canvasChange]struct{}
@@ -60,12 +63,32 @@ func (r *Repository) WithContext(ctx context.Context) *Repository {
 	return &copy
 }
 
+// RequireNewAPIBillingAuthority makes the repository reject any local credit
+// reservation or deduction. Workbench may still persist a New API receipt row.
+func (r *Repository) RequireNewAPIBillingAuthority() {
+	r.newAPIBillingOnly = true
+}
+
+func (r *Repository) validateBillingAuthority(order *model.BillingOrder) error {
+	if r.newAPIBillingOnly && order != nil && !model.IsNewAPIBillingOrder(*order) {
+		return ErrNewAPIBillingAuthorityRequired
+	}
+	return nil
+}
+
+func (r *Repository) requireLocalBillingAuthority() error {
+	if r.newAPIBillingOnly {
+		return ErrNewAPIBillingAuthorityRequired
+	}
+	return nil
+}
+
 // Transaction exposes a repository scoped to one database transaction. Domain
 // services use it when a canvas mutation and its receipt must commit together.
 func (r *Repository) Transaction(fn func(*Repository) error) error {
 	changes := make(map[canvasChange]struct{})
 	err := r.db.Transaction(func(tx *gorm.DB) error {
-		return fn(&Repository{db: tx, canvasEditProofs: r.canvasEditProofs, canvasChangeNotifier: r.canvasChangeNotifier, canvasChanges: changes})
+		return fn(&Repository{db: tx, newAPIBillingOnly: r.newAPIBillingOnly, canvasEditProofs: r.canvasEditProofs, canvasChangeNotifier: r.canvasChangeNotifier, canvasChanges: changes})
 	})
 	if err == nil {
 		for change := range changes {

@@ -350,7 +350,7 @@ function PayloadPanel({ value, empty }: { value?: string; empty: string }) {
 function billingText(log: ApiCallLog) {
     if (!log.billable) return "不计费";
     if (!log.billingAvailable) return "未扣积分";
-    const labels = { settled: "已结算", refunded: "已退回", uncertain: "待核对", running: "运行中", reserved: "已预授权" } as const;
+    const labels = { settled: "已结算", refunded: "已退回", uncertain: "待核对", running: "运行中", reserved: "已预授权", pending_receipt: "等待 New API 回执" } as const;
     const settled = log.billingSettledMicrocredits !== undefined ? `实收 ${formatCredits(log.billingSettledMicrocredits)}` : "未结算";
     return `预授权 ${formatCredits(log.billingReservedMicrocredits)} · ${settled} 积分 · ${labels[log.billingStatus || "reserved"]}`;
 }

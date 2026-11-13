@@ -266,18 +266,23 @@ func (s *Service) updateCloudAgentMediaBatchApproval(repo *repository.Repository
 	if args.Mode == "video" && budget.MaxVideoSeconds > 0 && state.VideoSeconds+videoSeconds > budget.MaxVideoSeconds {
 		return BadAuthRequest("批量生成超过本轮视频时长预算")
 	}
-	orders, err := repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
-	if err != nil {
-		return err
+	if s.localCreditBudgetEnforced() {
+		orders, err := repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
+		if err != nil {
+			return err
+		}
+		remaining := s.localCreditBudgetMicrocredits(budget.MaxCredits)
+		for _, order := range orders {
+			remaining -= order.AmountMicrocredits
+		}
+		if total > remaining {
+			return BadAuthRequest("批量生成超过本轮积分预算")
+		}
 	}
-	remaining := int64(math.Floor(budget.MaxCredits * float64(CreditScale)))
-	for _, order := range orders {
-		remaining -= order.AmountMicrocredits
+	batch.CapMicrocredits = 0
+	if s.localCreditBudgetEnforced() {
+		batch.CapMicrocredits = total * int64(1+batch.MaxRetries)
 	}
-	if total > remaining {
-		return BadAuthRequest("批量生成超过本轮积分预算")
-	}
-	batch.CapMicrocredits = total * int64(1+batch.MaxRetries)
 	if raw, err := json.Marshal(batch); err != nil {
 		return err
 	} else if len(raw) > cloudAgentMediaBatchStateLimit {

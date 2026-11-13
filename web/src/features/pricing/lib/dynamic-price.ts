@@ -168,9 +168,10 @@ export function isUnconfiguredTaskUsageModel(model: PricingModel): boolean {
     )
   }
   return (
-    model.quota_type !== 1 &&
+    model.billing_mode !== 'ratio' &&
     hasTaskUsageSchema(model) &&
-    !isDynamicPricingModel(model)
+    !isDynamicPricingModel(model) &&
+    !model.billing_price_unit
   )
 }
 

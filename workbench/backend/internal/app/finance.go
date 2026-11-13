@@ -139,6 +139,10 @@ func (s *Service) Wallet(user *model.User, entryType string, page int, limit int
 		if err != nil {
 			return nil, err
 		}
+		// Rewards and payments remain New API concerns. Do not advertise a
+		// second local faucet from the embedded wallet projection.
+		policy.SignupBonusMicrocredits = 0
+		policy.CheckinBonusMicrocredits = 0
 		return &WalletSummary{Account: model.CreditAccount{UserID: user.ID, AvailableMicrocredits: balance}, Entries: []model.CreditLedgerEntry{}, Page: page, Limit: limit, Policy: policy}, nil
 	}
 	account, err := s.repo.CreditAccount(user.ID)
@@ -164,6 +168,9 @@ func (s *Service) Wallet(user *model.User, entryType string, page int, limit int
 func (s *Service) RedeemCredits(user *model.User, code string, redeemedIP string) (*model.CreditAccount, error) {
 	if user == nil {
 		return nil, Unauthorized("请先登录")
+	}
+	if s.WorkbenchHosted() {
+		return nil, BadAuthRequest("宿主模式下兑换码与账户余额由 New API 管理")
 	}
 	if err := s.RequireFeature(FeatureCredits); err != nil {
 		return nil, err
@@ -294,6 +301,9 @@ func (s *Service) AdminRedeemBatchPage(actor *model.User, query AdminListQuery) 
 func (s *Service) AdminAdjustCredits(actor *model.User, userID string, req AdminCreditAdjustmentRequest) (*model.CreditAccount, error) {
 	if err := s.RequireAdmin(actor); err != nil {
 		return nil, err
+	}
+	if s.WorkbenchHosted() {
+		return nil, BadAuthRequest("宿主模式下请通过 New API 管理用户额度")
 	}
 	if req.AmountMicrocredits == 0 {
 		return nil, BadAuthRequest("调账积分不能为 0")
@@ -466,7 +476,7 @@ func (s *Service) AdminDisableRedeemCode(actor *model.User, batchID string, code
 
 func (s *Service) taskBillingOrder(userID string, task *model.Task, input map[string]any) (*model.BillingOrder, error) {
 	if s.host != nil {
-		return s.workbenchTaskBillingOrder(userID, task, input)
+		return s.workbenchReceiptOrder(userID, task, input)
 	}
 	enabled, err := s.FeatureEnabled(FeatureCredits)
 	if err != nil {
@@ -611,6 +621,9 @@ func (s *Service) ReserveProxyBilling(userID string, channelID string, modelKey 
 }
 
 func (s *Service) ReserveProxyBillingWithBody(userID string, channelID string, modelKey string, capability string, scene string, idempotencyKey string, quantity int64, requestBody []byte) (*model.BillingOrder, error) {
+	if s.host != nil {
+		return nil, BadAuthRequest("宿主模式下仅 New API 可以创建计费订单")
+	}
 	enabled, err := s.FeatureEnabled(FeatureCredits)
 	if err != nil {
 		return nil, err

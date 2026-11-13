@@ -32,15 +32,15 @@ func TestWorkbenchModelDescriptionSynchronization(t *testing.T) {
 			}
 			repo := New(db)
 			for _, description := range []string{"旧描述", "管理员配置的模型描述，支持换行\n与中文", "修改后的模型描述", "", ""} {
-				if err := repo.SyncWorkbenchModel("description-test", "Video", description, "video", "newapi", "{}", 5000000); err != nil {
+				if err := repo.SyncWorkbenchModel("description-test", "Video", description, "video", "newapi", "{}"); err != nil {
 					t.Fatal(err)
 				}
 				var stored model.ChannelModel
 				if err := db.First(&stored, "id = ?", "host-description-test").Error; err != nil {
 					t.Fatal(err)
 				}
-				if stored.Description != description || stored.UnitPriceMicrocredits != 5000000 {
-					t.Fatalf("description was not synchronized or spending cap changed: %#v", stored)
+				if stored.Description != description || stored.UnitPriceMicrocredits != 0 {
+					t.Fatalf("description was not synchronized or host snapshot became a local price: %#v", stored)
 				}
 			}
 			var version string

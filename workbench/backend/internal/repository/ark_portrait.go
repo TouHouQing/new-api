@@ -26,6 +26,9 @@ const (
 
 // CreateArkPortraitSessionWithReservation 在同一事务中冻结素材组费用并登记认证会话；余额不足时两者都不写入。
 func (r *Repository) CreateArkPortraitSessionWithReservation(session *model.ArkPortraitSession, order *model.BillingOrder) error {
+	if err := r.validateBillingAuthority(order); err != nil {
+		return err
+	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if order != nil {
 			if err := reserveBillingOrder(tx, order); err != nil {
@@ -85,6 +88,9 @@ func (r *Repository) ExpiredPendingArkPortraitSessions(now time.Time, limit int)
 // FinishArkPortraitSession 只结束仍为 pending 的会话，并在同一事务里退回冻结的素材组费用；
 // 回调、轮询、取消与过期清理并发时只有一方生效，返回值表示本次调用是否生效。
 func (r *Repository) FinishArkPortraitSession(id, status, resultCode, message, refundNote string) (bool, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return false, err
+	}
 	finished := false
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var session model.ArkPortraitSession
@@ -115,6 +121,9 @@ func (r *Repository) FinishArkPortraitSession(id, status, resultCode, message, r
 // CompleteArkPortraitSession 把认证成功的会话登记为素材组并结算冻结费用，三者在同一事务里完成。
 // 会话已由并发调用完成时返回已登记的素材组；已失败、过期或取消时返回 ErrArkPortraitSessionClosed。
 func (r *Repository) CompleteArkPortraitSession(sessionID string, group *model.ArkPortraitGroup, settleNote string) (*model.ArkPortraitGroup, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return nil, err
+	}
 	var registered *model.ArkPortraitGroup
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var session model.ArkPortraitSession
@@ -152,6 +161,9 @@ func (r *Repository) CompleteArkPortraitSession(sessionID string, group *model.A
 
 // CreateArkPortraitGroupWithCharge 登记已在方舟创建的素材组，并结算创建前冻结的费用。
 func (r *Repository) CreateArkPortraitGroupWithCharge(group *model.ArkPortraitGroup, settleNote string) (*model.ArkPortraitGroup, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return nil, err
+	}
 	var registered *model.ArkPortraitGroup
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		created, err := createArkPortraitGroup(tx, group)
@@ -191,6 +203,9 @@ func createArkPortraitGroup(tx *gorm.DB, group *model.ArkPortraitGroup) (*model.
 
 // RefundArkGroupBillingOrder 退回未完成的素材组费用；订单已结算或已退回时不重复处理。
 func (r *Repository) RefundArkGroupBillingOrder(orderID string, note string) error {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return err
+	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		return refundArkGroupOrder(tx, orderID, note)
 	})

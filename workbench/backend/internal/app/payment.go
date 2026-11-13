@@ -149,6 +149,9 @@ func (s *Service) CreatePaymentOrder(ctx context.Context, actor *model.User, req
 	if actor == nil {
 		return nil, Unauthorized("请先登录")
 	}
+	if s.WorkbenchHosted() {
+		return nil, BadAuthRequest("宿主模式下充值与支付由 New API 管理")
+	}
 	idempotencyKey := strings.TrimSpace(request.IdempotencyKey)
 	if idempotencyKey == "" {
 		return nil, BadAuthRequest("支付幂等标识不能为空")

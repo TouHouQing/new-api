@@ -179,7 +179,7 @@ function SettingsHome({ props, theme, onOpen }: { props: AgentSettingsProps; the
                     <SettingRow theme={theme} icon={<BookMarked className="size-4" />} title="个人记忆" summary="Agent 在对话中自己记住和改写，可随时撤销；只属于你" onClick={() => onOpen("memories")} />
                     <SettingRow theme={theme} icon={<Blocks className="size-4" />} title="Skills · 用户技能库" summary={skillsSummary(props.installedSkills, props.selectedSkillIds)} onClick={() => onOpen("skills")} />
                     <SettingRow theme={theme} icon={<Wrench className="size-4" />} title="工具与连接" summary="画布、技能参考文件、生成任务；第三方连接即将支持" onClick={() => onOpen("mcp")} />
-                    <SettingRow theme={theme} icon={<Gauge className="size-4" />} title="预算" summary={`每轮最多 ${props.maxCredits || "未设置"} 积分 · 固定计价模型`} onClick={() => onOpen("budget")} />
+                    <SettingRow theme={theme} icon={<Gauge className="size-4" />} title="运行限制" summary="费用由 New API 实时控制；可限制生成任务数和视频秒数" onClick={() => onOpen("budget")} />
                 </div>
             </section>
         </div>
@@ -572,10 +572,9 @@ function BudgetWorkspace({ props, theme }: { props: AgentSettingsProps; theme: C
     return (
         <div className="thin-scrollbar min-h-0 flex-1 space-y-5 overflow-y-auto px-5 py-5">
             <div className="rounded-xl p-4" style={{ background: theme.node.fill }}>
-                <div className="text-sm font-semibold">本轮累计预算</div>
-                <p className="mt-2 text-xs opacity-60">积分预算用于费用保护；生成任务和视频秒数填 0 表示不设该项上限。模型循环由预算和运行状态控制，不再用固定次数截断。</p>
+                <div className="text-sm font-semibold">本轮运行限制</div>
+                <p className="mt-2 text-xs opacity-60">费用和余额只由 New API 控制。这里仅限制生成任务数和视频秒数，避免一次指令产生过多任务；填 0 表示不设该项上限。</p>
             </div>
-            <BudgetInput label="积分上限" hint="必填且大于 0；所有步骤累计" value={props.maxCredits} onChange={props.onMaxCreditsChange} theme={theme} />
             <BudgetInput label="生成任务上限" hint="0 表示不限；只读模式不执行生成" value={props.maxGenerationTasks} onChange={props.onMaxGenerationTasksChange} theme={theme} />
             <BudgetInput label="视频秒数上限" hint="0 表示不限；按请求时长累计" value={props.maxVideoSeconds} onChange={props.onMaxVideoSecondsChange} theme={theme} />
         </div>

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"gorm.io/gorm"
-	"math"
 	"strings"
+
+	"gorm.io/gorm"
 	"yingce/backend/internal/canvas"
 	"yingce/backend/internal/imageops"
 	"yingce/backend/internal/model"
@@ -23,6 +23,11 @@ func (s *Service) CreateImageLayerWorkflow(ctx context.Context, userID, canvasID
 	var result ImageLayerWorkflowResult
 	req.RequestID = strings.TrimSpace(req.RequestID)
 	req.Title = strings.TrimSpace(req.Title)
+	if s.WorkbenchHosted() {
+		// A client-supplied monetary ceiling is not an authorization source in
+		// hosted mode. New API will calculate and reserve the live charge.
+		req.MaxCredits = 0
+	}
 	if err := validateImageLayerWorkflowRequest(req); err != nil {
 		return result, err
 	}
@@ -81,7 +86,7 @@ func (s *Service) CreateImageLayerWorkflow(ctx context.Context, userID, canvasID
 	}
 	input := imageLayerWorkflowInput{Kind: "native-image-layer-workflow", Version: 1, Request: req, RequestSHA256: intent, CanvasID: canvasID, NodeID: "image-layer-workflow:" + taskID, ChildNodeIDs: []string{}, InitialTaskIDs: []string{}, RemovalQuoteCaps: make([]int64, len(req.Layers)), Source: probe.Source}
 	input.ReusedLayers = reused
-	maxCharge := int64(math.Floor(req.MaxCredits * float64(CreditScale)))
+	maxCharge := s.localCreditBudgetMicrocredits(req.MaxCredits)
 	quoted := int64(0)
 	prepared := []imageLayerWorkflowPreparedTask{}
 	for i, layer := range req.Layers {
@@ -101,7 +106,7 @@ func (s *Service) CreateImageLayerWorkflow(ctx context.Context, userID, canvasID
 					input.RemovalQuoteCaps[i] = order.AmountMicrocredits
 					quoted += order.AmountMicrocredits
 				}
-				if quoted > maxCharge {
+				if s.localCreditBudgetEnforced() && quoted > maxCharge {
 					return result, BadAuthRequest("未完成图层的后续处理报价超过本次积分上限，尚未提交生成")
 				}
 			}
@@ -140,7 +145,7 @@ func (s *Service) CreateImageLayerWorkflow(ctx context.Context, userID, canvasID
 				}
 			}
 		}
-		if quoted > maxCharge {
+		if s.localCreditBudgetEnforced() && quoted > maxCharge {
 			return result, BadAuthRequest("所选图层模型的总报价超过本次积分上限，尚未提交生成")
 		}
 	}

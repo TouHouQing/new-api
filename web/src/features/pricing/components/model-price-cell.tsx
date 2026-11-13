@@ -25,10 +25,13 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { useBillingTime } from '../hooks/use-billing-time'
 import {
+  billingPriceUnitLabelKey,
+  getModelPriceDisplay,
+} from '../lib/billing-display'
+import {
   getDynamicDisplayGroupRatio,
   getDynamicPriceUnitLabelKey,
   getDynamicPricingSummary,
-  isUnconfiguredTaskUsageModel,
 } from '../lib/dynamic-price'
 import { isTokenBasedModel } from '../lib/model-helpers'
 import { formatPrice, formatRequestPrice } from '../lib/price'
@@ -56,6 +59,7 @@ export function ModelPriceCell(props: {
   const tokenUnit = options.tokenUnit ?? DEFAULT_TOKEN_UNIT
   const tokenUnitLabel = tokenUnit === 'K' ? '1K' : '1M'
   const billingTime = useBillingTime(props.model.billing_expr)
+  const priceDisplay = getModelPriceDisplay(props.model)
   const dynamic = useMemo(
     () =>
       getDynamicPricingSummary(props.model, {
@@ -168,10 +172,17 @@ export function ModelPriceCell(props: {
       caption += ` · ${t('{{count}} tiers', { count: dynamic.tierCount })}`
     }
   } else {
-    if (isUnconfiguredTaskUsageModel(props.model)) {
+    if (priceDisplay.kind === 'dynamic') {
       return (
         <span className='text-muted-foreground text-sm'>
-          {t('Not configured')}
+          {t('Dynamic Pricing')}
+        </span>
+      )
+    }
+    if (priceDisplay.kind === 'unconfigured') {
+      return (
+        <span className='text-muted-foreground text-sm'>
+          {t('Billing unit unconfirmed')}
         </span>
       )
     }
@@ -217,9 +228,10 @@ export function ModelPriceCell(props: {
         },
       ]
     } else {
+      const unit = priceDisplay.kind === 'fixed' ? priceDisplay.unit : 'request'
       metrics = [
         {
-          label: t('Per-request'),
+          label: t(unit === 'second' ? 'Per-second' : 'Per-request'),
           value: formatRequestPrice(
             props.model,
             options.showRechargePrice,
@@ -230,7 +242,7 @@ export function ModelPriceCell(props: {
           ),
         },
       ]
-      caption = `${currencyLabel} / ${t('request')}`
+      caption = `${currencyLabel} / ${t(billingPriceUnitLabelKey(unit))}`
     }
   }
   return (

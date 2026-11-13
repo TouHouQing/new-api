@@ -93,15 +93,23 @@ type StudioWorkflowJob struct {
 	Plan        StudioDocument `json:"-"`
 	Result      StudioDocument `json:"-"`
 	Error       string         `json:"error" gorm:"type:text"`
-	Budget      int64          `json:"budget"`
-	Reserved    int64          `json:"reserved"`
-	Progress    int            `json:"progress"`
-	LeaseOwner  string         `json:"-" gorm:"type:varchar(128)"`
-	LeaseUntil  int64          `json:"-" gorm:"index"`
-	RunAfter    int64          `json:"run_after" gorm:"not null;default:0;index"`
-	CreatedAt   time.Time      `json:"created_at"`
-	UpdatedAt   time.Time      `json:"updated_at"`
+	// BillingSource identifies who owns quota authorization. "newapi" means
+	// Budget is diagnostic only and real wallet checks happen in New API billing.
+	BillingSource string `json:"billing_source,omitempty" gorm:"type:varchar(32);not null;default:''"`
+	// Budget is only a legacy standalone Studio authorization ceiling. Hosted
+	// Workbench jobs use New API's live funding checks and ignore this limit.
+	Budget int64 `json:"budget"`
+	// Reserved mirrors New API-authorized quota for diagnostics and display.
+	Reserved   int64     `json:"reserved"`
+	Progress   int       `json:"progress"`
+	LeaseOwner string    `json:"-" gorm:"type:varchar(128)"`
+	LeaseUntil int64     `json:"-" gorm:"index"`
+	RunAfter   int64     `json:"run_after" gorm:"not null;default:0;index"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
 }
+
+const StudioWorkflowBillingSourceNewAPI = "newapi"
 
 var ErrStudioRevision = errors.New("project changed; read the current revision before editing")
 var ErrStudioAccess = errors.New("project is unavailable")

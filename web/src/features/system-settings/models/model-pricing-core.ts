@@ -80,6 +80,7 @@ export type ModelRatioData = {
   billingMode?: PricingMode
   billingExpr?: string
   requestRuleExpr?: string
+  priceUnit?: 'second' | 'request'
 }
 
 export function usesTaskModelPricing(

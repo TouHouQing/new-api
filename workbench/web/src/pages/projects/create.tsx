@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { App, Button, Input, InputNumber, Select } from "antd";
+import { App, Button, Input, Select } from "antd";
 import { AlertTriangle, ArrowLeft, BookOpenText, ClipboardPaste, FileUp, Cpu, Play } from "lucide-react";
 import { Link, useLocation, useNavigate, useSearchParams } from "react-router";
 
@@ -32,7 +32,7 @@ import {
     type DramaVideoContinuity,
 } from "@/services/api/drama";
 
-import { EpisodeGroupField, formatCount, formatCredits, MEDIA_MODE_LABEL, SOURCE_FORMAT_LABEL, SourceFormatPicker, VIDEO_CONTINUITY_LABEL } from "./drama-shared";
+import { EpisodeGroupField, formatCount, MEDIA_MODE_LABEL, SOURCE_FORMAT_LABEL, SourceFormatPicker, VIDEO_CONTINUITY_LABEL } from "./drama-shared";
 import { AssetSchemePicker, defaultAssetSettings, useAssetSchemes } from "./asset-scheme";
 import { DramaModelPicker, useDramaModelCatalog } from "./drama-model-picker";
 import { DramaAssetImageModels, DramaTextSteps, VideoResolutionField } from "./step-settings";
@@ -119,7 +119,6 @@ export default function DramaCreatePage() {
     const [textThinking, setTextThinking] = useState<DramaTextThinking>({});
     const [videoResolution, setVideoResolution] = useState<string>();
     const [models, setModels] = useState<Partial<DramaModels>>({});
-    const [budgetCredits, setBudgetCredits] = useState<number | null>(null);
     const assetCatalog = useAssetSchemes();
     const [assetDraft, setAssetDraft] = useState<DramaAssetSettings>();
     const assets = assetDraft || defaultAssetSettings(assetCatalog.data);
@@ -190,10 +189,6 @@ export default function DramaCreatePage() {
         staleTime: 30_000,
     });
     const estimate = estimateQuery.data;
-    useEffect(() => {
-        if (estimate && budgetCredits === null && estimate.maxMicrocredits > 0) setBudgetCredits(Math.ceil(estimate.maxMicrocredits / 1_000_000));
-    }, [estimate, budgetCredits]);
-
     const loadText = (text: string, fileName?: string) => {
         const result = analyzeNovel(text, { perEpisode });
         if (!result.chapters.length) {
@@ -201,7 +196,6 @@ export default function DramaCreatePage() {
             return;
         }
         setSourceText(text);
-        setBudgetCredits(null);
         if (fileName && !name) setName(titleFromFileName(fileName));
         if (!fileName && !name) setName(result.chapters[0]?.title.slice(0, 20) || "未命名短剧");
     };
@@ -264,7 +258,6 @@ export default function DramaCreatePage() {
         setVideoResolution(saved.videoResolution || undefined);
         if (saved.models) setModels(saved.models);
         if (saved.assets) setAssetDraft(saved.assets);
-        setBudgetCredits(Math.ceil(draft.budgetMicrocredits / 1_000_000));
         pendingSelectionRef.current = { indexes: draft.selectedChapters, count: draft.chapterCount };
         setSourceText(draft.form.sourceText);
     }, [draftQuery.data]);
@@ -289,7 +282,7 @@ export default function DramaCreatePage() {
                 name: name.trim(),
                 chapters: analysis!.chapters.map((chapter) => ({ title: chapter.title, text: chapter.text })),
                 settings: { ...settings, models: resolvedModels },
-                budgetMicrocredits: Math.max(0, Math.round((budgetCredits || 0) * 1_000_000)),
+                budgetMicrocredits: 0,
                 start,
                 sourceFormat,
                 episodeMode,
@@ -692,10 +685,10 @@ export default function DramaCreatePage() {
                         </section>
                         <div className="drama-field">
                             <div className="drama-field-label">
-                                <span>预算上限</span>
-                                <small>留空或 0 为不限，达到后自动暂停</small>
+                                <span>账户额度</span>
+                                <small>由 New API 按当前余额、分组和模型价格实时控制</small>
                             </div>
-                            <InputNumber className="!w-full" min={0} precision={0} value={budgetCredits} onChange={(value) => setBudgetCredits(value ?? 0)} suffix="积分" aria-label="预算上限" />
+                            <p className="text-[var(--fs-tiny)] leading-5 opacity-60">工作台不再创建项目预算；开工时由 New API 完成真实余额检查、预扣和结算。</p>
                         </div>
                         {unavailableCapabilities.length ? (
                             <p className="flex items-start gap-2 text-[var(--fs-tiny)] leading-5 text-[var(--status-error)]">
@@ -721,15 +714,15 @@ export default function DramaCreatePage() {
                                 <b>{estimate ? formatCount(estimate.shots) : "—"}</b>
                                 <span>镜头</span>
                             </div>
-                            <div title={estimate?.priced ? `预计积分 ${formatCredits(estimate.minMicrocredits)}–${formatCredits(estimate.maxMicrocredits)}` : undefined}>
-                                <b className="is-wrap">{estimate?.priced ? `${formatCredits(estimate.minMicrocredits)}–${formatCredits(estimate.maxMicrocredits)}` : "—"}</b>
-                                <span>预计积分</span>
+                            <div title="工作台不预设计费额度；每次调用由 New API 按真实余额和模型价格授权">
+                                <b className="is-wrap">New API</b>
+                                <span>逐次结算</span>
                             </div>
                         </div>
                         {mediaMode === "manual" ? (
                             <div className="text-[var(--fs-tiny)] text-foreground/50">开工只消耗文本模型费用；剧本、设定与段提示词确认后，再逐集生成参考图与视频</div>
-                        ) : reviewMode === "sample" && estimate?.priced ? (
-                            <div className="text-[var(--fs-tiny)] text-foreground/50">先做第 1 集样片，约 {formatCredits(estimate.sampleMicrocredits)} 积分，确认后再跑全剧</div>
+                        ) : reviewMode === "sample" ? (
+                            <div className="text-[var(--fs-tiny)] text-foreground/50">先做第 1 集样片；每次生成仍由 New API 检查余额并返回结算回执，确认后再跑全剧</div>
                         ) : null}
                         {estimate?.note ? <div className="text-[var(--fs-micro)] text-foreground/40">{estimate.note}</div> : null}
                         {!selectedIndexes.length ? <div className="text-[var(--fs-tiny)] text-[var(--status-error)]">请至少选择 1 章</div> : null}

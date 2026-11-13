@@ -47,6 +47,9 @@ func (r *Repository) RequestEcommerceAgentCancel(userID, id string) error {
 }
 
 func (r *Repository) CreateEcommerceAgentRun(run *model.EcommerceAgentRun, project *model.EcommerceProject, order *model.BillingOrder) error {
+	if err := r.validateBillingAuthority(order); err != nil {
+		return err
+	}
 	if strings.TrimSpace(run.CanvasJSON) == "" {
 		run.CanvasJSON = "{}"
 	}
@@ -115,6 +118,9 @@ func (r *Repository) SaveEcommerceAgentResult(userID, runID, briefJSON, copyJSON
 // FinishEcommerceAgentRun closes the existing credit reservation exactly once.
 // Only persisted successful pages count toward the charge.
 func (r *Repository) FinishEcommerceAgentRun(userID, runID, status, errorCode string) (*model.EcommerceAgentRun, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return nil, err
+	}
 	var finished model.EcommerceAgentRun
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("user_id = ? AND id = ?", userID, runID).First(&finished).Error; err != nil {

@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -49,21 +51,26 @@ type WorkbenchHostModel struct {
 	Key, Name, Capability, Protocol, PriceLabel string
 	Description                                 string
 	Group                                       string
-	SpendingCapMicrocredits                     int64
-	CapabilityConfig                            map[string]any
-	BillingMode                                 string
-	UnitPrice, InputPrice, OutputPrice          int64
+	// SpendingCapMicrocredits is retained for host API compatibility. It is a
+	// nonbinding catalog hint, never an account balance or local budget.
+	SpendingCapMicrocredits            int64
+	CapabilityConfig                   map[string]any
+	BillingMode                        string
+	UnitPrice, InputPrice, OutputPrice int64
 }
 
 type WorkbenchRelay struct {
 	UserID, TaskID, ProjectID string
 	ModelKey                  string
 	Attempt                   int
-	BudgetMicrocredits        int64
-	Request                   *http.Request
+	// BudgetMicrocredits is an idempotency/audit snapshot. New API must ignore it
+	// when authorizing funds and rely on the live user quota and billing path.
+	BudgetMicrocredits int64
+	Request            *http.Request
 }
 
 type WorkbenchHostBilling struct {
+	Source, UserID, TaskID, ReceiptID         string
 	ReservedMicrocredits, ChargedMicrocredits int64
 	Final, Uncertain                          bool
 }
@@ -84,11 +91,29 @@ func (s *Service) ConfigureWorkbenchHost(host WorkbenchHost) error {
 		return errors.New("workbench host is already configured")
 	}
 	s.host = host
+	s.repo.RequireNewAPIBillingAuthority()
 	s.taskBillingCoordinator = newTaskBillingCoordinator(&workbenchBillingRepository{Repository: s.repo, svc: s})
 	return nil
 }
 
 func (s *Service) WorkbenchHosted() bool { return s.host != nil }
+
+// localCreditBudgetEnforced is true only for the legacy standalone Workbench.
+// Once embedded in New API, Workbench budgets are execution hints and cannot
+// authorize or reject a charge.
+func (s *Service) localCreditBudgetEnforced() bool {
+	return s == nil || s.host == nil
+}
+
+// localCreditBudgetMicrocredits converts a legacy Workbench credit budget for
+// local admission. Hosted workbench always returns zero because New API owns
+// balance, reservation and final settlement authorization.
+func (s *Service) localCreditBudgetMicrocredits(value float64) int64 {
+	if !s.localCreditBudgetEnforced() || value <= 0 || math.IsNaN(value) || math.IsInf(value, 0) {
+		return 0
+	}
+	return int64(math.Floor(value * float64(CreditScale)))
+}
 
 func (s *Service) workbenchOwnerAvailable(userID string) error {
 	if s.host == nil {
@@ -172,10 +197,10 @@ func (s *Service) workbenchModels(ctx context.Context, userID string) ([]Workben
 		if e != nil {
 			return nil, e
 		}
-		if item.SpendingCapMicrocredits < 0 || item.SpendingCapMicrocredits > 5*CreditScale {
+		if item.SpendingCapMicrocredits < 0 {
 			return nil, errors.New("invalid host model spending cap")
 		}
-		if e = s.repo.SyncWorkbenchModel(item.Key, truncateRunes(item.Name, 160), item.Description, item.Capability, item.Protocol, string(raw), item.SpendingCapMicrocredits); e != nil {
+		if e = s.repo.SyncWorkbenchModel(item.Key, truncateRunes(item.Name, 160), item.Description, item.Capability, item.Protocol, string(raw)); e != nil {
 			return nil, e
 		}
 	}
@@ -214,11 +239,21 @@ func (s *Service) relayWorkbench(request *http.Request) (*http.Response, error) 
 	if err != nil {
 		return nil, err
 	}
-	budget := task.AuthorizedChargeMicrocredits
-	if budget < 0 {
-		return nil, BadAuthRequest("生成费用上限无效")
+	authorizationSnapshot := task.AuthorizedChargeMicrocredits
+	if authorizationSnapshot < 0 {
+		return nil, BadAuthRequest("New API 授权快照无效")
 	}
-	return s.host.Relay(request.Context(), WorkbenchRelay{UserID: userID, TaskID: task.ID, ProjectID: task.ProjectID, ModelKey: metadata.Model, Attempt: task.RouteRun, BudgetMicrocredits: budget, Request: request})
+	response, relayErr := s.host.Relay(request.Context(), WorkbenchRelay{UserID: userID, TaskID: task.ID, ProjectID: task.ProjectID, ModelKey: metadata.Model, Attempt: task.RouteRun, BudgetMicrocredits: authorizationSnapshot, Request: request})
+	if relayErr == nil && task.BillingOrderID != "" {
+		coordinator := &workbenchBillingRepository{Repository: s.repo, svc: s}
+		refund := response == nil || response.StatusCode >= http.StatusBadRequest
+		if err := coordinator.sync(task.BillingOrderID, task.ProviderRequestID, refund); err != nil {
+			// The relay outcome remains authoritative. A delayed receipt mirror is
+			// reconciled again when the task reaches a terminal state.
+			slog.Warn("workbench billing receipt mirror pending", "task", task.ID, "error", err)
+		}
+	}
+	return response, relayErr
 }
 
 func (s *Service) ConfigureHostedFeatures() error {
@@ -233,6 +268,10 @@ func (s *Service) ConfigureHostedFeatures() error {
 	features.FrontendModelsEnabled = false
 	features.ImageWorkbenchEnabled = true
 	features.VideoWorkbenchEnabled = true
+	// These legacy domains still contain their own local reservation code.
+	// Keep them closed until they are moved behind the New API relay.
+	features.EcommerceEnabled = false
+	features.EcommerceVideoEnabled = false
 	actor := model.User{ID: "newapi:system", Role: model.UserRoleAdmin, Status: model.UserStatusActive}
 	_, err = s.UpdateFeatureAvailability(&actor, features.FeatureAvailability)
 	return err

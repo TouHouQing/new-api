@@ -14,6 +14,7 @@ import { ImageLayerPlanningEmptyError, ImageLayerPlanningPendingError } from "@/
 import { supportsExperimentalLayerExtraction, supportsLayerDecomposition } from "@/lib/canvas/canvas-image-layers";
 import type { ImageLayerExtraction } from "@/lib/canvas/canvas-image-layer-strategy";
 import { navigateToSettings } from "@/lib/settings-navigation";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 
 export type CanvasImageLayerDecompositionPayload = {
     prompt: string;
@@ -431,7 +432,9 @@ export function CanvasNodeLayerDecompositionDialog({
                         <p className="text-sm opacity-65">本次仅提取原图像素，不调用图片模型。</p>
                     ) : null}
                     <div className="space-y-2">
-                        {needsImages ? (
+                        {isNewAPIWorkbench ? (
+                            <p className="rounded-lg bg-black/5 px-3 py-2 text-xs opacity-70">识图与图片生成的费用、预扣、退款和最终结算由 New API 统一处理。</p>
+                        ) : needsImages ? (
                             <>
                                 <label htmlFor="layer-workflow-budget" className="text-sm font-medium">
                                     拆层生成积分上限
@@ -440,11 +443,15 @@ export function CanvasNodeLayerDecompositionDialog({
                                 <p className="text-xs opacity-60">0 仅允许免费模型。报价超过上限不会提交图片生成。</p>
                             </>
                         ) : null}
-                        <label htmlFor="layer-planning-budget" className="text-sm font-medium">
-                            识图规划积分上限
-                        </label>
-                        <InputNumber id="layer-planning-budget" aria-label="识图规划积分上限" min={0} max={1000000} precision={4} value={planningMaxCredits} onChange={(value) => setPlanningMaxCredits(value ?? 0)} className="w-full" />
-                        <p className="text-xs opacity-60">识图与图片生成分别设置上限。0 使用免费模型；读取已有规划不调用模型。</p>
+                        {!isNewAPIWorkbench ? (
+                            <>
+                                <label htmlFor="layer-planning-budget" className="text-sm font-medium">
+                                    识图规划积分上限
+                                </label>
+                                <InputNumber id="layer-planning-budget" aria-label="识图规划积分上限" min={0} max={1000000} precision={4} value={planningMaxCredits} onChange={(value) => setPlanningMaxCredits(value ?? 0)} className="w-full" />
+                                <p className="text-xs opacity-60">识图与图片生成分别设置上限。0 使用免费模型；读取已有规划不调用模型。</p>
+                            </>
+                        ) : null}
                     </div>
                     {planError ? (
                         <p role="alert" className="text-sm text-red-500">
@@ -471,8 +478,8 @@ export function CanvasNodeLayerDecompositionDialog({
                                     await onConfirm({
                                         prompt: selectedPrompt,
                                         plannerModel,
-                                        maxCredits,
-                                        planningMaxCredits,
+                                        maxCredits: isNewAPIWorkbench ? 0 : maxCredits,
+                                        planningMaxCredits: isNewAPIWorkbench ? 0 : planningMaxCredits,
                                         planning: plan && { ...plan, layers: plan.layers.map((layer, index) => ({ ...layer, removeFromBackground: index > 0 && plan.layers[0].extraction?.method !== "source" && Boolean(layer.removeFromBackground) })) },
                                         regions,
                                         independentMaterials: false,

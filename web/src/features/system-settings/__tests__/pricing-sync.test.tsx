@@ -43,6 +43,7 @@ import {
 import { adjustSyncPrice } from '../models/upstream-price-adjustment'
 import { UpstreamRatioSync } from '../models/upstream-ratio-sync'
 import {
+  describeSyncPrice,
   getSyncPriceLines,
   type PricingSourceSelections,
 } from '../models/upstream-ratio-sync-helpers'
@@ -64,6 +65,15 @@ const differences = {
     },
   },
 }
+
+it('shows the fixed price unit in synchronized price previews', () => {
+  const preview = describeSyncPrice(
+    { model_price: 0.7189, billing_price_unit: 'second' },
+    (key) => key
+  )
+
+  expect(preview).toContain('USD / Price unit second')
+})
 const prices: PricingSyncModels = {
   m: {
     current: { model_ratio: 0.5, completion_ratio: 2, billing_mode: 'ratio' },
@@ -1180,15 +1190,13 @@ it('disables both batch shortcuts when the configured exchange rate becomes inva
     })
   )
   await act(async () =>
-    useSystemConfigStore
-      .getState()
-      .setConfig({
-        currency: {
-          ...DEFAULT_CURRENCY_CONFIG,
-          quotaDisplayType: 'CNY',
-          usdExchangeRate: 0,
-        },
-      })
+    useSystemConfigStore.getState().setConfig({
+      currency: {
+        ...DEFAULT_CURRENCY_CONFIG,
+        quotaDisplayType: 'CNY',
+        usdExchangeRate: 0,
+      },
+    })
   )
   expect(
     screen.getByRole('button', { name: /Multiply by exchange rate/ })

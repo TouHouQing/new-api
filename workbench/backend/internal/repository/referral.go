@@ -155,6 +155,9 @@ func (r *Repository) ReferralCommissions(inviterID string, limit, offset int) ([
 // GrantReferralCommission 在同一事务里写返佣记录、积分流水并加余额。
 // 订单已返佣时返回 false 且不改动余额，供支付回调和对账重复调用。
 func (r *Repository) GrantReferralCommission(commission *model.ReferralCommission, note string) (bool, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return false, err
+	}
 	if commission.CommissionMicrocredits <= 0 {
 		return false, nil
 	}

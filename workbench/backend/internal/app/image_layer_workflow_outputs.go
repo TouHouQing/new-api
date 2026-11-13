@@ -198,11 +198,15 @@ func (s *Service) resolveImageLayerWorkflowLayer(ctx context.Context, parent mod
 		return image, false, readErr
 	}
 	if existing == nil || errors.Is(readErr, gorm.ErrRecordNotFound) {
-		remaining, err := s.imageLayerWorkflowRemainingCharge(parent, input)
-		if err != nil {
-			return image, false, err
+		maxCharge := int64(0)
+		if s.localCreditBudgetEnforced() {
+			remaining, err := s.imageLayerWorkflowRemainingCharge(parent, input)
+			if err != nil {
+				return image, false, err
+			}
+			maxCharge = min(remaining, input.RemovalQuoteCaps[index])
 		}
-		task, order, err := s.prepareImageLayerWorkflowModel(parent.UserID, parent.ProjectID, parent.ID, index, "remove-background", *layer.Removal, image.Resource, min(remaining, input.RemovalQuoteCaps[index]))
+		task, order, err := s.prepareImageLayerWorkflowModel(parent.UserID, parent.ProjectID, parent.ID, index, "remove-background", *layer.Removal, image.Resource, maxCharge)
 		if err != nil {
 			return image, false, err
 		}

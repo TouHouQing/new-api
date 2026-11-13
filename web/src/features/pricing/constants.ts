@@ -44,8 +44,8 @@ export function getSortLabels(t: TFunction): Record<SortOption, string> {
     [SORT_OPTIONS.INPUT_PRICE_HIGH]: t('Input Price: High to Low'),
     [SORT_OPTIONS.OUTPUT_PRICE_LOW]: t('Output Price: Low to High'),
     [SORT_OPTIONS.OUTPUT_PRICE_HIGH]: t('Output Price: High to Low'),
-    [SORT_OPTIONS.REQUEST_PRICE_LOW]: t('Per-request Price: Low to High'),
-    [SORT_OPTIONS.REQUEST_PRICE_HIGH]: t('Per-request Price: High to Low'),
+    [SORT_OPTIONS.REQUEST_PRICE_LOW]: t('Fixed Price: Low to High'),
+    [SORT_OPTIONS.REQUEST_PRICE_HIGH]: t('Fixed Price: High to Low'),
   }
 }
 
@@ -56,6 +56,7 @@ export const FILTER_ALL = 'all'
 export const QUOTA_TYPES = {
   ALL: 'all',
   TOKEN: 'token',
+  SECOND: 'second',
   REQUEST: 'request',
   TASK: 'task',
 } as const
@@ -69,6 +70,7 @@ export function getQuotaTypeLabels(
   return {
     [QUOTA_TYPES.ALL]: t('All Models'),
     [QUOTA_TYPES.TOKEN]: t('Token-based'),
+    [QUOTA_TYPES.SECOND]: t('Per Second'),
     [QUOTA_TYPES.REQUEST]: t('Per Request'),
     [QUOTA_TYPES.TASK]: t('Task billing'),
   }

@@ -58,25 +58,34 @@ func (r *workbenchBillingRepository) sync(id, providerID string, refund bool) er
 	if err != nil {
 		return err
 	}
-	if order.BillingMode != "host" {
+	if !model.IsNewAPIBillingOrder(*order) {
 		if refund {
 			return r.Repository.RefundBillingOrder(id, "")
 		}
 		return r.Repository.SettleBillingOrder(id, providerID)
 	}
+	if order.BillingSource != model.BillingSourceNewAPI || !strings.HasPrefix(order.UserID, "newapi:") {
+		return BadAuthRequest("New API 计费回执缺少权威来源或用户归属")
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	parts := strings.Split(order.IdempotencyKey, ":")
-	if len(parts) != 4 {
+	if len(parts) != 4 || (parts[0] != "newapi" && parts[0] != "host") || parts[1] != order.TaskID || parts[3] == "" {
 		return BadAuthRequest("工作台计费回执无效")
 	}
 	attempt, err := strconv.Atoi(parts[2])
-	if err != nil || attempt < 0 {
+	if err != nil || attempt < 0 || strings.TrimSpace(strings.TrimPrefix(order.UserID, "newapi:")) == "" {
 		return BadAuthRequest("工作台计费回执无效")
 	}
 	bill, err := r.svc.host.Billing(ctx, strings.TrimPrefix(order.UserID, "newapi:"), order.TaskID, attempt)
 	if err != nil {
 		return err
+	}
+	if bill.Source != model.BillingSourceNewAPI || bill.ReceiptID == "" || bill.UserID != order.UserID || bill.TaskID != order.TaskID {
+		return BadAuthRequest("New API 计费回执归属不匹配")
+	}
+	if bill.ReservedMicrocredits < 0 || bill.ChargedMicrocredits < 0 {
+		return BadAuthRequest("New API 计费回执金额无效")
 	}
 	status := model.BillingStatusUncertain
 	if bill.Final && !bill.Uncertain {
@@ -100,7 +109,7 @@ func (r *workbenchBillingRepository) RefundBillingOrder(id, _ string) error {
 	return r.sync(id, "", true)
 }
 
-func (s *Service) workbenchTaskBillingOrder(userID string, task *model.Task, input map[string]any) (*model.BillingOrder, error) {
+func (s *Service) workbenchReceiptOrder(userID string, task *model.Task, input map[string]any) (*model.BillingOrder, error) {
 	config, _ := input["config"].(map[string]any)
 	if config == nil || !strings.HasPrefix(stringValue(config["channelId"]), "newapi-") {
 		return nil, nil
@@ -109,17 +118,26 @@ func (s *Service) workbenchTaskBillingOrder(userID string, task *model.Task, inp
 	if err != nil {
 		return nil, err
 	}
-	limit := int64(-1)
+	found := false
 	for _, item := range items {
 		if item.Key == stringValue(config["model"]) && "newapi-"+item.Capability == stringValue(config["channelId"]) {
-			limit = item.SpendingCapMicrocredits
+			found = true
 			break
 		}
 	}
-	if limit < 0 {
+	if !found {
 		return nil, InvalidModelSelection("当前账户无权使用此模型")
 	}
-	task.AuthorizedChargeMicrocredits = limit
+	// The catalog does not authorize money. This task remains at zero until
+	// New API returns its reservation/settlement receipt.
+	task.AuthorizedChargeMicrocredits = 0
 	now := time.Now()
-	return &model.BillingOrder{ID: newID(), UserID: userID, TaskID: task.ID, IdempotencyKey: fmt.Sprintf("host:%s:%d:%s", task.ID, task.RouteRun, newID()), ChannelID: stringValue(config["channelId"]), Model: stringValue(config["model"]), Capability: capabilityFromTaskType(task.Type), Scene: task.Operation, BillingMode: "host", AmountMicrocredits: limit, ChargeLimitSet: true, ChargeLimitMicrocredits: limit, Status: model.BillingStatusReserved, CreatedAt: now, UpdatedAt: now}, nil
+	return &model.BillingOrder{
+		ID: newID(), UserID: userID, TaskID: task.ID,
+		IdempotencyKey: fmt.Sprintf("newapi:%s:%d:%s", task.ID, task.RouteRun, newID()),
+		ChannelID:      stringValue(config["channelId"]), Model: stringValue(config["model"]),
+		Capability: capabilityFromTaskType(task.Type), Scene: task.Operation,
+		BillingMode: model.BillingModeNewAPI, BillingSource: model.BillingSourceNewAPI,
+		Status: model.BillingStatusPendingReceipt, CreatedAt: now, UpdatedAt: now,
+	}, nil
 }

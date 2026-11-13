@@ -50,6 +50,13 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	require.NoError(t, ratio_setting.UpdateGroupRatioByJSONString(`{"default":1,"vip":2,"h3":1,"sd2":1,"empty":1,"private":3}`))
 	user := model.User{Id: 77001, Username: "host-group-regression", Password: "unused", Group: "default", Status: common.UserStatusEnabled}
 	require.NoError(t, db.Create(&user).Error)
+	largeBalance := int(common.QuotaPerUnit * 10)
+	for _, hostUser := range []model.User{
+		{Id: 1, Username: "host-user-1", Password: "unused", Group: "default", Status: common.UserStatusEnabled, Quota: largeBalance, AffCode: "aff-host-1"},
+		{Id: 342, Username: "host-user-342", Password: "unused", Group: "default", Status: common.UserStatusEnabled, Quota: largeBalance, AffCode: "aff-host-342"},
+	} {
+		require.NoError(t, db.Create(&hostUser).Error)
+	}
 	require.NoError(t, db.Create(&model.Channel{Id: 771, Type: constant.ChannelTypeOpenAI, Name: "test", Status: common.ChannelStatusEnabled}).Error)
 	require.NoError(t, db.Create(&model.Model{ModelName: "gpt-4o", Description: "管理员配置的文本模型描述", Status: 1}).Error)
 	require.NoError(t, db.Create(&[]model.Ability{
@@ -60,6 +67,15 @@ func TestWorkbenchModelsIncludeSelectableGroupsAndExcludeForeignGroups(t *testin
 	model.InvalidatePricingCache()
 	models, err := (newAPIWorkbenchHost{}).Models(context.Background(), "77001")
 	require.NoError(t, err)
+	for _, hostUserID := range []string{"1", "342"} {
+		largeBalanceModels, modelErr := (newAPIWorkbenchHost{}).Models(context.Background(), hostUserID)
+		require.NoError(t, modelErr)
+		require.NotEmpty(t, largeBalanceModels)
+		for _, item := range largeBalanceModels {
+			require.Zero(t, item.SpendingCapMicrocredits, "catalog snapshots must not become a local spending cap")
+			require.NotContains(t, item.PriceLabel, "单次最多使用当前余额")
+		}
+	}
 	require.Len(t, models, 2)
 	require.Equal(t, "default", models[0].Group)
 	require.Equal(t, "vip", models[1].Group)

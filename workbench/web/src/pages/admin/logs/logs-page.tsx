@@ -576,7 +576,7 @@ function BillingSummary({ log }: { log: ApiCallLog }) {
     if (!log.billable) return <span className="text-foreground/45">不计费</span>;
     if (!log.billingAvailable) return <span className="text-foreground/35">未扣积分</span>;
     const status = log.billingStatus || "reserved";
-    const statusLabel = ({ settled: "已结算", refunded: "已退回", uncertain: "待核对", running: "运行中", reserved: "已预授权" } as const)[status];
+    const statusLabel = ({ settled: "已结算", refunded: "已退回", uncertain: "待核对", running: "运行中", reserved: "已预授权", pending_receipt: "等待 New API 回执" } as const)[status];
     return (
         <div>
             <div className="tabular-nums">预授权：{formatCredits(log.billingReservedMicrocredits)} 积分</div>

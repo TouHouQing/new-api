@@ -30,11 +30,14 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { useBillingTime } from '../hooks/use-billing-time'
 import {
+  billingPriceUnitLabelKey,
+  getModelPriceDisplay,
+} from '../lib/billing-display'
+import {
   getCardExamplePrice,
   getDynamicDisplayGroupRatio,
   getDynamicPriceUnitLabelKey,
   getDynamicPricingSummary,
-  isUnconfiguredTaskUsageModel,
 } from '../lib/dynamic-price'
 import { parseTags } from '../lib/filters'
 import { isTokenBasedModel } from '../lib/model-helpers'
@@ -69,7 +72,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
   const modelIconKey = props.model.icon || props.model.vendor_icon
   const modelIcon = modelIconKey ? getLobeIcon(modelIconKey, 28) : null
   const initial = props.model.model_name?.charAt(0).toUpperCase() || '?'
-  const isUnconfiguredTaskUsage = isUnconfiguredTaskUsageModel(props.model)
+  const priceDisplay = getModelPriceDisplay(props.model)
   const billingTime = useBillingTime(props.model.billing_expr)
   const currency = useSystemConfigStore((state) => state.config.currency)
   const dynamicPriceOptions = useMemo(
@@ -212,10 +215,16 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
         </span>
       )
     }
-  } else if (isUnconfiguredTaskUsage) {
+  } else if (priceDisplay.kind === 'dynamic') {
     priceSummary = (
       <span className='text-muted-foreground col-span-full'>
-        {t('Usage-based billing · price not configured')}
+        {t('Dynamic Pricing')}
+      </span>
+    )
+  } else if (priceDisplay.kind === 'unconfigured') {
+    priceSummary = (
+      <span className='text-muted-foreground col-span-full'>
+        {t('Billing unit unconfirmed')}
       </span>
     )
   } else if (isTokenBased) {
@@ -247,6 +256,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
       </div>
     ))
   } else {
+    const unit = priceDisplay.kind === 'fixed' ? priceDisplay.unit : 'request'
     priceSummary = (
       <div className='col-span-full flex min-w-0 flex-col gap-1'>
         <span className='font-mono text-sm font-semibold tabular-nums'>
@@ -259,7 +269,7 @@ export const ModelCard = memo(function ModelCard(props: ModelCardProps) {
           )}
           <span className='text-muted-foreground text-xs font-normal'>
             {' '}
-            / {t('request')}
+            / {t(billingPriceUnitLabelKey(unit))}
           </span>
         </span>
       </div>

@@ -90,19 +90,42 @@ func TestWorkbenchVideoSizeAcceptsCanvasRatiosAndPixelDimensions(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded, "local models still need a verified runtime")
 }
 
-func TestWorkbenchSpendingCapUsesAvailableBalance(t *testing.T) {
-	assert.Equal(t, int64(12_000_000), workbenchSpendingCapMicrocredits(12_000_000, false))
-	assert.Equal(t, int64(0), workbenchSpendingCapMicrocredits(12_000_000, true))
-	assert.Equal(t, int64(0), workbenchSpendingCapMicrocredits(0, false))
-
-	quota, err := workbenchBudgetQuota(12_000_000)
+func TestWorkbenchQuotaConversionIsReadOnlyDisplayConversion(t *testing.T) {
+	quota := int64(2_500_000)
+	microcredits, err := workbenchMicrocredits(quota)
 	require.NoError(t, err)
-	expected := int64(float64(12_000_000) * common.QuotaPerUnit / 1_000_000)
-	assert.Equal(t, expected, quota)
-	_, err = workbenchBudgetQuota(-1)
+	assert.Positive(t, microcredits)
+	_, err = workbenchMicrocredits(-1)
 	require.Error(t, err)
-	_, err = workbenchBudgetQuota(int64(common.MaxQuota) * 1_000_000)
-	require.Error(t, err)
+}
+
+func TestWorkbenchHostBillingReturnsOwnedNewAPIReceipt(t *testing.T) {
+	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
+	require.NoError(t, err)
+	require.NoError(t, db.AutoMigrate(&model.StudioWorkflowCharge{}))
+	prior := model.DB
+	model.DB = db
+	t.Cleanup(func() {
+		model.DB = prior
+		sqlDB, _ := db.DB()
+		_ = sqlDB.Close()
+	})
+	jobID := "wb:task-owned:2"
+	require.NoError(t, db.Create(&model.StudioWorkflowCharge{
+		RequestID: "request-owned", JobID: jobID, UserID: 1,
+		Quota: 250_000, Final: true,
+	}).Error)
+
+	bill, err := (newAPIWorkbenchHost{}).Billing(context.Background(), "1", "task-owned", 2)
+	require.NoError(t, err)
+	assert.Equal(t, "newapi", bill.Source)
+	assert.Equal(t, "newapi:1", bill.UserID)
+	assert.Equal(t, "task-owned", bill.TaskID)
+	assert.Equal(t, jobID, bill.ReceiptID)
+	assert.True(t, bill.Final)
+	assert.False(t, bill.Uncertain)
+	assert.Zero(t, bill.ReservedMicrocredits)
+	assert.Positive(t, bill.ChargedMicrocredits)
 }
 
 func TestInternalRelayRestoresServerRequestURIWithoutBypassingAuthentication(t *testing.T) {

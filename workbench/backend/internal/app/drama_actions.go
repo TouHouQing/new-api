@@ -71,6 +71,9 @@ func (s *Service) UpdateDramaSettings(userID string, projectID string, req Updat
 		if budget < 0 {
 			return DramaSummary{}, BadAuthRequest("预算不能为负数")
 		}
+		if s.host != nil {
+			budget = 0
+		}
 		fields["budget_microcredits"] = budget
 		if productionRow.PauseReason == dramaBudgetPauseReason {
 			spent, err := s.dramaTotalSpent(productionRow)

@@ -435,6 +435,7 @@ export type RatioType =
   | 'model_price'
   | 'billing_mode'
   | 'billing_expr'
+  | 'billing_price_unit'
 
 export type RatioDifference = {
   current: number | string | null

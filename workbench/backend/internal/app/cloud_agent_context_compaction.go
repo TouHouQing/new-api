@@ -277,7 +277,13 @@ func cloudAgentFallbackCheckpoint(state *cloudAgentRuntime) agentcontext.Checkpo
 		}
 		checkpoint.Decisions = append(checkpoint.Decisions, fmt.Sprintf("已查看过画面 %s（%s），无需重复看图", asset.NodeID, asset.Type))
 	}
-	checkpoint.Constraints = append(checkpoint.Constraints, fmt.Sprintf("权限模式：%s；本轮预算上限：%.4f credits", state.Request.PermissionMode, state.Request.Budget.MaxCredits))
+	permissionConstraint := "权限模式：" + state.Request.PermissionMode
+	if state.Request.Budget.MaxCredits > 0 {
+		permissionConstraint += fmt.Sprintf("；本轮积分预算上限：%.4f credits", state.Request.Budget.MaxCredits)
+	} else {
+		permissionConstraint += "；资金额度与结算由 New API 管理"
+	}
+	checkpoint.Constraints = append(checkpoint.Constraints, permissionConstraint)
 	for _, layer := range state.Profile.Layers {
 		if content := strings.TrimSpace(layer.Content); content != "" {
 			checkpoint.UserPreferences = append(checkpoint.UserPreferences, layer.Scope+": "+truncateRunes(content, 2400))

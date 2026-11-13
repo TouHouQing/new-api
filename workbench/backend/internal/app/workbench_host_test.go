@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -40,6 +41,15 @@ func (h *workbenchVideoTestHost) Relay(_ context.Context, call WorkbenchRelay) (
 type workbenchResourceTestHost struct{ testWorkbenchHost }
 
 func (h *workbenchResourceTestHost) PublicBaseURL() string { return "https://host.example" }
+
+type workbenchReceiptMismatchHost struct{ testWorkbenchHost }
+
+func (h *workbenchReceiptMismatchHost) Billing(context.Context, string, string, int) (WorkbenchHostBilling, error) {
+	return WorkbenchHostBilling{
+		Source: model.BillingSourceNewAPI, UserID: "newapi:other",
+		TaskID: "other-task", ReceiptID: "receipt:other", Final: true,
+	}, nil
+}
 
 func TestWorkbenchDramaTaskAdmissionUsesHostModelsAndSegmentIdentity(t *testing.T) {
 	svc, db := newTimelineTaskTestService(t)
@@ -296,9 +306,14 @@ func (h *testWorkbenchHost) Groups(context.Context, string) ([]WorkbenchHostGrou
 	return h.groups, nil
 }
 func (h *testWorkbenchHost) Balance(context.Context, string) (int64, error) { return 8_000_000, nil }
-func (h *testWorkbenchHost) Billing(context.Context, string, string, int) (WorkbenchHostBilling, error) {
+func (h *testWorkbenchHost) Billing(_ context.Context, userID, taskID string, attempt int) (WorkbenchHostBilling, error) {
 	h.billingReads++
-	return h.bill, nil
+	bill := h.bill
+	bill.Source = model.BillingSourceNewAPI
+	bill.UserID = "newapi:" + userID
+	bill.TaskID = taskID
+	bill.ReceiptID = fmt.Sprintf("receipt:%s:%d", taskID, attempt)
+	return bill, nil
 }
 func (h *testWorkbenchHost) Relay(context.Context, WorkbenchRelay) (*http.Response, error) {
 	h.calls++
@@ -361,6 +376,105 @@ func TestWorkbenchCatalogAdmissionRechecksHostPermissions(t *testing.T) {
 	if host.calls != 0 {
 		t.Fatal("catalog checks invoked inference")
 	}
+}
+
+func TestWorkbenchTaskAdmissionDoesNotUseHostBalanceAsLocalBudget(t *testing.T) {
+	for _, hostID := range []string{"1", "342"} {
+		t.Run(hostID, func(t *testing.T) {
+			svc, db := newTimelineTaskTestService(t)
+			svc.dataDir = t.TempDir()
+			const largeSnapshot = int64(12_000_000)
+			host := &testWorkbenchHost{
+				actor: WorkbenchHostUser{ID: hostID},
+				models: []WorkbenchHostModel{{
+					Key: "large-balance-text", Name: "Fixture text", Capability: "text",
+					Protocol: "chat-completion", SpendingCapMicrocredits: largeSnapshot,
+				}},
+			}
+			require.NoError(t, svc.ConfigureWorkbenchHost(host))
+			user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), hostID))
+			require.NoError(t, err)
+			task, err := svc.CreateTask(user.ID, CreateTaskRequest{
+				Type: "canvas_text", Operation: "text", Prompt: "large balance fixture",
+				admission: &taskAdmission{ID: "host-admission-" + hostID, MaxCharge: 0},
+				Input: map[string]any{
+					"mode": "text", "prompt": "large balance fixture",
+					"config": map[string]any{"channelId": "newapi-text", "model": "large-balance-text"},
+				},
+			})
+			require.NoError(t, err)
+			require.NotEmpty(t, task.BillingOrderID)
+			order, err := svc.repo.BillingOrder(task.BillingOrderID)
+			require.NoError(t, err)
+			assert.Equal(t, model.BillingModeNewAPI, order.BillingMode)
+			assert.Equal(t, model.BillingSourceNewAPI, order.BillingSource)
+			assert.Equal(t, model.BillingStatusPendingReceipt, order.Status)
+			assert.Zero(t, order.AmountMicrocredits)
+			assert.Zero(t, order.ReservedAmountMicrocredits)
+			assert.Zero(t, task.AuthorizedChargeMicrocredits)
+			var channelModel model.ChannelModel
+			require.NoError(t, db.First(&channelModel, "id = ?", "host-"+host.models[0].Key).Error)
+			assert.Zero(t, channelModel.UnitPriceMicrocredits, "host authorization snapshots must not become local prices")
+			var ledgerCount int64
+			require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+			assert.Zero(t, ledgerCount, "catalog snapshots must not move Workbench credits")
+			assert.Zero(t, host.calls, "admission must not invoke inference")
+		})
+	}
+}
+
+func TestWorkbenchRejectsBillingReceiptOwnedByAnotherTask(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	host := &workbenchReceiptMismatchHost{testWorkbenchHost{actor: WorkbenchHostUser{ID: "42"}}}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	order := model.BillingOrder{
+		ID: "receipt-mismatch", UserID: "newapi:42", TaskID: "owned-task",
+		IdempotencyKey: "host:owned-task:1:fixture", BillingMode: model.BillingModeNewAPI,
+		BillingSource: model.BillingSourceNewAPI, Status: model.BillingStatusReserved,
+	}
+	require.NoError(t, db.Create(&order).Error)
+
+	coordinator := &workbenchBillingRepository{Repository: svc.repo, svc: svc}
+	err := coordinator.sync(order.ID, "owned-task", false)
+	require.Error(t, err)
+	stored, readErr := svc.repo.BillingOrder(order.ID)
+	require.NoError(t, readErr)
+	assert.Equal(t, model.BillingStatusReserved, stored.Status)
+	assert.Zero(t, stored.ActualAmountMicrocredits)
+}
+
+func TestWorkbenchMirrorsNewAPISettlementWithoutLocalDeduction(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	host := &testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		bill:  WorkbenchHostBilling{Final: true, ChargedMicrocredits: 640_000},
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	task := model.Task{
+		ID: "settled-host-task", UserID: "newapi:42", Type: "canvas_text",
+		Status: model.TaskStatusSucceeded,
+	}
+	order := model.BillingOrder{
+		ID: "settled-host-order", UserID: task.UserID, TaskID: task.ID,
+		IdempotencyKey: "host:settled-host-task:1:fixture",
+		BillingMode:    model.BillingModeNewAPI, BillingSource: model.BillingSourceNewAPI,
+		Status: model.BillingStatusReserved,
+	}
+	require.NoError(t, db.Create(&task).Error)
+	require.NoError(t, db.Create(&order).Error)
+
+	coordinator := &workbenchBillingRepository{Repository: svc.repo, svc: svc}
+	require.NoError(t, coordinator.sync(order.ID, "", false))
+	stored, err := svc.repo.BillingOrder(order.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusSettled, stored.Status)
+	assert.EqualValues(t, 640_000, stored.ActualAmountMicrocredits)
+	var mirrored model.Task
+	require.NoError(t, db.First(&mirrored, "id = ?", task.ID).Error)
+	assert.EqualValues(t, 640_000, mirrored.AuthorizedChargeMicrocredits)
+	var ledgerCount int64
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount, "settlement mirror must not create a local ledger entry")
 }
 
 func TestWorkbenchCatalogShowsSelectableGroupsAndRemovesRevokedModels(t *testing.T) {
@@ -445,6 +559,174 @@ func TestWorkbenchPrivateRelayRejectsMissingForeignExpiredAndCancelledTasks(t *t
 	}
 	if host.calls != 0 {
 		t.Fatal("untrusted request reached inference")
+	}
+}
+
+func TestWorkbenchProxyMirrorsNewAPIRejectionWithoutLocalDeduction(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	host := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "proxy-text", Name: "Proxy text", Capability: "text",
+			Protocol: "chat-completion",
+		}},
+		bill: WorkbenchHostBilling{Final: true},
+	}}
+	relayCalls := 0
+	host.relay = func(WorkbenchRelay) (*http.Response, error) {
+		relayCalls++
+		return &http.Response{
+			StatusCode: http.StatusForbidden,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"insufficient quota"}}`)),
+		}, nil
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+
+	response, err := svc.WorkbenchProxy(
+		context.Background(), "newapi:42", "newapi-text", "proxy-text",
+		"/chat/completions", "rejected-proxy",
+		[]byte(`{"model":"ignored","messages":[{"role":"user","content":"hi"}]}`),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusForbidden, response.StatusCode)
+	var task model.Task
+	require.NoError(t, db.Where("user_id = ? AND operation = ?", "newapi:42", "host_proxy").Order("created_at desc").First(&task).Error)
+	order, err := svc.repo.BillingOrder(task.BillingOrderID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusRefunded, order.Status)
+	assert.Zero(t, order.ActualAmountMicrocredits)
+	assert.Equal(t, 1, relayCalls)
+	var ledgerCount int64
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount)
+}
+
+func TestWorkbenchProxyPreservesNewAPIAdmissionFailures(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		status int
+		body   string
+	}{
+		{"price missing", http.StatusBadRequest, `{"error":{"message":"model price is not configured"}}`},
+		{"channel unavailable", http.StatusServiceUnavailable, `{"error":{"message":"no available channel"}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, db := newTimelineTaskTestService(t)
+			host := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+				actor: WorkbenchHostUser{ID: "42"},
+				models: []WorkbenchHostModel{{
+					Key: "admission-text", Name: "Admission text", Capability: "text",
+					Protocol: "chat-completion",
+				}},
+				bill: WorkbenchHostBilling{Final: true},
+			}}
+			host.relay = func(WorkbenchRelay) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: tc.status,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(tc.body)),
+				}, nil
+			}
+			require.NoError(t, svc.ConfigureWorkbenchHost(host))
+			response, err := svc.WorkbenchProxy(
+				context.Background(), "newapi:42", "newapi-text", "admission-text",
+				"/chat/completions", "admission-"+strings.ReplaceAll(tc.name, " ", "-"),
+				[]byte(`{"model":"ignored","messages":[]}`),
+			)
+			require.NoError(t, err)
+			assert.Equal(t, tc.status, response.StatusCode)
+			var task model.Task
+			require.NoError(t, db.Where("user_id = ? AND operation = ?", "newapi:42", "host_proxy").Order("created_at desc").First(&task).Error)
+			order, err := svc.repo.BillingOrder(task.BillingOrderID)
+			require.NoError(t, err)
+			assert.Equal(t, model.BillingStatusRefunded, order.Status)
+			var ledgerCount int64
+			require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+			assert.Zero(t, ledgerCount)
+		})
+	}
+}
+
+func TestWorkbenchFreeModelSettlesFromNewAPIReceiptWithoutLocalCharge(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	host := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "free-text", Name: "Free text", Capability: "text",
+			Protocol: "chat-completion", PriceLabel: "免费，由 New API 结算",
+		}},
+		bill: WorkbenchHostBilling{Final: true},
+	}}
+	relayCalls := 0
+	host.relay = func(WorkbenchRelay) (*http.Response, error) {
+		relayCalls++
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"id":"free-receipt","choices":[]}`)),
+		}, nil
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+
+	response, err := svc.WorkbenchProxy(
+		context.Background(), "newapi:42", "newapi-text", "free-text",
+		"/chat/completions", "free-proxy",
+		[]byte(`{"model":"ignored","messages":[{"role":"user","content":"hi"}]}`),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+	replayed, err := svc.WorkbenchProxy(
+		context.Background(), "newapi:42", "newapi-text", "free-text",
+		"/chat/completions", "free-proxy",
+		[]byte(`{"model":"ignored","messages":[{"role":"user","content":"hi"}]}`),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, http.StatusOK, replayed.StatusCode)
+	assert.Equal(t, 1, relayCalls, "idempotent replay must not submit a second New API request")
+	var task model.Task
+	require.NoError(t, db.Where("user_id = ? AND operation = ?", "newapi:42", "host_proxy").Order("created_at desc").First(&task).Error)
+	order, err := svc.repo.BillingOrder(task.BillingOrderID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusSettled, order.Status)
+	assert.Zero(t, order.ActualAmountMicrocredits)
+	var ledgerCount int64
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount)
+}
+
+func TestWorkbenchRejectsMissingOrNegativeHostAuthorizationBeforeLocalBilling(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		models []WorkbenchHostModel
+	}{
+		{name: "model unavailable"},
+		{name: "negative authorization", models: []WorkbenchHostModel{{
+			Key: "negative-text", Name: "Negative", Capability: "text",
+			Protocol: "chat-completion", SpendingCapMicrocredits: -1,
+		}}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			svc, db := newTimelineTaskTestService(t)
+			host := &testWorkbenchHost{actor: WorkbenchHostUser{ID: "42"}, models: tc.models}
+			require.NoError(t, svc.ConfigureWorkbenchHost(host))
+			modelKey := "missing-text"
+			if len(tc.models) == 1 {
+				modelKey = tc.models[0].Key
+			}
+			_, err := svc.WorkbenchProxy(
+				context.Background(), "newapi:42", "newapi-text", modelKey,
+				"/chat/completions", "invalid-host-"+strings.ReplaceAll(tc.name, " ", "-"),
+				[]byte(`{"model":"ignored","messages":[]}`),
+			)
+			require.Error(t, err)
+			var orderCount, ledgerCount int64
+			require.NoError(t, db.Model(&model.BillingOrder{}).Count(&orderCount).Error)
+			require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+			assert.Zero(t, orderCount)
+			assert.Zero(t, ledgerCount)
+			assert.Zero(t, host.calls)
+		})
 	}
 }
 

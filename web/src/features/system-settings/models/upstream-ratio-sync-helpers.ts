@@ -238,10 +238,16 @@ export function describeSyncPrice(
     return `${t('Expression pricing')}\n${values.billing_expr}`
   }
   if (kind === 'unset') return t('Unset price')
-  const unit =
-    kind === 'request'
-      ? `${currency.label} / ${t('request')}`
-      : `${currency.label} / ${t('1M token')}`
+  let unit = `${currency.label} / ${t('1M token')}`
+  if (kind === 'request') {
+    let fixedUnit = 'request'
+    if (values.billing_price_unit === 'second') {
+      fixedUnit = 'Price unit second'
+    } else if (values.billing_price_unit === 'request') {
+      fixedUnit = 'Price unit request'
+    }
+    unit = `${currency.label} / ${t(fixedUnit)}`
+  }
   return [
     unit,
     ...getSyncPriceLines(values, t, currency).map(

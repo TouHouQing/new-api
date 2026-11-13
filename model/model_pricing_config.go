@@ -66,7 +66,7 @@ var ErrModelPricingConflict = errors.New("model pricing changed; reload before s
 var modelPricingOptionKeys = []string{
 	"AudioCompletionRatio", "AudioRatio", "CacheRatio", "CompletionRatio",
 	"CreateCacheRatio", "ImageRatio", "ModelPrice", "ModelRatio",
-	"billing_setting.billing_expr", "billing_setting.billing_mode", billing_setting.PluginBillingExprOption,
+	"billing_setting.billing_expr", "billing_setting.billing_mode", billing_setting.ModelPriceUnitOption, billing_setting.PluginBillingExprOption,
 }
 
 var modelPricingMutationMu sync.Mutex
@@ -169,6 +169,11 @@ func replaceModelPricing(values map[string]map[string]any, name string, draft Pr
 
 func effectiveModelPricing(values map[string]map[string]any, name string) PricingValues {
 	result := modelPricingValues(values, name)
+	if _, exists := result[billing_setting.ModelPriceUnitOption]; !exists {
+		if unit, _, ok := billing_setting.GetModelPriceUnit(name); ok {
+			result[billing_setting.ModelPriceUnitOption] = unit
+		}
+	}
 	// Legacy wildcard aliases are resolved by the same normalization as relay.
 	alias := ratio_setting.FormatMatchingModelName(name)
 	for _, key := range []string{"ModelPrice", "ModelRatio", "CompletionRatio", "AudioRatio", "AudioCompletionRatio"} {
@@ -538,6 +543,15 @@ func validateModelPricing(name string, values, previous PricingValues) error {
 			if value != "ratio" && value != "tiered_expr" {
 				return errors.New("invalid billing mode")
 			}
+			continue
+		}
+		if key == billing_setting.ModelPriceUnitOption {
+			rawUnit, ok := value.(string)
+			unit := billing_setting.NormalizeModelPriceUnit(rawUnit)
+			if !ok || unit == "" {
+				return errors.New("price unit must be second or request")
+			}
+			values[key] = unit
 			continue
 		}
 		if key == "billing_setting.billing_expr" {

@@ -32,6 +32,7 @@ import type { CanvasResourceReference } from "@/lib/canvas/canvas-resource-refer
 import { canvasThemes } from "@/lib/canvas-theme";
 import { agentSubmissionErrorTitle } from "@/lib/canvas/agent-error-presentation";
 import { CanvasSyncPendingError, waitForCanvasSync } from "@/lib/canvas/sync-recovery";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 import {
     cancelAgentRun,
     getAgentCapabilities,
@@ -1512,7 +1513,7 @@ export const CanvasCloudAgentPanel = memo(function CanvasCloudAgentPanel() {
                     permissionMode: settings.permissionMode,
                     contextScope: canvasId ? settings.contextScope : [],
                     budget: {
-                        maxCredits: positiveNumber(settings.maxCredits),
+                        maxCredits: isNewAPIWorkbench ? 0 : positiveNumber(settings.maxCredits),
                         maxGenerationTasks: settings.permissionMode === "read_only" ? 0 : Number(settings.maxGenerationTasks),
                         maxVideoSeconds: settings.permissionMode === "read_only" ? 0 : Number(settings.maxVideoSeconds),
                     },

@@ -28,6 +28,15 @@ export type PricingVendor = {
 }
 
 export type BillingUsageUnit = 'second' | 'count' | 'token' | 'credit'
+export type BillingPriceUnit = 'second' | 'request'
+export type BillingPriceUnitSource =
+  | 'task-price-patch'
+  | 'admin'
+  | 'builtin-reviewed'
+  | 'legacy-request'
+  | 'unconfigured'
+  | 'dynamic'
+  | 'token'
 
 export type BillingUsageFieldSchema = {
   type?: 'number' | 'boolean'
@@ -87,6 +96,10 @@ export type PricingModel = {
   billing_usage_schema?: BillingUsageSchema
   /** Display-only labeled usage vectors for pricing examples. */
   billing_usage_examples?: BillingUsageExample[]
+  /** Unit of the fixed model_price value, derived from explicit billing metadata. */
+  billing_price_unit?: BillingPriceUnit
+  /** Traceable source of billing_price_unit for audits and diagnostics. */
+  billing_price_unit_source?: BillingPriceUnitSource
   /** Pricing version returned by backend, useful for cache busting */
   pricing_version?: string
   /**

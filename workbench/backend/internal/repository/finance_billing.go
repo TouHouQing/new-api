@@ -18,13 +18,16 @@ import (
 )
 
 func (r *Repository) ReserveBillingOrder(order *model.BillingOrder) error {
+	if err := r.validateBillingAuthority(order); err != nil {
+		return err
+	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		return reserveBillingOrder(tx, order)
 	})
 }
 
 func reserveBillingOrder(tx *gorm.DB, order *model.BillingOrder) error {
-	if order.BillingMode == "host" {
+	if model.IsNewAPIBillingOrder(*order) {
 		return tx.Create(order).Error
 	}
 	if err := validateBillingChargeLimit(*order, order.AmountMicrocredits); err != nil {
@@ -151,7 +154,9 @@ type BillingAutoRefundCursor struct {
 // 无通用任务的订单可能属于电商等独立运行域，不能把缺少 tasks 行当作停止执行的证据。
 func (r *Repository) AutoRefundableBillingOrders(limit int, before *BillingAutoRefundCursor) ([]BillingAutoRefundCursor, error) {
 	var items []BillingAutoRefundCursor
-	query := autoRefundableBillingQuery(r.db).Where("billing_orders.billing_mode <> ?", "host")
+	query := autoRefundableBillingQuery(r.db).
+		Where("billing_orders.billing_mode NOT IN ?", []string{model.BillingModeHost, model.BillingModeNewAPI}).
+		Where("billing_orders.billing_source IS NULL OR billing_orders.billing_source <> ?", model.BillingSourceNewAPI)
 	if before != nil {
 		query = query.Where("billing_orders.created_at < ? OR (billing_orders.created_at = ? AND billing_orders.id < ?)", before.CreatedAt, before.CreatedAt, before.ID)
 	}
@@ -326,10 +331,16 @@ func (r *Repository) MarkBillingUncertain(id string, errorText string) error {
 }
 
 func (r *Repository) SettleBillingOrder(id string, providerRequestID string) error {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return err
+	}
 	return r.settleBillingOrder(id, providerRequestID, nil)
 }
 
 func (r *Repository) SettleBillingOrderWithAudioDuration(id string, providerRequestID string, durationMs int64) error {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return err
+	}
 	return r.settleBillingOrder(id, providerRequestID, &durationMs)
 }
 
@@ -343,7 +354,7 @@ func (r *Repository) settleBillingOrder(id string, providerRequestID string, aud
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
 			return err
 		}
-		if order.BillingMode == "host" {
+		if model.IsNewAPIBillingOrder(order) {
 			return errors.New("host billing must be settled by New API")
 		}
 		if order.Status == model.BillingStatusSettled {
@@ -610,12 +621,15 @@ func audioBillingAmount(unitPrice int64, quantity int64, multiplierBPS int64) (i
 // The conditional refunded -> settled update keeps concurrent/repeated manual
 // recovery requests idempotent.
 func (r *Repository) RestoreRefundedBillingOrder(id string, providerRequestID string) error {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return err
+	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var order model.BillingOrder
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
 			return err
 		}
-		if order.BillingMode == "host" {
+		if model.IsNewAPIBillingOrder(order) {
 			return errors.New("host billing must be settled by New API")
 		}
 		if order.Status == model.BillingStatusSettled {
@@ -753,6 +767,9 @@ func zeroPricedTokenOrder(order model.BillingOrder) bool {
 }
 
 func (r *Repository) RefundBillingOrder(id string, errorText string) error {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return err
+	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var order model.BillingOrder
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
@@ -765,6 +782,9 @@ func (r *Repository) RefundBillingOrder(id string, errorText string) error {
 // AutoRefundBillingOrder 重新检查候选，避免扫描后任务重试或作品落库仍被自动退款。
 // 锁顺序与任务写路径保持一致：任务、订单、账户。退款及处理记录一起提交。
 func (r *Repository) AutoRefundBillingOrder(id string, note string) (bool, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return false, err
+	}
 	refunded := false
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var candidate model.BillingOrder
@@ -814,7 +834,7 @@ func updateBillingOrderState(tx *gorm.DB, order model.BillingOrder, updates map[
 }
 
 func refundBillingOrder(tx *gorm.DB, order model.BillingOrder, errorText string) error {
-	if order.BillingMode == "host" {
+	if model.IsNewAPIBillingOrder(order) {
 		return errors.New("host billing must be settled by New API")
 	}
 	if order.Status == model.BillingStatusRefunded {

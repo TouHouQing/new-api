@@ -34,6 +34,13 @@ type cloudAgentDramaRef struct {
 	SegmentIndex *int
 }
 
+func hostedDramaBudgetCredits(service *Service, budgetMicrocredits int64) float64 {
+	if service != nil && service.host != nil {
+		return 0
+	}
+	return float64(budgetMicrocredits) / 1e6
+}
+
 // cloudAgentDramaRefOf 读取节点（或其所在剧情段框）上的短剧绑定，绑定由画布投送时写入 metadata.dramaRef。
 func cloudAgentDramaRefOf(node map[string]any, nodes map[string]map[string]any) (cloudAgentDramaRef, bool) {
 	for depth := 0; node != nil && depth < 3; depth++ {
@@ -107,7 +114,7 @@ func cloudAgentHandleDramaGetContext(repo *repository.Repository, userID string,
 		"source": "drama_db", "readAt": readAt.Format(time.RFC3339), "note": cloudAgentDramaContextNote,
 		"drama": map[string]any{
 			"id": summary.Project.ID, "name": summary.Project.Name, "status": production.Status, "pauseReason": production.PauseReason,
-			"aspectRatio": production.Settings.AspectRatio, "budgetCredits": float64(production.BudgetMicrocredits) / 1e6,
+			"aspectRatio": production.Settings.AspectRatio, "budgetCredits": hostedDramaBudgetCredits(service, production.BudgetMicrocredits),
 			"spentCredits": float64(production.SpentMicrocredits) / 1e6, "canvasSpentCredits": float64(production.CanvasSpentMicrocredits) / 1e6,
 			"heldCredits": float64(production.HeldMicrocredits) / 1e6,
 		},

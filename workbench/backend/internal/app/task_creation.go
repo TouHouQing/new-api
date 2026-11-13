@@ -291,15 +291,12 @@ func (s *Service) createTask(userID string, req CreateTaskRequest) (*model.Task,
 	if err != nil {
 		return nil, err
 	}
-	if err := applyNativeLayerPlanningBudget(&task, normalizedInput, billingOrder); err != nil {
-		return nil, err
+	if s.host == nil {
+		if err := applyNativeLayerPlanningBudget(&task, normalizedInput, billingOrder); err != nil {
+			return nil, err
+		}
 	}
-	if req.admission != nil && billingOrder != nil && billingOrder.BillingMode == "host" {
-		billingOrder.ChargeLimitMicrocredits = min(billingOrder.ChargeLimitMicrocredits, req.admission.MaxCharge)
-		billingOrder.AmountMicrocredits = billingOrder.ChargeLimitMicrocredits
-		task.AuthorizedChargeMicrocredits = billingOrder.ChargeLimitMicrocredits
-	}
-	if req.admission != nil && billingOrder != nil && billingOrder.BillingMode != "host" {
+	if req.admission != nil && billingOrder != nil && !model.IsNewAPIBillingOrder(*billingOrder) {
 		if billingOrder.AmountMicrocredits > req.admission.MaxCharge {
 			return nil, BadAuthRequest("模型调用报价超过本轮 Agent 积分上限，尚未创建任务或扣费")
 		}

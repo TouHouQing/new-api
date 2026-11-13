@@ -54,8 +54,8 @@ func (s *Service) WorkbenchProxy(ctx context.Context, userID, channelID, key, pa
 	until := now.Add(40 * time.Minute)
 	input := map[string]any{"mode": "text", "config": map[string]any{"channelId": channelID, "model": key}}
 	encoded, _ := json.Marshal(input)
-	task := model.Task{ID: id, UserID: userID, Type: "text", Operation: "host_proxy", Model: key, Status: model.TaskStatusRunning, Stage: "正在生成文本", InputJSON: string(encoded), CreationIntentSHA256: fmt.Sprintf("%x", digest), LeaseOwner: "host-proxy", LeaseExpiresAt: &until, StartedAt: &now, CreatedAt: now, UpdatedAt: now, AuthorizedChargeMicrocredits: 5 * CreditScale}
-	order, err := s.workbenchTaskBillingOrder(userID, &task, input)
+	task := model.Task{ID: id, UserID: userID, Type: "text", Operation: "host_proxy", Model: key, Status: model.TaskStatusRunning, Stage: "正在生成文本", InputJSON: string(encoded), CreationIntentSHA256: fmt.Sprintf("%x", digest), LeaseOwner: "host-proxy", LeaseExpiresAt: &until, StartedAt: &now, CreatedAt: now, UpdatedAt: now}
+	order, err := s.workbenchReceiptOrder(userID, &task, input)
 	if err != nil {
 		return nil, err
 	}

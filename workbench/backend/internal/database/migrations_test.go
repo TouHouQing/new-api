@@ -8,6 +8,8 @@ import (
 
 	"yingce/backend/internal/model"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
 
@@ -24,6 +26,26 @@ func TestCurrentSchemaVersionMatchesMigrationPlan(t *testing.T) {
 	if CurrentSchemaVersion != latest {
 		t.Fatalf("supported schema version %d does not match latest migration %d", CurrentSchemaVersion, latest)
 	}
+}
+
+func TestMigrateNewAPIBillingSourceBackfillsLegacyHostRows(t *testing.T) {
+	db, err := Open(Config{Driver: "sqlite", DSN: "file:migration-newapi-source?mode=memory&cache=shared"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	require.NoError(t, db.AutoMigrate(&model.BillingOrder{}))
+	order := model.BillingOrder{
+		ID: "legacy-host", UserID: "newapi:1", IdempotencyKey: "legacy",
+		BillingMode: model.BillingModeHost, Status: model.BillingStatusSettled,
+		ActualAmountMicrocredits: 123,
+	}
+	require.NoError(t, db.Create(&order).Error)
+	require.NoError(t, migrateNewAPIBillingSource(db))
+	var stored model.BillingOrder
+	require.NoError(t, db.First(&stored, "id = ?", order.ID).Error)
+	assert.Equal(t, model.BillingSourceNewAPI, stored.BillingSource)
+	assert.Equal(t, model.BillingModeHost, stored.BillingMode)
+	assert.EqualValues(t, 123, stored.ActualAmountMicrocredits)
 }
 
 type channelModelProtocolV58 struct {

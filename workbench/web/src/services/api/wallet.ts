@@ -287,7 +287,7 @@ export type BillingOrder = {
     usageAvailable: boolean;
     videoFormulaTokens?: number;
     usageSource?: "provider" | "video_formula";
-    status: "reserved" | "running" | "settled" | "refunded" | "uncertain";
+    status: "pending_receipt" | "reserved" | "running" | "settled" | "refunded" | "uncertain";
     providerRequestId?: string;
     error?: string;
     resolvedBy?: string;

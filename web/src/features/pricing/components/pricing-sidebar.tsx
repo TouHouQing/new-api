@@ -155,7 +155,7 @@ export const PricingSidebar = memo(function PricingSidebar(
     const vendors = new Map<string, number>()
     const tags = new Map<string, number>()
     const endpoints = new Map<string, number>()
-    const quotas = { token: 0, request: 0, task: 0 }
+    const quotas = { token: 0, second: 0, request: 0, task: 0 }
     for (const model of props.models) {
       if (model.vendor_name) {
         vendors.set(
@@ -217,6 +217,11 @@ export const PricingSidebar = memo(function PricingSidebar(
       value: QUOTA_TYPES.TOKEN,
       label: quotaTypeLabels[QUOTA_TYPES.TOKEN],
       count: counts.quotas.token,
+    },
+    {
+      value: QUOTA_TYPES.SECOND,
+      label: quotaTypeLabels[QUOTA_TYPES.SECOND],
+      count: counts.quotas.second,
     },
     {
       value: QUOTA_TYPES.REQUEST,

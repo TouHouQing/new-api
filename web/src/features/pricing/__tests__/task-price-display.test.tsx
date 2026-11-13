@@ -177,6 +177,7 @@ it('falls back for omitted count labels and preserves canonical units for other 
 const imageModel: PricingModel = {
   ...model,
   model_name: 'image-model',
+  quota_type: 1,
   billing_expr: 'tier("images", u("image_count") * 0.2)',
   billing_usage_schema: {
     image_count: {
@@ -330,7 +331,7 @@ it('shows one standard task price and a localized group price without duplicate 
     screen.getAllByText('Song generation unit price', { exact: false })
   ).toHaveLength(2)
   expect(screen.queryByText('Tiered price table')).not.toBeInTheDocument()
-  expect(screen.queryByText('Dynamic Pricing')).not.toBeInTheDocument()
+  expect(screen.getAllByText('Dynamic Pricing').length).toBeGreaterThan(0)
   expect(screen.queryByText('music')).not.toBeInTheDocument()
   expect(screen.getByText('$0.22')).toBeVisible()
   expect(screen.getByText('$0.44')).toBeVisible()

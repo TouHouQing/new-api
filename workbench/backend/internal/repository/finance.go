@@ -26,6 +26,9 @@ var (
 
 // 先抢占唯一业务键再更新账户，确保注册和签到奖励在多实例并发下只入账一次。
 func (r *Repository) GrantCreditsOnce(userID string, entryType model.CreditLedgerType, amount int64, referenceKey string, note string) (*model.CreditAccount, bool, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return nil, false, err
+	}
 	var account model.CreditAccount
 	granted := false
 	err := r.db.Transaction(func(tx *gorm.DB) error {
@@ -69,6 +72,11 @@ func (r *Repository) CreditAccount(userID string) (*model.CreditAccount, error) 
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
+	}
+	if r.newAPIBillingOnly {
+		// Hosted balances live in New API. Returning a zero projection prevents
+		// read-only admin/profile paths from creating a second local wallet.
+		return &model.CreditAccount{UserID: userID}, nil
 	}
 	account = model.CreditAccount{UserID: userID}
 	if err := r.db.Clauses(clause.OnConflict{DoNothing: true}).Create(&account).Error; err != nil {
@@ -118,6 +126,9 @@ func (r *Repository) CreditLedgerReferenceExists(referenceKey string) (bool, err
 }
 
 func (r *Repository) CreateTaskWithCreditReservation(task *model.Task, order *model.BillingOrder, activeTaskLimit int) error {
+	if err := r.validateBillingAuthority(order); err != nil {
+		return err
+	}
 	return r.Transaction(func(repo *Repository) error {
 		tx := repo.db
 		if err := repo.requireCurrentCloudAgentParent(task); err != nil {
@@ -171,6 +182,9 @@ func (r *Repository) CreateTaskWithActiveLimit(task *model.Task, activeTaskLimit
 }
 
 func (r *Repository) RetryTaskWithBilling(userID string, prepared *model.Task, order *model.BillingOrder, activeTaskLimit int, authorizeRelease ...func(*Repository, *model.Task, *model.BillingOrder) error) (*model.Task, error) {
+	if err := r.validateBillingAuthority(order); err != nil {
+		return nil, err
+	}
 	var task model.Task
 	taskID := prepared.ID
 	err := r.db.Transaction(func(tx *gorm.DB) error {
@@ -189,7 +203,7 @@ func (r *Repository) RetryTaskWithBilling(userID string, prepared *model.Task, o
 			switch previous.Status {
 			case model.BillingStatusSettled, model.BillingStatusRefunded:
 			case model.BillingStatusReserved, model.BillingStatusRunning:
-				if previous.BillingMode == "host" {
+				if model.IsNewAPIBillingOrder(previous) {
 					return ErrTaskBillingReview
 				}
 				if len(authorizeRelease) != 1 || authorizeRelease[0] == nil {
@@ -210,8 +224,8 @@ func (r *Repository) RetryTaskWithBilling(userID string, prepared *model.Task, o
 			return err
 		}
 		if order != nil {
-			if order.BillingMode == "host" {
-				order.IdempotencyKey = fmt.Sprintf("host:%s:%d:%s", prepared.ID, prepared.RouteRun+1, newRepositoryID())
+			if model.IsNewAPIBillingOrder(*order) {
+				order.IdempotencyKey = fmt.Sprintf("newapi:%s:%d:%s", prepared.ID, prepared.RouteRun+1, newRepositoryID())
 			}
 			if err := reserveBillingOrder(tx, order); err != nil {
 				return err

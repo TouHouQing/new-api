@@ -106,7 +106,7 @@ func studioJobPayload(job *model.StudioWorkflowJob) gin.H {
 	if len(plan.NodeIDs) == 0 && plan.Operation != nil && plan.Operation.NodeID != "" {
 		plan.NodeIDs = []string{plan.Operation.NodeID}
 	}
-	value := gin.H{"id": job.ID, "project_id": job.ProjectID, "user_id": job.UserID, "request_id": job.RequestID, "kind": job.Kind, "node_ids": plan.NodeIDs, "status": job.Status, "revision": job.Revision, "budget": job.Budget, "progress": job.Progress, "run_after": job.RunAfter, "error": job.Error, "created_at": job.CreatedAt, "updated_at": job.UpdatedAt, "result": json.RawMessage(job.Result)}
+	value := gin.H{"id": job.ID, "project_id": job.ProjectID, "user_id": job.UserID, "request_id": job.RequestID, "kind": job.Kind, "node_ids": plan.NodeIDs, "status": job.Status, "revision": job.Revision, "billing_source": job.BillingSource, "budget": job.Budget, "progress": job.Progress, "run_after": job.RunAfter, "error": job.Error, "created_at": job.CreatedAt, "updated_at": job.UpdatedAt, "result": json.RawMessage(job.Result)}
 	if plan.Operation != nil {
 		value["source_media_id"] = plan.Operation.MediaID
 		value["operation_action"] = plan.Operation.Action

@@ -13,6 +13,9 @@ import (
 )
 
 func (r *Repository) AdjustCredits(userID string, actorUserID string, amount int64, note string) (*model.CreditAccount, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return nil, err
+	}
 	var account model.CreditAccount
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		account = model.CreditAccount{UserID: userID}
@@ -134,6 +137,9 @@ func (r *Repository) AdminRedeemCodes(batchID string, status string, limit int, 
 }
 
 func (r *Repository) RedeemCode(userID string, codeHash string, redeemedIP string) (*model.CreditAccount, error) {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return nil, err
+	}
 	var account model.CreditAccount
 	err := r.db.Transaction(func(tx *gorm.DB) error {
 		var code model.RedeemCode

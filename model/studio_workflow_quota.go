@@ -7,8 +7,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// StudioWorkflowCharge is a spending reservation, never an API credential.
-// Request identity links synchronous billing and later task settlement.
+// StudioWorkflowCharge is the New API billing receipt for one request. For
+// hosted Workbench jobs it mirrors quota already authorized and settled by the
+// New API funding path; it never grants Workbench an additional balance.
 type StudioWorkflowCharge struct {
 	RequestID string `gorm:"type:varchar(128);primaryKey"`
 	JobID     string `gorm:"type:varchar(128);not null;index"`
@@ -19,7 +20,16 @@ type StudioWorkflowCharge struct {
 	UpdatedAt time.Time
 }
 
-var ErrStudioWorkflowBudget = errors.New("workflow spending limit reached; increase the limit before starting another generation")
+var (
+	// ErrStudioWorkflowBudget applies only to legacy standalone Studio
+	// workflows that explicitly configure a total workflow budget.
+	ErrStudioWorkflowBudget       = errors.New("workflow spending limit reached; increase the limit before starting another generation")
+	ErrStudioWorkflowChargeClosed = errors.New("workflow charge receipt is closed")
+)
+
+func workflowUsesNewAPIReceipt(job StudioWorkflowJob) bool {
+	return job.BillingSource == StudioWorkflowBillingSourceNewAPI || job.Kind == "workbench"
+}
 
 func EnsureStudioWorkflowCharge(userID int, jobID, requestID string) error {
 	return DB.Transaction(func(tx *gorm.DB) error {
@@ -71,6 +81,9 @@ func UpdateStudioWorkflowCharge(userID int, jobID, requestID string, quota int64
 		}
 		if reserve {
 			if quota < 0 || charge.Final || job.Status != "running" {
+				if workflowUsesNewAPIReceipt(job) {
+					return ErrStudioWorkflowChargeClosed
+				}
 				return ErrStudioWorkflowBudget
 			}
 			quota += charge.Quota
@@ -80,10 +93,11 @@ func UpdateStudioWorkflowCharge(userID int, jobID, requestID string, quota int64
 		}
 		delta := quota - charge.Quota
 		update := tx.Model(&StudioWorkflowJob{}).Where("id = ? AND user_id = ? AND reserved >= ?", jobID, userID, -delta)
-		if reserve {
+		newAPIReceipt := workflowUsesNewAPIReceipt(job)
+		if reserve && !newAPIReceipt {
 			update = update.Where("reserved <= ?", job.Budget-delta)
 		}
-		if reserve && job.Reserved+delta > job.Budget {
+		if reserve && !newAPIReceipt && job.Reserved+delta > job.Budget {
 			return ErrStudioWorkflowBudget
 		}
 		if delta != 0 {
@@ -92,6 +106,9 @@ func UpdateStudioWorkflowCharge(userID int, jobID, requestID string, quota int64
 				return changed.Error
 			}
 			if changed.RowsAffected != 1 {
+				if reserve && newAPIReceipt {
+					return ErrStudioWorkflowChargeClosed
+				}
 				return ErrStudioWorkflowBudget
 			}
 		}

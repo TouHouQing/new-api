@@ -359,10 +359,6 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 	if err != nil {
 		return nil, err
 	}
-	balanceMicrocredits, err := (newAPIWorkbenchHost{}).Balance(ctx, id)
-	if err != nil {
-		return nil, err
-	}
 	items := make([]integration.Model, 0)
 	profiles, profileErr := workbenchLocalProfiles(ctx)
 	localModels := make(map[string]bool)
@@ -411,42 +407,26 @@ func (newAPIWorkbenchHost) Models(ctx context.Context, id string) ([]integration
 				if price.BillingMode == "expression" || price.BillingExpr != "" {
 					label = "按 New API 模型计费规则结算"
 				} else if exists && price.QuotaType == 1 {
-					label = fmt.Sprintf("$%.6g / 次，由 New API 结算", price.ModelPrice*ratio)
+					switch price.BillingPriceUnit {
+					case billing_setting.ModelPriceUnitSecond:
+						label = fmt.Sprintf("$%.6g / 秒，由 New API 结算", price.ModelPrice*ratio)
+					case billing_setting.ModelPriceUnitRequest:
+						label = fmt.Sprintf("$%.6g / 次，由 New API 结算", price.ModelPrice*ratio)
+					default:
+						label = fmt.Sprintf("固定价 $%.6g，计费单位由 New API 配置决定", price.ModelPrice*ratio)
+					}
 				} else if exists && capability == "text" {
 					label = fmt.Sprintf("输入 $%.6g / 百万 Token，由 New API 结算", price.ModelRatio*2*ratio)
 				}
 				knownFree := strings.TrimSpace(price.BillingExpr) == "0" || (exists && price.BillingExpr == "" && price.BillingMode != "expression" && ((price.QuotaType == 1 && price.ModelPrice == 0) || (price.QuotaType == 0 && price.ModelRatio == 0)))
-				cap := workbenchSpendingCapMicrocredits(balanceMicrocredits, knownFree)
 				if knownFree {
 					label += "；当前模型价格为零"
-				} else if cap > 0 {
-					label += fmt.Sprintf("；单次最多使用当前余额 $%.6g", float64(cap)/1_000_000)
-				} else {
-					label += "；当前余额不足以预授权"
 				}
-				items = append(items, integration.Model{Key: workbenchGroupModelKey(name, capability, group), Group: group, Name: name, Description: descriptions[name], Capability: capability, Protocol: protocol, PriceLabel: label, SpendingCapMicrocredits: cap, CapabilityConfig: contract})
+				items = append(items, integration.Model{Key: workbenchGroupModelKey(name, capability, group), Group: group, Name: name, Description: descriptions[name], Capability: capability, Protocol: protocol, PriceLabel: label, SpendingCapMicrocredits: 0, CapabilityConfig: contract})
 			}
 		}
 	}
 	return items, nil
-}
-
-func workbenchSpendingCapMicrocredits(balanceMicrocredits int64, knownFree bool) int64 {
-	if knownFree || balanceMicrocredits <= 0 {
-		return 0
-	}
-	return balanceMicrocredits
-}
-
-func workbenchBudgetQuota(microcredits int64) (int64, error) {
-	if microcredits < 0 || common.QuotaPerUnit <= 0 || math.IsInf(common.QuotaPerUnit, 0) || math.IsNaN(common.QuotaPerUnit) {
-		return 0, errors.New("invalid workbench spending limit")
-	}
-	quota := decimal.NewFromInt(microcredits).Mul(decimal.NewFromFloat(common.QuotaPerUnit)).Div(decimal.NewFromInt(1_000_000)).Floor()
-	if quota.IsNegative() || quota.GreaterThan(decimal.NewFromInt(int64(common.MaxQuota))) {
-		return 0, errors.New("workbench spending limit exceeds supported quota")
-	}
-	return quota.IntPart(), nil
 }
 
 func workbenchMicrocredits(quota int64) (int64, error) {
@@ -482,7 +462,11 @@ func (newAPIWorkbenchHost) Billing(_ context.Context, id, taskID string, attempt
 	if err != nil {
 		return integration.Billing{}, err
 	}
-	result := integration.Billing{Final: true}
+	jobID := fmt.Sprintf("wb:%s:%d", taskID, attempt)
+	result := integration.Billing{
+		Source: model.StudioWorkflowBillingSourceNewAPI, UserID: "newapi:" + id, TaskID: taskID,
+		ReceiptID: jobID, Final: true,
+	}
 	for _, charge := range charges {
 		amount, err := workbenchMicrocredits(charge.Quota)
 		if err != nil {
@@ -502,6 +486,9 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 	n, err := strconv.Atoi(call.UserID)
 	if err != nil || workbenchRuntime == nil || studioPrivateRelay == nil {
 		return nil, errors.New("workbench relay unavailable")
+	}
+	if call.BudgetMicrocredits < 0 {
+		return nil, errors.New("invalid workbench authorization snapshot")
 	}
 	validate := workbenchRuntime.ValidateTask
 	if call.Request.Method == http.MethodGet {
@@ -524,13 +511,9 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 	if selected == nil && call.Request.Method == http.MethodPost {
 		return nil, errors.New("model is no longer enabled for this account")
 	}
-	budget, err := workbenchBudgetQuota(call.BudgetMicrocredits)
-	if err != nil {
-		return nil, err
-	}
 	now := time.Now()
 	jobID := fmt.Sprintf("wb:%s:%d", call.TaskID, call.Attempt)
-	job := model.StudioWorkflowJob{ID: jobID, RequestID: jobID, UserID: n, ProjectID: "workbench:" + call.ProjectID, Kind: "workbench", Status: "running", Budget: budget, LeaseOwner: "workbench", LeaseUntil: now.Add(40 * time.Minute).Unix(), Plan: "{}", Result: "{}", CreatedAt: now, UpdatedAt: now}
+	job := model.StudioWorkflowJob{ID: jobID, RequestID: jobID, UserID: n, ProjectID: "workbench:" + call.ProjectID, Kind: "workbench", BillingSource: model.StudioWorkflowBillingSourceNewAPI, Status: "running", LeaseOwner: "workbench", LeaseUntil: now.Add(40 * time.Minute).Unix(), Plan: "{}", Result: "{}", CreatedAt: now, UpdatedAt: now}
 	if err = model.DB.Clauses(clause.OnConflict{DoNothing: true}).Create(&job).Error; err != nil {
 		return nil, err
 	}
@@ -538,10 +521,9 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 	if err = model.DB.Where("id = ? AND user_id = ? AND kind = ?", job.ID, n, "workbench").First(&current).Error; err != nil {
 		return nil, err
 	}
-	if current.Budget != budget {
-		return nil, errors.New("spending authorization changed")
-	}
-	if err = model.DB.Model(&current).Updates(map[string]any{"lease_owner": "workbench", "lease_until": job.LeaseUntil, "status": "running"}).Error; err != nil {
+	// Budget remains historical diagnostic data for old rows. New API's wallet,
+	// subscription and pre-consumption paths are the only execution authority.
+	if err = model.DB.Model(&current).Updates(map[string]any{"billing_source": model.StudioWorkflowBillingSourceNewAPI, "lease_owner": "workbench", "lease_until": job.LeaseUntil, "status": "running"}).Error; err != nil {
 		return nil, err
 	}
 	request := call.Request.Clone(context.WithValue(context.WithValue(ctx, studioWorkerContextKey{}, &job), workbenchRelayGrantKey{}, workbenchRelayGrant{userID: n, taskID: call.TaskID}))

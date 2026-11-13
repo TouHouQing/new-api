@@ -53,6 +53,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon } from '@/components/ui/input-group'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Sheet,
   SheetContent,
@@ -238,6 +239,7 @@ export const ModelPricingEditorPanel = forwardRef<
     meta: { errorToast: false },
   })
   const [requestRuleExpr, setRequestRuleExpr] = useState('')
+  const [priceUnit, setPriceUnit] = useState<'second' | 'request' | ''>('')
   const [pluginExpressions, setPluginExpressions] = useState<
     Record<string, string>
   >({})
@@ -364,6 +366,7 @@ export const ModelPricingEditorPanel = forwardRef<
     setOrdinaryPricingModel(null)
     setWasConverted(false)
     setConversionPreview(null)
+    setPriceUnit(editData?.priceUnit ?? '')
     const nextLaneState = createInitialLaneState(editData)
 
     if (editData) {
@@ -424,6 +427,7 @@ export const ModelPricingEditorPanel = forwardRef<
         pricingMode !== initialPricingMode ||
         billingExpr !== initialBillingExpr ||
         requestRuleExpr !== (editData?.requestRuleExpr ?? '') ||
+        priceUnit !== (editData?.priceUnit ?? '') ||
         !pluginExpressionsEqual(pluginExpressions, editData?.pluginBillingExpr)
     )
   }, [
@@ -432,6 +436,7 @@ export const ModelPricingEditorPanel = forwardRef<
     pricingMode,
     billingExpr,
     requestRuleExpr,
+    priceUnit,
     editData,
     initialPricingMode,
     initialBillingExpr,
@@ -704,6 +709,7 @@ export const ModelPricingEditorPanel = forwardRef<
         imageRatio: values.imageRatio || '',
         audioRatio: values.audioRatio || '',
         audioCompletionRatio: values.audioCompletionRatio || '',
+        ...(pricingMode === 'per-request' && priceUnit ? { priceUnit } : {}),
       }
 
       if (pricingMode === 'tiered_expr') {
@@ -716,6 +722,7 @@ export const ModelPricingEditorPanel = forwardRef<
     [
       pricingMode,
       requestRuleExpr,
+      priceUnit,
       resolvedBillingExpr,
       pluginExpressions,
       editData,
@@ -976,7 +983,7 @@ export const ModelPricingEditorPanel = forwardRef<
                         {t('Per-token (deprecated)')}
                       </TabsTrigger>
                       <TabsTrigger value='per-request'>
-                        {t('Per-request (deprecated)')}
+                        {t('Fixed price')}
                       </TabsTrigger>
                     </TabsList>
 
@@ -1135,6 +1142,36 @@ export const ModelPricingEditorPanel = forwardRef<
 
                     <TabsContent value='per-request' className='pt-0'>
                       <FieldGroup className='gap-5'>
+                        <Field>
+                          <FieldLabel htmlFor='model-price-unit'>
+                            {t('Fixed price unit')}
+                          </FieldLabel>
+                          <NativeSelect
+                            id='model-price-unit'
+                            value={priceUnit}
+                            onChange={(event) =>
+                              setPriceUnit(
+                                event.target.value as '' | 'second' | 'request'
+                              )
+                            }
+                            className='w-full'
+                          >
+                            <NativeSelectOption value=''>
+                              {t('Unconfirmed billing unit')}
+                            </NativeSelectOption>
+                            <NativeSelectOption value='second'>
+                              {t('Per second')}
+                            </NativeSelectOption>
+                            <NativeSelectOption value='request'>
+                              {t('Per request')}
+                            </NativeSelectOption>
+                          </NativeSelect>
+                          <FieldDescription>
+                            {t(
+                              'This display unit must match how the fixed model price is charged. It does not change the billing formula.'
+                            )}
+                          </FieldDescription>
+                        </Field>
                         <FormField
                           control={form.control}
                           name='price'

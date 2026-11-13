@@ -65,4 +65,22 @@ func exerciseStudioWorkflowQuota(t *testing.T, db *gorm.DB) {
 	require.NoError(t, EnsureStudioWorkflowCharge(90, legacy.ID, "legacy-quota-request"))
 	assert.ErrorIs(t, UpdateStudioWorkflowCharge(90, legacy.ID, "legacy-quota-request", 21, true, false), ErrStudioWorkflowBudget)
 	require.NoError(t, UpdateStudioWorkflowCharge(90, legacy.ID, "legacy-quota-request", 20, true, false))
+
+	hosted := StudioWorkflowJob{
+		ID: "hosted-newapi", UserID: 90, ProjectID: "workbench:project",
+		RequestID: "hosted-newapi", Kind: "workbench", Status: "running",
+		BillingSource: StudioWorkflowBillingSourceNewAPI, Plan: "{}", Result: "{}",
+	}
+	require.NoError(t, db.Create(&hosted).Error)
+	require.NoError(t, EnsureStudioWorkflowCharge(90, hosted.ID, "hosted-request"))
+	require.NoError(t, UpdateStudioWorkflowCharge(90, hosted.ID, "hosted-request", 1_000_000, true, false))
+	used, final, err = StudioWorkflowChargeUsage(90, hosted.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 1_000_000, used)
+	assert.False(t, final)
+	require.NoError(t, UpdateStudioWorkflowCharge(90, hosted.ID, "hosted-request", 750_000, false, true))
+	used, final, err = StudioWorkflowChargeUsage(90, hosted.ID)
+	require.NoError(t, err)
+	assert.EqualValues(t, 750_000, used)
+	assert.True(t, final)
 }

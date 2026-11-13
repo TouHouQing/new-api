@@ -108,6 +108,9 @@ func (c *taskBillingCoordinator) CheckRetryEligibility(orderID string) error {
 	if order.Status == model.BillingStatusUncertain {
 		return errTaskBillingReview
 	}
+	if model.IsNewAPIBillingOrder(*order) && order.Status == model.BillingStatusPendingReceipt {
+		return errTaskBillingReview
+	}
 	return nil
 }
 
@@ -122,7 +125,8 @@ func (c *taskBillingCoordinator) BillingFailureRequiresReview(orderID string, ta
 		return true
 	}
 	order, orderErr := c.repo.BillingOrder(orderID)
-	if orderErr != nil || order == nil || order.Status == model.BillingStatusUncertain {
+	if orderErr != nil || order == nil || order.Status == model.BillingStatusUncertain ||
+		(model.IsNewAPIBillingOrder(*order) && order.Status == model.BillingStatusPendingReceipt) {
 		return true
 	}
 	hasSuccessfulCall, logErr := c.repo.TaskHasSuccessfulBillableCall(taskID)

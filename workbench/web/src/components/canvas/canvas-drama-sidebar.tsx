@@ -134,11 +134,8 @@ export const CanvasDramaSidebar = memo(function CanvasDramaSidebar({ summary, ca
             <footer className="canvas-project-sidebar-assets shrink-0 border-t border-border/70 p-2">
                 <div className="px-1 pb-2 text-[var(--fs-micro)] leading-5 text-foreground/50">
                     <div className="flex items-center justify-between gap-2">
-                        <span>已用积分</span>
-                        <span className="tabular-nums text-foreground/72">
-                            {formatDramaCredits(production.spentMicrocredits)}
-                            {production.budgetMicrocredits > 0 ? ` / ${formatDramaCredits(production.budgetMicrocredits)}` : ""}
-                        </span>
+                        <span>New API 已结算</span>
+                        <span className="tabular-nums text-foreground/72">{formatDramaCredits(production.spentMicrocredits)}</span>
                     </div>
                     {production.canvasSpentMicrocredits > 0 ? (
                         <div className="flex items-center justify-between gap-2">

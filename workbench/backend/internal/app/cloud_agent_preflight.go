@@ -2,7 +2,6 @@ package app
 
 import (
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -165,18 +164,23 @@ func cloudAgentHandleCanvasPreflight(repo *repository.Repository, userID string,
 	budgetIssues := []string{}
 	if withModel {
 		budget := state.Request.Budget
-		orders, err := repo.BillingOrdersByTaskIDs(userID, state.TaskIDs)
-		if err != nil {
-			return nil, err
-		}
-		remaining := int64(math.Floor(budget.MaxCredits * float64(CreditScale)))
-		for _, order := range orders {
-			remaining -= order.AmountMicrocredits
-		}
 		result["estimatedCredits"] = cloudAgentCreditsLabel(total)
-		result["remainingCredits"] = cloudAgentCreditsLabel(remaining)
-		if total > remaining {
-			budgetIssues = append(budgetIssues, fmt.Sprintf("预计 %s，超过本轮剩余积分 %s", cloudAgentCreditsLabel(total), cloudAgentCreditsLabel(remaining)))
+		if s.localCreditBudgetEnforced() {
+			orders, err := repo.BillingOrdersByTaskIDs(userID, state.TaskIDs)
+			if err != nil {
+				return nil, err
+			}
+			remaining := s.localCreditBudgetMicrocredits(budget.MaxCredits)
+			for _, order := range orders {
+				remaining -= order.AmountMicrocredits
+			}
+			result["remainingCredits"] = cloudAgentCreditsLabel(remaining)
+			if total > remaining {
+				budgetIssues = append(budgetIssues, fmt.Sprintf("预计 %s，超过本轮剩余积分 %s", cloudAgentCreditsLabel(total), cloudAgentCreditsLabel(remaining)))
+			}
+		} else {
+			result["billingSource"] = "newapi"
+			result["billingNote"] = "费用、预扣、退款与最终结算由 New API 管理"
 		}
 		if budget.MaxGenerationTasks > 0 && state.Generations+len(items) > budget.MaxGenerationTasks {
 			budgetIssues = append(budgetIssues, fmt.Sprintf("本轮最多还能生成 %d 条", budget.MaxGenerationTasks-state.Generations))

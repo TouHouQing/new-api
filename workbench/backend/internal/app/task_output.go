@@ -73,8 +73,9 @@ type TaskClientContext struct {
 
 // TaskBillingSummary 是任务列表展示的计费摘要。冻结额与实收分列：只有已结算订单才有实收。
 type TaskBillingSummary struct {
-	ExternalBilling           bool  `json:"externalBilling,omitempty"`
-	SpendingLimitMicrocredits int64 `json:"spendingLimitMicrocredits,omitempty"`
+	ExternalBilling           bool   `json:"externalBilling,omitempty"`
+	BillingSource             string `json:"billingSource,omitempty"`
+	SpendingLimitMicrocredits int64  `json:"spendingLimitMicrocredits,omitempty"`
 	// AmountMicrocredits 是下单时的冻结额（预授权），不是实际扣费；与 ReservedMicrocredits 相同。
 	AmountMicrocredits   int64 `json:"amountMicrocredits"`
 	ReservedMicrocredits int64 `json:"reservedMicrocredits"`
@@ -90,9 +91,12 @@ func taskBillingSummary(order model.BillingOrder) *TaskBillingSummary {
 		AmountMicrocredits: order.AmountMicrocredits, ReservedMicrocredits: order.AmountMicrocredits,
 		RefundedMicrocredits: order.RefundedAmountMicrocredits, Status: order.Status,
 	}
-	if order.BillingMode == "host" {
+	if model.IsNewAPIBillingOrder(order) {
 		summary.ExternalBilling = true
-		summary.SpendingLimitMicrocredits = order.ChargeLimitMicrocredits
+		summary.BillingSource = model.BillingSourceNewAPI
+		if order.ChargeLimitSet {
+			summary.SpendingLimitMicrocredits = order.ChargeLimitMicrocredits
+		}
 		summary.ReservedMicrocredits = order.ReservedAmountMicrocredits
 	}
 	if order.Status == model.BillingStatusSettled {

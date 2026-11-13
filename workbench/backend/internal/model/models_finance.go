@@ -44,13 +44,16 @@ type BillingOrder struct {
 	ChannelID       string `json:"channelId" gorm:"index;size:36"`
 	ChannelModelID  string `json:"channelModelId" gorm:"index;size:36"`
 	// PriceTierID/Version 记录任务实际命中的规格档；金额字段仍是不可变结算快照。
-	PriceTierID           string `json:"priceTierId,omitempty" gorm:"index;size:36"`
-	PriceTierVersion      int64  `json:"priceTierVersion"`
-	PriceSelectorJSON     string `json:"-" gorm:"type:text"`
-	Model                 string `json:"model" gorm:"index;size:120"`
-	Capability            string `json:"capability" gorm:"index;size:32"`
-	Scene                 string `json:"scene" gorm:"index;size:80"`
-	BillingMode           string `json:"billingMode" gorm:"size:32"`
+	PriceTierID       string `json:"priceTierId,omitempty" gorm:"index;size:36"`
+	PriceTierVersion  int64  `json:"priceTierVersion"`
+	PriceSelectorJSON string `json:"-" gorm:"type:text"`
+	Model             string `json:"model" gorm:"index;size:120"`
+	Capability        string `json:"capability" gorm:"index;size:32"`
+	Scene             string `json:"scene" gorm:"index;size:80"`
+	BillingMode       string `json:"billingMode" gorm:"size:32"`
+	// BillingSource identifies the money authority. In hosted deployments this
+	// is always "newapi"; this table only stores the resulting receipt mirror.
+	BillingSource         string `json:"billingSource,omitempty" gorm:"size:32;not null;default:''"`
 	PriceVersion          int64  `json:"priceVersion"`
 	UnitPriceMicrocredits int64  `json:"unitPriceMicrocredits"`
 	MultiplierBasisPoints int64  `json:"multiplierBasisPoints"`

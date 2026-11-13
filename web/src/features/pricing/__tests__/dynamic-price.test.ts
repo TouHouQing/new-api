@@ -299,11 +299,13 @@ describe('task dynamic pricing', () => {
 
   test('identifies unconfigured task usage models without inventing token pricing', () => {
     const secondsModel = pricingModel({
+      quota_type: 1,
       billing_usage_schema: {
         seconds: { type: 'number', unit: 'second' },
       },
     })
     const countModel = pricingModel({
+      quota_type: 1,
       billing_usage_schema: {
         clips: { type: 'number', unit: 'count' },
       },
@@ -312,8 +314,11 @@ describe('task dynamic pricing', () => {
     assert.equal(hasTaskUsageSchema(secondsModel), true)
     assert.equal(isUnconfiguredTaskUsageModel(secondsModel), true)
     assert.equal(getDynamicPricingSummary(secondsModel, summaryOptions), null)
-    assert.equal(getBillingModeLabelKey(secondsModel), 'Task billing')
-    assert.equal(getBillingModeLabelKey(countModel), 'Task billing')
+    assert.equal(
+      getBillingModeLabelKey(secondsModel),
+      'Billing unit unconfirmed'
+    )
+    assert.equal(getBillingModeLabelKey(countModel), 'Billing unit unconfirmed')
   })
 
   test('does not mark configured task usage pricing as unconfigured', () => {
@@ -333,6 +338,7 @@ describe('task dynamic pricing', () => {
     const model = pricingModel({
       quota_type: 1,
       model_price: 0.5,
+      billing_price_unit: 'request',
       billing_usage_schema: {
         seconds: { type: 'number', unit: 'second' },
       },
@@ -423,7 +429,7 @@ describe('task dynamic pricing', () => {
           },
         })
       ),
-      'Task billing'
+      'Dynamic Pricing'
     )
     assert.equal(
       getBillingModeLabelKey(
@@ -435,7 +441,7 @@ describe('task dynamic pricing', () => {
           },
         })
       ),
-      'Task billing'
+      'Dynamic Pricing'
     )
     assert.equal(
       getBillingModeLabelKey(
@@ -447,7 +453,7 @@ describe('task dynamic pricing', () => {
           },
         })
       ),
-      'Task billing'
+      'Dynamic Pricing'
     )
     assert.equal(
       getBillingModeLabelKey(
@@ -459,7 +465,7 @@ describe('task dynamic pricing', () => {
           },
         })
       ),
-      'Task billing'
+      'Dynamic Pricing'
     )
     assert.equal(
       getBillingModeLabelKey(
@@ -608,6 +614,7 @@ describe('shared plugin price summaries', () => {
     const model = pricingModel({
       quota_type: 1,
       model_price: 0.25,
+      billing_price_unit: 'request',
       billing_plugin_variants: [
         {
           plugin_key: 'alpha',

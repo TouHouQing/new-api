@@ -15,7 +15,9 @@ export type TaskBillingDisplay = {
 
 /** 任务计费的展示口径：冻结额不是扣费，只有已结算才显示实收。任务中心与画布任务列表共用。 */
 export function taskBillingDisplay(billing: TaskBilling): TaskBillingDisplay {
-    if (billing.externalBilling && (billing.status === "reserved" || billing.status === "running")) return { amount: formatCredits(billing.spendingLimitMicrocredits ?? 0), note: "费用上限", refundNote: "由 New API 按实际用量结算", tone: "held" };
+    if (billing.externalBilling && (billing.status === "pending_receipt" || billing.status === "reserved" || billing.status === "running"))
+        return { amount: "—", note: "New API 计费处理中", refundNote: "授权、预扣与退款以 New API 回执为准", tone: "held" };
+    if (billing.externalBilling && billing.status === "uncertain") return { amount: formatCredits(billing.reservedMicrocredits), note: "New API 费用待核对", refundNote: "以 New API 最终结算回执为准", tone: "uncertain" };
     if (billing.externalBilling && billing.status === "refunded") return { amount: "0", note: "未产生费用", refundNote: "", tone: "refunded" };
     switch (billing.status) {
         case "settled":

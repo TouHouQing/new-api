@@ -12,7 +12,7 @@ import { createCanvasAdmissionJournal, admissionTasks, type CanvasAdmissionBody,
 export type { BackendEnvelope } from "@/services/api/request";
 
 export type TaskStatus = "queued" | "running" | "succeeded" | "failed" | "cancelled" | "text_replay";
-export type TaskBillingStatus = "reserved" | "running" | "settled" | "refunded" | "uncertain";
+export type TaskBillingStatus = "pending_receipt" | "reserved" | "running" | "settled" | "refunded" | "uncertain";
 export type ProviderCancelStatus = "requested" | "confirmed" | "uncertain";
 export type GenerationTaskResultState = "NOT_AVAILABLE" | "PENDING_MATERIALIZATION" | "MATERIALIZING" | "READY" | "FAILED_RETRYABLE" | "FAILED_PERMANENT";
 export type GenerationTaskOutput = {
@@ -74,6 +74,7 @@ export type GenerationTask = {
         /** 下单时的冻结额（预授权），不是实际扣费；与 reservedMicrocredits 相同。 */
         amountMicrocredits: number;
         externalBilling?: boolean;
+        billingSource?: "newapi";
         spendingLimitMicrocredits?: number;
         reservedMicrocredits: number;
         /** 已结算（settled）时的实收，已扣除差额退回；其余状态不返回。 */

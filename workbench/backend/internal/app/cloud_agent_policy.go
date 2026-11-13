@@ -129,15 +129,19 @@ func compileCloudAgentPolicies(req CloudAgentRequest, agentName string, skillCat
 	b.WriteString("\n\n")
 	b.WriteString(cloudAgentCapabilityGuide())
 	// Behavior belongs to versioned policies; the compiler only projects facts.
+	budget := map[string]any{
+		"maxSteps":           cloudAgentStepLimit(req),
+		"maxGenerationTasks": req.Budget.MaxGenerationTasks, "maxVideoSeconds": req.Budget.MaxVideoSeconds,
+	}
+	if req.Budget.MaxCredits > 0 {
+		budget["maxCredits"] = req.Budget.MaxCredits
+	}
 	context := map[string]any{
 		"source": "server_snapshot", "permissionMode": req.PermissionMode,
 		"agentIdentity": map[string]string{"name": firstNonEmpty(strings.TrimSpace(agentName), defaultCanvasAppearance().AgentName)},
 		"reasoningMode": mode,
-		"budget": map[string]any{
-			"maxCredits": req.Budget.MaxCredits, "maxSteps": cloudAgentStepLimit(req),
-			"maxGenerationTasks": req.Budget.MaxGenerationTasks, "maxVideoSeconds": req.Budget.MaxVideoSeconds,
-		},
-		"maxToolCalls": cloudAgentMaxToolCalls, "maxOutputBytes": cloudAgentMaxOutputBytes,
+		"budget":        budget,
+		"maxToolCalls":  cloudAgentMaxToolCalls, "maxOutputBytes": cloudAgentMaxOutputBytes,
 	}
 	if strings.TrimSpace(canvasSummary) != "" {
 		// Callers may provide a catalog for policy-contract tests or other

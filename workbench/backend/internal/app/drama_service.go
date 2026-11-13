@@ -47,6 +47,10 @@ func (s *Service) prepareDramaCreation(userID string, projectID string, req Crea
 	if req.BudgetMicrocredits < 0 {
 		return nil, BadAuthRequest("预算不能为负数")
 	}
+	if s.host != nil {
+		// Hosted workspaces use New API balance as the only monetary authority.
+		req.BudgetMicrocredits = 0
+	}
 	if req.Settings.MediaMode == "" {
 		// 新作品默认先只跑文本：先看剧情、分镜与资产，确认后再花钱生图。
 		req.Settings.MediaMode = DramaMediaManual

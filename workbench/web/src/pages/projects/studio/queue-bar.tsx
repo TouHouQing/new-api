@@ -22,11 +22,7 @@ export function QueueBar({ projectId, summary, retrying, onRetry, onJump }: { pr
         () => (jobsQuery.data?.jobs || []).filter((job) => filter === "all" || (filter === "failed" ? job.status === "failed" || Boolean(job.error && job.status === "queued") : job.status === "running" || job.status === "queued")),
         [filter, jobsQuery.data],
     );
-    const budget = production.budgetMicrocredits;
     const held = production.heldMicrocredits || 0;
-    // 预算进度与后端预算判断同一口径：已扣费加未结算订单的冻结额。
-    const committed = production.spentMicrocredits + held;
-    const usage = budget ? Math.min(1, committed / budget) : 0;
     return (
         <div className="drama-queue">
             <div className="drama-queue-bar">
@@ -51,14 +47,8 @@ export function QueueBar({ projectId, summary, retrying, onRetry, onJump }: { pr
                     </Button>
                 ) : null}
                 <span className="drama-queue-budget">
-                    {budget ? (
-                        <span className="drama-queue-meter">
-                            <span className={usage >= 0.9 ? "is-warn" : ""} style={{ width: `${Math.max(usage * 100, committed ? 3 : 0)}%` }} />
-                        </span>
-                    ) : null}
-                    已用 <b>{formatCredits(production.spentMicrocredits)}</b>
-                    {held > 0 ? <> · 冻结 {formatCredits(held)}</> : null}
-                    {budget ? <> / {formatCredits(budget)} 积分</> : " 积分 · 不限预算"}
+                    New API 已结算 <b>{formatCredits(production.spentMicrocredits)}</b>
+                    {held > 0 ? <> · 处理中 {formatCredits(held)}</> : null}
                 </span>
                 <button type="button" className="drama-queue-toggle" aria-expanded={open} onClick={() => setOpen((value) => !value)}>
                     {open ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}

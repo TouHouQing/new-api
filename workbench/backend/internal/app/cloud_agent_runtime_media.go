@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"math"
 	"sort"
 	"strings"
 	"time"
@@ -41,16 +40,18 @@ func cloudAgentMediaCall(call cloudAgentCall) cloudAgentCall {
 }
 
 func (s *Service) enqueueCloudAgentTask(run *model.CloudAgentExecution, state *cloudAgentRuntime, req CreateTaskRequest, media *cloudAgentMediaPlan) error {
-	orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
-	if err != nil {
-		return err
-	}
-	remaining := int64(math.Floor(state.Request.Budget.MaxCredits * float64(CreditScale)))
-	for _, order := range orders {
-		remaining -= order.AmountMicrocredits
-	}
-	if remaining < 0 {
-		return s.failCloudAgent(run, state, "Agent 累计预算已耗尽")
+	remaining := s.localCreditBudgetMicrocredits(state.Request.Budget.MaxCredits)
+	if s.localCreditBudgetEnforced() {
+		orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
+		if err != nil {
+			return err
+		}
+		for _, order := range orders {
+			remaining -= order.AmountMicrocredits
+		}
+		if remaining < 0 {
+			return s.failCloudAgent(run, state, "Agent 累计预算已耗尽")
+		}
 	}
 	var prepared *cloudAgentPreparedMedia
 	approvalID, generationID := "", ""

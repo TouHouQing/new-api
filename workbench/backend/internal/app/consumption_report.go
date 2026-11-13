@@ -245,7 +245,11 @@ func (s *Service) buildConsumptionReport(user model.User, dayStart time.Time) (*
 	for _, item := range top[:min(len(top), 5)] {
 		report.TopOrders = append(report.TopOrders, emailtpl.OrderLine{Time: item.at.Format("15:04"), Model: item.model, Kind: item.capability, Micro: item.micro})
 	}
-	if account, err := s.repo.CreditAccount(user.ID); err == nil {
+	if s.host != nil && strings.HasPrefix(user.ID, "newapi:") {
+		if balance, err := s.host.Balance(context.Background(), strings.TrimPrefix(user.ID, "newapi:")); err == nil {
+			report.AvailableMicro = balance
+		}
+	} else if account, err := s.repo.CreditAccount(user.ID); err == nil {
 		report.AvailableMicro = account.AvailableMicrocredits
 	}
 	if base := publicSiteURL(); base != "" {

@@ -144,13 +144,13 @@ describe('pricing controls', () => {
       matches: ['task'],
     },
     {
-      name: 'unparseable dynamic pricing retaining its legacy category',
+      name: 'unparseable dynamic pricing retaining a separate category',
       pricing: {
         quota_type: 1,
         billing_mode: 'tiered_expr',
         billing_expr: 'tier("request", fixed(',
       },
-      matches: ['request'],
+      matches: ['task'],
     },
   ])(
     'keeps filter results and sidebar counts consistent for $name',
@@ -169,6 +169,7 @@ describe('pricing controls', () => {
 
       for (const [quotaType, label] of [
         ['token', 'Token-based'],
+        ['second', 'Per Second'],
         ['request', 'Per Request'],
         ['task', 'Task billing'],
       ]) {
@@ -216,6 +217,7 @@ describe('pricing controls', () => {
         ...base,
         id: 3,
         model_name: 'task-model',
+        quota_type: 1,
         vendor_name: 'Vendor B',
         tags: 'Video',
         supported_endpoint_types: ['openai-video'],

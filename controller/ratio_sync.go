@@ -72,6 +72,7 @@ var pricingSyncFields = []string{
 	"model_price",
 	billing_setting.BillingModeField,
 	billing_setting.BillingExprField,
+	billing_setting.BillingPriceUnitField,
 }
 
 var numericPricingSyncFields = map[string]bool{
@@ -175,6 +176,10 @@ func effectivePricingSyncData(data map[string]any) map[string]any {
 			for field := range numericPricingSyncFields {
 				delete(valueMap(result[field]), name)
 			}
+			delete(
+				valueMap(result[billing_setting.BillingPriceUnitField]),
+				name,
+			)
 			continue
 		}
 		delete(expressions, name)
@@ -193,6 +198,11 @@ func effectivePricingSyncData(data map[string]any) map[string]any {
 					delete(valueMap(result[field]), name)
 				}
 			}
+		} else {
+			delete(
+				valueMap(result[billing_setting.BillingPriceUnitField]),
+				name,
+			)
 		}
 	}
 	return result

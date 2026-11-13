@@ -95,6 +95,7 @@ func TestTaskBillingCoordinatorRetryEligibility(t *testing.T) {
 		{name: "settled order", orderID: "order-1", order: &model.BillingOrder{Status: model.BillingStatusSettled}, wantErr: false},
 		{name: "refunded order", orderID: "order-1", order: &model.BillingOrder{Status: model.BillingStatusRefunded}, wantErr: false},
 		{name: "uncertain order", orderID: "order-1", order: &model.BillingOrder{Status: model.BillingStatusUncertain}, wantErr: true, wantReview: true},
+		{name: "pending New API receipt", orderID: "order-1", order: &model.BillingOrder{Status: model.BillingStatusPendingReceipt, BillingMode: model.BillingModeNewAPI}, wantErr: true, wantReview: true},
 		{name: "missing order", orderID: "order-1", wantErr: true, wantReview: false},
 		{name: "lookup failure", orderID: "order-1", orderErr: errors.New("database unavailable"), wantErr: true, wantReview: false},
 	}
@@ -163,6 +164,7 @@ func TestTaskBillingCoordinatorFailureReviewPolicy(t *testing.T) {
 		{name: "uncertain transport error", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusSettled}}, err: errors.New("upstream timeout"), want: true},
 		{name: "order lookup error", stub: taskBillingRepositoryStub{orderErr: errors.New("database unavailable")}, err: errors.New("provider unavailable"), want: true},
 		{name: "uncertain order", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusUncertain}}, err: errors.New("provider rejected"), want: true},
+		{name: "pending New API receipt", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusPendingReceipt, BillingMode: model.BillingModeNewAPI}}, err: errors.New("provider rejected"), want: true},
 		{name: "successful billable call", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusRunning}, hasSuccessfulCall: true}, err: errors.New("provider rejected"), want: true},
 		{name: "normal failed call", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusRunning}}, err: errors.New("provider rejected"), want: false},
 		{name: "billable call lookup error", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusRunning}, callErr: errors.New("database unavailable")}, err: errors.New("provider rejected"), want: true},

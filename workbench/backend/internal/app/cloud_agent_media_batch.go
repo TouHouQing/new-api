@@ -478,22 +478,27 @@ func (s *Service) requestCloudAgentMediaBatchApproval(run *model.CloudAgentExecu
 	if args.Mode == "video" && budget.MaxVideoSeconds > 0 && state.VideoSeconds+videoSeconds > budget.MaxVideoSeconds {
 		return s.cloudAgentMediaError(run, state, "admission", false, false, cloudAgentFieldError("items", "item_count", fmt.Sprintf("本批视频共 %d 秒，超过本轮剩余视频时长预算 %d 秒；请拆批，或请用户调高预算", videoSeconds, budget.MaxVideoSeconds-state.VideoSeconds)))
 	}
-	orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
-	if err != nil {
-		return err
-	}
-	remaining := int64(math.Floor(budget.MaxCredits * float64(CreditScale)))
-	for _, order := range orders {
-		remaining -= order.AmountMicrocredits
-	}
-	if total > remaining {
-		return s.cloudAgentMediaError(run, state, "admission", false, false, cloudAgentFieldError("items", "item_count", fmt.Sprintf("本批预计 %s，超过本轮剩余积分预算 %s；请拆批，或请用户调高本轮积分预算", cloudAgentCreditsLabel(total), cloudAgentCreditsLabel(remaining))))
+	if s.localCreditBudgetEnforced() {
+		orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
+		if err != nil {
+			return err
+		}
+		remaining := s.localCreditBudgetMicrocredits(budget.MaxCredits)
+		for _, order := range orders {
+			remaining -= order.AmountMicrocredits
+		}
+		if total > remaining {
+			return s.cloudAgentMediaError(run, state, "admission", false, false, cloudAgentFieldError("items", "item_count", fmt.Sprintf("本批预计 %s，超过本轮剩余积分预算 %s；请拆批，或请用户调高本轮积分预算", cloudAgentCreditsLabel(total), cloudAgentCreditsLabel(remaining))))
+		}
 	}
 	approvalID := fmt.Sprintf("%s-%d-%d", run.ID, state.Step, state.CallIndex)
 	batch := &cloudAgentMediaBatch{
 		ID: approvalID, CallID: call.ID, Mode: args.Mode, ModelName: prepared[0].model, Phase: cloudAgentMediaBatchPhaseApproval,
 		Concurrency: concurrency, Canary: args.Canary && len(prepared) > 1, MaxRetries: maxRetries,
-		CapMicrocredits: total * int64(1+maxRetries), Items: make([]cloudAgentMediaBatchItem, 0, len(prepared)),
+		CapMicrocredits: 0, Items: make([]cloudAgentMediaBatchItem, 0, len(prepared)),
+	}
+	if s.localCreditBudgetEnforced() {
+		batch.CapMicrocredits = total * int64(1+maxRetries)
 	}
 	for _, entry := range prepared {
 		batch.Items = append(batch.Items, entry.item)
@@ -590,7 +595,7 @@ func cloudAgentMediaBatchApprovalPreview(batch *cloudAgentMediaBatch, prepared [
 		description += "，规格 " + strings.Join(spec, " · ")
 	}
 	description += fmt.Sprintf("；预计 %s，并发 %d", cloudAgentCreditsLabel(total), batch.Concurrency)
-	if batch.MaxRetries > 0 {
+	if batch.MaxRetries > 0 && batch.CapMicrocredits > 0 {
 		description += fmt.Sprintf("；每条最多重试 %d 次，本批总额上限 %s", batch.MaxRetries, cloudAgentCreditsLabel(batch.CapMicrocredits))
 	}
 	if batch.Canary {
@@ -821,27 +826,31 @@ func (s *Service) submitCloudAgentMediaBatchItem(run *model.CloudAgentExecution,
 	if batch.Mode == "video" && budget.MaxVideoSeconds > 0 && state.VideoSeconds+item.Duration > budget.MaxVideoSeconds {
 		return s.markCloudAgentMediaBatchItemFailed(run, state, index, "已超过本轮视频时长预算，未提交")
 	}
-	orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
-	if err != nil {
-		return err
-	}
-	remaining := int64(math.Floor(budget.MaxCredits * float64(CreditScale)))
-	batchTasks := map[string]bool{}
-	for _, entry := range batch.Items {
-		for _, id := range entry.TaskIDs {
-			batchTasks[id] = true
-		}
-	}
-	var batchSpent int64
-	for _, order := range orders {
-		remaining -= order.AmountMicrocredits
-		if batchTasks[order.TaskID] {
-			batchSpent += order.AmountMicrocredits
-		}
-	}
 	maxCharge := item.Amount
-	if remaining < maxCharge || batch.CapMicrocredits-batchSpent < maxCharge {
-		return s.markCloudAgentMediaBatchItemFailed(run, state, index, "本轮积分预算或批次总额上限不足，未提交")
+	if s.localCreditBudgetEnforced() {
+		orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
+		if err != nil {
+			return err
+		}
+		remaining := s.localCreditBudgetMicrocredits(budget.MaxCredits)
+		batchTasks := map[string]bool{}
+		for _, entry := range batch.Items {
+			for _, id := range entry.TaskIDs {
+				batchTasks[id] = true
+			}
+		}
+		var batchSpent int64
+		for _, order := range orders {
+			remaining -= order.AmountMicrocredits
+			if batchTasks[order.TaskID] {
+				batchSpent += order.AmountMicrocredits
+			}
+		}
+		if remaining < maxCharge || batch.CapMicrocredits-batchSpent < maxCharge {
+			return s.markCloudAgentMediaBatchItemFailed(run, state, index, "本轮积分预算或批次总额上限不足，未提交")
+		}
+	} else {
+		maxCharge = 0
 	}
 	var a cloudAgentMediaArgs
 	if err := json.Unmarshal([]byte(item.Arguments), &a); err != nil {

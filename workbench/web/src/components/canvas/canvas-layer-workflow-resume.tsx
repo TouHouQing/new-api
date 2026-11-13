@@ -6,6 +6,7 @@ import type { ImageLayerWorkflowRequest } from "@/services/api/image-operations"
 import { submitNativeLayerWorkflow } from "@/services/canvas-native-layer-workflow";
 import { useCanvasStore } from "@/stores/canvas/use-canvas-store";
 import type { CanvasNodeData } from "@/types/canvas";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 
 export function CanvasLayerWorkflowResume({ node, onOpenChange }: { node: CanvasNodeData; onOpenChange?: (open: boolean) => void }) {
     const { message } = App.useApp();
@@ -35,7 +36,7 @@ export function CanvasLayerWorkflowResume({ node, onOpenChange }: { node: Canvas
             if (task.status !== "failed" && task.status !== "cancelled") throw new Error("原任务状态已变化，请刷新后再继续");
             const input = JSON.parse(task.inputJson || "{}");
             if (input.kind !== "native-image-layer-workflow" || input.canvasId !== project.id || !Array.isArray(input.request?.layers)) throw new Error("未取得原任务的固定计划，请在任务中心核对");
-            const request: ImageLayerWorkflowRequest = { ...input.request, resumeTaskId: task.id, maxCredits: budget, title: `${(node.title || "图层").slice(0, 60)} · 继续制作` };
+            const request: ImageLayerWorkflowRequest = { ...input.request, resumeTaskId: task.id, maxCredits: isNewAPIWorkbench ? 0 : budget, title: `${(node.title || "图层").slice(0, 60)} · 继续制作` };
             const result = await submitNativeLayerWorkflow(project.id, request.sourceNodeId, request, abort.signal);
             if (!result) throw new Error("尚未取得继续制作回执，请保留页面记录并核对任务中心");
             message.success("已新建图层组，完成层直接复用；未完成层在后台继续制作");
@@ -85,11 +86,17 @@ export function CanvasLayerWorkflowResume({ node, onOpenChange }: { node: Canvas
                             </li>
                         ))}
                     </ul>
-                    <label className="flex flex-wrap items-center gap-2">
-                        本次图片生成积分上限
-                        <InputNumber aria-label="继续制作积分上限" min={0} max={1_000_000} value={budget} onChange={setBudget} />
-                    </label>
-                    <p className="text-xs text-muted-foreground">0 仅允许免费处理。上次任务的模型结果或费用仍待核对时，会保留当前记录并暂停重新提交。</p>
+                    {isNewAPIWorkbench ? (
+                        <p className="rounded-lg bg-black/5 px-3 py-2 text-xs text-muted-foreground">继续制作的实际费用由 New API 按当前账户额度、模型价格和预扣结果统一控制。</p>
+                    ) : (
+                        <>
+                            <label className="flex flex-wrap items-center gap-2">
+                                本次图片生成积分上限
+                                <InputNumber aria-label="继续制作积分上限" min={0} max={1_000_000} value={budget} onChange={setBudget} />
+                            </label>
+                            <p className="text-xs text-muted-foreground">0 仅允许免费处理。上次任务的模型结果或费用仍待核对时，会保留当前记录并暂停重新提交。</p>
+                        </>
+                    )}
                     {error ? (
                         <p role="alert" className="text-destructive">
                             {error}

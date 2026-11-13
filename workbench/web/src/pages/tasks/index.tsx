@@ -18,6 +18,7 @@ import { useTaskCancellationStatus } from "@/hooks/use-task-cancellation-status"
 import { useDebouncedValue } from "@/hooks/use-debounced-value";
 import { buildVideoOperationPrompt } from "@/lib/prompts";
 import { backendProviderConfig, logicalModelIDForConfig } from "@/services/api/generation-task";
+import { isNewAPIWorkbench } from "@/lib/workbench-host";
 
 import {
     cancelGenerationTask,
@@ -377,7 +378,7 @@ export default function TasksPage() {
             if (nativeLayerWorkflowParentId(currentTask) && !currentTask.canRecoverMedia) {
                 if (!currentTask.projectId) throw new Error("原画布已不可用，完成素材仍保留在素材库");
                 navigate(`/canvas/${encodeURIComponent(currentTask.projectId)}`);
-                message.info("请选中原图层组，使用“继续未完成图层”确认计划和积分上限");
+                message.info(isNewAPIWorkbench ? "请选中原图层组，使用“继续未完成图层”确认计划" : "请选中原图层组，使用“继续未完成图层”确认计划和积分上限");
                 return;
             }
             const savingMedia = Boolean(currentTask.mediaStage);

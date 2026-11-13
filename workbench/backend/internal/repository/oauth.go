@@ -62,6 +62,10 @@ func (r *Repository) CreateOAuthUser(user *model.User, identity *model.UserIdent
 		if err := tx.Create(identity).Error; err != nil {
 			return err
 		}
+		if r.newAPIBillingOnly {
+			// New API owns the wallet for hosted users. Provision identity only.
+			return nil
+		}
 		return tx.Create(&model.CreditAccount{UserID: user.ID}).Error
 	})
 }

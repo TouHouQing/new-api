@@ -304,6 +304,9 @@ func (r *Repository) RouteAttempts(taskID string, routeRun int) ([]model.RouteAt
 // SwitchTaskLogicalRoute 同时更新任务执行目标和账单。跟随供应价格时会原子调整预留积分，
 // 保证明确未创建上游任务后的故障切线不会沿用上一条线路的价格快照。
 func (r *Repository) SwitchTaskLogicalRoute(taskID string, expectedRouteID string, routeID string, inputJSON string, billingOrderID string, channelID string, channelModelID string, replacement *model.BillingOrder, cost model.BillingCostSnapshot) error {
+	if err := r.requireLocalBillingAuthority(); err != nil {
+		return err
+	}
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		updated := tx.Model(&model.Task{}).
 			Where("id = ? AND status = ? AND route_id = ?", taskID, model.TaskStatusRunning, expectedRouteID).

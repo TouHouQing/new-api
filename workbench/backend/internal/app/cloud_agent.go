@@ -249,8 +249,8 @@ func validateCloudAgentRequest(req *CloudAgentRequest) error {
 	if req.CanvasID == "" && (len(req.ContextScope) > 0 || len(req.FocusNodeIDs) > 0 || req.FocusNodeOmittedCount > 0) {
 		return BadAuthRequest("未绑定画布的对话不能读取画布上下文或焦点节点")
 	}
-	if math.IsNaN(req.Budget.MaxCredits) || math.IsInf(req.Budget.MaxCredits, 0) || req.Budget.MaxCredits <= 0 || req.Budget.MaxCredits > 1000000 {
-		return BadAuthRequest("本轮积分上限必须大于 0 且不超过 1000000")
+	if math.IsNaN(req.Budget.MaxCredits) || math.IsInf(req.Budget.MaxCredits, 0) || req.Budget.MaxCredits < 0 || req.Budget.MaxCredits > 1000000 {
+		return BadAuthRequest("本轮积分上限必须在 0 至 1000000 之间")
 	}
 	return nil
 }
@@ -384,6 +384,11 @@ func (s *Service) CloudAgentRunIfChanged(userID, id string, revision int64, opti
 func (s *Service) CreateCloudAgentRun(userID string, req CloudAgentRequest, parentID string) (*CloudAgentRun, error) {
 	// A caller cannot redirect the production scope away from this canvas.
 	req.ProductionProjectID = ""
+	if s.WorkbenchHosted() {
+		// Compatibility field from the standalone Workbench. New API alone owns
+		// balance checks, reservations and settlement for hosted Agent runs.
+		req.Budget.MaxCredits = 0
+	}
 	if err := validateCloudAgentRequest(&req); err != nil {
 		return nil, err
 	}
@@ -592,7 +597,7 @@ func (s *Service) CreateCloudAgentRun(userID string, req CloudAgentRequest, pare
 		}
 	}
 	task, err := s.CreateTask(userID, CreateTaskRequest{ProjectID: req.CanvasID, Type: "canvas_text", Operation: cloudAgentOperation, Prompt: req.Prompt, Model: req.Model, LogicalModelID: req.LogicalModelID, Input: input,
-		admission: &taskAdmission{ID: id, MaxCharge: int64(math.Floor(req.Budget.MaxCredits * float64(CreditScale))), NonBillable: true}})
+		admission: &taskAdmission{ID: id, MaxCharge: s.localCreditBudgetMicrocredits(req.Budget.MaxCredits), NonBillable: true}})
 	if err != nil {
 		// A concurrent identical request may have won the transaction. Never
 		// replace its result or reserve credits a second time.

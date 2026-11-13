@@ -103,7 +103,7 @@ export function formatPriceRange(values: number[], suffix: string) {
 
 export function modelQuoteDescription(quote: LogicalModelQuote) {
     const amount = (quote.amountMicrocredits / 1_000_000).toLocaleString("zh-CN", { maximumFractionDigits: 6 });
-    if (isNewAPIWorkbench) return `本次费用上限 $${amount}；由 New API 按实际用量结算，可在 New API 账单核对`;
+    if (isNewAPIWorkbench) return `本次报价 $${amount}；实际预扣与结算以 New API 回执为准`;
     const descriptions = [`${quote.estimated ? "预计" : "本次"}消耗 ${amount} 积分`];
     const breakdown = referenceVideoQuoteBreakdown(quote.referenceVideo);
     if (breakdown) descriptions.push(breakdown);

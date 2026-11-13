@@ -64,6 +64,10 @@ import { useSystemConfigStore } from '@/stores/system-config-store'
 import { DEFAULT_TOKEN_UNIT } from '../constants'
 import { useBillingTime } from '../hooks/use-billing-time'
 import { usePricingData } from '../hooks/use-pricing-data'
+import {
+  billingPriceUnitLabelKey,
+  getModelPriceDisplay,
+} from '../lib/billing-display'
 import type { ParsedTaskTier } from '../lib/billing-expr'
 import { formatBillingCondition } from '../lib/billing-expression/condition-display'
 import {
@@ -650,6 +654,7 @@ function PriceSection(props: {
   const baseGroupKey = '_base'
   const baseGroupRatioMap = { [baseGroupKey]: 1 }
   const currency = useSystemConfigStore((state) => state.config.currency)
+  const priceDisplay = getModelPriceDisplay(props.model)
   const billingTime = useBillingTime(props.model.billing_expr)
   const dynamicSummary = useMemo(
     () =>
@@ -830,22 +835,42 @@ function PriceSection(props: {
     )
   }
 
-  if (isUnconfiguredTaskUsageModel(props.model)) {
+  if (priceDisplay.kind === 'dynamic') {
     return (
       <section>
         <SectionTitle>{t('Base Price')}</SectionTitle>
-        <UnconfiguredTaskPricingNotice model={props.model} />
+        <p className='text-muted-foreground text-sm'>{t('Dynamic Pricing')}</p>
+      </section>
+    )
+  }
+
+  if (priceDisplay.kind === 'unconfigured') {
+    return (
+      <section>
+        <SectionTitle>{t('Base Price')}</SectionTitle>
+        <div className='space-y-2'>
+          <div className='rounded-lg border border-amber-200/70 bg-amber-50/70 p-3 text-sm dark:border-amber-500/20 dark:bg-amber-500/10'>
+            <p className='font-medium'>{t('Billing unit unconfirmed')}</p>
+            <p className='text-muted-foreground mt-1 text-xs'>
+              {t(
+                'This fixed price needs a reviewed per-second or per-request unit in model pricing settings.'
+              )}
+            </p>
+          </div>
+          <UnconfiguredTaskPricingNotice model={props.model} />
+        </div>
       </section>
     )
   }
 
   if (!isTokenBased) {
+    const unit = priceDisplay.kind === 'fixed' ? priceDisplay.unit : 'request'
     return (
       <section>
         <SectionTitle>{t('Base Price')}</SectionTitle>
         <div className='flex items-baseline justify-between'>
           <span className='text-muted-foreground text-sm'>
-            {t('Per request')}
+            {t(unit === 'second' ? 'Per Second' : 'Per Request')}
           </span>
           <span className='text-foreground font-mono text-sm font-semibold tabular-nums'>
             {formatFixedPrice(
@@ -856,6 +881,9 @@ function PriceSection(props: {
               props.usdExchangeRate,
               baseGroupRatioMap
             )}
+            <span className='text-muted-foreground/40 ml-1 text-xs font-normal'>
+              / {t(billingPriceUnitLabelKey(unit))}
+            </span>
           </span>
         </div>
       </section>

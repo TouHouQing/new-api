@@ -27,6 +27,7 @@ const billingStatusLabels = {
     uncertain: "待核对",
     running: "运行中",
     reserved: "已预授权",
+    pending_receipt: "等待 New API 回执",
     settled: "已结算",
     refunded: "已退款",
 } satisfies Record<BillingOrder["status"], string>;

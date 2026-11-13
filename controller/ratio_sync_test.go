@@ -44,6 +44,32 @@ func TestPricingSyncExpressionPriority(t *testing.T) {
 	}
 }
 
+func TestEffectivePricingSyncRetainsUnitOnlyForFixedPrices(t *testing.T) {
+	expression := `tier("base", p * 2)`
+	data := map[string]any{
+		billing_setting.BillingModeField: map[string]string{
+			"dynamic": billing_setting.BillingModeTieredExpr,
+		},
+		billing_setting.BillingExprField: map[string]string{
+			"dynamic": expression,
+		},
+		billing_setting.BillingPriceUnitField: map[string]string{
+			"dynamic": "second",
+			"fixed":   "request",
+			"token":   "second",
+		},
+		"model_price": map[string]float64{
+			"fixed": 1,
+		},
+		"model_ratio": map[string]float64{
+			"token": 1,
+		},
+	}
+
+	effective := effectivePricingSyncData(data)
+	assert.Equal(t, map[string]any{"fixed": "request"}, effective[billing_setting.BillingPriceUnitField])
+}
+
 func TestRatioConfigExportsEffectiveExpressions(t *testing.T) {
 	before := config.GlobalConfig.ExportAllConfigs()
 	expose := ratio_setting.IsExposeRatioEnabled()

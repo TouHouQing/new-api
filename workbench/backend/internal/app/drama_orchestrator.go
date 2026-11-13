@@ -133,6 +133,17 @@ func (s *Service) tickDrama(productionRow *model.DramaProduction) error {
 		return err
 	}
 	productionRow = fresh
+	if s.host != nil && productionRow.PauseReason == dramaBudgetPauseReason {
+		productionRow.PauseReason = ""
+		if productionRow.Status == model.DramaStatusPaused {
+			productionRow.Status = model.DramaStatusRunning
+		}
+		if err := s.repo.UpdateDramaProduction(productionRow.ProjectID, map[string]any{
+			"status": productionRow.Status, "pause_reason": "",
+		}); err != nil {
+			return err
+		}
+	}
 	project, err := s.repo.ProjectForUser(productionRow.UserID, productionRow.ProjectID)
 	if err != nil {
 		return err
@@ -685,7 +696,10 @@ func (r *dramaRun) dispatch() error {
 	// 预算按订单口径保守判断：流水线与画布精修的实收加上所有未结算订单的冻结额。每轮只汇总一次，
 	// 本轮新提交任务的冻结额逐项累加；同时把流水线实收回写到 spent_microcredits 缓存。
 	var committed int64
-	budgeted := r.production.BudgetMicrocredits > 0 && len(queued) > 0
+	// Hosted deployments enforce spend through New API at execution time. The
+	// project budget remains a historical planning reference and cannot pause
+	// work before New API has decided whether the request is affordable.
+	budgeted := r.s.host == nil && r.production.BudgetMicrocredits > 0 && len(queued) > 0
 	if budgeted {
 		totals, err := r.s.dramaBillingTotals(r.production)
 		if err != nil {

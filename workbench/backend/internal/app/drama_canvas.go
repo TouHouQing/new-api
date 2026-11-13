@@ -520,7 +520,7 @@ func (s *Service) dramaTotalSpent(production *model.DramaProduction) (int64, err
 }
 
 func (s *Service) dramaBudgetExhausted(production *model.DramaProduction) (bool, error) {
-	if production.BudgetMicrocredits <= 0 {
+	if s.host != nil || production.BudgetMicrocredits <= 0 {
 		return false, nil
 	}
 	spent, err := s.dramaTotalSpent(production)

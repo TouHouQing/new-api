@@ -47,6 +47,8 @@ type Pricing struct {
 	BillingExpr            string                               `json:"billing_expr,omitempty"`
 	BillingUsageSchema     map[string]jsplugin.UsageFieldSchema `json:"billing_usage_schema,omitempty"`
 	BillingUsageExamples   []jsplugin.UsageExample              `json:"billing_usage_examples,omitempty"`
+	BillingPriceUnit       string                               `json:"billing_price_unit,omitempty"`
+	BillingPriceUnitSource string                               `json:"billing_price_unit_source,omitempty"`
 	PricingVersion         string                               `json:"pricing_version,omitempty"`
 }
 
@@ -187,6 +189,32 @@ func appendPricingEndpoint(endpoints []string, endpoint string) []string {
 		return endpoints
 	}
 	return append(endpoints, endpoint)
+}
+
+func pricingFixedPriceDisplayUnit(pricing Pricing) (unit, source string) {
+	if pricing.QuotaType != 1 {
+		return "", "token"
+	}
+	dynamic := pricing.BillingMode == billing_setting.BillingModeTieredExpr && strings.TrimSpace(pricing.BillingExpr) != ""
+	if len(pricing.BillingPluginVariants) > 0 {
+		for _, variant := range pricing.BillingPluginVariants {
+			if variant.BillingMode == billing_setting.BillingModeTieredExpr ||
+				(variant.BillingMode != billing_setting.BillingModeRatio && strings.TrimSpace(variant.BillingExpr) != "") {
+				dynamic = true
+				break
+			}
+		}
+	}
+	if dynamic {
+		return "", "dynamic"
+	}
+	if unit, source, ok := billing_setting.GetModelPriceUnit(pricing.ModelName); ok {
+		return unit, source
+	}
+	if len(pricing.BillingUsageSchema) == 0 {
+		return billing_setting.ModelPriceUnitRequest, "legacy-request"
+	}
+	return "", "unconfigured"
 }
 
 func updatePricing() {
@@ -425,12 +453,13 @@ func updatePricing() {
 				})
 			}
 		}
+		pricing.BillingPriceUnit, pricing.BillingPriceUnitSource = pricingFixedPriceDisplayUnit(pricing)
 		pricingMap = append(pricingMap, pricing)
 	}
 
 	// 防止大更新后数据不通用
 	if len(pricingMap) > 0 {
-		pricingMap[0].PricingVersion = "5a90f2b86c08bd983a9a2e6d66c255f4eaef9c4bc934386d2b6ae84ef0ff1f1f"
+		pricingMap[0].PricingVersion = "9f59eae3bbd17e690e80849e5c51a46ff6af5086fa75c4e1e8c3d49f79d2c155"
 	}
 
 	// 刷新缓存映射，供高并发快速查询

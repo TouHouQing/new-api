@@ -29,4 +29,19 @@ describe("task billing display", () => {
         expect(taskBillingDisplay({ ...hold, status: "refunded", refundedMicrocredits: 1_000_000 })).toMatchObject({ note: "已退回", amount: "1", tone: "refunded" });
         expect(taskBillingDisplay({ ...hold, status: "uncertain" })).toMatchObject({ note: "待核对", tone: "uncertain" });
     });
+
+    test("external billing delegates authority to the New API receipt", () => {
+        for (const status of ["pending_receipt", "reserved", "running"] as const) {
+            expect(taskBillingDisplay({ ...hold, externalBilling: true, billingSource: "newapi", status })).toMatchObject({
+                amount: "—",
+                note: "New API 计费处理中",
+                tone: "held",
+            });
+        }
+        expect(taskBillingDisplay({ ...hold, externalBilling: true, billingSource: "newapi", status: "uncertain" })).toMatchObject({
+            amount: "1",
+            note: "New API 费用待核对",
+            tone: "uncertain",
+        });
+    });
 });

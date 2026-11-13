@@ -45,6 +45,7 @@ export const PRICING_KEYS = [
   'AudioCompletionRatio',
   'billing_setting.billing_mode',
   'billing_setting.billing_expr',
+  'billing_setting.model_price_unit',
   'billing_setting.plugin_billing_expr',
 ] as const
 export type PricingKey = (typeof PRICING_KEYS)[number]
@@ -59,6 +60,14 @@ export type PricingValues = Partial<
 export type PricingOptions = Record<PricingKey, string>
 
 export type CacheWriteMode = 'none' | 'standard' | 'claude_ttl' | 'openai_ttl'
+
+function normalizeFixedPriceUnit(
+  value: unknown
+): 'second' | 'request' | undefined {
+  if (typeof value !== 'string') return undefined
+  const unit = value.trim().toLowerCase()
+  return unit === 'second' || unit === 'request' ? unit : undefined
+}
 
 export type LegacyBillingDetails = {
   audio_input_price?: number
@@ -123,6 +132,14 @@ export function modelPricingDisplay(
       typeof values['billing_setting.billing_expr'] === 'string'
         ? values['billing_setting.billing_expr']
         : undefined,
+    billing_price_unit: normalizeFixedPriceUnit(
+      values['billing_setting.model_price_unit']
+    ),
+    billing_price_unit_source: normalizeFixedPriceUnit(
+      values['billing_setting.model_price_unit']
+    )
+      ? 'admin'
+      : undefined,
     billing_usage_schema: usesTaskModelPricing(
       pricingRow(entry.model_name, values),
       entry.usage_schema,
@@ -159,6 +176,9 @@ export function pricingOptions(
       }
       if (key === 'billing_setting.plugin_billing_expr') {
         value = values.PluginBillingExpr ?? value
+      }
+      if (key === 'billing_setting.model_price_unit') {
+        value = values.priceUnit ?? value
       }
       return [key, typeof value === 'string' ? value : '{}']
     })
@@ -231,6 +251,9 @@ export function pricingRow(
     ...row,
     name,
     billingMode,
+    priceUnit: normalizeFixedPriceUnit(
+      values['billing_setting.model_price_unit']
+    ),
     pluginBillingExpr: values['billing_setting.plugin_billing_expr'],
   }
 }
@@ -264,6 +287,9 @@ export function pricingFromDraft(data: ModelRatioData): PricingValues {
       data.billingExpr || '',
       data.requestRuleExpr || ''
     )
+  }
+  if (data.billingMode === 'per-request' && data.priceUnit) {
+    values['billing_setting.model_price_unit'] = data.priceUnit
   }
   return values
 }
@@ -377,8 +403,13 @@ export function applyPriceSyncSelections(
     } else {
       next['billing_setting.billing_mode'] = 'ratio'
       const fixed = fields.model_price !== undefined
+      const fixedPriceUnit = normalizeFixedPriceUnit(fields.billing_price_unit)
+      if (fixed && fixedPriceUnit) {
+        next['billing_setting.model_price_unit'] = fixedPriceUnit
+      }
       for (const [field, value] of Object.entries(fields)) {
         if (field === 'billing_mode' || field === 'billing_expr') continue
+        if (field === 'billing_price_unit') continue
         if (fixed && field !== 'model_price') continue
         const key = field
           .split('_')

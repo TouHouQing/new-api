@@ -25,6 +25,7 @@ import {
   pricingFromDraft,
   pricingOptions,
   pricingRow,
+  pricingValuesByModel,
 } from '../pricing'
 
 describe('shared model pricing', () => {
@@ -248,5 +249,39 @@ it('commits source provider edits while preserving target providers during batch
   expect(JSON.parse(after[key])).toEqual({
     'alpha::source': '3',
     'beta::target': '2',
+  })
+})
+
+it('preserves the reviewed fixed price unit in the per-model pricing draft', () => {
+  const values = pricingFromDraft({
+    name: 'fixed-video',
+    billingMode: 'per-request',
+    price: '0.7189',
+    priceUnit: 'second',
+  })
+  expect(values['billing_setting.model_price_unit']).toBe('second')
+  expect(
+    pricingRow('fixed-video', {
+      ModelPrice: 0.7189,
+      'billing_setting.model_price_unit': 'second',
+    })
+  ).toMatchObject({
+    billingMode: 'per-request',
+    priceUnit: 'second',
+  })
+})
+
+it('keeps the fixed price unit when importing a synchronized price', () => {
+  const values = applyPriceSyncSelections(pricingOptions({}), {
+    'fixed-video': {
+      model_price: 0.7189,
+      billing_price_unit: 'second',
+    },
+  })
+
+  expect(pricingValuesByModel(values).get('fixed-video')).toEqual({
+    ModelPrice: 0.7189,
+    'billing_setting.billing_mode': 'ratio',
+    'billing_setting.model_price_unit': 'second',
   })
 })

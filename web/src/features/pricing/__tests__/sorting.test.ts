@@ -67,6 +67,31 @@ const models = [
 
 describe('price sorting', () => {
   test.each([
+    [SORT_OPTIONS.REQUEST_PRICE_LOW, ['fixed-request', 'fixed-second']],
+    [SORT_OPTIONS.REQUEST_PRICE_HIGH, ['fixed-second', 'fixed-request']],
+  ])(
+    '%s orders fixed prices independent of whether the unit is second or request',
+    (sortBy, expected) => {
+      const fixedUnits = [
+        pricingModel('fixed-second', {
+          quota_type: 1,
+          model_price: 0.2,
+          billing_price_unit: 'second',
+        }),
+        pricingModel('fixed-request', {
+          quota_type: 1,
+          model_price: 0.1,
+          billing_price_unit: 'request',
+        }),
+      ]
+
+      expect(
+        sortModels(fixedUnits, sortBy).map((model) => model.model_name)
+      ).toEqual(expected)
+    }
+  )
+
+  test.each([
     [
       SORT_OPTIONS.INPUT_PRICE_LOW,
       [

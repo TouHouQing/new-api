@@ -102,11 +102,16 @@ const (
 	ResourceDeletionStatusPending    ResourceDeletionStatus = "pending"
 	ResourceDeletionStatusProcessing ResourceDeletionStatus = "processing"
 
-	BillingStatusReserved  BillingStatus = "reserved"
-	BillingStatusRunning   BillingStatus = "running"
-	BillingStatusSettled   BillingStatus = "settled"
-	BillingStatusRefunded  BillingStatus = "refunded"
-	BillingStatusUncertain BillingStatus = "uncertain"
+	BillingStatusPendingReceipt BillingStatus = "pending_receipt"
+	BillingStatusReserved       BillingStatus = "reserved"
+	BillingStatusRunning        BillingStatus = "running"
+	BillingStatusSettled        BillingStatus = "settled"
+	BillingStatusRefunded       BillingStatus = "refunded"
+	BillingStatusUncertain      BillingStatus = "uncertain"
+
+	BillingModeHost     = "host"
+	BillingModeNewAPI   = "newapi"
+	BillingSourceNewAPI = "newapi"
 
 	ProviderCancelStatusRequested ProviderCancelStatus = "requested"
 	ProviderCancelStatusConfirmed ProviderCancelStatus = "confirmed"
@@ -173,3 +178,16 @@ const (
 	WorkflowStepStatusFailed    WorkflowStepStatus = "failed"
 	WorkflowStepStatusSkipped   WorkflowStepStatus = "skipped"
 )
+
+// IsNewAPIBillingOrder also recognizes legacy host rows created before the
+// explicit source marker was introduced. Both modes are host-owned mirrors and
+// must never move Workbench credits.
+func IsNewAPIBillingOrder(order BillingOrder) bool {
+	return order.BillingSource == BillingSourceNewAPI ||
+		order.BillingMode == BillingModeNewAPI ||
+		order.BillingMode == BillingModeHost
+}
+
+func IsNewAPIBillingMode(mode string) bool {
+	return mode == BillingModeNewAPI || mode == BillingModeHost
+}

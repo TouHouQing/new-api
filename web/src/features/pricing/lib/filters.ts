@@ -20,12 +20,12 @@ import {
   SORT_OPTIONS,
   FILTER_ALL,
   QUOTA_TYPES,
-  QUOTA_TYPE_VALUES,
   ENDPOINT_TYPES,
   type QuotaTypeOption,
   type SortOption,
 } from '../constants'
 import type { PricingModel } from '../types'
+import { getModelPriceDisplay } from './billing-display'
 import { compileBillingExpression } from './billing-expression/parser'
 import { visitExpression } from './billing-expression/types'
 import {
@@ -86,7 +86,12 @@ export function filterByGroup(
 export function getModelQuotaType(
   model: PricingModel
 ): Exclude<QuotaTypeOption, 'all'> | undefined {
-  // Task-usage models retain their own category.
+  const display = getModelPriceDisplay(model)
+  if (display.kind === 'fixed') {
+    return display.unit === 'second' ? QUOTA_TYPES.SECOND : QUOTA_TYPES.REQUEST
+  }
+  if (display.kind === 'unconfigured') return QUOTA_TYPES.TASK
+  if (display.kind === 'token') return QUOTA_TYPES.TOKEN
   if (hasTaskUsageSchema(model)) return QUOTA_TYPES.TASK
 
   if (model.billing_mode === 'tiered_expr' && model.billing_expr) {
@@ -94,7 +99,6 @@ export function getModelQuotaType(
     if (compiled.status === 'ready') {
       if (!compiled.functions.has('fixed')) return QUOTA_TYPES.TOKEN
 
-      // Only models whose pricing leaves are all fixed count as per-request.
       let hasTokenPricing = false
       visitExpression(compiled.ast, (node) => {
         if (node.kind !== 'call' || node.name !== 'tier') return
@@ -105,12 +109,7 @@ export function getModelQuotaType(
       })
       return hasTokenPricing ? QUOTA_TYPES.TOKEN : QUOTA_TYPES.REQUEST
     }
-  }
-
-  // Preserve legacy classification when the expression cannot be parsed.
-  if (model.quota_type === QUOTA_TYPE_VALUES.TOKEN) return QUOTA_TYPES.TOKEN
-  if (model.quota_type === QUOTA_TYPE_VALUES.REQUEST) {
-    return QUOTA_TYPES.REQUEST
+    return QUOTA_TYPES.TASK
   }
   return undefined
 }
@@ -139,7 +138,7 @@ export function filterByEndpointType(
   )
 }
 
-type SortPriceKind = 'input' | 'output' | 'request'
+type SortPriceKind = 'input' | 'output' | 'fixed'
 
 const PRICE_SORTS: Partial<
   Record<SortOption, { kind: SortPriceKind; dir: 1 | -1 }>
@@ -148,25 +147,25 @@ const PRICE_SORTS: Partial<
   [SORT_OPTIONS.INPUT_PRICE_HIGH]: { kind: 'input', dir: -1 },
   [SORT_OPTIONS.OUTPUT_PRICE_LOW]: { kind: 'output', dir: 1 },
   [SORT_OPTIONS.OUTPUT_PRICE_HIGH]: { kind: 'output', dir: -1 },
-  [SORT_OPTIONS.REQUEST_PRICE_LOW]: { kind: 'request', dir: 1 },
-  [SORT_OPTIONS.REQUEST_PRICE_HIGH]: { kind: 'request', dir: -1 },
+  [SORT_OPTIONS.REQUEST_PRICE_LOW]: { kind: 'fixed', dir: 1 },
+  [SORT_OPTIONS.REQUEST_PRICE_HIGH]: { kind: 'fixed', dir: -1 },
 }
 
 /**
- * Base USD price shown on the model card: input/output per 1M tokens, request
- * per call (task models use their first usage example). Undefined when the
- * model has no price of that kind.
+ * Base USD price shown on the model card: input/output per 1M tokens or a
+ * fixed price. Fixed prices can use different units, so the UI labels the sort
+ * generically instead of presenting every value as a per-request price.
  */
 function getSortPrice(
   model: PricingModel,
   kind: SortPriceKind
 ): number | undefined {
-  if (kind === 'request') {
+  if (kind === 'fixed') {
     const example = getCardExamplePrice(model, { tokenUnit: 'M' })
     if (example) return example.total
   }
   const summary = getDynamicPricingSummary(model, { tokenUnit: 'M' })
-  if (kind === 'request') {
+  if (kind === 'fixed') {
     if (summary) {
       return summary.entries.find(
         (entry) => entry.field === 'fixedPrice' || entry.field === 'modelPrice'

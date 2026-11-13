@@ -28,10 +28,13 @@ type cloudAgentLayerPlanningApproval struct {
 	ExpiresAt    time.Time           `json:"expiresAt"`
 }
 
-func decodeCloudAgentLayerPlanning(call cloudAgentCall) (cloudAgentLayerPlanningArgs, error) {
+func decodeCloudAgentLayerPlanning(call cloudAgentCall, hosted bool) (cloudAgentLayerPlanningArgs, error) {
 	var args cloudAgentLayerPlanningArgs
 	if err := decodeCloudAgentJSONObject(call.Function.Arguments, &args); err != nil {
 		return args, cloudAgentJSONArgumentError(err)
+	}
+	if hosted {
+		args.MaxCredits = 0
 	}
 	if args.Input == "" {
 		args.Input = "preview"
@@ -43,7 +46,7 @@ func decodeCloudAgentLayerPlanning(call cloudAgentCall) (cloudAgentLayerPlanning
 }
 
 func (s *Service) prepareCloudAgentLayerPlanning(run *model.CloudAgentExecution, state *cloudAgentRuntime, call cloudAgentCall) (*model.Task, *creationTaskPreparation, *nativeLayerPlanning, error) {
-	args, err := decodeCloudAgentLayerPlanning(call)
+	args, err := decodeCloudAgentLayerPlanning(call, s.WorkbenchHosted())
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -62,16 +65,18 @@ func (s *Service) prepareCloudAgentLayerPlanning(run *model.CloudAgentExecution,
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-	remaining := int64(math.Floor(state.Request.Budget.MaxCredits * float64(CreditScale)))
-	for _, order := range orders {
-		remaining -= order.AmountMicrocredits
-	}
-	if remaining < 0 {
-		return nil, nil, nil, BadAuthRequest("本轮Agent预算已用尽")
+	remaining := s.localCreditBudgetMicrocredits(state.Request.Budget.MaxCredits)
+	if s.localCreditBudgetEnforced() {
+		orders, err := s.repo.BillingOrdersByTaskIDs(run.UserID, state.TaskIDs)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		for _, order := range orders {
+			remaining -= order.AmountMicrocredits
+		}
+		if remaining < 0 {
+			return nil, nil, nil, BadAuthRequest("本轮Agent预算已用尽")
+		}
 	}
 	preparation := &creationTaskPreparation{}
 	input := map[string]any{"mode": "text", "prompt": args.Instructions, "config": map[string]any{"channelId": state.Request.ChannelID, "model": firstNonEmpty(state.Request.ChannelModelKey, state.Request.Model)}, "metadata": map[string]any{"nodeId": args.SourceNodeID, "nativeLayerPlanning": map[string]any{"version": 1, "sourceNodeId": args.SourceNodeID, "resourceId": resourceID, "expectedSourceSha256": source.SHA256, "instructions": args.Instructions, "purpose": args.Purpose, "input": args.Input, "maxCredits": args.MaxCredits}}}
@@ -148,7 +153,16 @@ func (s *Service) advanceCloudAgentLayerPlanning(run *model.CloudAgentExecution,
 			if preparation.Order != nil {
 				amount = preparation.Order.AmountMicrocredits
 			}
-			preview := cloudAgentApprovalPreview{Kind: "image_layer_planning", Title: "识图拆层规划", Description: "仅运行当前文本模型识图并保存规划；确认图层前不会生成或修改图片。", Items: []cloudAgentApprovalPreviewItem{{Operation: "image_layer_plan", NodeID: source.SourceNodeID, NodeType: "image", NodeTypeLabel: "原图", Summary: "识图预算单独限制", Details: []string{fmt.Sprintf("原图%d×%d像素，实际识图%d×%d像素", source.Source.Width, source.Source.Height, source.ReferenceSize.Width, source.ReferenceSize.Height), fmt.Sprintf("本次报价 %.6f 积分；上限 %.6f 积分", float64(amount)/float64(CreditScale), source.MaxCredits), "结果和原图摘要随原任务保存，模型回复成功不表示规划或视觉质量合格。"}}}}
+			details := []string{fmt.Sprintf("原图%d×%d像素，实际识图%d×%d像素", source.Source.Width, source.Source.Height, source.ReferenceSize.Width, source.ReferenceSize.Height)}
+			summary := "识图预算单独限制"
+			if s.localCreditBudgetEnforced() {
+				details = append(details, fmt.Sprintf("本次报价 %.6f 积分；上限 %.6f 积分", float64(amount)/float64(CreditScale), source.MaxCredits))
+			} else {
+				summary = "费用由 New API 结算"
+				details = append(details, "确认后只提交本次识图模型调用；费用以 New API 预扣和最终结算回执为准。")
+			}
+			details = append(details, "结果和原图摘要随原任务保存，模型回复成功不表示规划或视觉质量合格。")
+			preview := cloudAgentApprovalPreview{Kind: "image_layer_planning", Title: "识图拆层规划", Description: "仅运行当前文本模型识图并保存规划；确认图层前不会生成或修改图片。", Items: []cloudAgentApprovalPreviewItem{{Operation: "image_layer_plan", NodeID: source.SourceNodeID, NodeType: "image", NodeTypeLabel: "原图", Summary: summary, Details: details}}}
 			approvalID := fmt.Sprintf("%s-%d-%d", run.ID, state.Step, state.CallIndex)
 			state.Approval = &cloudAgentApproval{ID: approvalID, Call: call, CallHash: cloudAgentApprovalCallHash(call), Preview: preview, ModelName: task.Model, LayerPlanning: &cloudAgentLayerPlanningApproval{Source: *source, ResolvedHash: resolved, QuoteHash: quote, ExpiresAt: time.Now().UTC().Add(cloudAgentMediaQuoteLifetime)}}
 			if err := repo.UpsertCloudAgentResourceLeases(run.UserID, run.ID, approvalID, []string{source.ResourceID}, state.Approval.LayerPlanning.ExpiresAt); err != nil {

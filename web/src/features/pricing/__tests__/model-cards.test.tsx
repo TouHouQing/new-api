@@ -384,7 +384,9 @@ describe('model cards', () => {
         tokenUnit='K'
       />
     )
-    expect(screen.getByText(/\$0.6/)).toHaveTextContent(/\$0.6\s*\/\s*request/)
+    expect(screen.getByText(/\$0.6/)).toHaveTextContent(
+      /\$0.6\s*\/\s*Price unit request/
+    )
     expect(screen.queryByText(/1K|1M/)).not.toBeInTheDocument()
     expect(screen.getAllByText('Per Request')).toHaveLength(1)
     expect(screen.queryByText('Per-request')).not.toBeInTheDocument()
@@ -541,14 +543,15 @@ describe('model cards', () => {
     render(
       <ModelCard
         model={pricingModel({
+          quota_type: 1,
           billing_usage_schema: { seconds: { type: 'number', unit: 'second' } },
         })}
         onClick={vi.fn()}
       />
     )
     expect(
-      screen.getByText('Usage-based billing · price not configured')
-    ).toBeVisible()
+      screen.getAllByText('Billing unit unconfirmed').length
+    ).toBeGreaterThan(0)
     expect(screen.queryByText('Input')).not.toBeInTheDocument()
   })
 

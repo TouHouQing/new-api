@@ -9,6 +9,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/production"
@@ -397,6 +399,27 @@ func TestDramaBudgetPausesDispatch(t *testing.T) {
 	if p.Status != "paused" || p.PauseReason != dramaBudgetPauseReason || len(fake.requests) != 0 {
 		t.Fatalf("budget: %+v", p)
 	}
+}
+
+func TestHostedDramaBudgetIsReferenceOnlyAndDoesNotBlockNewAPI(t *testing.T) {
+	svc, fake := newDramaTestService(t)
+	require.NoError(t, svc.ConfigureWorkbenchHost(&testWorkbenchHost{actor: WorkbenchHostUser{ID: "42"}}))
+	project := createTestDrama(t, svc, DramaReviewAuto).Project.ID
+	requestedBudget := int64(5_000_000)
+	summary, err := svc.UpdateDramaSettings("usr-drama", project, UpdateDramaSettingsRequest{BudgetMicrocredits: &requestedBudget})
+	require.NoError(t, err)
+	assert.Zero(t, summary.Production.BudgetMicrocredits, "hosted workbench must not persist a local project budget")
+	seedDramaBillingOrder(t, fake.db, project, "held", model.BillingOrder{AmountMicrocredits: 100, Status: model.BillingStatusReserved})
+	require.NoError(t, svc.repo.UpdateDramaProduction(project, map[string]any{
+		"budget_microcredits": 100, "status": model.DramaStatusPaused,
+		"pause_reason": dramaBudgetPauseReason,
+	}))
+
+	runDramaTicks(t, svc, project, 1)
+	production, err := svc.repo.DramaProduction(project)
+	require.NoError(t, err)
+	assert.NotEqual(t, dramaBudgetPauseReason, production.PauseReason)
+	assert.NotEmpty(t, fake.requests, "New API, not the local project budget, must decide execution")
 }
 
 func TestDramaMissingVideoContractFails(t *testing.T) {
