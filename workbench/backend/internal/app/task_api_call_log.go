@@ -56,7 +56,12 @@ func (s *Service) ensureFailedProviderAttemptLogged(task model.Task, taskErr err
 	errorCode := "request_not_sent"
 	statusCode := 0
 	var httpErr providerHTTPError
-	if errors.As(taskErr, &httpErr) {
+	var receiptErr providerReceiptPersistenceError
+	if errors.As(taskErr, &receiptErr) {
+		path = "/task/provider-state"
+		errorCode = "provider_state_persistence_busy"
+		metadata.ProviderRequestID = firstNonEmpty(receiptErr.TaskID, metadata.ProviderRequestID)
+	} else if errors.As(taskErr, &httpErr) {
 		path = "/task/provider-request"
 		errorCode = "provider_request_unlogged"
 		statusCode = httpErr.StatusCode

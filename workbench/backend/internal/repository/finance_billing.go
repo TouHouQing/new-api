@@ -312,18 +312,19 @@ func (r *Repository) UpdateBillingProviderRequestID(id string, providerRequestID
 	if id == "" || providerRequestID == "" {
 		return nil
 	}
-	return r.db.Model(&model.BillingOrder{}).Where("id = ?", id).Updates(map[string]any{
-		"provider_request_id": providerRequestID, "updated_at": time.Now(),
-	}).Error
+	return r.retrySQLiteBusy("update_billing_provider_request_id", func() error {
+		return r.db.Model(&model.BillingOrder{}).Where("id = ?", id).Updates(map[string]any{
+			"provider_request_id": providerRequestID, "updated_at": time.Now(),
+		}).Error
+	})
 }
 
 func (r *Repository) MarkBillingRunning(id, taskID string, attempt int) error {
 	if id == "" {
 		return nil
 	}
-	var err error
-	for retry := 0; retry < 5; retry++ {
-		err = r.db.Transaction(func(tx *gorm.DB) error {
+	return r.retrySQLiteBusy("mark_billing_running", func() error {
+		return r.db.Transaction(func(tx *gorm.DB) error {
 			var order model.BillingOrder
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
 				return err
@@ -370,63 +371,52 @@ func (r *Repository) MarkBillingRunning(id, taskID string, attempt int) error {
 			}
 			return ErrBillingStateConflict
 		})
-		if !billingDatabaseBusy(err) {
-			return err
-		}
-		time.Sleep(time.Duration(5*(retry+1)) * time.Millisecond)
-	}
-	return err
-}
-
-func billingDatabaseBusy(err error) bool {
-	if err == nil {
-		return false
-	}
-	message := strings.ToLower(err.Error())
-	return strings.Contains(message, "database is locked") || strings.Contains(message, "database table is locked")
+	})
 }
 
 func (r *Repository) MarkBillingUncertain(id string, errorText string) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		var order model.BillingOrder
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
-			return err
-		}
-		if order.Status == model.BillingStatusUncertain {
-			return nil
-		}
-		allowed := []model.BillingStatus{model.BillingStatusReserved, model.BillingStatusRunning}
-		if order.BillingMode == model.BillingModeNewAPI && order.BillingSource == model.BillingSourceNewAPI {
-			if !strings.HasPrefix(order.UserID, "newapi:") {
-				return ErrNewAPIBillingIdentityMismatch
-			}
-			attempt, err := newAPIReceiptKeyAttempt(order, order.TaskID)
-			if err != nil {
+	return r.retrySQLiteBusy("mark_billing_uncertain", func() error {
+		return r.db.Transaction(func(tx *gorm.DB) error {
+			var order model.BillingOrder
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
 				return err
 			}
-			if err := validateNewAPIReceiptIdentity(order, order.TaskID, attempt); err != nil {
+			if order.Status == model.BillingStatusUncertain {
+				return nil
+			}
+			allowed := []model.BillingStatus{model.BillingStatusReserved, model.BillingStatusRunning}
+			if order.BillingMode == model.BillingModeNewAPI && order.BillingSource == model.BillingSourceNewAPI {
+				if !strings.HasPrefix(order.UserID, "newapi:") {
+					return ErrNewAPIBillingIdentityMismatch
+				}
+				attempt, err := newAPIReceiptKeyAttempt(order, order.TaskID)
+				if err != nil {
+					return err
+				}
+				if err := validateNewAPIReceiptIdentity(order, order.TaskID, attempt); err != nil {
+					return err
+				}
+				allowed = []model.BillingStatus{model.BillingStatusPendingReceipt, model.BillingStatusRunning}
+			}
+			now := time.Now()
+			changed := tx.Model(&model.BillingOrder{}).
+				Where("id = ? AND status IN ?", id, allowed).
+				Updates(map[string]any{"status": model.BillingStatusUncertain, "error": errorText, "updated_at": now})
+			if changed.Error != nil {
+				return changed.Error
+			}
+			if changed.RowsAffected == 1 {
+				return nil
+			}
+			var latest model.BillingOrder
+			if err := tx.Select("id", "status").First(&latest, "id = ?", id).Error; err != nil {
 				return err
 			}
-			allowed = []model.BillingStatus{model.BillingStatusPendingReceipt, model.BillingStatusRunning}
-		}
-		now := time.Now()
-		changed := tx.Model(&model.BillingOrder{}).
-			Where("id = ? AND status IN ?", id, allowed).
-			Updates(map[string]any{"status": model.BillingStatusUncertain, "error": errorText, "updated_at": now})
-		if changed.Error != nil {
-			return changed.Error
-		}
-		if changed.RowsAffected == 1 {
-			return nil
-		}
-		var latest model.BillingOrder
-		if err := tx.Select("id", "status").First(&latest, "id = ?", id).Error; err != nil {
-			return err
-		}
-		if latest.Status == model.BillingStatusUncertain {
-			return nil
-		}
-		return ErrBillingStateConflict
+			if latest.Status == model.BillingStatusUncertain {
+				return nil
+			}
+			return ErrBillingStateConflict
+		})
 	})
 }
 

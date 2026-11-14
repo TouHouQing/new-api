@@ -249,9 +249,14 @@ func (r *Repository) CreateRouteAttempt(item *model.RouteAttempt) error {
 	return r.db.Create(item).Error
 }
 func (r *Repository) SaveRouteAttempt(item *model.RouteAttempt) error {
+	if item == nil {
+		return gorm.ErrInvalidData
+	}
 	// Configuration is frozen with its own compare-and-set. A stale status
 	// object must never erase or replace it while updating the receipt.
-	return r.db.Omit("ProviderConfigCipher").Save(item).Error
+	return r.retrySQLiteBusy("save_route_attempt", func() error {
+		return r.db.Omit("ProviderConfigCipher").Save(item).Error
+	})
 }
 
 func (r *Repository) FreezeRouteAttemptProviderConfig(id, cipher string) (string, error) {

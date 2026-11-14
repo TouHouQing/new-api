@@ -43,7 +43,16 @@ func (s *Service) StartWorkbenchBillingReconciliation() {
 						continue
 					}
 					if err := coordinator.sync(order.ID, order.ProviderRequestID, task.Status != model.TaskStatusSucceeded); err != nil {
-						slog.Warn("workbench settlement remains pending", "task", order.TaskID)
+						switch {
+						case errors.Is(err, repository.ErrBillingStorageBusy):
+							slog.Warn("workbench billing mirror storage busy; retrying later", "task", order.TaskID, "order", order.ID)
+						case errors.Is(err, repository.ErrNewAPIBillingIdentityMismatch):
+							slog.Error("workbench billing receipt identity mismatch", "task", order.TaskID, "order", order.ID)
+						case errors.Is(err, repository.ErrBillingStateConflict):
+							slog.Error("workbench billing receipt state conflict", "task", order.TaskID, "order", order.ID)
+						default:
+							slog.Warn("workbench settlement remains pending", "task", order.TaskID, "order", order.ID, "error", err)
+						}
 					}
 				}
 			}

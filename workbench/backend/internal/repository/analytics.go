@@ -352,6 +352,24 @@ func (r *Repository) AsyncMediaAPICallRoot(log model.ApiCallLog) (*model.ApiCall
 	return &root, nil
 }
 
+func (r *Repository) CreateAPICallLog(log *model.ApiCallLog) error {
+	if log == nil {
+		return gorm.ErrInvalidData
+	}
+	return r.retrySQLiteBusy("create_api_call_log", func() error {
+		return r.db.Create(log).Error
+	})
+}
+
+func (r *Repository) SaveAPICallLog(log *model.ApiCallLog) error {
+	if log == nil {
+		return gorm.ErrInvalidData
+	}
+	return r.retrySQLiteBusy("save_api_call_log", func() error {
+		return r.db.Save(log).Error
+	})
+}
+
 // VideoAPICallRoot 保留旧调用面的兼容别名。
 func (r *Repository) VideoAPICallRoot(log model.ApiCallLog) (*model.ApiCallLog, error) {
 	log.Capability = "video"

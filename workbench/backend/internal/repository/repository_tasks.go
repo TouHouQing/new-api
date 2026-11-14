@@ -151,16 +151,18 @@ func (r *Repository) ClaimNextTask(owner string, leaseDuration time.Duration) (*
 }
 
 func (r *Repository) RenewTaskLease(id string, owner string, leaseDuration time.Duration) error {
-	result := r.db.Model(&model.Task{}).
-		Where("id = ? AND status = ? AND lease_owner = ? AND lease_expires_at > ?", id, model.TaskStatusRunning, owner, time.Now()).
-		Updates(map[string]any{"lease_expires_at": time.Now().Add(leaseDuration), "updated_at": time.Now()})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		return errors.New("任务租约已失效")
-	}
-	return nil
+	return r.retrySQLiteBusy("renew_task_lease", func() error {
+		result := r.db.Model(&model.Task{}).
+			Where("id = ? AND status = ? AND lease_owner = ? AND lease_expires_at > ?", id, model.TaskStatusRunning, owner, time.Now()).
+			Updates(map[string]any{"lease_expires_at": time.Now().Add(leaseDuration), "updated_at": time.Now()})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return errors.New("任务租约已失效")
+		}
+		return nil
+	})
 }
 
 func (r *Repository) UpdateTaskProviderState(id string, providerRequestID string, pollStage string, nextPollAt *time.Time) error {
@@ -168,24 +170,28 @@ func (r *Repository) UpdateTaskProviderState(id string, providerRequestID string
 	if strings.TrimSpace(providerRequestID) != "" {
 		updates["provider_request_id"] = strings.TrimSpace(providerRequestID)
 	}
-	return r.db.Model(&model.Task{}).Where("id = ?", id).Updates(updates).Error
+	return r.retrySQLiteBusy("update_task_provider_state", func() error {
+		return r.db.Model(&model.Task{}).Where("id = ?", id).Updates(updates).Error
+	})
 }
 
 func (r *Repository) DeferRunningTaskForProviderPoll(id string, owner string, stage string, delay time.Duration) error {
-	now := time.Now()
-	result := taskLeaseWriter(r.db.Model(&model.Task{}), owner).
-		Where("id = ? AND status = ?", id, model.TaskStatusRunning).
-		Updates(map[string]any{
-			"stage": stage, "error": "", "completed_at": nil, "next_poll_at": now.Add(delay),
-			"lease_owner": "", "lease_expires_at": nil, "updated_at": now,
-		})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		return ErrTaskStateConflict
-	}
-	return nil
+	return r.retrySQLiteBusy("defer_running_task_for_provider_poll", func() error {
+		now := time.Now()
+		result := taskLeaseWriter(r.db.Model(&model.Task{}), owner).
+			Where("id = ? AND status = ?", id, model.TaskStatusRunning).
+			Updates(map[string]any{
+				"stage": stage, "error": "", "completed_at": nil, "next_poll_at": now.Add(delay),
+				"lease_owner": "", "lease_expires_at": nil, "updated_at": now,
+			})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrTaskStateConflict
+		}
+		return nil
+	})
 }
 
 // 人工恢复仅锁定失败任务；旧 worker 的租约可覆盖，但未过期的人工恢复租约不能并发抢占。
@@ -225,16 +231,18 @@ func (r *Repository) UpdateTaskProgress(id string, stage string, progress int) e
 }
 
 func (r *Repository) UpdateTaskProgressForLease(id string, owner string, stage string, progress int) error {
-	result := taskLeaseWriter(r.db.Model(&model.Task{}), owner).
-		Where("id = ? AND status = ?", id, model.TaskStatusRunning).
-		Updates(map[string]any{"stage": stage, "progress": progress, "updated_at": time.Now()})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		return ErrTaskStateConflict
-	}
-	return nil
+	return r.retrySQLiteBusy("update_task_progress_for_lease", func() error {
+		result := taskLeaseWriter(r.db.Model(&model.Task{}), owner).
+			Where("id = ? AND status = ?", id, model.TaskStatusRunning).
+			Updates(map[string]any{"stage": stage, "progress": progress, "updated_at": time.Now()})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected != 1 {
+			return ErrTaskStateConflict
+		}
+		return nil
+	})
 }
 
 // 无租约任务仅能写无租约记录；有租约的执行者必须仍持有本次领取的有效 owner。
@@ -249,11 +257,13 @@ func taskLeaseWriter(db *gorm.DB, owner string) *gorm.DB {
 // a delayed or out-of-order poll response to move the public percentage backwards.
 func (r *Repository) UpdateTaskProviderProgress(id string, progress int) error {
 	progress = max(0, min(100, progress))
-	return r.db.Model(&model.Task{}).Where("id = ? AND status = ?", id, model.TaskStatusRunning).Updates(map[string]any{
-		"stage":      "上游生成中",
-		"progress":   gorm.Expr("CASE WHEN progress < ? THEN ? ELSE progress END", progress, progress),
-		"updated_at": time.Now(),
-	}).Error
+	return r.retrySQLiteBusy("update_task_provider_progress", func() error {
+		return r.db.Model(&model.Task{}).Where("id = ? AND status = ?", id, model.TaskStatusRunning).Updates(map[string]any{
+			"stage":      "上游生成中",
+			"progress":   gorm.Expr("CASE WHEN progress < ? THEN ? ELSE progress END", progress, progress),
+			"updated_at": time.Now(),
+		}).Error
+	})
 }
 
 func (r *Repository) SaveTaskCompletion(task *model.Task, expected model.TaskStatus, results []model.Result) error {

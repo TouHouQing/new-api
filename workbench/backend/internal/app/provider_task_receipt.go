@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"time"
 )
@@ -13,13 +14,14 @@ func (s *Service) recordProviderTaskReceipt(ctx context.Context, requestID strin
 	if !ok || metadata.TaskID == "" {
 		return nil
 	}
+	var taskErr, billingErr error
 	if err := s.repo.UpdateTaskProviderState(metadata.TaskID, requestID, stage, nextPollAt); err != nil {
-		return err
+		taskErr = err
 	}
-	if metadata.BillingOrderID == "" || strings.TrimSpace(requestID) == "" {
-		return nil
+	if metadata.BillingOrderID != "" && strings.TrimSpace(requestID) != "" {
+		billingErr = s.repo.UpdateBillingProviderRequestID(metadata.BillingOrderID, strings.TrimSpace(requestID))
 	}
-	return s.repo.UpdateBillingProviderRequestID(metadata.BillingOrderID, strings.TrimSpace(requestID))
+	return errors.Join(taskErr, billingErr)
 }
 
 func checkpointProtocolTaskReceipt(ctx context.Context, requestID string) (context.Context, error) {

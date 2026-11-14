@@ -167,6 +167,30 @@ func TestEnsureFailedProviderAttemptLoggedDoesNotDuplicateHTTPLog(t *testing.T) 
 	}
 }
 
+func TestEnsureFailedProviderAttemptLogsReceiptStorageBusyAfterSubmission(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	task := model.Task{
+		ID: "provider-receipt-busy", UserID: "newapi:42", Type: "canvas_video", Status: model.TaskStatusRunning,
+		Operation: "video.generate", Model: "queued-video",
+		InputJSON: `{"mode":"video","config":{"channelId":"newapi-video","channelModelKey":"queued-video"}}`,
+	}
+	if err := db.Create(&task).Error; err != nil {
+		t.Fatal(err)
+	}
+	svc.ensureFailedProviderAttemptLogged(task, providerReceiptPersistenceError{
+		TaskID: "provider-existing",
+		Cause:  errors.Join(repository.ErrBillingStorageBusy, errors.New("database is locked (5) (SQLITE_BUSY)")),
+	})
+
+	var logged model.ApiCallLog
+	if err := db.First(&logged, "task_id = ?", task.ID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if logged.Path != "/task/provider-state" || logged.ErrorCode != "provider_state_persistence_busy" || logged.ProviderRequestID != "provider-existing" {
+		t.Fatalf("receipt storage busy log = %#v", logged)
+	}
+}
+
 func TestRecordProviderRequestKeepsUserVisibleSpeechAndNetworkErrors(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:provider-visible-error-log?mode=memory&cache=shared"), &gorm.Config{})
 	if err != nil {

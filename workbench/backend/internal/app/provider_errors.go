@@ -73,6 +73,20 @@ func (e providerStatePendingError) Error() string {
 
 func (e providerStatePendingError) Unwrap() error { return e.Cause }
 
+// providerReceiptPersistenceError means the upstream create succeeded, but the
+// locally durable task ID could not be written yet. The worker must continue
+// from this provider task ID or fail closed; it must never repeat create.
+type providerReceiptPersistenceError struct {
+	TaskID string
+	Cause  error
+}
+
+func (e providerReceiptPersistenceError) Error() string {
+	return "上游已接收任务，但本地回执暂时未能保存；系统将继续核对原任务（任务 " + e.TaskID + "）"
+}
+
+func (e providerReceiptPersistenceError) Unwrap() error { return e.Cause }
+
 type providerAnalyticsKey struct{}
 
 type providerAnalyticsContext struct {

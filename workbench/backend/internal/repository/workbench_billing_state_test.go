@@ -3,8 +3,10 @@ package repository
 import (
 	"errors"
 	"net/http"
+	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
@@ -346,6 +348,228 @@ func TestSyncWorkbenchBillingMirrorsAmountsAndRejectsStateRegression(t *testing.
 	}
 	if err := repo.SyncWorkbenchBilling(order.ID, model.BillingStatusSettled, 180_000, 0, "provider-task"); err != nil {
 		t.Fatalf("idempotent reconciliation: %v", err)
+	}
+}
+
+func TestSyncWorkbenchBillingRetriesTransientSQLiteBusy(t *testing.T) {
+	repo, db := newWorkbenchBillingStateRepository(t)
+	order := seedNewAPIReceiptOrder(t, db, "busy-retry-task", "busy-retry-order", "1", model.BillingStatusRunning)
+	repo.sqliteRetryBudget = 200 * time.Millisecond
+	repo.sqliteRetryInitial = time.Millisecond
+	repo.sqliteRetryMaxDelay = 4 * time.Millisecond
+	attempts := 0
+	repo.sqliteBusyProbe = func(operation string, attempt int) error {
+		if operation != "sync_workbench_billing" {
+			return nil
+		}
+		attempts++
+		if attempt == 0 {
+			return errors.New("database is locked (517) (SQLITE_BUSY_SNAPSHOT)")
+		}
+		return nil
+	}
+
+	if err := repo.SyncWorkbenchBilling(order.ID, model.BillingStatusUncertain, 0, 975_000, "provider-queued"); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 2 {
+		t.Fatalf("attempts = %d, want one busy retry followed by success", attempts)
+	}
+	stored, err := repo.BillingOrder(order.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != model.BillingStatusUncertain || stored.ReservedAmountMicrocredits != 975_000 || stored.ProviderRequestID != "provider-queued" {
+		t.Fatalf("mirrored receipt = %#v", stored)
+	}
+	var task model.Task
+	if err := db.First(&task, "id = ?", order.TaskID).Error; err != nil {
+		t.Fatal(err)
+	}
+	if task.AuthorizedChargeMicrocredits != 975_000 {
+		t.Fatalf("authorization mirror = %d, want 975000", task.AuthorizedChargeMicrocredits)
+	}
+	var accounts, entries int64
+	if err := db.Model(&model.CreditAccount{}).Count(&accounts).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.CreditLedgerEntry{}).Count(&entries).Error; err != nil {
+		t.Fatal(err)
+	}
+	if accounts != 0 || entries != 0 {
+		t.Fatalf("billing mirror changed local funds: accounts=%d entries=%d", accounts, entries)
+	}
+}
+
+func TestSyncWorkbenchBillingPersistentBusyStaysRecoverable(t *testing.T) {
+	repo, db := newWorkbenchBillingStateRepository(t)
+	order := seedNewAPIReceiptOrder(t, db, "busy-open-task", "busy-open-order", "1", model.BillingStatusRunning)
+	repo.sqliteRetryBudget = 12 * time.Millisecond
+	repo.sqliteRetryInitial = time.Millisecond
+	repo.sqliteRetryMaxDelay = 2 * time.Millisecond
+	repo.sqliteBusyProbe = func(string, int) error {
+		return errors.New("database is locked (5) (SQLITE_BUSY)")
+	}
+
+	err := repo.SyncWorkbenchBilling(order.ID, model.BillingStatusSettled, 975_000, 0, "provider-queued")
+	if !errors.Is(err, ErrBillingStorageBusy) {
+		t.Fatalf("persistent busy error = %v, want ErrBillingStorageBusy", err)
+	}
+	if errors.Is(err, ErrBillingStateConflict) {
+		t.Fatalf("storage busy was incorrectly classified as billing conflict: %v", err)
+	}
+	stored, err := repo.BillingOrder(order.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != model.BillingStatusRunning || stored.ReservedAmountMicrocredits != 0 {
+		t.Fatalf("busy retry changed receipt state: %#v", stored)
+	}
+	var accounts, entries int64
+	if err := db.Model(&model.CreditAccount{}).Count(&accounts).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.CreditLedgerEntry{}).Count(&entries).Error; err != nil {
+		t.Fatal(err)
+	}
+	if accounts != 0 || entries != 0 {
+		t.Fatalf("busy billing attempt produced local fund side effects")
+	}
+}
+
+func TestSyncWorkbenchBillingRetriesRealSQLiteWriterLock(t *testing.T) {
+	dsn := filepath.Join(t.TempDir(), "billing-lock.db") + "?_pragma=busy_timeout(0)&_pragma=journal_mode(WAL)"
+	db, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	peer, err := gorm.Open(sqlite.Open(dsn), &gorm.Config{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, connection := range []*gorm.DB{db, peer} {
+		sqlDB, sqlErr := connection.DB()
+		if sqlErr != nil {
+			t.Fatal(sqlErr)
+		}
+		t.Cleanup(func() { _ = sqlDB.Close() })
+	}
+	if err := db.AutoMigrate(&model.Task{}, &model.BillingOrder{}, &model.CreditAccount{}, &model.CreditLedgerEntry{}); err != nil {
+		t.Fatal(err)
+	}
+	order := seedNewAPIReceiptOrder(t, db, "real-lock-task", "real-lock-order", "1", model.BillingStatusRunning)
+	repo := New(db)
+	repo.RequireNewAPIBillingAuthority()
+	repo.sqliteRetryBudget = 2 * time.Second
+	repo.sqliteRetryInitial = 5 * time.Millisecond
+	repo.sqliteRetryMaxDelay = 25 * time.Millisecond
+	busyObserved := make(chan error, 1)
+	repo.sqliteBusyObserved = func(err error) {
+		select {
+		case busyObserved <- err:
+		default:
+		}
+	}
+
+	ready := make(chan struct{})
+	release := make(chan struct{})
+	lockDone := make(chan error, 1)
+	go func() {
+		lockDone <- peer.Transaction(func(tx *gorm.DB) error {
+			if err := tx.Model(&model.Task{}).Where("id = ?", order.TaskID).Update("updated_at", time.Now()).Error; err != nil {
+				return err
+			}
+			close(ready)
+			<-release
+			return nil
+		})
+	}()
+	<-ready
+	syncDone := make(chan error, 1)
+	go func() {
+		syncDone <- repo.SyncWorkbenchBilling(order.ID, model.BillingStatusUncertain, 0, 975_000, "provider-queued")
+	}()
+	select {
+	case <-busyObserved:
+	case <-time.After(time.Second):
+		close(release)
+		t.Fatal("expected a real SQLite writer-lock retry")
+	}
+	close(release)
+	if err := <-lockDone; err != nil {
+		t.Fatal(err)
+	}
+	if err := <-syncDone; err != nil {
+		t.Fatal(err)
+	}
+	stored, err := repo.BillingOrder(order.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != model.BillingStatusUncertain || stored.ReservedAmountMicrocredits != 975_000 {
+		t.Fatalf("real lock receipt mirror = %#v", stored)
+	}
+}
+
+func TestSyncWorkbenchBillingConcurrentReconciliationIsIdempotent(t *testing.T) {
+	repo, db := newWorkbenchBillingStateRepository(t)
+	order := seedNewAPIReceiptOrder(t, db, "concurrent-sync-task", "concurrent-sync-order", "1", model.BillingStatusRunning)
+	repo.sqliteRetryBudget = time.Second
+	repo.sqliteRetryInitial = time.Millisecond
+	repo.sqliteRetryMaxDelay = 8 * time.Millisecond
+	start := make(chan struct{})
+	errs := make(chan error, 4)
+	var wg sync.WaitGroup
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			errs <- repo.SyncWorkbenchBilling(order.ID, model.BillingStatusUncertain, 0, 975_000, "provider-queued")
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatalf("concurrent reconciliation: %v", err)
+		}
+	}
+	stored, err := repo.BillingOrder(order.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stored.Status != model.BillingStatusUncertain || stored.ReservedAmountMicrocredits != 975_000 || stored.ProviderRequestID != "provider-queued" {
+		t.Fatalf("concurrent receipt mirror = %#v", stored)
+	}
+	var orders, accounts, entries int64
+	if err := db.Model(&model.BillingOrder{}).Count(&orders).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.CreditAccount{}).Count(&accounts).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Model(&model.CreditLedgerEntry{}).Count(&entries).Error; err != nil {
+		t.Fatal(err)
+	}
+	if orders != 1 || accounts != 0 || entries != 0 {
+		t.Fatalf("duplicate mirror or local funds: orders=%d accounts=%d entries=%d", orders, accounts, entries)
+	}
+}
+
+func TestSQLiteBusyClassificationDoesNotConsumeStateConflicts(t *testing.T) {
+	for _, message := range []string{
+		"database is locked (5) (SQLITE_BUSY)",
+		"database is locked (517) (SQLITE_BUSY_SNAPSHOT)",
+		"database table is locked",
+	} {
+		if !isSQLiteBusyError(errors.New(message)) {
+			t.Fatalf("busy error not recognized: %s", message)
+		}
+	}
+	if isSQLiteBusyError(ErrBillingStateConflict) {
+		t.Fatal("billing state conflict must not be treated as SQLite busy")
 	}
 }
 

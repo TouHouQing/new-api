@@ -75,7 +75,7 @@ func (s *Service) LogAPICall(log model.ApiCallLog) error {
 	if err := validateAPICallLogQuotaWithPolicy(usage, incomingBytes, policy.Resource); err != nil {
 		return err
 	}
-	return s.repo.Create(&log)
+	return s.repo.CreateAPICallLog(&log)
 }
 
 func (s *Service) mergeAsyncMediaAPICallLog(log model.ApiCallLog) (bool, error) {
@@ -130,7 +130,7 @@ func (s *Service) mergeAsyncMediaAPICallLog(log model.ApiCallLog) (bool, error) 
 		root.CachedTokens = log.CachedTokens
 		root.CacheWriteTokens = log.CacheWriteTokens
 	}
-	return true, s.repo.Save(root)
+	return true, s.repo.SaveAPICallLog(root)
 }
 
 // recordProviderTaskTerminalFailure 把适配器解析出的失败/取消终态写到本次上游任务的 create 根日志。
@@ -178,7 +178,7 @@ func (s *Service) markAPICallRootTerminalFailure(probe model.ApiCallLog, failure
 	if !changed {
 		return nil
 	}
-	return s.repo.Save(root)
+	return s.repo.SaveAPICallLog(root)
 }
 
 func (s *Service) APICallLogs(actor *model.User, limit int) ([]model.ApiCallLog, error) {

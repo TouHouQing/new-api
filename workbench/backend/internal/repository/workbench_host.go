@@ -83,9 +83,8 @@ func (r *Repository) SyncWorkbenchBilling(id string, status model.BillingStatus,
 	if charged < 0 || reserved < 0 {
 		return gorm.ErrInvalidData
 	}
-	var err error
-	for retry := 0; retry < 5; retry++ {
-		err = r.db.Transaction(func(tx *gorm.DB) error {
+	return r.retrySQLiteBusy("sync_workbench_billing", func() error {
+		return r.db.Transaction(func(tx *gorm.DB) error {
 			var order model.BillingOrder
 			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", id).First(&order).Error; err != nil {
 				return err
@@ -146,12 +145,7 @@ func (r *Repository) SyncWorkbenchBilling(id string, status model.BillingStatus,
 			}
 			return nil
 		})
-		if !billingDatabaseBusy(err) {
-			return err
-		}
-		time.Sleep(time.Duration(5*(retry+1)) * time.Millisecond)
-	}
-	return err
+	})
 }
 
 func validWorkbenchBillingTransition(from, to model.BillingStatus) bool {
@@ -175,72 +169,75 @@ func (r *Repository) ResolveWorkbenchBillingNotSent(id, taskID, errorText string
 		return r.RefundBillingOrder(id, errorText)
 	}
 	submissionUncertain := false
-	err := r.db.Transaction(func(tx *gorm.DB) error {
-		var order model.BillingOrder
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
-			return err
-		}
-		if order.BillingSource != model.BillingSourceNewAPI || order.BillingMode != model.BillingModeNewAPI || order.TaskID != taskID {
-			return ErrNewAPIBillingIdentityMismatch
-		}
-		parts := strings.Split(order.IdempotencyKey, ":")
-		if len(parts) != 4 || parts[0] != "newapi" || parts[1] != taskID || parts[3] == "" {
-			return ErrNewAPIBillingIdentityMismatch
-		}
-		attempt, err := strconv.Atoi(parts[2])
-		if err != nil || attempt < 0 {
-			return ErrNewAPIBillingIdentityMismatch
-		}
-		if err := validateNewAPIReceiptIdentity(order, taskID, attempt); err != nil {
-			return err
-		}
-		if order.Status == model.BillingStatusRefunded {
-			return nil
-		}
-		if order.Status != model.BillingStatusPendingReceipt && order.Status != model.BillingStatusRunning {
-			return ErrBillingStateConflict
-		}
-		ambiguous, err := workbenchReceiptSubmissionAmbiguous(tx, order)
-		if err != nil {
-			return err
-		}
-		now := time.Now()
-		if ambiguous {
+	err := r.retrySQLiteBusy("resolve_workbench_billing_not_sent", func() error {
+		submissionUncertain = false
+		return r.db.Transaction(func(tx *gorm.DB) error {
+			var order model.BillingOrder
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
+				return err
+			}
+			if order.BillingSource != model.BillingSourceNewAPI || order.BillingMode != model.BillingModeNewAPI || order.TaskID != taskID {
+				return ErrNewAPIBillingIdentityMismatch
+			}
+			parts := strings.Split(order.IdempotencyKey, ":")
+			if len(parts) != 4 || parts[0] != "newapi" || parts[1] != taskID || parts[3] == "" {
+				return ErrNewAPIBillingIdentityMismatch
+			}
+			attempt, err := strconv.Atoi(parts[2])
+			if err != nil || attempt < 0 {
+				return ErrNewAPIBillingIdentityMismatch
+			}
+			if err := validateNewAPIReceiptIdentity(order, taskID, attempt); err != nil {
+				return err
+			}
+			if order.Status == model.BillingStatusRefunded {
+				return nil
+			}
+			if order.Status != model.BillingStatusPendingReceipt && order.Status != model.BillingStatusRunning {
+				return ErrBillingStateConflict
+			}
+			ambiguous, err := workbenchReceiptSubmissionAmbiguous(tx, order)
+			if err != nil {
+				return err
+			}
+			now := time.Now()
+			if ambiguous {
+				changed := tx.Model(&model.BillingOrder{}).
+					Where("id = ? AND status = ?", order.ID, order.Status).
+					Updates(map[string]any{"status": model.BillingStatusUncertain, "error": errorText, "updated_at": now})
+				if changed.Error != nil {
+					return changed.Error
+				}
+				if changed.RowsAffected != 1 {
+					return ErrBillingStateConflict
+				}
+				submissionUncertain = true
+				return nil
+			}
 			changed := tx.Model(&model.BillingOrder{}).
 				Where("id = ? AND status = ?", order.ID, order.Status).
-				Updates(map[string]any{"status": model.BillingStatusUncertain, "error": errorText, "updated_at": now})
+				Updates(map[string]any{
+					"status": model.BillingStatusRefunded, "error": errorText,
+					"actual_amount_microcredits": 0, "reserved_amount_microcredits": 0,
+					"refunded_amount_microcredits": 0, "refunded_at": &now,
+					"usage_source": model.BillingSourceNewAPI, "usage_available": false, "updated_at": now,
+				})
 			if changed.Error != nil {
 				return changed.Error
 			}
 			if changed.RowsAffected != 1 {
 				return ErrBillingStateConflict
 			}
-			submissionUncertain = true
+			updatedTask := tx.Model(&model.Task{}).Where("id = ? AND user_id = ?", order.TaskID, order.UserID).
+				Update("authorized_charge_microcredits", 0)
+			if updatedTask.Error != nil {
+				return updatedTask.Error
+			}
+			if updatedTask.RowsAffected != 1 {
+				return ErrNewAPIBillingIdentityMismatch
+			}
 			return nil
-		}
-		changed := tx.Model(&model.BillingOrder{}).
-			Where("id = ? AND status = ?", order.ID, order.Status).
-			Updates(map[string]any{
-				"status": model.BillingStatusRefunded, "error": errorText,
-				"actual_amount_microcredits": 0, "reserved_amount_microcredits": 0,
-				"refunded_amount_microcredits": 0, "refunded_at": &now,
-				"usage_source": model.BillingSourceNewAPI, "usage_available": false, "updated_at": now,
-			})
-		if changed.Error != nil {
-			return changed.Error
-		}
-		if changed.RowsAffected != 1 {
-			return ErrBillingStateConflict
-		}
-		updatedTask := tx.Model(&model.Task{}).Where("id = ? AND user_id = ?", order.TaskID, order.UserID).
-			Update("authorized_charge_microcredits", 0)
-		if updatedTask.Error != nil {
-			return updatedTask.Error
-		}
-		if updatedTask.RowsAffected != 1 {
-			return ErrNewAPIBillingIdentityMismatch
-		}
-		return nil
+		})
 	})
 	if err != nil {
 		return err

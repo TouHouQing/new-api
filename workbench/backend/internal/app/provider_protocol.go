@@ -170,7 +170,7 @@ func runProtocolAdapterTaskWithPolicy(ctx context.Context, input canvasGeneratio
 		if detached {
 			if err := recordProtocolProviderTask(ctx, taskID); err != nil {
 				// 上游已收单但本地没记住任务 ID：不能退回调度，否则恢复时无法找到原任务。
-				return nil, fmt.Errorf("上游已接收任务，但保存任务 ID 失败：%w", err)
+				return nil, providerReceiptPersistenceError{TaskID: taskID, Cause: err}
 			}
 			return nil, detachedProtocolPending(taskID, stage, created.QueueAhead)
 		}

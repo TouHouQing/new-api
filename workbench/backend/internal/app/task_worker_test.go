@@ -53,6 +53,7 @@ func TestBillingPreparationFailureStageDistinguishesCauses(t *testing.T) {
 	}{
 		{"identity", repository.ErrNewAPIBillingIdentityMismatch, true, "计费回执归属校验失败"},
 		{"state", repository.ErrBillingStateConflict, true, "计费镜像状态冲突"},
+		{"storage busy", errors.Join(repository.ErrBillingStorageBusy, errors.New("database is locked (517)")), true, "计费镜像存储暂时繁忙，稍后自动重试"},
 		{"transport", errors.New("database timeout"), true, "计费镜像写入状态不明确"},
 		{"uncertain submission", errors.New("write failed"), true, "计费镜像未能确认运行态"},
 		{"not sent write failure", errors.New("write failed"), false, "计费镜像写入失败"},
@@ -62,6 +63,18 @@ func TestBillingPreparationFailureStageDistinguishesCauses(t *testing.T) {
 				t.Fatalf("stage = %q, want %q", got, tc.want)
 			}
 		})
+	}
+}
+
+func TestSubmittedReceiptStorageBusyUsesRecoverySafeMessage(t *testing.T) {
+	err := providerReceiptPersistenceError{
+		TaskID: "provider-existing",
+		Cause:  errors.Join(repository.ErrBillingStorageBusy, errors.New("database is locked (5) (SQLITE_BUSY)")),
+	}
+	got := taskFailureMessage(err)
+	want := "任务已提交，计费回执正在同步；系统会继续核对原请求，请勿重新创建生成任务。"
+	if got != want {
+		t.Fatalf("user message = %q, want %q", got, want)
 	}
 }
 

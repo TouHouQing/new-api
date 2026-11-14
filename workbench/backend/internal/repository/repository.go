@@ -42,6 +42,11 @@ var ErrNewAPIBillingSubmissionUncertain = errors.New("New API billing submission
 type Repository struct {
 	db                   *gorm.DB
 	newAPIBillingOnly    bool
+	sqliteBusyProbe      func(operation string, attempt int) error
+	sqliteBusyObserved   func(error)
+	sqliteRetryBudget    time.Duration
+	sqliteRetryInitial   time.Duration
+	sqliteRetryMaxDelay  time.Duration
 	canvasEditProofs     []model.CanvasEditProof
 	canvasChangeNotifier func(string, string)
 	canvasChanges        map[canvasChange]struct{}
@@ -92,7 +97,12 @@ func (r *Repository) requireLocalBillingAuthority() error {
 func (r *Repository) Transaction(fn func(*Repository) error) error {
 	changes := make(map[canvasChange]struct{})
 	err := r.db.Transaction(func(tx *gorm.DB) error {
-		return fn(&Repository{db: tx, newAPIBillingOnly: r.newAPIBillingOnly, canvasEditProofs: r.canvasEditProofs, canvasChangeNotifier: r.canvasChangeNotifier, canvasChanges: changes})
+		return fn(&Repository{
+			db: tx, newAPIBillingOnly: r.newAPIBillingOnly,
+			sqliteBusyProbe: r.sqliteBusyProbe, sqliteBusyObserved: r.sqliteBusyObserved,
+			sqliteRetryBudget: r.sqliteRetryBudget, sqliteRetryInitial: r.sqliteRetryInitial, sqliteRetryMaxDelay: r.sqliteRetryMaxDelay,
+			canvasEditProofs: r.canvasEditProofs, canvasChangeNotifier: r.canvasChangeNotifier, canvasChanges: changes,
+		})
 	})
 	if err == nil {
 		for change := range changes {

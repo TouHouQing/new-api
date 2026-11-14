@@ -184,6 +184,7 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 	if latest, latestErr := s.repo.Task(task.ID); latestErr == nil && latest.Status == model.TaskStatusCancelled {
 		return terminal.handleAlreadyCancelled(*latest)
 	}
+	s.hydrateTaskProviderReceiptFromBilling(task)
 
 	// 时间线转写由本地 whisper.cpp 执行，不经计费与模型渠道路由，
 	// 在进入通用生成流程前按类型分叉到独立执行器。
@@ -337,8 +338,9 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 			return leaseErr
 		default:
 		}
+		receiptValid := s.adoptSubmittedProviderReceipt(task, err)
 		decryptedInput, decryptErr := s.decryptTaskInputJSON(task.InputJSON)
-		if decryptErr == nil && s.shouldDeferProviderTask(*task, decryptedInput, err) {
+		if receiptValid && decryptErr == nil && s.shouldDeferProviderTask(*task, decryptedInput, err) {
 			stage := "后台仍在生成"
 			message := "前台等待结束，上游任务仍在生成，将继续回查原任务"
 			if strings.HasPrefix(task.Type, "canvas_image") {
@@ -422,6 +424,10 @@ func taskFailureMessage(err error) string {
 	if err == nil {
 		return "任务处理失败"
 	}
+	var receiptErr providerReceiptPersistenceError
+	if errors.As(err, &receiptErr) || errors.Is(err, repository.ErrBillingStorageBusy) {
+		return "任务已提交，计费回执正在同步；系统会继续核对原请求，请勿重新创建生成任务。"
+	}
 	message := err.Error()
 	if denied := speechResourceDeniedUserMessage(message); denied != "" {
 		return denied
@@ -430,6 +436,9 @@ func taskFailureMessage(err error) string {
 }
 
 func billingPreparationFailureStage(err error, uncertain bool) string {
+	if errors.Is(err, repository.ErrBillingStorageBusy) {
+		return "计费镜像存储暂时繁忙，稍后自动重试"
+	}
 	if errors.Is(err, repository.ErrNewAPIBillingIdentityMismatch) {
 		return "计费回执归属校验失败"
 	}
@@ -511,6 +520,11 @@ func (s *Service) shouldDeferProviderTask(task model.Task, decryptedInput string
 			deferSignal = !newAPIChannel2TaskSyncExpired(task, err, time.Now())
 		}
 	}
+	var receiptErr providerReceiptPersistenceError
+	if errors.As(err, &receiptErr) {
+		deferSignal = task.ProviderRequestID != "" && task.ProviderRequestID == strings.TrimSpace(receiptErr.TaskID)
+		detachedPending = true
+	}
 	if !deferSignal {
 		return false
 	}
@@ -537,6 +551,70 @@ func (s *Service) shouldDeferProviderTask(task model.Task, decryptedInput string
 		return false
 	}
 	return s.imageProviderSupportsTaskResume(resolved.InterfaceType)
+}
+
+// hydrateTaskProviderReceiptFromBilling recovers a submitted provider task ID
+// from the authoritative receipt mirror after a transient task-state write
+// failure. A later worker must resume the original poll, never issue create.
+func (s *Service) hydrateTaskProviderReceiptFromBilling(task *model.Task) {
+	if s == nil || s.repo == nil || task == nil || task.ID == "" || strings.TrimSpace(task.ProviderRequestID) != "" || task.BillingOrderID == "" {
+		return
+	}
+	order, err := s.repo.BillingOrder(task.BillingOrderID)
+	if err != nil || order == nil || order.TaskID != task.ID || order.UserID != task.UserID || strings.TrimSpace(order.ProviderRequestID) == "" {
+		return
+	}
+	task.ProviderRequestID = strings.TrimSpace(order.ProviderRequestID)
+	if task.PollStage == "" {
+		task.PollStage = "accepted"
+	}
+	next := time.Now().Add(detachedProviderPollDelay)
+	if err := s.repo.UpdateTaskProviderState(task.ID, task.ProviderRequestID, task.PollStage, &next); err != nil {
+		_ = s.log(task.UserID, task.ID, "warn", "上游任务回执暂时无法写入任务状态，将继续从账单回执恢复", err.Error())
+	}
+}
+
+// adoptSubmittedProviderReceipt binds a provider ID returned by a successful
+// create to the in-flight task before deciding whether to defer it. A mismatch
+// with the existing authoritative mirror is rejected.
+func (s *Service) adoptSubmittedProviderReceipt(task *model.Task, err error) bool {
+	var receiptErr providerReceiptPersistenceError
+	if !errors.As(err, &receiptErr) || task == nil {
+		return true
+	}
+	providerID := strings.TrimSpace(receiptErr.TaskID)
+	if providerID == "" {
+		return false
+	}
+	if task.ProviderRequestID != "" && task.ProviderRequestID != providerID {
+		return false
+	}
+	if task.BillingOrderID != "" && s != nil && s.repo != nil {
+		order, orderErr := s.repo.BillingOrder(task.BillingOrderID)
+		if orderErr == nil && order != nil {
+			if order.TaskID != task.ID || order.UserID != task.UserID {
+				return false
+			}
+			if order.ProviderRequestID != "" && order.ProviderRequestID != providerID {
+				return false
+			}
+		}
+	}
+	task.ProviderRequestID = providerID
+	if task.PollStage == "" {
+		task.PollStage = "accepted"
+	}
+	next := time.Now().Add(detachedProviderPollDelay)
+	if updateErr := s.repo.UpdateTaskProviderState(task.ID, providerID, task.PollStage, &next); updateErr != nil {
+		_ = s.log(task.UserID, task.ID, "warn", "上游任务已创建，任务状态暂时繁忙；将保留原请求等待恢复", updateErr.Error())
+	}
+	if attempt, attemptErr := s.repo.LatestRouteAttempt(task.ID); attemptErr == nil && attempt.RouteRun == task.RouteRun {
+		attempt.ProviderRequestID, attempt.DispatchState, attempt.Status = providerID, "accepted", "accepted"
+		if saveErr := s.repo.SaveRouteAttempt(attempt); saveErr != nil {
+			_ = s.log(task.UserID, task.ID, "warn", "上游任务回执暂时无法写入路由记录", saveErr.Error())
+		}
+	}
+	return true
 }
 
 func (s *Service) protocolDetachedPolling(interfaceType string) bool {

@@ -268,6 +268,99 @@ func TestWorkbenchVideoUsesTHQWireContractAndResumesSameReceipt(t *testing.T) {
 	assert.Equal(t, 2, polls)
 }
 
+func TestWorkbenchUncertainProviderTaskResumesOnlyOriginalPoll(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	svc.coordinator = platform.NewCoordinatorWithRedis(nil, "uncertain-provider-poll")
+	posts, polls := 0, 0
+	host := &workbenchVideoTestHost{}
+	host.relay = func(call WorkbenchRelay) (*http.Response, error) {
+		if call.Request.Method == http.MethodPost {
+			posts++
+			return nil, errors.New("submitted provider task must not be created again")
+		}
+		polls++
+		assert.Equal(t, "/v1/videos/provider-existing", call.Request.URL.Path)
+		return &http.Response{
+			StatusCode: http.StatusBadRequest,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"fixture poll failure"}}`)),
+		}, nil
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	until := time.Now().Add(time.Minute)
+	task := model.Task{ID: "uncertain-provider-task", UserID: "newapi:42", Type: "canvas_video", Model: "uncertain-video", Status: model.TaskStatusRunning, ProviderRequestID: "provider-existing", PollStage: "accepted", LeaseOwner: "worker", LeaseExpiresAt: &until}
+	require.NoError(t, db.Create(&task).Error)
+	order := model.BillingOrder{
+		ID: "uncertain-provider-order", UserID: task.UserID, TaskID: task.ID,
+		IdempotencyKey: "newapi:" + task.ID + ":0:fixture", BillingSource: model.BillingSourceNewAPI, BillingMode: model.BillingModeNewAPI,
+		Status: model.BillingStatusUncertain, ReservedAmountMicrocredits: 975_000, ProviderRequestID: "provider-existing",
+	}
+	require.NoError(t, db.Create(&order).Error)
+	input := canvasGenerationInput{
+		Mode: "video", Prompt: "resume original request",
+		Config: providerConfig{
+			ChannelID: "newapi-video", ChannelModelKey: "uncertain-video", InterfaceType: "newapi",
+			BaseURL: "http://newapi.workbench.invalid/v1", Model: "uncertain-video", VideoSeconds: "5", Size: "16:9", VQuality: "480p",
+		},
+	}
+	metadata := providerAnalyticsContext{Service: svc, UserID: task.UserID, TaskID: task.ID, BillingOrderID: order.ID, Model: input.Config.Model, ProviderRequestID: task.ProviderRequestID}
+	ctx := context.WithValue(context.Background(), providerAnalyticsKey{}, metadata)
+	_, err := runVideoTaskWithPolicy(ctx, input, fastVideoPollPolicy())
+	require.Error(t, err)
+	assert.Zero(t, posts, "a submitted provider task must never be POSTed again")
+	assert.Positive(t, polls, "recovery must query the original provider task ID: %v", err)
+}
+
+func TestWorkbenchHydratesProviderRequestIDFromUncertainReceipt(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	until := time.Now().Add(time.Minute)
+	task := model.Task{ID: "hydrate-receipt-task", UserID: "newapi:42", Type: "canvas_video", Status: model.TaskStatusRunning, LeaseOwner: "worker", LeaseExpiresAt: &until}
+	require.NoError(t, db.Create(&task).Error)
+	order := model.BillingOrder{
+		ID: "hydrate-receipt-order", UserID: task.UserID, TaskID: task.ID,
+		IdempotencyKey: "newapi:" + task.ID + ":0:fixture", BillingSource: model.BillingSourceNewAPI, BillingMode: model.BillingModeNewAPI,
+		Status: model.BillingStatusUncertain, ReservedAmountMicrocredits: 975_000, ProviderRequestID: "provider-existing",
+	}
+	require.NoError(t, db.Create(&order).Error)
+	task.BillingOrderID = order.ID
+
+	svc.hydrateTaskProviderReceiptFromBilling(&task)
+	assert.Equal(t, "provider-existing", task.ProviderRequestID)
+	assert.Equal(t, "accepted", task.PollStage)
+	stored, err := svc.repo.Task(task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "provider-existing", stored.ProviderRequestID)
+}
+
+func TestWorkbenchProviderReceiptPersistsBillingMirrorWhenTaskStateWriteFails(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	task := model.Task{ID: "partial-receipt-task", UserID: "newapi:42", Type: "canvas_video", Status: model.TaskStatusRunning}
+	require.NoError(t, db.Create(&task).Error)
+	order := model.BillingOrder{
+		ID: "partial-receipt-order", UserID: task.UserID, TaskID: task.ID,
+		IdempotencyKey: "newapi:" + task.ID + ":0:fixture", BillingSource: model.BillingSourceNewAPI, BillingMode: model.BillingModeNewAPI,
+		Status: model.BillingStatusRunning,
+	}
+	require.NoError(t, db.Create(&order).Error)
+	require.NoError(t, db.Model(&task).Update("billing_order_id", order.ID).Error)
+	task.BillingOrderID = order.ID
+	attempt := model.RouteAttempt{ID: "partial-receipt-attempt", TaskID: task.ID, RouteRun: task.RouteRun, DispatchState: "submission_unknown", Status: "dispatching"}
+	require.NoError(t, db.Create(&attempt).Error)
+	require.NoError(t, db.Exec(`CREATE TRIGGER fail_task_receipt BEFORE UPDATE OF provider_request_id ON tasks BEGIN SELECT RAISE(ABORT, 'task receipt write failed'); END`).Error)
+	ctx := context.WithValue(context.Background(), providerAnalyticsKey{}, providerAnalyticsContext{Service: svc, UserID: task.UserID, TaskID: task.ID, BillingOrderID: order.ID})
+	err := svc.recordProviderTaskReceipt(ctx, "provider-existing", "accepted", nil)
+	require.Error(t, err)
+	stored, readErr := svc.repo.BillingOrder(order.ID)
+	require.NoError(t, readErr)
+	assert.Equal(t, "provider-existing", stored.ProviderRequestID, "billing mirror must retain the submitted provider ID for recovery")
+	receiptErr := providerReceiptPersistenceError{TaskID: "provider-existing", Cause: err}
+	assert.True(t, svc.adoptSubmittedProviderReceipt(&task, receiptErr))
+	storedAttempt, readErr := svc.repo.LatestRouteAttempt(task.ID)
+	require.NoError(t, readErr)
+	assert.Equal(t, "provider-existing", storedAttempt.ProviderRequestID)
+	assert.Equal(t, "accepted", storedAttempt.DispatchState)
+}
+
 func TestHostedNewAPIVideoNormalizesDeclaredResolutionAliasBeforeWire(t *testing.T) {
 	svc, db := newChannelModelTestService(t)
 	svc.coordinator = platform.NewCoordinatorWithRedis(nil, "hosted-resolution-alias")
