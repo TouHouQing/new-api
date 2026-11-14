@@ -9,14 +9,15 @@ import (
 // BillingReviewStats 记录需要人工关注的长期未闭合订单数量。
 // 巡检只读数据库，不改变订单状态或积分余额。
 type BillingReviewStats struct {
-	Reserved  int64      `json:"reserved"`
-	Running   int64      `json:"running"`
-	Uncertain int64      `json:"uncertain"`
-	Oldest    *time.Time `json:"oldest,omitempty"`
+	PendingReceipt int64      `json:"pendingReceipt"`
+	Reserved       int64      `json:"reserved"`
+	Running        int64      `json:"running"`
+	Uncertain      int64      `json:"uncertain"`
+	Oldest         *time.Time `json:"oldest,omitempty"`
 }
 
 func (s BillingReviewStats) Total() int64 {
-	return s.Reserved + s.Running + s.Uncertain
+	return s.PendingReceipt + s.Reserved + s.Running + s.Uncertain
 }
 
 // StaleBillingReviewStats 查询超过 age 未更新、仍处于未闭合状态的订单。
@@ -30,6 +31,7 @@ func (r *Repository) StaleBillingReviewStats(now time.Time, age time.Duration) (
 	if err := r.db.Model(&model.BillingOrder{}).
 		Select("status, count(*) AS count").
 		Where("status IN ? AND updated_at < ?", []model.BillingStatus{
+			model.BillingStatusPendingReceipt,
 			model.BillingStatusReserved,
 			model.BillingStatusRunning,
 			model.BillingStatusUncertain,
@@ -39,6 +41,8 @@ func (r *Repository) StaleBillingReviewStats(now time.Time, age time.Duration) (
 	}
 	for _, row := range rows {
 		switch row.Status {
+		case model.BillingStatusPendingReceipt:
+			stats.PendingReceipt = row.Count
 		case model.BillingStatusReserved:
 			stats.Reserved = row.Count
 		case model.BillingStatusRunning:
@@ -56,6 +60,7 @@ func (r *Repository) StaleBillingReviewStats(now time.Time, age time.Duration) (
 	if err := r.db.Model(&model.BillingOrder{}).
 		Select("created_at").
 		Where("status IN ? AND updated_at < ?", []model.BillingStatus{
+			model.BillingStatusPendingReceipt,
 			model.BillingStatusReserved,
 			model.BillingStatusRunning,
 			model.BillingStatusUncertain,

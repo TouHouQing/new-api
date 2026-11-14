@@ -457,7 +457,7 @@ func proxySystemRequestPath(c *gin.Context, svc *service.Service, user *model.Us
 		}
 		if order != nil {
 			billingOrderID = order.ID
-			if err := svc.MarkBillingRunning(billingOrderID); err != nil {
+			if err := svc.MarkBillingRunning(billingOrderID, "", 0); err != nil {
 				refundSystemProxyBilling(svc, billingOrderID, "系统渠道请求尚未发出")
 				failService(c, err)
 				return

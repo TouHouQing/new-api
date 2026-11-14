@@ -32,6 +32,7 @@ type taskTerminalRepository interface {
 type taskBillingLifecycle interface {
 	MarkBillingUncertain(orderID string, errorText string) error
 	RefundBilling(orderID string, errorText string) error
+	RefundUnsentBilling(orderID, taskID string, errorText string) error
 	BillingFailureRequiresReview(orderID string, taskID string, err error) bool
 	SettleBilling(orderID string, providerRequestID string) error
 }
@@ -101,7 +102,7 @@ func (c *taskTerminalCoordinator) markPreparationFailure(task *model.Task, stage
 	if billingUncertain {
 		billingErr = c.billing.MarkBillingUncertain(task.BillingOrderID, task.Error)
 	} else {
-		billingErr = c.billing.RefundBilling(task.BillingOrderID, refundReason)
+		billingErr = c.billing.RefundUnsentBilling(task.BillingOrderID, task.ID, refundReason)
 	}
 	if billingErr != nil {
 		return errors.Join(err, fmt.Errorf("任务计费收尾失败：%w", billingErr))
@@ -129,7 +130,7 @@ func (c *taskTerminalCoordinator) handleExecutionFailure(task *model.Task, err e
 		}
 		var billingErr error
 		if channelSlotFailedBeforeRequest {
-			billingErr = c.billing.RefundBilling(task.BillingOrderID, "等待渠道槽位期间取消，上游请求未发出")
+			billingErr = c.billing.RefundUnsentBilling(task.BillingOrderID, task.ID, "等待渠道槽位期间取消，上游请求未发出")
 		} else {
 			billingErr = c.billing.MarkBillingUncertain(task.BillingOrderID, "任务取消时上游费用状态不明确")
 		}

@@ -117,7 +117,7 @@ func TestRetryTaskReleasesLeftoverReservationBeforeNewSuccess(t *testing.T) {
 				t.Fatalf("create: task=%+v err=%v", task, err)
 			}
 			oldOrderID := task.BillingOrderID
-			if err := s.repo.MarkBillingRunning(oldOrderID); err != nil {
+			if err := s.repo.MarkBillingRunning(oldOrderID, task.ID, task.RouteRun); err != nil {
 				t.Fatal(err)
 			}
 			if err := db.Model(&model.Task{}).Where("id = ?", task.ID).Update("status", model.TaskStatusRunning).Error; err != nil {

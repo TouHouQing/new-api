@@ -286,7 +286,7 @@ func (w *taskLifecycleCoordinator) cancelTaskWithIntent(_ context.Context, userI
 	} else {
 		var billingErr error
 		if originalStatus == model.TaskStatusQueued {
-			billingErr = s.taskBilling().RefundBilling(task.BillingOrderID, "任务取消且尚未开始执行；来源："+intent.Source)
+			billingErr = s.taskBilling().RefundUnsentBilling(task.BillingOrderID, task.ID, "任务取消且尚未开始执行；来源："+intent.Source)
 		} else {
 			// running 任务可能已经发起上游调用但尚未把 request ID 写回，不能
 			// 直接退款后放任上游继续生成，先冻结为待核对更安全。

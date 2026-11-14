@@ -11,6 +11,7 @@ import (
 
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/platform"
+	"yingce/backend/internal/repository"
 )
 
 const newAPIChannel2TaskSyncMaxAge = 5 * time.Minute
@@ -280,12 +281,20 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 	if err != nil {
 		return terminal.markPreparationFailure(task, "路由准备失败", err, isRouteDispatchUncertain(err), "路由准备失败，上游请求未发出")
 	}
-	if err := s.taskBilling().MarkBillingRunning(task.BillingOrderID); err != nil {
+	if err := s.taskBilling().MarkBillingRunning(task.BillingOrderID, task.ID, task.RouteRun); err != nil {
 		uncertain := task.ProviderRequestID != "" || s.taskBilling().BillingFailureRequiresReview(task.BillingOrderID, task.ID, err)
 		if routeAttempt != nil && (routeAttempt.DispatchState == "accepted" || routeAttempt.DispatchState == "submission_unknown") {
 			uncertain = true
 		}
-		return terminal.markPreparationFailure(task, "计费准备失败", err, uncertain, "计费准备失败，上游请求未发出")
+		if errors.Is(err, repository.ErrNewAPIBillingIdentityMismatch) || errors.Is(err, repository.ErrBillingStateConflict) || billingFailureUncertain(err) {
+			uncertain = true
+		}
+		stage := billingPreparationFailureStage(err, uncertain)
+		refundReason := "计费镜像未进入运行态，上游请求未发出"
+		if uncertain {
+			refundReason = "计费镜像未进入运行态，且上游提交状态无法确认"
+		}
+		return terminal.markPreparationFailure(task, stage, fmt.Errorf("%s：%w", stage, err), uncertain, refundReason)
 	}
 	routeResult, stateErr := s.routeExecutor().execute(ctx, task, routeAttempt)
 	if stateErr != nil {
@@ -418,6 +427,22 @@ func taskFailureMessage(err error) string {
 		return denied
 	}
 	return truncateRunes(redactUpstreamAddress(message), 2_000)
+}
+
+func billingPreparationFailureStage(err error, uncertain bool) string {
+	if errors.Is(err, repository.ErrNewAPIBillingIdentityMismatch) {
+		return "计费回执归属校验失败"
+	}
+	if errors.Is(err, repository.ErrBillingStateConflict) {
+		return "计费镜像状态冲突"
+	}
+	if billingFailureUncertain(err) {
+		return "计费镜像写入状态不明确"
+	}
+	if uncertain {
+		return "计费镜像未能确认运行态"
+	}
+	return "计费镜像写入失败"
 }
 
 // taskLeaseRenewContext 给续租单独一份"不继承父 context 取消/时限"的上下文（仅 5 秒上限）。

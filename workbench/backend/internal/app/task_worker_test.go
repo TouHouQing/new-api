@@ -44,6 +44,27 @@ func TestTaskLeaseRenewContextSurvivesExecutionDeadline(t *testing.T) {
 	}
 }
 
+func TestBillingPreparationFailureStageDistinguishesCauses(t *testing.T) {
+	for _, tc := range []struct {
+		name      string
+		err       error
+		uncertain bool
+		want      string
+	}{
+		{"identity", repository.ErrNewAPIBillingIdentityMismatch, true, "计费回执归属校验失败"},
+		{"state", repository.ErrBillingStateConflict, true, "计费镜像状态冲突"},
+		{"transport", errors.New("database timeout"), true, "计费镜像写入状态不明确"},
+		{"uncertain submission", errors.New("write failed"), true, "计费镜像未能确认运行态"},
+		{"not sent write failure", errors.New("write failed"), false, "计费镜像写入失败"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := billingPreparationFailureStage(tc.err, tc.uncertain); got != tc.want {
+				t.Fatalf("stage = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestTaskDeadlineRenewalAndTerminalFencing(t *testing.T) {
 	for _, lost := range []bool{false, true} {
 		name := "deadline_with_valid_lease"

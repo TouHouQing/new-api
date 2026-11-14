@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,14 +55,33 @@ func TestTaskTerminalConflictDoesNotRefundOrFinalize(t *testing.T) {
 	if !errors.Is(err, repository.ErrTaskStateConflict) {
 		t.Fatalf("missing conflict: %v", err)
 	}
-	if len(billing.refund)+len(billing.uncertain)+billing.settleCalls+len(replay.statuses) != 0 {
+	if len(billing.refund)+len(billing.unsent)+len(billing.uncertain)+billing.settleCalls+len(replay.statuses) != 0 {
 		t.Fatal("stale worker performed terminal side effects")
+	}
+}
+
+func TestTaskTerminalPreparationFailureUsesUnsentBillingPath(t *testing.T) {
+	task := &model.Task{ID: "task-unsent", UserID: "newapi:1", Status: model.TaskStatusRunning, BillingOrderID: "order-unsent"}
+	repo := &taskTerminalRepositoryStub{task: task}
+	billing, replay := &taskTerminalBillingStub{}, &taskTerminalReplayStub{}
+	c := newTaskTerminalCoordinatorForTest(repo, billing, replay, &taskTerminalLoggerStub{}, &taskTerminalOutputStub{})
+
+	err := c.markPreparationFailure(task, "计费镜像写入失败", errors.New("database unavailable"), false, "上游请求未发出")
+	if err == nil || !strings.Contains(err.Error(), "database unavailable") {
+		t.Fatalf("preparation error = %v", err)
+	}
+	if len(billing.unsent) != 1 || len(billing.refund) != 0 || len(billing.uncertain) != 0 {
+		t.Fatalf("unexpected billing actions: unsent=%v refund=%v uncertain=%v", billing.unsent, billing.refund, billing.uncertain)
+	}
+	if !strings.Contains(billing.unsent[0], task.ID) {
+		t.Fatalf("unsent billing lost task identity: %v", billing.unsent)
 	}
 }
 
 type taskTerminalBillingStub struct {
 	uncertain      []string
 	refund         []string
+	unsent         []string
 	settleCalls    int
 	review         bool
 	settleError    error
@@ -76,6 +96,11 @@ func (b *taskTerminalBillingStub) MarkBillingUncertain(_ string, reason string) 
 
 func (b *taskTerminalBillingStub) RefundBilling(_ string, reason string) error {
 	b.refund = append(b.refund, reason)
+	return b.refundError
+}
+
+func (b *taskTerminalBillingStub) RefundUnsentBilling(_ string, taskID string, reason string) error {
+	b.unsent = append(b.unsent, taskID+":"+reason)
 	return b.refundError
 }
 

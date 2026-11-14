@@ -35,6 +35,10 @@ var ErrCanvasRevisionConflict = errors.New("画布已被更新，请刷新后重
 
 var ErrNewAPIBillingAuthorityRequired = errors.New("hosted workbench billing must be authorized by New API")
 
+var ErrNewAPIBillingIdentityMismatch = errors.New("New API billing receipt identity does not match the task")
+
+var ErrNewAPIBillingSubmissionUncertain = errors.New("New API billing submission state is uncertain")
+
 type Repository struct {
 	db                   *gorm.DB
 	newAPIBillingOnly    bool

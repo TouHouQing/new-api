@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -10,6 +11,8 @@ import (
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/repository"
 )
+
+var ErrWorkbenchBillingReceiptNotFound = errors.New("New API billing receipt not found")
 
 // Only the host changes money. These rows are immutable execution receipts and
 // mirrors of host settlement, never a second credit ledger.
@@ -69,23 +72,20 @@ func (r *workbenchBillingRepository) sync(id, providerID string, refund bool) er
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	parts := strings.Split(order.IdempotencyKey, ":")
-	if len(parts) != 4 || (parts[0] != "newapi" && parts[0] != "host") || parts[1] != order.TaskID || parts[3] == "" {
-		return BadAuthRequest("工作台计费回执无效")
-	}
-	attempt, err := strconv.Atoi(parts[2])
-	if err != nil || attempt < 0 || strings.TrimSpace(strings.TrimPrefix(order.UserID, "newapi:")) == "" {
-		return BadAuthRequest("工作台计费回执无效")
+	attempt, err := workbenchReceiptAttempt(*order, order.TaskID)
+	if err != nil {
+		return err
 	}
 	bill, err := r.svc.host.Billing(ctx, strings.TrimPrefix(order.UserID, "newapi:"), order.TaskID, attempt)
 	if err != nil {
 		return err
 	}
-	if bill.Source != model.BillingSourceNewAPI || bill.ReceiptID == "" || bill.UserID != order.UserID || bill.TaskID != order.TaskID {
-		return BadAuthRequest("New API 计费回执归属不匹配")
-	}
-	if bill.ReservedMicrocredits < 0 || bill.ChargedMicrocredits < 0 {
-		return BadAuthRequest("New API 计费回执金额无效")
+	return r.syncBillingReceipt(*order, bill, providerID, refund)
+}
+
+func (r *workbenchBillingRepository) syncBillingReceipt(order model.BillingOrder, bill WorkbenchHostBilling, providerID string, refund bool) error {
+	if err := validateWorkbenchBillingReceipt(order, bill); err != nil {
+		return err
 	}
 	status := model.BillingStatusUncertain
 	if bill.Final && !bill.Uncertain {
@@ -94,7 +94,7 @@ func (r *workbenchBillingRepository) sync(id, providerID string, refund bool) er
 			status = model.BillingStatusRefunded
 		}
 	}
-	return r.Repository.SyncWorkbenchBilling(id, status, bill.ChargedMicrocredits, bill.ReservedMicrocredits, providerID)
+	return r.Repository.SyncWorkbenchBilling(order.ID, status, bill.ChargedMicrocredits, bill.ReservedMicrocredits, providerID)
 }
 func (r *workbenchBillingRepository) SettleBillingOrder(id, providerID string) error {
 	return r.sync(id, providerID, false)
@@ -107,6 +107,71 @@ func (r *workbenchBillingRepository) RestoreRefundedBillingOrder(id, providerID 
 }
 func (r *workbenchBillingRepository) RefundBillingOrder(id, _ string) error {
 	return r.sync(id, "", true)
+}
+
+func (r *workbenchBillingRepository) RefundUnsentBillingOrder(id, taskID, errorText string) error {
+	order, err := r.Repository.BillingOrder(id)
+	if err != nil {
+		return err
+	}
+	if !model.IsNewAPIBillingOrder(*order) {
+		return r.Repository.RefundBillingOrder(id, errorText)
+	}
+	attempt, err := workbenchReceiptAttempt(*order, taskID)
+	if err != nil {
+		return err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	bill, err := r.svc.host.Billing(ctx, strings.TrimPrefix(order.UserID, "newapi:"), taskID, attempt)
+	if errors.Is(err, ErrWorkbenchBillingReceiptNotFound) {
+		return r.Repository.ResolveWorkbenchBillingNotSent(id, taskID, errorText)
+	}
+	if err != nil {
+		return err
+	}
+	return r.syncBillingReceipt(*order, bill, "", true)
+}
+
+func workbenchReceiptAttempt(order model.BillingOrder, taskID string) (int, error) {
+	if order.BillingSource != model.BillingSourceNewAPI ||
+		order.BillingMode != model.BillingModeNewAPI ||
+		!strings.HasPrefix(order.UserID, "newapi:") ||
+		strings.TrimSpace(strings.TrimPrefix(order.UserID, "newapi:")) == "" ||
+		taskID == "" ||
+		order.TaskID != taskID {
+		return 0, repository.ErrNewAPIBillingIdentityMismatch
+	}
+	parts := strings.Split(order.IdempotencyKey, ":")
+	if len(parts) != 4 || parts[0] != "newapi" || parts[1] != taskID || parts[3] == "" {
+		return 0, repository.ErrNewAPIBillingIdentityMismatch
+	}
+	attempt, err := strconv.Atoi(parts[2])
+	if err != nil || attempt < 0 {
+		return 0, repository.ErrNewAPIBillingIdentityMismatch
+	}
+	return attempt, nil
+}
+
+func validateWorkbenchBillingReceipt(order model.BillingOrder, bill WorkbenchHostBilling) error {
+	attempt, err := workbenchReceiptAttempt(order, order.TaskID)
+	if err != nil {
+		return err
+	}
+	expectedReceiptID := fmt.Sprintf("wb:%s:%d", order.TaskID, attempt)
+	if bill.Source != model.BillingSourceNewAPI ||
+		bill.ReceiptID != expectedReceiptID ||
+		bill.UserID != order.UserID ||
+		bill.TaskID != order.TaskID {
+		return repository.ErrNewAPIBillingIdentityMismatch
+	}
+	if bill.ReservedMicrocredits < 0 || bill.ChargedMicrocredits < 0 {
+		return BadAuthRequest("New API 计费回执金额无效")
+	}
+	if bill.Final && bill.ReservedMicrocredits != 0 {
+		return BadAuthRequest("New API 已终结的回执不能保留冻结金额")
+	}
+	return nil
 }
 
 func (s *Service) workbenchReceiptOrder(userID string, task *model.Task, input map[string]any) (*model.BillingOrder, error) {

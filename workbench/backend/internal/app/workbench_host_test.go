@@ -18,6 +18,7 @@ import (
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/platform"
 	"yingce/backend/internal/protocol"
+	"yingce/backend/internal/repository"
 )
 
 type testWorkbenchHost struct {
@@ -49,6 +50,28 @@ func (h *workbenchReceiptMismatchHost) Billing(context.Context, string, string, 
 		Source: model.BillingSourceNewAPI, UserID: "newapi:other",
 		TaskID: "other-task", ReceiptID: "receipt:other", Final: true,
 	}, nil
+}
+
+type workbenchVideoExecutionProbe struct {
+	*Service
+	orderStatus model.BillingStatus
+	calls       int
+}
+
+func (p *workbenchVideoExecutionProbe) processTask(_ context.Context, task model.Task) (map[string]interface{}, []map[string]interface{}, error) {
+	p.calls++
+	order, err := p.repo.BillingOrder(task.BillingOrderID)
+	if err != nil {
+		return nil, nil, err
+	}
+	p.orderStatus = order.Status
+	return nil, nil, errors.New("workbench video execution fixture reached")
+}
+
+type workbenchMissingReceiptHost struct{ testWorkbenchHost }
+
+func (workbenchMissingReceiptHost) Billing(context.Context, string, string, int) (WorkbenchHostBilling, error) {
+	return WorkbenchHostBilling{}, ErrWorkbenchBillingReceiptNotFound
 }
 
 func TestWorkbenchDramaTaskAdmissionUsesHostModelsAndSegmentIdentity(t *testing.T) {
@@ -312,7 +335,7 @@ func (h *testWorkbenchHost) Billing(_ context.Context, userID, taskID string, at
 	bill.Source = model.BillingSourceNewAPI
 	bill.UserID = "newapi:" + userID
 	bill.TaskID = taskID
-	bill.ReceiptID = fmt.Sprintf("receipt:%s:%d", taskID, attempt)
+	bill.ReceiptID = fmt.Sprintf("wb:%s:%d", taskID, attempt)
 	return bill, nil
 }
 func (h *testWorkbenchHost) Relay(context.Context, WorkbenchRelay) (*http.Response, error) {
@@ -423,13 +446,133 @@ func TestWorkbenchTaskAdmissionDoesNotUseHostBalanceAsLocalBudget(t *testing.T) 
 	}
 }
 
+func TestWorkbenchNewAPIVideoReceiptEntersRunningBeforeRelay(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	host := &testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "1"},
+		models: []WorkbenchHostModel{{
+			Key: "vcbc7b9441cf008b2ee87a340", Name: "THQ video fixture",
+			Capability: "video", Protocol: "newapi",
+		}},
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), "1"))
+	require.NoError(t, err)
+	task, err := svc.CreateTask(user.ID, CreateTaskRequest{
+		Type: "canvas_video", Operation: "text_to_video", Prompt: "a cat walking",
+		Input: map[string]any{
+			"mode": "video", "prompt": "a cat walking",
+			"config": map[string]any{
+				"channelId": "newapi-video", "model": "vcbc7b9441cf008b2ee87a340",
+				"size": "16:9", "videoSeconds": "5", "vquality": "720p",
+			},
+		},
+	})
+	require.NoError(t, err)
+	order, err := svc.repo.BillingOrder(task.BillingOrderID)
+	require.NoError(t, err)
+	require.Equal(t, model.BillingStatusPendingReceipt, order.Status)
+
+	require.NoError(t, svc.taskBilling().MarkBillingRunning(order.ID, task.ID, task.RouteRun))
+	order, err = svc.repo.BillingOrder(order.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusRunning, order.Status)
+	var accounts, entries int64
+	require.NoError(t, db.Model(&model.CreditAccount{}).Count(&accounts).Error)
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&entries).Error)
+	assert.Zero(t, accounts)
+	assert.Zero(t, entries)
+	assert.Zero(t, host.calls, "transition must complete before any New API request")
+}
+
+func TestWorkbenchVideoWorkerAdvancesPendingReceiptBeforeExecution(t *testing.T) {
+	svc, _ := newTimelineTaskTestService(t)
+	svc.dataDir = t.TempDir()
+	host := &testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "1"},
+		models: []WorkbenchHostModel{{
+			Key: "vcbc7b9441cf008b2ee87a340", Name: "THQ video fixture",
+			Capability: "video", Protocol: "newapi",
+		}},
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), "1"))
+	require.NoError(t, err)
+	task, err := svc.CreateTask(user.ID, CreateTaskRequest{
+		Type: "canvas_video", Operation: "text_to_video", Prompt: "a cat walking",
+		Input: map[string]any{
+			"mode": "video", "prompt": "a cat walking",
+			"config": map[string]any{
+				"channelId": "newapi-video", "model": "vcbc7b9441cf008b2ee87a340",
+				"size": "16:9", "videoSeconds": "5", "vquality": "720p",
+			},
+		},
+	})
+	require.NoError(t, err)
+	claimed, err := svc.repo.ClaimNextTask("workbench-billing-worker", time.Minute)
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+	require.Equal(t, task.ID, claimed.ID)
+
+	probe := &workbenchVideoExecutionProbe{Service: svc}
+	svc.activeCancels = make(map[string]context.CancelFunc)
+	svc.taskRouteExecutor = &taskRouteExecutor{port: probe}
+	err = svc.taskWorker().processClaimedTask(claimed, nil)
+	require.Error(t, err)
+	stored, readErr := svc.repo.Task(task.ID)
+	require.NoError(t, readErr)
+	require.Equal(t, 1, probe.calls, "execution must receive the task only after the New API receipt mirror is running: worker=%v task=%s/%s", err, stored.Stage, stored.Error)
+	require.Equal(t, model.BillingStatusRunning, probe.orderStatus)
+	require.NotContains(t, err.Error(), "计费状态已变化")
+}
+
+func TestWorkbenchUnsentReceiptRefundRequiresNoSubmissionEvidence(t *testing.T) {
+	for _, scenario := range []string{"not_sent", "submission_unknown"} {
+		t.Run(scenario, func(t *testing.T) {
+			svc, db := newTimelineTaskTestService(t)
+			host := &workbenchMissingReceiptHost{testWorkbenchHost{
+				actor: WorkbenchHostUser{ID: "42"},
+				models: []WorkbenchHostModel{{
+					Key: "unsent-text", Name: "Unsent text", Capability: "text", Protocol: "chat-completion",
+				}},
+			}}
+			require.NoError(t, svc.ConfigureWorkbenchHost(host))
+			user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), "42"))
+			require.NoError(t, err)
+			task, err := svc.CreateTask(user.ID, CreateTaskRequest{
+				Type: "canvas_text", Operation: "text", Prompt: "unsent fixture",
+				Input: map[string]any{"mode": "text", "prompt": "unsent fixture", "config": map[string]any{"channelId": "newapi-text", "model": "unsent-text"}},
+			})
+			require.NoError(t, err)
+			dispatch := model.RouteAttempt{ID: "attempt-" + scenario, TaskID: task.ID, DispatchState: scenario, Status: "selected"}
+			require.NoError(t, db.Create(&dispatch).Error)
+
+			err = svc.taskBilling().RefundUnsentBilling(task.BillingOrderID, task.ID, "request not sent")
+			order, readErr := svc.repo.BillingOrder(task.BillingOrderID)
+			require.NoError(t, readErr)
+			if scenario == "submission_unknown" {
+				require.ErrorIs(t, err, repository.ErrNewAPIBillingSubmissionUncertain)
+				assert.Equal(t, model.BillingStatusUncertain, order.Status)
+			} else {
+				require.NoError(t, err)
+				assert.Equal(t, model.BillingStatusRefunded, order.Status)
+			}
+			var accounts, entries int64
+			require.NoError(t, db.Model(&model.CreditAccount{}).Count(&accounts).Error)
+			require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&entries).Error)
+			assert.Zero(t, accounts)
+			assert.Zero(t, entries)
+		})
+	}
+}
+
 func TestWorkbenchRejectsBillingReceiptOwnedByAnotherTask(t *testing.T) {
 	svc, db := newTimelineTaskTestService(t)
 	host := &workbenchReceiptMismatchHost{testWorkbenchHost{actor: WorkbenchHostUser{ID: "42"}}}
 	require.NoError(t, svc.ConfigureWorkbenchHost(host))
 	order := model.BillingOrder{
 		ID: "receipt-mismatch", UserID: "newapi:42", TaskID: "owned-task",
-		IdempotencyKey: "host:owned-task:1:fixture", BillingMode: model.BillingModeNewAPI,
+		IdempotencyKey: "newapi:owned-task:1:fixture", BillingMode: model.BillingModeNewAPI,
 		BillingSource: model.BillingSourceNewAPI, Status: model.BillingStatusReserved,
 	}
 	require.NoError(t, db.Create(&order).Error)
@@ -456,7 +599,7 @@ func TestWorkbenchMirrorsNewAPISettlementWithoutLocalDeduction(t *testing.T) {
 	}
 	order := model.BillingOrder{
 		ID: "settled-host-order", UserID: task.UserID, TaskID: task.ID,
-		IdempotencyKey: "host:settled-host-task:1:fixture",
+		IdempotencyKey: "newapi:settled-host-task:1:fixture",
 		BillingMode:    model.BillingModeNewAPI, BillingSource: model.BillingSourceNewAPI,
 		Status: model.BillingStatusReserved,
 	}

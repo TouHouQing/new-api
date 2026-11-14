@@ -229,6 +229,24 @@ func (r *Repository) TaskHasSuccessfulBillableCall(taskID string) (bool, error) 
 	return count > 0, err
 }
 
+func (r *Repository) TaskHasAmbiguousSubmission(taskID string) (bool, error) {
+	var task model.Task
+	if err := r.db.Select("id", "provider_request_id").First(&task, "id = ?", taskID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return true, nil
+		}
+		return false, err
+	}
+	if strings.TrimSpace(task.ProviderRequestID) != "" {
+		return true, nil
+	}
+	var count int64
+	err := r.db.Model(&model.RouteAttempt{}).
+		Where("task_id = ? AND dispatch_state IN ?", taskID, []string{"dispatching", "accepted", "submission_unknown"}).
+		Count(&count).Error
+	return count > 0, err
+}
+
 type BillingUsage struct {
 	InputTokens  int64
 	OutputTokens int64
@@ -299,35 +317,117 @@ func (r *Repository) UpdateBillingProviderRequestID(id string, providerRequestID
 	}).Error
 }
 
-func (r *Repository) MarkBillingRunning(id string) error {
+func (r *Repository) MarkBillingRunning(id, taskID string, attempt int) error {
 	if id == "" {
 		return nil
 	}
-	var order model.BillingOrder
-	if err := r.db.Select("id", "status").First(&order, "id = ?", id).Error; err != nil {
-		return err
+	var err error
+	for retry := 0; retry < 5; retry++ {
+		err = r.db.Transaction(func(tx *gorm.DB) error {
+			var order model.BillingOrder
+			if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
+				return err
+			}
+			newAPIReceipt := order.BillingSource == model.BillingSourceNewAPI && order.BillingMode == model.BillingModeNewAPI
+			if order.BillingSource == model.BillingSourceNewAPI || order.BillingMode == model.BillingModeNewAPI {
+				if !newAPIReceipt {
+					return ErrNewAPIBillingIdentityMismatch
+				}
+			}
+			if newAPIReceipt {
+				if err := validateNewAPIReceiptIdentity(order, taskID, attempt); err != nil {
+					return err
+				}
+			}
+			if order.Status == model.BillingStatusRunning {
+				return nil
+			}
+			allowed := order.Status == model.BillingStatusReserved
+			if newAPIReceipt {
+				allowed = order.Status == model.BillingStatusPendingReceipt
+			}
+			if !allowed {
+				return ErrBillingStateConflict
+			}
+			now := time.Now()
+			query := tx.Model(&model.BillingOrder{}).Where("id = ? AND status = ?", id, order.Status)
+			if newAPIReceipt {
+				query = query.Where("task_id = ? AND user_id = ? AND billing_source = ? AND billing_mode = ?", taskID, order.UserID, model.BillingSourceNewAPI, model.BillingModeNewAPI)
+			}
+			changed := query.Updates(map[string]any{"status": model.BillingStatusRunning, "started_at": &now, "updated_at": now})
+			if changed.Error != nil {
+				return changed.Error
+			}
+			if changed.RowsAffected == 1 {
+				return nil
+			}
+			var latest model.BillingOrder
+			if err := tx.Select("id", "status").First(&latest, "id = ?", id).Error; err != nil {
+				return err
+			}
+			if latest.Status == model.BillingStatusRunning {
+				return nil
+			}
+			return ErrBillingStateConflict
+		})
+		if !billingDatabaseBusy(err) {
+			return err
+		}
+		time.Sleep(time.Duration(5*(retry+1)) * time.Millisecond)
 	}
-	if order.Status == model.BillingStatusRunning {
-		return nil
+	return err
+}
+
+func billingDatabaseBusy(err error) bool {
+	if err == nil {
+		return false
 	}
-	now := time.Now()
-	result := r.db.Model(&model.BillingOrder{}).
-		Where("id = ? AND status = ?", id, model.BillingStatusReserved).
-		Updates(map[string]any{"status": model.BillingStatusRunning, "started_at": &now, "updated_at": now})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected != 1 {
-		return ErrBillingStateConflict
-	}
-	return nil
+	message := strings.ToLower(err.Error())
+	return strings.Contains(message, "database is locked") || strings.Contains(message, "database table is locked")
 }
 
 func (r *Repository) MarkBillingUncertain(id string, errorText string) error {
-	// uncertain 保留冻结积分，直到人工核对；这里故意不自动结算或退款。
-	return r.db.Model(&model.BillingOrder{}).
-		Where("id = ? AND status IN ?", id, []model.BillingStatus{model.BillingStatusReserved, model.BillingStatusRunning}).
-		Updates(map[string]any{"status": model.BillingStatusUncertain, "error": errorText, "updated_at": time.Now()}).Error
+	return r.db.Transaction(func(tx *gorm.DB) error {
+		var order model.BillingOrder
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&order, "id = ?", id).Error; err != nil {
+			return err
+		}
+		if order.Status == model.BillingStatusUncertain {
+			return nil
+		}
+		allowed := []model.BillingStatus{model.BillingStatusReserved, model.BillingStatusRunning}
+		if order.BillingMode == model.BillingModeNewAPI && order.BillingSource == model.BillingSourceNewAPI {
+			if !strings.HasPrefix(order.UserID, "newapi:") {
+				return ErrNewAPIBillingIdentityMismatch
+			}
+			attempt, err := newAPIReceiptKeyAttempt(order, order.TaskID)
+			if err != nil {
+				return err
+			}
+			if err := validateNewAPIReceiptIdentity(order, order.TaskID, attempt); err != nil {
+				return err
+			}
+			allowed = []model.BillingStatus{model.BillingStatusPendingReceipt, model.BillingStatusRunning}
+		}
+		now := time.Now()
+		changed := tx.Model(&model.BillingOrder{}).
+			Where("id = ? AND status IN ?", id, allowed).
+			Updates(map[string]any{"status": model.BillingStatusUncertain, "error": errorText, "updated_at": now})
+		if changed.Error != nil {
+			return changed.Error
+		}
+		if changed.RowsAffected == 1 {
+			return nil
+		}
+		var latest model.BillingOrder
+		if err := tx.Select("id", "status").First(&latest, "id = ?", id).Error; err != nil {
+			return err
+		}
+		if latest.Status == model.BillingStatusUncertain {
+			return nil
+		}
+		return ErrBillingStateConflict
+	})
 }
 
 func (r *Repository) SettleBillingOrder(id string, providerRequestID string) error {
@@ -777,6 +877,13 @@ func (r *Repository) RefundBillingOrder(id string, errorText string) error {
 		}
 		return refundBillingOrder(tx, order, errorText)
 	})
+}
+
+func (r *Repository) RefundUnsentBillingOrder(id, taskID, errorText string) error {
+	if r.newAPIBillingOnly {
+		return r.ResolveWorkbenchBillingNotSent(id, taskID, errorText)
+	}
+	return r.RefundBillingOrder(id, errorText)
 }
 
 // AutoRefundBillingOrder 重新检查候选，避免扫描后任务重试或作品落库仍被自动退款。

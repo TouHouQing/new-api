@@ -25,6 +25,8 @@ type Group = app.WorkbenchHostGroup
 type Relay = app.WorkbenchRelay
 type Billing = app.WorkbenchHostBilling
 
+var ErrWorkbenchBillingReceiptNotFound = app.ErrWorkbenchBillingReceiptNotFound
+
 type Config struct {
 	DB      *gorm.DB
 	DataDir string

@@ -14,14 +14,16 @@ type taskBillingRepositoryStub struct {
 	settleCalls       []string
 	restoreCalls      []string
 	refundCalls       []string
+	unsentCalls       []string
 	uncertainCalls    []string
 	order             *model.BillingOrder
 	orderErr          error
 	hasSuccessfulCall bool
+	ambiguous         bool
 	callErr           error
 }
 
-func (r *taskBillingRepositoryStub) MarkBillingRunning(orderID string) error {
+func (r *taskBillingRepositoryStub) MarkBillingRunning(orderID, _ string, _ int) error {
 	r.runningCalls = append(r.runningCalls, orderID)
 	return nil
 }
@@ -41,6 +43,11 @@ func (r *taskBillingRepositoryStub) RefundBillingOrder(orderID string, errorText
 	return nil
 }
 
+func (r *taskBillingRepositoryStub) RefundUnsentBillingOrder(orderID, taskID string, errorText string) error {
+	r.unsentCalls = append(r.unsentCalls, orderID+":"+taskID+":"+errorText)
+	return nil
+}
+
 func (r *taskBillingRepositoryStub) MarkBillingUncertain(orderID string, errorText string) error {
 	r.uncertainCalls = append(r.uncertainCalls, orderID+":"+errorText)
 	return nil
@@ -54,11 +61,15 @@ func (r *taskBillingRepositoryStub) TaskHasSuccessfulBillableCall(string) (bool,
 	return r.hasSuccessfulCall, r.callErr
 }
 
+func (r *taskBillingRepositoryStub) TaskHasAmbiguousSubmission(string) (bool, error) {
+	return r.ambiguous, r.callErr
+}
+
 func TestTaskBillingCoordinatorEmptyOrderIsNoOp(t *testing.T) {
 	repo := &taskBillingRepositoryStub{}
 	billing := newTaskBillingCoordinator(repo)
 
-	if err := billing.MarkBillingRunning(""); err != nil {
+	if err := billing.MarkBillingRunning("", "", 0); err != nil {
 		t.Fatalf("MarkBillingRunning() error = %v", err)
 	}
 	if err := billing.SettleBilling("", "provider-1"); err != nil {
@@ -70,13 +81,16 @@ func TestTaskBillingCoordinatorEmptyOrderIsNoOp(t *testing.T) {
 	if err := billing.RefundBilling("", "refund"); err != nil {
 		t.Fatalf("RefundBilling() error = %v", err)
 	}
+	if err := billing.RefundUnsentBilling("", "", "refund"); err != nil {
+		t.Fatalf("RefundUnsentBilling() error = %v", err)
+	}
 	if err := billing.MarkBillingUncertain("", "uncertain"); err != nil {
 		t.Fatalf("MarkBillingUncertain() error = %v", err)
 	}
 	if billing.BillingFailureRequiresReview("", "task-1", errors.New("timeout")) {
 		t.Fatal("BillingFailureRequiresReview() = true for empty order")
 	}
-	if len(repo.runningCalls)+len(repo.settleCalls)+len(repo.restoreCalls)+len(repo.refundCalls)+len(repo.uncertainCalls) != 0 {
+	if len(repo.runningCalls)+len(repo.settleCalls)+len(repo.restoreCalls)+len(repo.refundCalls)+len(repo.unsentCalls)+len(repo.uncertainCalls) != 0 {
 		t.Fatalf("empty order should not reach repository: %#v", repo)
 	}
 }
@@ -164,7 +178,9 @@ func TestTaskBillingCoordinatorFailureReviewPolicy(t *testing.T) {
 		{name: "uncertain transport error", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusSettled}}, err: errors.New("upstream timeout"), want: true},
 		{name: "order lookup error", stub: taskBillingRepositoryStub{orderErr: errors.New("database unavailable")}, err: errors.New("provider unavailable"), want: true},
 		{name: "uncertain order", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusUncertain}}, err: errors.New("provider rejected"), want: true},
-		{name: "pending New API receipt", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusPendingReceipt, BillingMode: model.BillingModeNewAPI}}, err: errors.New("provider rejected"), want: true},
+		{name: "pending New API receipt without submission evidence", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusPendingReceipt, BillingMode: model.BillingModeNewAPI}}, err: errors.New("provider rejected"), want: false},
+		{name: "pending New API receipt with ambiguous submission", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusPendingReceipt, BillingMode: model.BillingModeNewAPI}, ambiguous: true}, err: errors.New("provider rejected"), want: true},
+		{name: "pending New API receipt with successful call", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusPendingReceipt, BillingMode: model.BillingModeNewAPI}, hasSuccessfulCall: true}, err: errors.New("provider rejected"), want: true},
 		{name: "successful billable call", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusRunning}, hasSuccessfulCall: true}, err: errors.New("provider rejected"), want: true},
 		{name: "normal failed call", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusRunning}}, err: errors.New("provider rejected"), want: false},
 		{name: "billable call lookup error", stub: taskBillingRepositoryStub{order: &model.BillingOrder{Status: model.BillingStatusRunning}, callErr: errors.New("database unavailable")}, err: errors.New("provider rejected"), want: true},

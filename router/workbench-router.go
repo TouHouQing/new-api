@@ -457,15 +457,25 @@ func (newAPIWorkbenchHost) Billing(_ context.Context, id, taskID string, attempt
 	if err != nil {
 		return integration.Billing{}, err
 	}
+	jobID := fmt.Sprintf("wb:%s:%d", taskID, attempt)
+	var job model.StudioWorkflowJob
+	if err = model.DB.Where("id = ? AND user_id = ? AND kind = ?", jobID, n, "workbench").First(&job).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return integration.Billing{}, integration.ErrWorkbenchBillingReceiptNotFound
+		}
+		return integration.Billing{}, err
+	}
+	if job.BillingSource != model.StudioWorkflowBillingSourceNewAPI {
+		return integration.Billing{}, errors.New("workbench billing source is not New API")
+	}
 	var charges []model.StudioWorkflowCharge
-	err = model.DB.Where("user_id = ? AND job_id = ?", n, fmt.Sprintf("wb:%s:%d", taskID, attempt)).Find(&charges).Error
+	err = model.DB.Where("user_id = ? AND job_id = ?", n, jobID).Find(&charges).Error
 	if err != nil {
 		return integration.Billing{}, err
 	}
-	jobID := fmt.Sprintf("wb:%s:%d", taskID, attempt)
 	result := integration.Billing{
 		Source: model.StudioWorkflowBillingSourceNewAPI, UserID: "newapi:" + id, TaskID: taskID,
-		ReceiptID: jobID, Final: true,
+		ReceiptID: jobID, Final: true, Uncertain: job.Status == "uncertain",
 	}
 	for _, charge := range charges {
 		amount, err := workbenchMicrocredits(charge.Quota)
@@ -478,6 +488,11 @@ func (newAPIWorkbenchHost) Billing(_ context.Context, id, taskID string, attempt
 			result.ReservedMicrocredits += amount
 			result.Final = false
 		}
+	}
+	if len(charges) == 0 && job.Status == "running" {
+		// A live New API job without a charge record is not proof of a final
+		// zero-price outcome. Keep the Workbench mirror reconcilable.
+		result.Final = false
 	}
 	return result, nil
 }

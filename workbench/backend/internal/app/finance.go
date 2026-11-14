@@ -419,7 +419,7 @@ func (s *Service) resolveBillingOrder(actor *model.User, id string, action strin
 	if err != nil {
 		return nil, err
 	}
-	if order.Status != model.BillingStatusUncertain && order.Status != model.BillingStatusRunning && order.Status != model.BillingStatusReserved {
+	if order.Status != model.BillingStatusPendingReceipt && order.Status != model.BillingStatusUncertain && order.Status != model.BillingStatusRunning && order.Status != model.BillingStatusReserved {
 		return nil, BadAuthRequest("当前订单不需要人工核对")
 	}
 	switch action {
@@ -1009,8 +1009,8 @@ func requestedBillingQuantity(capability string, config map[string]any) int64 {
 	return billingQuantity(capability, config["videoSeconds"])
 }
 
-func (s *Service) MarkBillingRunning(orderID string) error {
-	return s.taskBilling().MarkBillingRunning(orderID)
+func (s *Service) MarkBillingRunning(orderID, taskID string, attempt int) error {
+	return s.taskBilling().MarkBillingRunning(orderID, taskID, attempt)
 }
 
 func (s *Service) SettleBilling(orderID string, providerRequestID string) error {

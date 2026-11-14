@@ -26,6 +26,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"yingce/backend/pkg/integration"
 )
 
 func TestWorkbenchInspirationCatalogUsesBundledFilesAndRejectsOtherPaths(t *testing.T) {
@@ -102,7 +103,7 @@ func TestWorkbenchQuotaConversionIsReadOnlyDisplayConversion(t *testing.T) {
 func TestWorkbenchHostBillingReturnsOwnedNewAPIReceipt(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open(":memory:"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.AutoMigrate(&model.StudioWorkflowCharge{}))
+	require.NoError(t, db.AutoMigrate(&model.StudioWorkflowJob{}, &model.StudioWorkflowCharge{}))
 	prior := model.DB
 	model.DB = db
 	t.Cleanup(func() {
@@ -111,6 +112,10 @@ func TestWorkbenchHostBillingReturnsOwnedNewAPIReceipt(t *testing.T) {
 		_ = sqlDB.Close()
 	})
 	jobID := "wb:task-owned:2"
+	require.NoError(t, db.Create(&model.StudioWorkflowJob{
+		ID: jobID, RequestID: jobID, UserID: 1, Kind: "workbench",
+		BillingSource: model.StudioWorkflowBillingSourceNewAPI, Status: "succeeded",
+	}).Error)
 	require.NoError(t, db.Create(&model.StudioWorkflowCharge{
 		RequestID: "request-owned", JobID: jobID, UserID: 1,
 		Quota: 250_000, Final: true,
@@ -126,6 +131,20 @@ func TestWorkbenchHostBillingReturnsOwnedNewAPIReceipt(t *testing.T) {
 	assert.False(t, bill.Uncertain)
 	assert.Zero(t, bill.ReservedMicrocredits)
 	assert.Positive(t, bill.ChargedMicrocredits)
+
+	runningJobID := "wb:task-running:1"
+	require.NoError(t, db.Create(&model.StudioWorkflowJob{
+		ID: runningJobID, RequestID: runningJobID, UserID: 1, Kind: "workbench",
+		BillingSource: model.StudioWorkflowBillingSourceNewAPI, Status: "running",
+	}).Error)
+	runningBill, err := (newAPIWorkbenchHost{}).Billing(context.Background(), "1", "task-running", 1)
+	require.NoError(t, err)
+	assert.False(t, runningBill.Final, "a running New API job without a charge row is not final")
+	assert.Zero(t, runningBill.ChargedMicrocredits)
+	assert.Zero(t, runningBill.ReservedMicrocredits)
+
+	_, err = (newAPIWorkbenchHost{}).Billing(context.Background(), "1", "missing-task", 1)
+	require.ErrorIs(t, err, integration.ErrWorkbenchBillingReceiptNotFound)
 }
 
 func TestInternalRelayRestoresServerRequestURIWithoutBypassingAuthentication(t *testing.T) {

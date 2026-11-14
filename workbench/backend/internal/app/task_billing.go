@@ -18,13 +18,15 @@ type taskBillingCoordinator struct {
 }
 
 type taskBillingRepository interface {
-	MarkBillingRunning(orderID string) error
+	MarkBillingRunning(orderID, taskID string, attempt int) error
 	SettleBillingOrder(orderID string, providerRequestID string) error
 	RestoreRefundedBillingOrder(orderID string, providerRequestID string) error
 	RefundBillingOrder(orderID string, errorText string) error
+	RefundUnsentBillingOrder(orderID, taskID string, errorText string) error
 	MarkBillingUncertain(orderID string, errorText string) error
 	BillingOrder(orderID string) (*model.BillingOrder, error)
 	TaskHasSuccessfulBillableCall(taskID string) (bool, error)
+	TaskHasAmbiguousSubmission(taskID string) (bool, error)
 }
 
 var (
@@ -36,11 +38,11 @@ func newTaskBillingCoordinator(repo taskBillingRepository) *taskBillingCoordinat
 	return &taskBillingCoordinator{repo: repo}
 }
 
-func (c *taskBillingCoordinator) MarkBillingRunning(orderID string) error {
+func (c *taskBillingCoordinator) MarkBillingRunning(orderID, taskID string, attempt int) error {
 	if orderID == "" {
 		return nil
 	}
-	return c.repo.MarkBillingRunning(orderID)
+	return c.repo.MarkBillingRunning(orderID, taskID, attempt)
 }
 
 func (c *taskBillingCoordinator) SettleBilling(orderID string, providerRequestID string) error {
@@ -81,6 +83,13 @@ func (c *taskBillingCoordinator) RefundBilling(orderID string, errorText string)
 		return nil
 	}
 	return c.repo.RefundBillingOrder(orderID, truncateRunes(redactUpstreamAddress(errorText), 1000))
+}
+
+func (c *taskBillingCoordinator) RefundUnsentBilling(orderID, taskID, errorText string) error {
+	if orderID == "" {
+		return nil
+	}
+	return c.repo.RefundUnsentBillingOrder(orderID, taskID, truncateRunes(redactUpstreamAddress(errorText), 1000))
 }
 
 func (c *taskBillingCoordinator) MarkBillingUncertain(orderID string, errorText string) error {
@@ -125,9 +134,14 @@ func (c *taskBillingCoordinator) BillingFailureRequiresReview(orderID string, ta
 		return true
 	}
 	order, orderErr := c.repo.BillingOrder(orderID)
-	if orderErr != nil || order == nil || order.Status == model.BillingStatusUncertain ||
-		(model.IsNewAPIBillingOrder(*order) && order.Status == model.BillingStatusPendingReceipt) {
+	if orderErr != nil || order == nil || order.Status == model.BillingStatusUncertain {
 		return true
+	}
+	if model.IsNewAPIBillingOrder(*order) && order.Status == model.BillingStatusPendingReceipt {
+		ambiguous, ambiguityErr := c.repo.TaskHasAmbiguousSubmission(taskID)
+		if ambiguityErr != nil || ambiguous {
+			return true
+		}
 	}
 	hasSuccessfulCall, logErr := c.repo.TaskHasSuccessfulBillableCall(taskID)
 	return logErr != nil || hasSuccessfulCall
