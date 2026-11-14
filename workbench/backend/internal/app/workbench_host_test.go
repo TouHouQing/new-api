@@ -7,13 +7,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 	"yingce/backend/internal/assets"
 	"yingce/backend/internal/model"
 	"yingce/backend/internal/platform"
@@ -33,6 +36,18 @@ type testWorkbenchHost struct {
 type workbenchVideoTestHost struct {
 	testWorkbenchHost
 	relay func(WorkbenchRelay) (*http.Response, error)
+}
+
+type workbenchRecoveryBillingHost struct {
+	*workbenchVideoTestHost
+	billing func()
+}
+
+func (h *workbenchRecoveryBillingHost) Billing(ctx context.Context, userID, taskID string, attempt int) (WorkbenchHostBilling, error) {
+	if h.billing != nil {
+		h.billing()
+	}
+	return h.workbenchVideoTestHost.Billing(ctx, userID, taskID, attempt)
 }
 
 func (h *workbenchVideoTestHost) Relay(_ context.Context, call WorkbenchRelay) (*http.Response, error) {
@@ -493,10 +508,18 @@ func (h *testWorkbenchHost) Balance(context.Context, string) (int64, error) { re
 func (h *testWorkbenchHost) Billing(_ context.Context, userID, taskID string, attempt int) (WorkbenchHostBilling, error) {
 	h.billingReads++
 	bill := h.bill
-	bill.Source = model.BillingSourceNewAPI
-	bill.UserID = "newapi:" + userID
-	bill.TaskID = taskID
-	bill.ReceiptID = fmt.Sprintf("wb:%s:%d", taskID, attempt)
+	if bill.Source == "" {
+		bill.Source = model.BillingSourceNewAPI
+	}
+	if bill.UserID == "" {
+		bill.UserID = "newapi:" + userID
+	}
+	if bill.TaskID == "" {
+		bill.TaskID = taskID
+	}
+	if bill.ReceiptID == "" {
+		bill.ReceiptID = fmt.Sprintf("wb:%s:%d", taskID, attempt)
+	}
 	return bill, nil
 }
 func (h *testWorkbenchHost) Relay(context.Context, WorkbenchRelay) (*http.Response, error) {
@@ -685,6 +708,543 @@ func TestWorkbenchVideoWorkerAdvancesPendingReceiptBeforeExecution(t *testing.T)
 	require.Equal(t, 1, probe.calls, "execution must receive the task only after the New API receipt mirror is running: worker=%v task=%s/%s", err, stored.Stage, stored.Error)
 	require.Equal(t, model.BillingStatusRunning, probe.orderStatus)
 	require.NotContains(t, err.Error(), "计费状态已变化")
+}
+
+func TestWorkbenchSubmittedVideoRecoveryPollsOriginalProviderIDAndSettles(t *testing.T) {
+	t.Setenv("CANVAS_ALLOW_PRIVATE_UPSTREAMS", "true")
+	videoFixture, err := os.ReadFile("../../../../web/public/studio-presets/videos/camera-static.mp4")
+	require.NoError(t, err)
+	mediaServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/result.mp4", r.URL.Path)
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write(videoFixture)
+	}))
+	defer mediaServer.Close()
+
+	svc, db := newTimelineTaskTestService(t)
+	svc.dataDir = t.TempDir()
+	svc.coordinator = platform.NewCoordinatorWithRedis(nil, "workbench-recovery-seam")
+	svc.activeCancels = make(map[string]context.CancelFunc)
+	posts, polls := 0, 0
+	const providerID = "provider-recover-1"
+	host := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "recover-video", Name: "Recovery video", Capability: "video", Protocol: "newapi",
+		}},
+	}}
+	host.relay = func(call WorkbenchRelay) (*http.Response, error) {
+		if call.Request.Method == http.MethodPost {
+			posts++
+			host.bill = WorkbenchHostBilling{
+				ProviderRequestID: providerID, ReservedMicrocredits: 975_000,
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(fmt.Sprintf(`{"id":%q,"status":"queued"}`, providerID))),
+			}, nil
+		}
+		polls++
+		require.Equal(t, "/v1/videos/"+providerID, call.Request.URL.Path)
+		host.bill = WorkbenchHostBilling{
+			ProviderRequestID: providerID, Final: true, ChargedMicrocredits: 975_000,
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
+				`{"id":%q,"status":"completed","url":%q}`,
+				providerID, mediaServer.URL+"/result.mp4",
+			))),
+		}, nil
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), "42"))
+	require.NoError(t, err)
+	task, err := svc.CreateTask(user.ID, CreateTaskRequest{
+		Type: "canvas_video", Operation: "text_to_video", Prompt: "recover exact provider request",
+		Input: map[string]any{
+			"mode": "video", "prompt": "recover exact provider request",
+			"config": map[string]any{
+				"channelId": "newapi-video", "model": "recover-video",
+				"size": "16:9", "videoSeconds": "5", "vquality": "480p",
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	firstClaim, err := svc.repo.ClaimNextTask("first-worker", time.Minute)
+	require.NoError(t, err)
+	require.NotNil(t, firstClaim)
+	require.Equal(t, task.ID, firstClaim.ID)
+	require.NoError(t, svc.taskWorker().processClaimedTask(firstClaim, nil))
+	assert.Equal(t, 1, posts)
+	assert.Zero(t, polls)
+
+	stored, err := svc.repo.Task(task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.TaskStatusRunning, stored.Status)
+	assert.Equal(t, providerID, stored.ProviderRequestID)
+	order, err := svc.repo.BillingOrder(task.BillingOrderID)
+	require.NoError(t, err)
+	require.Equal(t, providerID, order.ProviderRequestID)
+	coordinator := &workbenchBillingRepository{Repository: svc.repo, svc: svc}
+	require.NoError(t, coordinator.sync(order.ID, order.ProviderRequestID, false))
+	order, err = svc.repo.BillingOrder(order.ID)
+	require.NoError(t, err)
+	require.Equal(t, model.BillingStatusUncertain, order.Status)
+	assert.EqualValues(t, 975_000, order.ReservedAmountMicrocredits)
+
+	require.NoError(t, db.Model(&model.Task{}).Where("id = ?", task.ID).
+		Update("next_poll_at", time.Now().Add(-time.Second)).Error)
+	secondClaim, err := svc.repo.ClaimNextTask("second-worker", time.Minute)
+	require.NoError(t, err)
+	require.NotNil(t, secondClaim)
+	require.Equal(t, task.ID, secondClaim.ID)
+	require.Equal(t, providerID, secondClaim.ProviderRequestID)
+	require.NoError(t, svc.taskWorker().processClaimedTask(secondClaim, nil))
+
+	assert.Equal(t, 1, posts, "recovery must never create a second provider task")
+	assert.Equal(t, 1, polls)
+	stored, err = svc.repo.Task(task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.TaskStatusSucceeded, stored.Status)
+	var savedResult struct {
+		Video map[string]any `json:"video"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(stored.ResultJSON), &savedResult))
+	assert.NotEmpty(t, savedResult.Video["resourceId"])
+	assert.Equal(t, "video/mp4", savedResult.Video["mimeType"])
+	order, err = svc.repo.BillingOrder(task.BillingOrderID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusSettled, order.Status)
+	assert.EqualValues(t, 975_000, order.ActualAmountMicrocredits)
+	assert.Zero(t, order.ReservedAmountMicrocredits)
+	assert.Equal(t, providerID, order.ProviderRequestID)
+	var accounts, entries int64
+	require.NoError(t, db.Model(&model.CreditAccount{}).Count(&accounts).Error)
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&entries).Error)
+	assert.Zero(t, accounts, "hosted recovery must not create a Workbench wallet")
+	assert.Zero(t, entries, "hosted recovery must not create a local billing ledger")
+}
+
+func TestWorkbenchBillingRecoveryAuthorizationIsReadOnlyAndValidated(t *testing.T) {
+	type setup struct {
+		orderStatus     model.BillingStatus
+		orderUser       string
+		orderTask       string
+		orderProvider   string
+		attemptRouteRun int
+		attemptProvider string
+		billProvider    string
+		billUser        string
+		billTask        string
+		billReceipt     string
+		mirrorReserved  int64
+		mirrorCharged   int64
+		billFinal       bool
+		billFinalSet    bool
+		billCharged     int64
+		billChargedSet  bool
+		wantIdentity    bool
+		wantEvidence    bool
+		wantState       bool
+		wantNoReceipt   bool
+	}
+	tests := []struct {
+		name  string
+		apply func(*setup)
+	}{
+		{name: "uncertain remains read only"},
+		{name: "settled remains settled", apply: func(s *setup) {
+			s.orderStatus = model.BillingStatusSettled
+			s.mirrorReserved = 0
+			s.mirrorCharged = 975_000
+		}},
+		{name: "refunded remains refunded", apply: func(s *setup) {
+			s.orderStatus = model.BillingStatusRefunded
+			s.mirrorReserved = 0
+		}},
+		{name: "settled terminal regression rejected", apply: func(s *setup) {
+			s.orderStatus = model.BillingStatusSettled
+			s.mirrorReserved = 0
+			s.mirrorCharged = 975_000
+			s.billFinal, s.billFinalSet = false, true
+			s.wantState = true
+		}},
+		{name: "settled amount mismatch rejected", apply: func(s *setup) {
+			s.orderStatus = model.BillingStatusSettled
+			s.mirrorReserved = 0
+			s.mirrorCharged = 975_000
+			s.billCharged, s.billChargedSet = 800_000, true
+			s.wantState = true
+		}},
+		{name: "refunded charged receipt rejected", apply: func(s *setup) {
+			s.orderStatus = model.BillingStatusRefunded
+			s.mirrorReserved = 0
+			s.billCharged, s.billChargedSet = 1, true
+			s.wantState = true
+		}},
+		{name: "wrong order user", apply: func(s *setup) {
+			s.orderUser = "newapi:other"
+			s.wantIdentity = true
+		}},
+		{name: "wrong order task", apply: func(s *setup) {
+			s.orderTask = "other-task"
+			s.wantIdentity = true
+		}},
+		{name: "wrong route run", apply: func(s *setup) {
+			s.attemptRouteRun = 9
+			s.wantEvidence = true
+		}},
+		{name: "wrong route provider", apply: func(s *setup) {
+			s.attemptProvider = "other-provider"
+			s.wantIdentity = true
+		}},
+		{name: "wrong mirror provider", apply: func(s *setup) {
+			s.orderProvider = "other-provider"
+			s.wantIdentity = true
+		}},
+		{name: "wrong authoritative provider", apply: func(s *setup) {
+			s.billProvider = "other-provider"
+			s.wantIdentity = true
+		}},
+		{name: "wrong authoritative user", apply: func(s *setup) {
+			s.billUser = "newapi:other"
+			s.wantIdentity = true
+		}},
+		{name: "wrong authoritative task", apply: func(s *setup) {
+			s.billTask = "other-task"
+			s.wantIdentity = true
+		}},
+		{name: "wrong authoritative receipt", apply: func(s *setup) {
+			s.billReceipt = "wb:other-task:0"
+			s.wantIdentity = true
+		}},
+		{name: "missing receipt", apply: func(s *setup) {
+			s.wantNoReceipt = true
+		}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			values := setup{
+				orderStatus: model.BillingStatusUncertain, orderUser: "newapi:42",
+				orderTask: "recovery-task", orderProvider: "provider-1",
+				attemptRouteRun: 0, attemptProvider: "provider-1",
+				billProvider: "provider-1", billUser: "newapi:42",
+				billTask: "recovery-task", billReceipt: "wb:recovery-task:0",
+				mirrorReserved: 975_000,
+			}
+			if tt.apply != nil {
+				tt.apply(&values)
+			}
+			billFinal := values.orderStatus == model.BillingStatusSettled || values.orderStatus == model.BillingStatusRefunded
+			if values.billFinalSet {
+				billFinal = values.billFinal
+			}
+			billCharged := values.mirrorCharged
+			if values.billChargedSet {
+				billCharged = values.billCharged
+			}
+			svc, db := newTimelineTaskTestService(t)
+			host := &testWorkbenchHost{
+				actor: WorkbenchHostUser{ID: "42"},
+				bill: WorkbenchHostBilling{
+					ProviderRequestID:    values.billProvider,
+					ReservedMicrocredits: values.mirrorReserved,
+					ChargedMicrocredits:  billCharged,
+					Final:                billFinal,
+				},
+			}
+			var configured WorkbenchHost = host
+			if values.wantNoReceipt {
+				configured = &workbenchMissingReceiptHost{testWorkbenchHost: testWorkbenchHost{
+					actor: WorkbenchHostUser{ID: "42"},
+				}}
+			}
+			require.NoError(t, svc.ConfigureWorkbenchHost(configured))
+			order := model.BillingOrder{
+				ID: "recovery-order", UserID: values.orderUser, TaskID: values.orderTask,
+				IdempotencyKey: "newapi:recovery-task:0:fixture",
+				BillingSource:  model.BillingSourceNewAPI, BillingMode: model.BillingModeNewAPI,
+				Status: values.orderStatus, ProviderRequestID: values.orderProvider,
+				ReservedAmountMicrocredits: values.mirrorReserved, ActualAmountMicrocredits: values.mirrorCharged,
+			}
+			require.NoError(t, db.Create(&order).Error)
+			routeAttempt := &model.RouteAttempt{
+				ID: "recovery-attempt", TaskID: "recovery-task",
+				RouteRun: values.attemptRouteRun, DispatchState: "accepted",
+				ProviderRequestID: values.attemptProvider,
+			}
+			host.bill.Source = model.BillingSourceNewAPI
+			host.bill.UserID = values.billUser
+			host.bill.TaskID = values.billTask
+			host.bill.ReceiptID = values.billReceipt
+			if values.wantNoReceipt {
+				host.bill = WorkbenchHostBilling{}
+			}
+			coordinator := &workbenchBillingRepository{Repository: svc.repo, svc: svc}
+			err := coordinator.AuthorizeBillingRecovery(
+				context.Background(),
+				order.ID, "recovery-task", "newapi:42", "provider-1", 0, routeAttempt,
+			)
+			switch {
+			case values.wantNoReceipt:
+				require.ErrorIs(t, err, ErrWorkbenchBillingReceiptNotFound)
+			case values.wantIdentity:
+				require.ErrorIs(t, err, repository.ErrNewAPIBillingIdentityMismatch)
+			case values.wantEvidence:
+				require.ErrorIs(t, err, ErrWorkbenchBillingRecoveryEvidence)
+			case values.wantState:
+				require.ErrorIs(t, err, repository.ErrBillingStateConflict)
+			default:
+				require.NoError(t, err)
+			}
+			stored, readErr := svc.repo.BillingOrder(order.ID)
+			require.NoError(t, readErr)
+			assert.Equal(t, values.orderStatus, stored.Status)
+			assert.EqualValues(t, values.mirrorReserved, stored.ReservedAmountMicrocredits)
+			assert.EqualValues(t, values.mirrorCharged, stored.ActualAmountMicrocredits)
+		})
+	}
+}
+
+func TestWorkbenchBillingMirrorAdoptsAuthoritativeProviderRequestID(t *testing.T) {
+	svc, db := newTimelineTaskTestService(t)
+	host := &testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		bill: WorkbenchHostBilling{
+			ProviderRequestID: "provider-from-host", ReservedMicrocredits: 975_000,
+		},
+	}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	task := model.Task{ID: "host-provider-task", UserID: "newapi:42", Type: "canvas_video", Status: model.TaskStatusRunning}
+	require.NoError(t, db.Create(&task).Error)
+	order := model.BillingOrder{
+		ID: "host-provider-order", UserID: task.UserID, TaskID: task.ID,
+		IdempotencyKey: "newapi:" + task.ID + ":0:fixture",
+		BillingSource:  model.BillingSourceNewAPI, BillingMode: model.BillingModeNewAPI,
+		Status: model.BillingStatusRunning,
+	}
+	require.NoError(t, db.Create(&order).Error)
+	coordinator := &workbenchBillingRepository{Repository: svc.repo, svc: svc}
+	require.NoError(t, coordinator.sync(order.ID, "", false))
+	stored, err := svc.repo.BillingOrder(order.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusUncertain, stored.Status)
+	assert.Equal(t, "provider-from-host", stored.ProviderRequestID)
+	assert.EqualValues(t, 975_000, stored.ReservedAmountMicrocredits)
+	var ledgerCount int64
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount)
+}
+
+func seedWorkbenchAcceptedRecoveryTask(t *testing.T, host WorkbenchHost) (*Service, *gorm.DB, *model.Task, *model.BillingOrder, string) {
+	t.Helper()
+	const providerID = "provider-accepted-1"
+	svc, db := newTimelineTaskTestService(t)
+	svc.dataDir = t.TempDir()
+	svc.coordinator = platform.NewCoordinatorWithRedis(nil, "workbench-recovery-fixture")
+	svc.activeCancels = make(map[string]context.CancelFunc)
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	user, err := svc.WorkbenchCurrentUser(WithWorkbenchIdentity(context.Background(), "42"))
+	require.NoError(t, err)
+	task, err := svc.CreateTask(user.ID, CreateTaskRequest{
+		Type: "canvas_video", Operation: "text_to_video", Prompt: "accepted recovery fixture",
+		Input: map[string]any{
+			"mode": "video", "prompt": "accepted recovery fixture",
+			"config": map[string]any{
+				"channelId": "newapi-video", "model": "recovery-fixture",
+				"size": "16:9", "videoSeconds": "5", "vquality": "480p",
+			},
+		},
+	})
+	require.NoError(t, err)
+	routeAttempt, err := svc.createDirectTaskAttempt(task)
+	require.NoError(t, err)
+	require.NoError(t, svc.captureRouteAttemptProviderConfig(routeAttempt))
+	routeAttempt.ProviderRequestID = providerID
+	routeAttempt.DispatchState = "accepted"
+	routeAttempt.Status = "accepted"
+	require.NoError(t, svc.repo.SaveRouteAttempt(routeAttempt))
+	require.NoError(t, db.Model(&model.Task{}).Where("id = ?", task.ID).Updates(map[string]any{
+		"provider_request_id": providerID, "poll_stage": "accepted",
+	}).Error)
+	order, err := svc.repo.BillingOrder(task.BillingOrderID)
+	require.NoError(t, err)
+	require.NoError(t, db.Model(&model.BillingOrder{}).Where("id = ?", order.ID).Updates(map[string]any{
+		"status": model.BillingStatusUncertain, "provider_request_id": providerID,
+		"reserved_amount_microcredits": 975_000,
+	}).Error)
+	order, err = svc.repo.BillingOrder(order.ID)
+	require.NoError(t, err)
+	task, err = svc.repo.Task(task.ID)
+	require.NoError(t, err)
+	return svc, db, task, order, providerID
+}
+
+func TestWorkbenchSettledBillingMirrorPollsWithoutReturningToRunning(t *testing.T) {
+	host := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "recovery-fixture", Name: "Recovery fixture", Capability: "video", Protocol: "newapi",
+		}},
+		bill: WorkbenchHostBilling{
+			ProviderRequestID: "provider-accepted-1", Final: true, ChargedMicrocredits: 975_000,
+		},
+	}}
+	svc, db, _, order, _ := seedWorkbenchAcceptedRecoveryTask(t, host)
+	require.NoError(t, db.Model(&model.BillingOrder{}).Where("id = ?", order.ID).Updates(map[string]any{
+		"status": model.BillingStatusSettled, "reserved_amount_microcredits": 0,
+		"actual_amount_microcredits": 975_000,
+	}).Error)
+	claimed, err := svc.repo.ClaimNextTask("settled-read-worker", time.Minute)
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+	probe := &workbenchVideoExecutionProbe{Service: svc}
+	svc.taskRouteExecutor = &taskRouteExecutor{port: probe}
+	_ = svc.taskWorker().processClaimedTask(claimed, nil)
+	assert.Equal(t, 1, probe.calls)
+	assert.Equal(t, model.BillingStatusSettled, probe.orderStatus)
+}
+
+func TestWorkbenchRecoveryLeaseLossCannotPollOrRecreate(t *testing.T) {
+	videoHost := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "recovery-fixture", Name: "Recovery fixture", Capability: "video", Protocol: "newapi",
+		}},
+		bill: WorkbenchHostBilling{
+			ProviderRequestID: "provider-accepted-1", ReservedMicrocredits: 975_000,
+		},
+	}}
+	leaseStolen := false
+	host := &workbenchRecoveryBillingHost{workbenchVideoTestHost: videoHost}
+	svc, db, task, _, providerID := seedWorkbenchAcceptedRecoveryTask(t, host)
+	host.billing = func() {
+		leaseStolen = true
+		require.NoError(t, db.Model(&model.Task{}).Where("id = ?", task.ID).
+			Update("lease_owner", "new-worker").Error)
+	}
+	claimed, err := svc.repo.ClaimNextTask("old-worker", time.Minute)
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+	require.Equal(t, providerID, claimed.ProviderRequestID)
+	probe := &workbenchVideoExecutionProbe{Service: svc}
+	svc.taskRouteExecutor = &taskRouteExecutor{port: probe}
+	err = svc.taskWorker().processClaimedTask(claimed, nil)
+	require.Error(t, err)
+	assert.True(t, leaseStolen)
+	assert.Zero(t, probe.calls)
+	stored, readErr := svc.repo.BillingOrder(claimed.BillingOrderID)
+	require.NoError(t, readErr)
+	assert.Equal(t, model.BillingStatusUncertain, stored.Status)
+}
+
+func TestWorkbenchRecoveryMissingReceiptDefersWithoutFailureOrCreate(t *testing.T) {
+	host := &workbenchMissingReceiptHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "recovery-fixture", Name: "Recovery fixture", Capability: "video", Protocol: "newapi",
+		}},
+	}}
+	svc, db, task, order, _ := seedWorkbenchAcceptedRecoveryTask(t, host)
+	claimed, err := svc.repo.ClaimNextTask("receipt-retry-worker", time.Minute)
+	require.NoError(t, err)
+	require.NotNil(t, claimed)
+	probe := &workbenchVideoExecutionProbe{Service: svc}
+	svc.taskRouteExecutor = &taskRouteExecutor{port: probe}
+	require.NoError(t, svc.taskWorker().processClaimedTask(claimed, nil))
+	assert.Zero(t, probe.calls)
+	storedTask, err := svc.repo.Task(task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.TaskStatusRunning, storedTask.Status)
+	assert.Empty(t, storedTask.LeaseOwner)
+	require.NotNil(t, storedTask.NextPollAt)
+	assert.Equal(t, "计费回执暂不可用", storedTask.Stage)
+	storedOrder, err := svc.repo.BillingOrder(order.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusUncertain, storedOrder.Status)
+	var ledgerCount int64
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount)
+}
+
+func TestWorkbenchFailedTaskControlledRecoveryPollsOriginalProviderID(t *testing.T) {
+	t.Setenv("CANVAS_ALLOW_PRIVATE_UPSTREAMS", "true")
+	videoFixture, err := os.ReadFile("../../../../web/public/studio-presets/videos/camera-static.mp4")
+	require.NoError(t, err)
+	mediaServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/recovered.mp4", r.URL.Path)
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = w.Write(videoFixture)
+	}))
+	defer mediaServer.Close()
+
+	posts, polls := 0, 0
+	host := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "recovery-fixture", Name: "Recovery fixture", Capability: "video", Protocol: "newapi",
+		}},
+		bill: WorkbenchHostBilling{
+			ProviderRequestID: "provider-accepted-1", ReservedMicrocredits: 975_000,
+		},
+	}}
+	svc, db, task, order, providerID := seedWorkbenchAcceptedRecoveryTask(t, host)
+	host.bill = WorkbenchHostBilling{
+		ProviderRequestID: providerID, Final: true, ChargedMicrocredits: 975_000,
+	}
+	require.NoError(t, db.Model(&model.BillingOrder{}).Where("id = ?", order.ID).Updates(map[string]any{
+		"status": model.BillingStatusSettled, "reserved_amount_microcredits": 0,
+		"actual_amount_microcredits": 975_000,
+	}).Error)
+	host.relay = func(call WorkbenchRelay) (*http.Response, error) {
+		if call.Request.Method == http.MethodPost {
+			posts++
+			return nil, errors.New("controlled recovery must never repeat create")
+		}
+		polls++
+		require.Equal(t, "/v1/videos/"+providerID, call.Request.URL.Path)
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body: io.NopCloser(strings.NewReader(fmt.Sprintf(
+				`{"id":%q,"status":"completed","url":%q}`,
+				providerID, mediaServer.URL+"/recovered.mp4",
+			))),
+		}, nil
+	}
+	require.NoError(t, db.Model(&model.Task{}).Where("id = ?", task.ID).Updates(map[string]any{
+		"status": model.TaskStatusFailed, "stage": "任务失败",
+		"error":       "legacy recovery path incorrectly marked failed",
+		"lease_owner": "", "lease_expires_at": nil,
+	}).Error)
+
+	result, err := svc.QueryFailedVideoTask(context.Background(), "newapi:42", task.ID)
+	require.NoError(t, err)
+	require.NotNil(t, result)
+	assert.True(t, result.Recovered)
+	assert.True(t, result.BillingSettled)
+	assert.Equal(t, "succeeded", result.ProviderStatus)
+	assert.Zero(t, posts, "controlled recovery must not create a replacement task")
+	assert.Equal(t, 1, polls)
+
+	storedTask, err := svc.repo.Task(task.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.TaskStatusSucceeded, storedTask.Status)
+	assert.Equal(t, providerID, storedTask.ProviderRequestID)
+	assert.Contains(t, storedTask.ResultJSON, `"mode":"video"`)
+	storedOrder, err := svc.repo.BillingOrder(order.ID)
+	require.NoError(t, err)
+	assert.Equal(t, model.BillingStatusSettled, storedOrder.Status)
+	assert.EqualValues(t, 975_000, storedOrder.ActualAmountMicrocredits)
+	assert.Zero(t, storedOrder.ReservedAmountMicrocredits)
+	assert.Equal(t, providerID, storedOrder.ProviderRequestID)
+	var ledgerCount int64
+	require.NoError(t, db.Model(&model.CreditLedgerEntry{}).Count(&ledgerCount).Error)
+	assert.Zero(t, ledgerCount)
 }
 
 func TestWorkbenchUnsentReceiptRefundRequiresNoSubmissionEvidence(t *testing.T) {

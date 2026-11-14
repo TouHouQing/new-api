@@ -70,7 +70,11 @@ type WorkbenchRelay struct {
 }
 
 type WorkbenchHostBilling struct {
-	Source, UserID, TaskID, ReceiptID         string
+	Source, UserID, TaskID, ReceiptID string
+	// ProviderRequestID is optional for compatibility with older hosts. When
+	// supplied, the Workbench requires it to match the task, route attempt and
+	// local receipt mirror before authorizing recovery of an existing poll.
+	ProviderRequestID                         string
 	ReservedMicrocredits, ChargedMicrocredits int64
 	Final, Uncertain                          bool
 }

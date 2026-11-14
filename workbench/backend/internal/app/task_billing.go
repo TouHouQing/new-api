@@ -1,11 +1,13 @@
 package app
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strings"
 
 	"yingce/backend/internal/model"
+	"yingce/backend/internal/repository"
 )
 
 // taskBillingCoordinator 只负责任务生命周期中的计费状态迁移和核对策略。
@@ -32,7 +34,14 @@ type taskBillingRepository interface {
 var (
 	// errTaskBillingReview 表示订单状态已经不能由重试流程安全推断，必须先完成费用核对。
 	errTaskBillingReview = errors.New("task billing order requires review")
+	// ErrWorkbenchBillingRecoveryEvidence means the Workbench cannot prove that
+	// an existing provider ID belongs to this task and billing attempt.
+	ErrWorkbenchBillingRecoveryEvidence = errors.New("New API billing recovery evidence is incomplete")
 )
+
+type billingRecoveryAuthorizer interface {
+	AuthorizeBillingRecovery(ctx context.Context, orderID, taskID, userID, providerID string, attempt int, routeAttempt *model.RouteAttempt) error
+}
 
 func newTaskBillingCoordinator(repo taskBillingRepository) *taskBillingCoordinator {
 	return &taskBillingCoordinator{repo: repo}
@@ -43,6 +52,30 @@ func (c *taskBillingCoordinator) MarkBillingRunning(orderID, taskID string, atte
 		return nil
 	}
 	return c.repo.MarkBillingRunning(orderID, taskID, attempt)
+}
+
+// AuthorizeBillingRecovery proves that an already submitted provider request
+// may be read through its original poll URL. It is deliberately separate from
+// MarkBillingRunning: recovery never changes a billing mirror back to running.
+func (c *taskBillingCoordinator) AuthorizeBillingRecovery(ctx context.Context, orderID, taskID, userID, providerID string, attempt int, routeAttempt *model.RouteAttempt) error {
+	if orderID == "" {
+		return nil
+	}
+	order, err := c.repo.BillingOrder(orderID)
+	if err != nil {
+		return err
+	}
+	if order == nil {
+		return ErrWorkbenchBillingRecoveryEvidence
+	}
+	if !model.IsNewAPIBillingOrder(*order) {
+		return nil
+	}
+	authorizer, ok := c.repo.(billingRecoveryAuthorizer)
+	if !ok {
+		return repository.ErrNewAPIBillingAuthorityRequired
+	}
+	return authorizer.AuthorizeBillingRecovery(ctx, orderID, taskID, userID, providerID, attempt, routeAttempt)
 }
 
 func (c *taskBillingCoordinator) SettleBilling(orderID string, providerRequestID string) error {

@@ -282,7 +282,30 @@ func (w *taskWorkerCoordinator) processClaimedTask(task *model.Task, globalSlot 
 	if err != nil {
 		return terminal.markPreparationFailure(task, "路由准备失败", err, isRouteDispatchUncertain(err), "路由准备失败，上游请求未发出")
 	}
-	if err := s.taskBilling().MarkBillingRunning(task.BillingOrderID, task.ID, task.RouteRun); err != nil {
+	providerRequestID := strings.TrimSpace(task.ProviderRequestID)
+	if providerRequestID != "" && s.WorkbenchHosted() {
+		if err := s.taskBilling().AuthorizeBillingRecovery(
+			ctx,
+			task.BillingOrderID,
+			task.ID,
+			task.UserID,
+			providerRequestID,
+			task.RouteRun,
+			routeAttempt,
+		); err != nil {
+			if s.deferBillingRecoveryForReceipt(task, err) {
+				return nil
+			}
+			stage := billingRecoveryFailureStage(err)
+			return terminal.markPreparationFailure(task, stage, fmt.Errorf("%s：%w", stage, err), true, "计费回执恢复校验失败，未查询或重新提交上游任务")
+		}
+		// Polling is read-only at the provider, but it is still an execution
+		// claim. Revalidate the lease after the possibly remote receipt read so a
+		// stale worker cannot persist a late result.
+		if err := s.repo.RenewTaskLease(task.ID, task.LeaseOwner, 45*time.Second); err != nil {
+			return fmt.Errorf("任务租约已失效，停止查询原上游任务：%w", err)
+		}
+	} else if err := s.taskBilling().MarkBillingRunning(task.BillingOrderID, task.ID, task.RouteRun); err != nil {
 		uncertain := task.ProviderRequestID != "" || s.taskBilling().BillingFailureRequiresReview(task.BillingOrderID, task.ID, err)
 		if routeAttempt != nil && (routeAttempt.DispatchState == "accepted" || routeAttempt.DispatchState == "submission_unknown") {
 			uncertain = true
@@ -452,6 +475,46 @@ func billingPreparationFailureStage(err error, uncertain bool) string {
 		return "计费镜像未能确认运行态"
 	}
 	return "计费镜像写入失败"
+}
+
+func billingRecoveryFailureStage(err error) string {
+	switch {
+	case errors.Is(err, ErrWorkbenchBillingReceiptNotFound):
+		return "计费回执暂不可用"
+	case errors.Is(err, repository.ErrBillingStorageBusy):
+		return "计费回执存储暂时繁忙"
+	case errors.Is(err, repository.ErrNewAPIBillingIdentityMismatch):
+		return "计费回执归属校验失败"
+	case errors.Is(err, repository.ErrBillingStateConflict):
+		return "计费回执状态不允许恢复"
+	case errors.Is(err, ErrWorkbenchBillingRecoveryEvidence):
+		return "原上游任务提交证据不完整"
+	default:
+		return "计费回执恢复校验失败"
+	}
+}
+
+// deferBillingRecoveryForReceipt keeps an already accepted provider task in the
+// recoverable running state when the authoritative receipt is temporarily
+// unavailable. It releases the worker slot without calling provider create.
+func (s *Service) deferBillingRecoveryForReceipt(task *model.Task, err error) bool {
+	if task == nil || task.ProviderRequestID == "" {
+		return false
+	}
+	if errors.Is(err, repository.ErrNewAPIBillingIdentityMismatch) ||
+		errors.Is(err, repository.ErrBillingStateConflict) ||
+		errors.Is(err, ErrWorkbenchBillingRecoveryEvidence) {
+		return false
+	}
+	if task.StartedAt != nil && time.Since(*task.StartedAt) >= detachedProviderTaskMaxAge {
+		return false
+	}
+	stage := billingRecoveryFailureStage(err)
+	if deferErr := s.repo.DeferRunningTaskForProviderPoll(task.ID, task.LeaseOwner, stage, 30*time.Second); deferErr != nil {
+		return false
+	}
+	_ = s.log(task.UserID, task.ID, "warn", "计费回执暂不可用，保留原上游任务稍后校验", err.Error())
+	return true
 }
 
 // taskLeaseRenewContext 给续租单独一份"不继承父 context 取消/时限"的上下文（仅 5 秒上限）。

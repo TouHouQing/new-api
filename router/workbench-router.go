@@ -475,7 +475,8 @@ func (newAPIWorkbenchHost) Billing(_ context.Context, id, taskID string, attempt
 	}
 	result := integration.Billing{
 		Source: model.StudioWorkflowBillingSourceNewAPI, UserID: "newapi:" + id, TaskID: taskID,
-		ReceiptID: jobID, Final: true, Uncertain: job.Status == "uncertain",
+		ReceiptID: jobID, ProviderRequestID: workbenchHostProviderRequestID(job.Result),
+		Final: true, Uncertain: job.Status == "uncertain",
 	}
 	for _, charge := range charges {
 		amount, err := workbenchMicrocredits(charge.Quota)
@@ -663,6 +664,22 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 			ID string `json:"id"`
 		}
 		_ = common.Unmarshal(writer.body.Bytes(), &receipt)
+		if receipt.ID != "" {
+			var hostReceipt map[string]any
+			_ = common.Unmarshal([]byte(current.Result), &hostReceipt)
+			if hostReceipt == nil {
+				hostReceipt = make(map[string]any)
+			}
+			hostReceipt["providerRequestId"] = receipt.ID
+			if encoded, encodeErr := common.Marshal(hostReceipt); encodeErr == nil {
+				// The provider ID is recovery metadata only. The request has
+				// already succeeded, so a best-effort write must not turn it into
+				// a client-visible submission failure.
+				_ = model.DB.Model(&model.StudioWorkflowJob{}).
+					Where("id = ? AND user_id = ? AND kind = ?", job.ID, n, "workbench").
+					Update("result", model.StudioDocument(encoded)).Error
+			}
+		}
 		var task model.Task
 		pending := receipt.ID != "" && model.DB.Where("user_id = ? AND task_id = ?", n, receipt.ID).First(&task).Error == nil && task.Status != model.TaskStatusSuccess && task.Status != model.TaskStatusFailure
 		if !pending {
@@ -678,4 +695,13 @@ func (newAPIWorkbenchHost) Relay(ctx context.Context, call integration.Relay) (*
 		return nil, err
 	}
 	return &http.Response{StatusCode: writer.status, Header: writer.header, Body: io.NopCloser(bytes.NewReader(writer.body.Bytes())), ContentLength: int64(writer.body.Len())}, nil
+}
+
+func workbenchHostProviderRequestID(document model.StudioDocument) string {
+	var receipt map[string]any
+	if common.Unmarshal([]byte(document), &receipt) != nil {
+		return ""
+	}
+	value, _ := receipt["providerRequestId"].(string)
+	return strings.TrimSpace(value)
 }

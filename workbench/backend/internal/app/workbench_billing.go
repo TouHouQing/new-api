@@ -96,6 +96,16 @@ func (r *workbenchBillingRepository) syncBillingReceipt(order model.BillingOrder
 	if err := validateWorkbenchBillingReceipt(order, bill); err != nil {
 		return err
 	}
+	effectiveProviderID := strings.TrimSpace(providerID)
+	if effectiveProviderID == "" {
+		effectiveProviderID = strings.TrimSpace(order.ProviderRequestID)
+	}
+	if effectiveProviderID == "" {
+		effectiveProviderID = strings.TrimSpace(bill.ProviderRequestID)
+	}
+	if err := validateWorkbenchBillingProviderID(order, bill, effectiveProviderID); err != nil {
+		return err
+	}
 	status := model.BillingStatusUncertain
 	if bill.Final && !bill.Uncertain {
 		status = model.BillingStatusSettled
@@ -103,7 +113,68 @@ func (r *workbenchBillingRepository) syncBillingReceipt(order model.BillingOrder
 			status = model.BillingStatusRefunded
 		}
 	}
-	return r.Repository.SyncWorkbenchBilling(order.ID, status, bill.ChargedMicrocredits, bill.ReservedMicrocredits, providerID)
+	return r.Repository.SyncWorkbenchBilling(order.ID, status, bill.ChargedMicrocredits, bill.ReservedMicrocredits, effectiveProviderID)
+}
+
+// AuthorizeBillingRecovery is a read-only fence for a task that already has a
+// provider ID. It queries the authoritative New API receipt but never changes
+// the local mirror state or moves funds.
+func (r *workbenchBillingRepository) AuthorizeBillingRecovery(ctx context.Context, orderID, taskID, userID, providerID string, attempt int, routeAttempt *model.RouteAttempt) error {
+	if r == nil || r.Repository == nil || r.svc == nil || r.svc.host == nil {
+		return repository.ErrNewAPIBillingAuthorityRequired
+	}
+	providerID = strings.TrimSpace(providerID)
+	if providerID == "" || strings.TrimSpace(taskID) == "" || strings.TrimSpace(userID) == "" {
+		return ErrWorkbenchBillingRecoveryEvidence
+	}
+	order, err := r.Repository.BillingOrder(orderID)
+	if err != nil {
+		return err
+	}
+	if order == nil || !model.IsNewAPIBillingOrder(*order) {
+		return repository.ErrNewAPIBillingAuthorityRequired
+	}
+	if order.TaskID != taskID || order.UserID != userID {
+		return repository.ErrNewAPIBillingIdentityMismatch
+	}
+	keyAttempt, err := workbenchReceiptAttempt(*order, taskID)
+	if err != nil || keyAttempt != attempt {
+		return repository.ErrNewAPIBillingIdentityMismatch
+	}
+	switch order.Status {
+	case model.BillingStatusPendingReceipt, model.BillingStatusRunning, model.BillingStatusUncertain,
+		model.BillingStatusSettled, model.BillingStatusRefunded:
+	default:
+		return repository.ErrBillingStateConflict
+	}
+	if routeAttempt == nil ||
+		routeAttempt.TaskID != taskID ||
+		routeAttempt.RouteRun != attempt ||
+		(routeAttempt.DispatchState != "accepted" && routeAttempt.DispatchState != "submission_unknown") {
+		return ErrWorkbenchBillingRecoveryEvidence
+	}
+	if routeAttempt.ProviderRequestID != "" && routeAttempt.ProviderRequestID != providerID {
+		return repository.ErrNewAPIBillingIdentityMismatch
+	}
+	if order.ProviderRequestID != "" && order.ProviderRequestID != providerID {
+		return repository.ErrNewAPIBillingIdentityMismatch
+	}
+	if order.ProviderRequestID == "" && routeAttempt.ProviderRequestID == "" {
+		return ErrWorkbenchBillingRecoveryEvidence
+	}
+	receiptCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+	bill, err := r.svc.host.Billing(receiptCtx, strings.TrimPrefix(order.UserID, "newapi:"), taskID, attempt)
+	if err != nil {
+		return err
+	}
+	if err := validateWorkbenchBillingReceipt(*order, bill); err != nil {
+		return err
+	}
+	if err := validateWorkbenchBillingRecoveryState(*order, bill); err != nil {
+		return err
+	}
+	return validateWorkbenchBillingProviderID(*order, bill, providerID)
 }
 func (r *workbenchBillingRepository) SettleBillingOrder(id, providerID string) error {
 	return r.sync(id, providerID, false)
@@ -179,6 +250,37 @@ func validateWorkbenchBillingReceipt(order model.BillingOrder, bill WorkbenchHos
 	}
 	if bill.Final && bill.ReservedMicrocredits != 0 {
 		return BadAuthRequest("New API 已终结的回执不能保留冻结金额")
+	}
+	return nil
+}
+
+func validateWorkbenchBillingProviderID(order model.BillingOrder, bill WorkbenchHostBilling, providerID string) error {
+	if strings.TrimSpace(bill.ProviderRequestID) == "" {
+		return nil
+	}
+	expected := strings.TrimSpace(providerID)
+	if expected == "" {
+		expected = strings.TrimSpace(order.ProviderRequestID)
+	}
+	// At create-response time the host can be the first durable component to
+	// learn the provider ID; the mirror is allowed to adopt it. Recovery always
+	// supplies the expected ID and remains strict.
+	if expected != "" && strings.TrimSpace(bill.ProviderRequestID) != expected {
+		return repository.ErrNewAPIBillingIdentityMismatch
+	}
+	return nil
+}
+
+func validateWorkbenchBillingRecoveryState(order model.BillingOrder, bill WorkbenchHostBilling) error {
+	switch order.Status {
+	case model.BillingStatusSettled:
+		if !bill.Final || bill.Uncertain || bill.ChargedMicrocredits != order.ActualAmountMicrocredits {
+			return repository.ErrBillingStateConflict
+		}
+	case model.BillingStatusRefunded:
+		if !bill.Final || bill.Uncertain || bill.ChargedMicrocredits != 0 {
+			return repository.ErrBillingStateConflict
+		}
 	}
 	return nil
 }

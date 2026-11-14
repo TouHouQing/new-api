@@ -378,6 +378,34 @@ func (s *Service) queryFailedVideoTask(ctx context.Context, task *model.Task, cl
 			_ = s.log(task.UserID, task.ID, "error", "人工查询租约释放失败", releaseErr.Error())
 		}
 	}()
+	if task.BillingOrderID != "" {
+		order, orderErr := billing.BillingOrder(task.BillingOrderID)
+		if orderErr != nil {
+			return nil, orderErr
+		}
+		if order != nil && model.IsNewAPIBillingOrder(*order) {
+			attempts, attemptErr := s.repo.RouteAttempts(task.ID, task.RouteRun)
+			if attemptErr != nil {
+				return nil, attemptErr
+			}
+			if len(attempts) == 0 {
+				return nil, ErrWorkbenchBillingRecoveryEvidence
+			}
+			routeAttempt := &attempts[len(attempts)-1]
+			if authErr := billing.AuthorizeBillingRecovery(
+				ctx,
+				task.BillingOrderID,
+				task.ID,
+				task.UserID,
+				providerRequestID,
+				task.RouteRun,
+				routeAttempt,
+			); authErr != nil {
+				_ = s.log(task.UserID, task.ID, "warn", "人工结果恢复的计费回执校验失败，未查询上游", authErr.Error())
+				return nil, authErr
+			}
+		}
+	}
 
 	// 上游已成功后的完整媒体下载和本地入库可能持续数十秒。浏览器关闭抽屉、
 	// 页面刷新或代理断开都不应中断这项运维恢复，否则任务会再次停在

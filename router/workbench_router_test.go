@@ -115,6 +115,7 @@ func TestWorkbenchHostBillingReturnsOwnedNewAPIReceipt(t *testing.T) {
 	require.NoError(t, db.Create(&model.StudioWorkflowJob{
 		ID: jobID, RequestID: jobID, UserID: 1, Kind: "workbench",
 		BillingSource: model.StudioWorkflowBillingSourceNewAPI, Status: "succeeded",
+		Result: model.StudioDocument(`{"providerRequestId":"provider-owned"}`),
 	}).Error)
 	require.NoError(t, db.Create(&model.StudioWorkflowCharge{
 		RequestID: "request-owned", JobID: jobID, UserID: 1,
@@ -127,6 +128,7 @@ func TestWorkbenchHostBillingReturnsOwnedNewAPIReceipt(t *testing.T) {
 	assert.Equal(t, "newapi:1", bill.UserID)
 	assert.Equal(t, "task-owned", bill.TaskID)
 	assert.Equal(t, jobID, bill.ReceiptID)
+	assert.Equal(t, "provider-owned", bill.ProviderRequestID)
 	assert.True(t, bill.Final)
 	assert.False(t, bill.Uncertain)
 	assert.Zero(t, bill.ReservedMicrocredits)
@@ -145,6 +147,7 @@ func TestWorkbenchHostBillingReturnsOwnedNewAPIReceipt(t *testing.T) {
 
 	_, err = (newAPIWorkbenchHost{}).Billing(context.Background(), "1", "missing-task", 1)
 	require.ErrorIs(t, err, integration.ErrWorkbenchBillingReceiptNotFound)
+	assert.Empty(t, workbenchHostProviderRequestID(model.StudioDocument(`{"providerRequestId":42}`)))
 }
 
 func TestInternalRelayRestoresServerRequestURIWithoutBypassingAuthentication(t *testing.T) {
