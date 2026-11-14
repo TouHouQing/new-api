@@ -27,7 +27,11 @@ func protocolRequestFromInput(input canvasGenerationInput) protocol.GenerationRe
 		resolution = strings.TrimSpace(input.Config.ImageResolution)
 	}
 	if input.Mode == "video" {
-		if declared := videoResolutionNameRequest(input.VideoCapability, resolution); declared != "" {
+		capability := input.VideoCapability
+		if capability == nil && input.Config.CapabilityConfig != nil {
+			capability = input.Config.CapabilityConfig.Video
+		}
+		if declared := videoResolutionNameRequest(capability, resolution); declared != "" {
 			resolution = declared
 		}
 	}

@@ -268,6 +268,74 @@ func TestWorkbenchVideoUsesTHQWireContractAndResumesSameReceipt(t *testing.T) {
 	assert.Equal(t, 2, polls)
 }
 
+func TestHostedNewAPIVideoNormalizesDeclaredResolutionAliasBeforeWire(t *testing.T) {
+	svc, db := newChannelModelTestService(t)
+	svc.coordinator = platform.NewCoordinatorWithRedis(nil, "hosted-resolution-alias")
+	profile := DefaultModelCapabilityConfigForModel("newapi", "declared-480-video")
+	profile.Video.Resolutions = []string{"480p", "720p"}
+	profile.Video.DefaultResolution = "480p"
+	rawProfile, err := json.Marshal(profile)
+	require.NoError(t, err)
+	var capability map[string]any
+	require.NoError(t, json.Unmarshal(rawProfile, &capability))
+	host := &workbenchVideoTestHost{testWorkbenchHost: testWorkbenchHost{
+		actor: WorkbenchHostUser{ID: "42"},
+		models: []WorkbenchHostModel{{
+			Key: "declared-480-video", Name: "declared-480-video",
+			Capability: "video", Protocol: "newapi", CapabilityConfig: capability,
+		}},
+	}}
+	require.NoError(t, svc.ConfigureWorkbenchHost(host))
+	_, err = svc.workbenchModels(context.Background(), "newapi:42")
+	require.NoError(t, err)
+
+	for _, test := range []struct {
+		name    string
+		quality string
+		want    string
+		frozen  bool
+	}{
+		{name: "numeric alias", quality: "480", want: "480p"},
+		{name: "canonical value", quality: "480p", want: "480p"},
+		{name: "provider value", quality: "native-high", want: "native-high"},
+		{name: "legacy retry snapshot", quality: "480", want: "480p", frozen: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var payload map[string]any
+			host.relay = func(call WorkbenchRelay) (*http.Response, error) {
+				require.Equal(t, "/v1/videos", call.Request.URL.Path)
+				require.NoError(t, json.NewDecoder(call.Request.Body).Decode(&payload))
+				return &http.Response{
+					StatusCode: http.StatusBadRequest,
+					Header:     http.Header{"Content-Type": []string{"application/json"}},
+					Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"fixture stops after create"}}`)),
+				}, nil
+			}
+			until := time.Now().Add(time.Minute)
+			task := model.Task{ID: "hosted-resolution-" + test.name, UserID: "newapi:42", Status: model.TaskStatusRunning, LeaseOwner: "worker", LeaseExpiresAt: &until}
+			require.NoError(t, db.Create(&task).Error)
+			input := canvasGenerationInput{
+				Mode: "video", Prompt: "a cat walking",
+				Config: providerConfig{
+					ChannelID: "newapi-video", ChannelModelKey: "declared-480-video",
+					InterfaceType: "newapi", BaseURL: "http://newapi.workbench.invalid/v1",
+					Model: "declared-480-video", VideoSeconds: "5", Size: "16:9",
+					VQuality: test.quality, frozenExecutionConfig: test.frozen,
+				},
+			}
+			require.NoError(t, svc.validateResolvedVideoCapability(&input))
+			metadata := providerAnalyticsContext{Service: svc, UserID: task.UserID, TaskID: task.ID, Model: input.Config.Model}
+			ctx := context.WithValue(context.Background(), providerAnalyticsKey{}, metadata)
+			_, err := runVideoTask(ctx, input)
+			require.Error(t, err)
+			assert.Equal(t, test.want, payload["resolution"])
+			assert.NotContains(t, payload, "resolution_name")
+			assert.Equal(t, "16:9", payload["size"])
+			assert.Equal(t, "5", payload["seconds"])
+		})
+	}
+}
+
 func TestWorkbenchVideoReferencePayloadsAndCompletionURLs(t *testing.T) {
 	base, ok := loadOfficialFallbackRegistry().Resolve("newapi")
 	require.True(t, ok)

@@ -716,6 +716,14 @@ func (s *Service) resolveSystemChannelModelSelection(access *userGroupAccess, in
 		capabilitySpec = &spec
 	}
 	applyChannelCapabilityDefaults(nextConfig, channelModel.Capability, capabilityConfig)
+	if normalizeCapability(channelModel.Capability) == "video" && capabilityConfig != nil && capabilityConfig.Video != nil {
+		videoInput := canvasGenerationInput{Config: providerConfig{VQuality: metadataString(nextConfig, "vquality")}}
+		applyVideoResolutionAlias(&videoInput, capabilityConfig.Video)
+		nextConfig["vquality"] = videoInput.Config.VQuality
+		// Persist the trusted capability snapshot so queued tasks and retries can
+		// normalize legacy aliases without consulting client-provided metadata.
+		nextConfig["capabilityConfig"] = capabilityConfig
+	}
 	if capabilityConfig != nil && capabilityConfig.Image != nil && capabilityConfig.Image.Parameters != nil {
 		parameters := capabilityConfig.Image.Parameters
 		values := declaredImageParameterValues(nextConfig, parameters)

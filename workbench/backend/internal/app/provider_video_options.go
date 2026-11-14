@@ -205,11 +205,18 @@ func videoResolutionNameRequest(profile *VideoCapabilityConfig, value string) st
 	if len(profile.Resolutions) == 0 {
 		return ""
 	}
-	candidates := []string{requested, strings.ToLower(normalizeVideoResolution(requested))}
-	if requested == "4k" {
-		candidates = append(candidates, "2160p")
+	candidates := []string{requested}
+	if quantity, err := strconv.Atoi(requested); err == nil && quantity > 0 {
+		candidates = append(candidates, strconv.Itoa(quantity)+"p")
 	}
-	if requested == "2160" || requested == "2160p" {
+	switch requested {
+	case "low":
+		candidates = append(candidates, "480p")
+	case "2k":
+		candidates = append(candidates, "1440p")
+	case "4k":
+		candidates = append(candidates, "2160p")
+	case "2160", "2160p":
 		candidates = append(candidates, "4k")
 	}
 	for _, supported := range profile.Resolutions {
@@ -220,6 +227,18 @@ func videoResolutionNameRequest(profile *VideoCapabilityConfig, value string) st
 		}
 	}
 	return ""
+}
+
+// applyVideoResolutionAlias restores only aliases explicitly declared by the
+// selected model. It does not validate, guess, or rewrite provider-specific
+// values; delegated New API validation still owns whether a value is accepted.
+func applyVideoResolutionAlias(input *canvasGenerationInput, profile *VideoCapabilityConfig) {
+	if input == nil || profile == nil {
+		return
+	}
+	if declared := videoResolutionNameRequest(profile, input.Config.VQuality); declared != "" {
+		input.Config.VQuality = declared
+	}
 }
 
 func isAutomaticVideoResolution(value string) bool {

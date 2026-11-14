@@ -16,40 +16,68 @@ import (
 
 func (s *Service) validateResolvedVideoCapability(input *canvasGenerationInput) error {
 	channelID := strings.TrimSpace(input.Config.ChannelID)
-	if delegatesVideoCapabilityToUpstream(channelID, "video", model.ChannelInterfaceType(input.Config.InterfaceType)) {
-		return nil
-	}
+	delegated := delegatesVideoCapabilityToUpstream(channelID, "video", model.ChannelInterfaceType(input.Config.InterfaceType))
 	if channelID == "" || input.Config.frozenExecutionConfig {
 		profile := input.Config.CapabilityConfig
+		protocolName := input.Config.InterfaceType
+		modelName := firstNonEmpty(input.Config.Model, input.Config.ChannelModelKey)
+		if (profile == nil || profile.Video == nil) && channelID != "" && s != nil && s.repo != nil {
+			// Old retry snapshots predate persisted video capability configs.
+			// Recover only the declared alias list; transport credentials and
+			// channel routing remain frozen in the saved provider snapshot.
+			item, itemErr := s.repo.ChannelModelByKey(channelID, providerChannelModelKey(input.Config))
+			if itemErr == nil && item != nil {
+				profile, itemErr = DecodeModelCapabilityConfig(item.CapabilityConfigJSON)
+				if itemErr == nil && profile != nil {
+					protocolName = firstNonEmpty(protocolName, string(item.Protocol))
+					modelName = firstNonEmpty(modelName, item.ProviderModelKey, item.ModelKey)
+				}
+			}
+		}
 		if profile == nil || profile.Video == nil {
-			if input.Config.InterfaceType != string(model.ChannelInterfaceAgnesVideo) {
+			if delegated || input.Config.InterfaceType != string(model.ChannelInterfaceAgnesVideo) {
 				return nil
 			}
 			profile = DefaultModelCapabilityConfigForModel(input.Config.InterfaceType, input.Config.Model)
 		}
-		normalized, err := NormalizeModelCapabilityConfigForModel("video", input.Config.InterfaceType, input.Config.Model, profile)
+		normalized, err := NormalizeModelCapabilityConfigForModel("video", protocolName, modelName, profile, s.protocolRegistry())
 		if err != nil || normalized == nil || normalized.Video == nil {
 			return errors.New("当前视频模型能力参数无效")
 		}
 		input.Config.CapabilityConfig = normalized
 		input.VideoCapability = normalized.Video
+		applyVideoResolutionAlias(input, normalized.Video)
+		if delegated {
+			return nil
+		}
 		applyAutoDLVideoScreenSpec(input, normalized.Video)
 		applyFixedVideoResolution(input, normalized.Video)
 		return validateVideoTask(normalized.Video, *input)
 	}
 	item, err := s.repo.ChannelModelByKey(channelID, providerChannelModelKey(input.Config))
 	if err != nil {
+		if delegated {
+			return nil
+		}
 		return errors.New("当前系统渠道模型未配置或已停用")
 	}
 	profile, err := DecodeModelCapabilityConfig(item.CapabilityConfigJSON)
 	if err != nil || profile == nil || profile.Video == nil {
+		if delegated {
+			return nil
+		}
 		return errors.New("当前视频模型尚未配置能力参数")
 	}
 	normalized, err := NormalizeModelCapabilityConfigForModel("video", string(item.Protocol), firstNonEmpty(item.ProviderModelKey, item.ModelKey), profile)
 	if err != nil || normalized == nil || normalized.Video == nil {
 		return errors.New("当前视频模型能力参数无效")
 	}
+	input.Config.CapabilityConfig = normalized
 	input.VideoCapability = normalized.Video
+	applyVideoResolutionAlias(input, normalized.Video)
+	if delegated {
+		return nil
+	}
 	applyAutoDLVideoScreenSpec(input, normalized.Video)
 	applyFixedVideoResolution(input, normalized.Video)
 	return validateVideoTask(normalized.Video, *input)

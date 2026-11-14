@@ -265,8 +265,8 @@ func TestResolveSystemChannelModelSelectionMatchesMiniMax768PTier(t *testing.T) 
 	if config["priceTierId"] != "tier-768p" {
 		t.Fatalf("priceTierId = %#v, want tier-768p", config["priceTierId"])
 	}
-	if config["vquality"] != "768" {
-		t.Fatalf("execution vquality = %#v, want original provider-facing value 768", config["vquality"])
+	if config["vquality"] != "768P" {
+		t.Fatalf("execution vquality = %#v, want declared provider value 768P", config["vquality"])
 	}
 }
 

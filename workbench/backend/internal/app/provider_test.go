@@ -2585,6 +2585,7 @@ func TestProtocolRequestRestoresDeclaredVideoResolutionEnum(t *testing.T) {
 		{name: "provider casing", quality: "1080", resolutions: []string{"720P", "1080P"}, want: "1080P"},
 		{name: "opaque enum", quality: "768p竖", resolutions: []string{"768p竖", "768p横"}, want: "768p竖"},
 		{name: "unmatched custom value", quality: "native", resolutions: []string{"720p"}, want: "native"},
+		{name: "unknown value is not given a p suffix", quality: "native", resolutions: []string{"nativep"}, want: "native"},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -2597,6 +2598,56 @@ func TestProtocolRequestRestoresDeclaredVideoResolutionEnum(t *testing.T) {
 				t.Fatalf("resolution = %q, output resolution = %q, want %q", request.Resolution, request.Output.Resolution, test.want)
 			}
 		})
+	}
+}
+
+func TestValidateTaskCapabilityDelegatedVideoNormalizesOnlyDeclaredAliases(t *testing.T) {
+	profile := DefaultModelCapabilityConfigForModel("newapi", "declared-480-video")
+	profile.Video.Resolutions = []string{"480p", "720p", "provider-nativep"}
+	profile.Video.DefaultResolution = "480p"
+	for _, test := range []struct {
+		input string
+		want  string
+	}{
+		{input: "480", want: "480p"},
+		{input: "480p", want: "480p"},
+		{input: "provider-native", want: "provider-native"},
+	} {
+		t.Run(test.input, func(t *testing.T) {
+			input := map[string]any{
+				"mode": "video",
+				"config": map[string]any{
+					"channelId":        "newapi-video",
+					"interfaceType":    "newapi",
+					"model":            "declared-480-video",
+					"vquality":         test.input,
+					"size":             "16:9",
+					"videoSeconds":     "5",
+					"capabilityConfig": profile,
+				},
+			}
+			if err := (&Service{}).ValidateTaskCapability(input); err != nil {
+				t.Fatal(err)
+			}
+			if got := input["config"].(map[string]any)["vquality"]; got != test.want {
+				t.Fatalf("vquality = %#v, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestProtocolRequestUsesPersistedVideoCapabilityAliasFallback(t *testing.T) {
+	profile := DefaultModelCapabilityConfigForModel("newapi", "persisted-profile")
+	profile.Video.Resolutions = []string{"480p", "720p"}
+	request := protocolRequestFromInput(canvasGenerationInput{
+		Mode: "video",
+		Config: providerConfig{
+			VQuality:         "480",
+			CapabilityConfig: profile,
+		},
+	})
+	if request.Resolution != "480p" || request.Output.Resolution != "480p" {
+		t.Fatalf("resolution = %q, output resolution = %q, want 480p", request.Resolution, request.Output.Resolution)
 	}
 }
 

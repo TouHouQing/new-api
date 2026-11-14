@@ -306,6 +306,13 @@ func (s *Service) ValidateTaskCapability(input map[string]any) error {
 		channelID = systemChannelIDFromBaseURL(taskInput.Config.BaseURL)
 	}
 	if taskInput.Mode == "video" && delegatesVideoCapabilityToUpstream(channelID, "video", model.ChannelInterfaceType(taskInput.Config.InterfaceType)) {
+		s.applyDelegatedVideoResolutionCompatibility(&taskInput, channelID)
+		if config, ok := input["config"].(map[string]any); ok {
+			config["vquality"] = taskInput.Config.VQuality
+			if taskInput.Config.CapabilityConfig != nil {
+				config["capabilityConfig"] = taskInput.Config.CapabilityConfig
+			}
+		}
 		return nil
 	}
 	if channelID == "" {
@@ -382,6 +389,45 @@ func (s *Service) ValidateTaskCapability(input map[string]any) error {
 		config["vquality"] = taskInput.Config.VQuality
 	}
 	return validateVideoTask(normalized.Video, taskInput)
+}
+
+// applyDelegatedVideoResolutionCompatibility performs only explicit aliases
+// declared by the selected model. Delegated validation remains an upstream
+// decision; unknown provider-specific values pass through unchanged.
+func (s *Service) applyDelegatedVideoResolutionCompatibility(input *canvasGenerationInput, channelID string) {
+	if s == nil || input == nil {
+		return
+	}
+	profile := input.Config.CapabilityConfig
+	protocolName := input.Config.InterfaceType
+	modelName := firstNonEmpty(input.Config.Model, input.Config.ChannelModelKey)
+	if profile == nil || profile.Video == nil {
+		if s.repo == nil || strings.TrimSpace(channelID) == "" {
+			return
+		}
+		item, err := s.repo.ChannelModelByKey(channelID, providerChannelModelKey(input.Config))
+		if err != nil || item == nil {
+			return
+		}
+		profile, err = DecodeModelCapabilityConfig(item.CapabilityConfigJSON)
+		if err != nil || profile == nil || profile.Video == nil {
+			return
+		}
+		protocolName = firstNonEmpty(protocolName, string(item.Protocol))
+		modelName = firstNonEmpty(modelName, item.ProviderModelKey, item.ModelKey)
+	}
+	normalized, err := NormalizeModelCapabilityConfigForModel(
+		"video",
+		protocolName,
+		modelName,
+		profile,
+		s.protocolRegistry(),
+	)
+	if err != nil || normalized == nil || normalized.Video == nil {
+		return
+	}
+	input.Config.CapabilityConfig = normalized
+	applyVideoResolutionAlias(input, normalized.Video)
 }
 
 // validateTextTaskReferences 在预授权扣费前拦下发给不支持看图 / 视频识别的文字模型的参考素材；放行后上游只会返回 400。
